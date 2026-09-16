@@ -1,0 +1,96 @@
+# =====================================================================
+# test-contract.yaml —— 最小空白模板（新流程从这里开始）
+# 机器 Schema: <skill>/templates/test-contract.schema.json（项目部署布局：docs/自动化测试模板/）
+# 完整实例:    <skill>/templates/examples/liyazhuang-railway.yaml
+# 校验:        uv run --with pyyaml,jsonschema python3 <skill>/templates/validate-contract.py \
+#                --contract <本文件> --level test_ready     （<skill>=本模板所在仓库根的上一级，即 skill 目录）
+#
+# 生命周期: DRAFT（取证未齐/老库不可达可先立草稿）
+#         → TEST_READY（校验全过，才允许生成正式执行件与运行）
+# 硬性规范: 凭据零明文（accounts.env 形如 CURRENT_<账号大写>_PWD）；
+#         每个被比较字段必须有 field_mappings 合同；双端各自选数的字段
+#         fixture_pair_required: true 且在 fixtures 登记配对规则；
+#         environments.health_checks 须覆盖 legacy 与 current 每侧 base_url 主机各≥1 条；
+#         无自动检查器的 gate 必须声明 evidence_schema（证据须能证明该 gate）。
+# =====================================================================
+meta:
+  flow_name: ""            # 【必填】如 XX公路流程（第五版）
+  flow_code: ""            # 【必填】如 WFA_HY_XX_0000
+  shape: S2                # S1 多分支 / S2 固定单链 / S3 主链+多候选路由
+  contract_version: 1
+  status: DRAFT            # DRAFT → TEST_READY（校验通过后手改/由校验器确认）
+  instance_policy: launch  # 实例策略：launch（默认，每 run 发起新实例）/ reuse（显式声明才复用待办）
+   # coverage_manifest: {path: coverage-manifest.yaml}  # v1.5.0 可选——声明后 conclude 按账本判定
+   #   "全流程双端 PASS"是否成立（存在未闭环 must-cover → 结论 BLOCKED/partial）；
+   #   骨架生成：python3 $SKILL/scripts/coverage_manifest.py scaffold --contract 本文件 --out <账本>
+  sources: []              # 取证快照 {id, kind: oracle|excel|doc, detail}
+  notes: ""                # 人工备注写这里（生成件受保护，勿手改）
+  risk_seeds: []           # 风险种子（渲染进生成件 §风险）
+
+environments:
+  legacy:  { base_url: "http://<legacy-prod-host>", login_path: "/#/login" }
+  current: { base_url: "http://localhost:5173", login_path: "/login" }
+  health_checks:           # 前置门禁（pipeline 按此执行；expect 默认 200）——
+                           # 每侧 environment 的 base_url 主机须被≥1 条覆盖（按 netloc 匹配），缺侧=校验拒
+    - "curl -m 3 -o /dev/null -w '%{http_code}' http://<legacy-prod-host>/  # expect 200"
+    - "curl -m 3 -o /dev/null -w '%{http_code}' http://localhost:5173/  # expect 200"
+
+accounts:                  # 只写 env 引用；禁止任何明文/值字段
+  - { id: "", name: "", env: "CURRENT_EXAMPLE_PWD", role: "" }   # env= CURRENT_<账号大写>_PWD，替换 EXAMPLE 为实际账号
+
+nodes:
+  - { code: "00", name: "", form: null, handlers: [""], pool: [], next: [], re_edit: false }
+
+forms: []                  # {code_legacy, code_current, fields:[{name,cn,kind,required,readonly,source,scale,dict_ref}]}
+
+field_mappings: []         # 【TEST_READY 必填≥1】{legacy_field,target_field,normalize,tolerance,null_policy,dict_map_ref,redact,fixture_pair_required,formula_ref}
+
+dict_maps: {}              # DICT_X: {ref, map:{legacy值: 标准码}}
+
+fixtures: []               # {fixture_pair_id: FP-XXX, kind, legacy_ref, current_ref, pairing_rule}
+
+formulas: []               # {id, expr, inputs, expected_legacy, tolerance, nodes_applied, current_note}
+
+routing: []                # S3/S1: {node, candidates_legacy, candidates_current, must_not_contain}
+
+buttons: []                # {node, expect_visible[], expect_hidden[]} + rule 条目
+
+resources: []              # {id, table, status_col, occupy_on, release_on[], check}
+
+post_flow: {}              # {code, trigger, starter{ref,account_env}, inherits{count,sample_fields}}
+
+cases:                     # ≥1 且 ≥1 个 required: true
+                           # reuse 策略消歧选择器（可选，仅 meta.instance_policy: reuse 时有意义）：
+                           # instanceNo / businessKey / fixtureSelector——值为标量或
+                           # {legacy: 老系统值, current: 新系统值} 分侧映射（双端业务键不同时用）
+  - id: C-01
+    kb: KB-01
+    title: ""
+    required: true
+    steps:                 # 每步 {node, actor, action, next, pick}
+      - { node: "00", actor: "", action: "", next: "", pick: "" }
+    assertions: []
+    notes: ""
+
+gates:                     # ≥1；on_fail 必须 BLOCKED；无自动检查器的 gate 必须声明
+                           # evidence_schema（kind=report 报告字段断言 / kind=http 白名单 URL），
+                           # 否则立契校验拒、执行期 gate-evidence-check 一律 passed=false。
+                           # 证据链：报告骨架用 $SKILL/scripts/gen-gate-report.py 按本契约生成 →
+                           # 填真值+回填 sha256_16 → 经 pipeline --gate-evidence <file> 原子拷入
+  - id: GATE-DEPLOY
+    check: "流程已部署且发起人可见"
+    severity: P1
+    on_fail: BLOCKED
+    evidence_schema:       # 示例：部署状态由一个 JSON 报告证明（字段断言 + 流程绑定）
+      kind: report
+      file_format: json
+      flow_field: data.flow_code
+      required_fields:
+        - { path: data.deployed, op: eq, value: true }
+
+exemptions: []             # 八字段：{id, scope(dim|*), match(精确 key 或去文件名前缀的稳定键；禁止与 scope 同时为 *), reason, approved_by, approval_ref, source_run_id, source_compare_sha256_16}——豁免必须可审计、可定位且绑定真实 run（只可能由 gen-multibranch-contract.py exempt 产出；手写=validate 拒绝/对拍不生效）
+
+conclusions:
+  PASS: "gates 全过 且 required 用例全部执行 且 未豁免语义差异=0"
+  FAIL: "存在未豁免语义差异（field_mappings/formulas/routing/buttons/resources/post_flow 任一）"
+  BLOCKED: "任一 gate 失败 / 必测数据不可用 / 证据缺失"

@@ -1,0 +1,54 @@
+# flow-test-contract 分发清单（唯一事实源——第三十四轮 P0）
+# install.sh（复制+字节校验）、前置检查（资产齐全校验）一律以本清单为准；
+# 禁止在任何脚本/文档里手写第二套文件列表（两套列表必然漂移）。
+# 新增/删除 skill 文件时唯一动作：改本清单 + 跑 sync-to-tools.sh。
+#
+# 格式（TAB 分隔）：<skill 内相对路径>	<项目内部署目标（相对项目根）>
+# 目标留空 = 该文件仅随 skill 自持存在，不部署进项目（如 assets 示例配置）。
+scripts/api-capture.py	.flow-test-contract/scripts/api-capture.py
+scripts/browser-capture.py	.flow-test-contract/scripts/browser-capture.py
+scripts/conclude.py	.flow-test-contract/scripts/conclude.py
+scripts/conclude_core.py	.flow-test-contract/scripts/conclude_core.py
+scripts/explore-channel.py	.flow-test-contract/scripts/explore-channel.py
+scripts/coverage_manifest.py	.flow-test-contract/scripts/coverage_manifest.py
+scripts/readiness.py	.flow-test-contract/scripts/readiness.py
+scripts/test-data-ledger.py	.flow-test-contract/scripts/test-data-ledger.py
+scripts/rerun-plan.py	.flow-test-contract/scripts/rerun-plan.py
+scripts/draft-contract.py	.flow-test-contract/scripts/draft-contract.py
+scripts/field-level-compare.py	.flow-test-contract/scripts/field-level-compare.py
+scripts/fc_readability.py	.flow-test-contract/scripts/fc_readability.py
+scripts/ftc-runtime.sh	.flow-test-contract/scripts/ftc-runtime.sh
+scripts/ftc_env.py	.flow-test-contract/scripts/ftc_env.py
+scripts/ftc_ops_config.py	.flow-test-contract/scripts/ftc_ops_config.py
+scripts/gate-evidence-check.py	.flow-test-contract/scripts/gate-evidence-check.py
+scripts/gen-final-report.py	.flow-test-contract/scripts/gen-final-report.py
+scripts/gen-multibranch-contract.py	.flow-test-contract/scripts/gen-multibranch-contract.py
+scripts/gen-gate-report.py	.flow-test-contract/scripts/gen-gate-report.py
+scripts/health-check.py	.flow-test-contract/scripts/health-check.py
+scripts/legacy-config-check.py	.flow-test-contract/scripts/legacy-config-check.py
+scripts/pipeline.sh	.flow-test-contract/scripts/pipeline.sh
+scripts/run_evidence.py	.flow-test-contract/scripts/run_evidence.py
+scripts/run-contract-scenarios.py	.flow-test-contract/scripts/run-contract-scenarios.py
+scripts/write-manifest.py	.flow-test-contract/scripts/write-manifest.py
+templates/examples/liyazhuang-railway.yaml	docs/自动化测试模板/examples/liyazhuang-railway.yaml
+templates/gen_flow_tables.py	docs/自动化测试模板/gen_flow_tables.py
+templates/gen_from_contract.py	docs/自动化测试模板/gen_from_contract.py
+templates/selftest.py	docs/自动化测试模板/selftest.py
+templates/test-contract.schema.json	docs/自动化测试模板/test-contract.schema.json
+templates/test-contract.template.yaml	docs/自动化测试模板/test-contract.template.yaml
+templates/validate-contract.py	docs/自动化测试模板/validate-contract.py
+references/adversarial-regression.md
+references/browser-channel.md
+references/capture-channels.md
+references/changelog.md
+references/contract-howto.md
+references/exploration.md
+references/execution-gate.md
+references/f12-record.md
+references/flow-tables.md
+references/lessons-learned.md
+assets/env.flowtest.example
+assets/systems-api/current.yaml
+assets/systems-api/legacy.yaml
+assets/systems-browser/current.yaml
+assets/systems-browser/legacy.yaml

@@ -1,0 +1,313 @@
+# =====================================================================
+# test-contract.yaml —— 流程测试唯一机器可读契约（模板/示例）
+# ---------------------------------------------------------------------
+# 定位：本文件是「同源生成」的唯一输入——由它同时生成：
+#   ① 人工新系统用例骨架（浏览器手工测试用例.md）
+#   ② 老系统对比用例骨架（老系统浏览器对比测试用例.md）
+#   ③ 可执行 FlowTrace 场景（flowtrace-scenarios/*.yaml）
+#   ④ 字段映射与比较规则（compare-rules.yaml / .json，供 field-level-compare.py）
+#   ⑤ 最终报告骨架（report-skeleton.md + summary.template.json）
+# 生成器：<skill>/templates/gen_from_contract.py（项目部署布局：docs/自动化测试模板/gen_from_contract.py）
+#   用法：uv run --with pyyaml python3 gen_from_contract.py \
+#           --contract docs/<流程>/自动化测试/test-contract.yaml \
+#           --outdir docs/<流程>/自动化测试/生成件
+# 证据链：契约 + run-manifest.json（每次执行落账）→ conclude.py → PASS/FAIL/BLOCKED
+#
+# 硬性规范：
+#   - 凭据禁止明文：accounts 一律 env 引用（CURRENT_<ID>_PWD），报告/截图脱敏
+#   - 字段比较必须有语义合同（field_mappings），裸"相同/不同"不构成结论
+#   - 双端各自选业务数据时必须登记 fixture_pair_id + 归一化规则
+#   - 结论只有三种：PASS（P0/P1=0 且必测项全完成）/ FAIL（存在未豁免语义差异）
+#     / BLOCKED（环境/数据/发布前置不足）——由 conclude.py 判定，人工不得越过
+# =====================================================================
+
+meta:
+  flow_name: "李雅庄铁路流程（第五版）"        # 【必填】
+  flow_code: WFA_RY_HZ_0162                    # 【必填】
+  shape: S3                                    # S1 多分支 / S2 固定单链 / S3 主链+多候选路由
+  contract_version: 4                          # 契约变更即 +1（v2：gates schema；v3：observer/健康检查/路由修正；v4：00 节点 formData 业务输入 + C-06 s5 路由笔误修正），生成件与报告须注明
+  status: TEST_READY                         # DRAFT → TEST_READY（validate-contract 通过才可）
+  observer_actor: renna1                       # '任一' 占位 actor 的落地观察账号（gen 期替换进场景）
+  sources:                                     # 取证快照（生成链的起点，可追溯）
+    - { id: oracle-2026-09-04, kind: oracle, detail: "qianyi OldSystemQueries/READ_*_BY_FLOW（STEP/USER/BUTTON/FORM/COLUMN/MATHRULE/EXTENDS/INSTANCE）" }
+    - { id: logic-analysis, kind: doc, detail: "WFA_RY_HZ_0162_流程逻辑分析.md（2026-08-28/09-02 实查）" }
+    - { id: manual-case-v1, kind: doc, detail: "浏览器手工测试用例.md V1.1" }
+
+environments:
+  legacy:  { base_url: "http://<legacy-prod-host>", login_path: "/#/login" }
+  current: { base_url: "http://127.0.0.1:8080", login_path: "/login" }   # api 通道直连网关（浏览器入口 5173 仅人工用例参考）
+  health_checks:                               # 前置门禁的一部分（conclude 以 gates 为准）
+    - "curl -m 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/actuator/health  # expect 200"
+    - "curl -m 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/actuator/health  # expect 200"
+    - "curl -m 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:8085/actuator/health  # expect 200"
+    - "curl -m 3 -o /dev/null -w '%{http_code}' http://<legacy-prod-host>/  # expect 200  # 老系统直达（宕机在门禁期暴露，不等 runner 全线超时——2026-09-07 实测教训）"
+    - "curl -m 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:8765/f12/todo  # expect 200  # legacy_bridge 存活"
+    - "curl -m 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:8766/actuator/health  # expect 200  # current_shim 存活"
+
+accounts:                                      # ⚠️ 只允许 env 引用，禁止明文
+  - { id: renna1,          name: 任娜,        env: CURRENT_RENNA1_PWD,          role: 发起人/00 }
+  - { id: fengyongqiang1,  name: 冯永强,      env: CURRENT_FENGYONGQIANG1_PWD,  role: "01" }
+  - { id: hmzhanglei,      name: 张磊,        env: CURRENT_HMZHANGLEI_PWD,      role: "02/03" }
+  - { id: yangsongyuan1,   name: 杨松渊,      env: CURRENT_YANGSONGYUAN1_PWD,   role: "10" }
+  - { id: hmliyan,         name: 李艳,        env: CURRENT_HMLIYAN_PWD,         role: "10-候选2" }
+  - { id: hmwanghaitao,    name: 王海涛,      env: CURRENT_HMWANGHAITAO_PWD,    role: "11/12/13" }
+  - { id: lyz_zhukuang1,   name: 驻铁A,       env: CURRENT_LYZ_ZHUKUANG1_PWD,   role: "19/20/21" }
+  - { id: changkun1,       name: 常琨(铁路),  env: CURRENT_CHANGKUN1_PWD,       role: "44/45" }
+
+nodes:                                         # 节点合同（P-C）
+  # handlers=步骤表办理人；pool=老系统 OPER_USER 去重池（=BPMN candidateUsers 迁移源）
+  - { code: "00", name: 数量单制单,       form: FORMZ_HZ_0162,    handlers: [renna1],         pool: ["409"],                          next: ["01","02","03"], re_edit: false }
+  - { code: "01", name: 数量单审核,       form: FORMZ_HZ_0162,    handlers: [fengyongqiang1], pool: ["385"],                          next: ["02","03"],      re_edit: false }
+  - { code: "02", name: 数量单负责人,     form: FORMZ_HZ_0162,    handlers: [hmzhanglei],     pool: ["3021"],                         next: ["03"],           re_edit: false }
+  - { code: "03", name: 计量章负责人盖章, form: FORMZ_HZ_0162,    handlers: [hmzhanglei],     pool: ["3021"],                         next: ["10"],           re_edit: false, seal: full }
+  - { code: "10", name: 质量单制单,       form: FORMZ_HZ_0163,    handlers: [yangsongyuan1, hmliyan], pool: ["427","3080"],          next: ["11","12","13"], re_edit: true,  return_mine: true }
+  - { code: "11", name: 质量单审核,       form: FORMZ_HZ_0163,    handlers: [hmwanghaitao],    pool: ["383","3081","1668091049231986690"], next: ["12","13"],  re_edit: false }
+  - { code: "12", name: 化验章负责人盖章, form: FORMZ_HZ_0163,    handlers: [hmwanghaitao],    pool: ["411","1668090833212747777","1785199114258001921","1668091049231986690"], next: ["13"], re_edit: false, seal: full }
+  - { code: "13", name: 质量单负责人,     form: FORMZ_HZ_0163,    handlers: [hmwanghaitao],    pool: ["同12-4ID"],                     next: ["19"],           re_edit: false, must_not_contain: ["20"] }
+  - { code: "19", name: 95306货票明细制单, form: FORMZ_LLK_189019, handlers: [lyz_zhukuang1],  pool: ["348"],                          next: ["21"],           re_edit: true }
+  - { code: "20", name: 货运明细表制单,   form: FORMZ_HZ_23008,   handlers: [lyz_zhukuang1],   pool: ["348"],                          next: ["21"],           re_edit: true,  unreachable: true }   # 孤立节点：出现在任何下拉=路由异常
+  - { code: "21", name: 运费发票单制单,   form: FORMZ_OTHER_HJ_0006, handlers: [lyz_zhukuang1], pool: ["348"],                       next: ["44"],           re_edit: true }
+  - { code: "44", name: 数量单复核,       form: FORMZ_HZ_0162,    handlers: [changkun1],       pool: ["473@4"],                        next: ["45"],           re_edit: false }
+  - { code: "45", name: 质量单复核,       form: FORMZ_HZ_0163,    handlers: [changkun1],       pool: ["473@4"],                        next: ["99"],           re_edit: false }
+
+forms:
+  - code_legacy: FORMZ_HZ_0162
+    code_current: PRI_FORM_000000009            # 实测回填
+    fields:
+      - { name: CS,   cn: 车数,     kind: formula, readonly: true, required: true, source: "A.1 磅房带入=勾选行数" }
+      - { name: GHZL, cn: 过衡重量, kind: formula, required: true, source: "A.1=Σ净重", scale: 2 }
+      - { name: ZSJL, cn: 折水净量, kind: formula, source: "A.2 折水", scale: 2 }
+      - { name: QSF,  cn: 全水分,   kind: default, default: 8 }
+      - { name: FYRQ, cn: 发运日期, kind: manual,  required: true, type: date }
+      - { name: FZ,   cn: 发站,     kind: manual,  required: true, dict_ref: DICT_FZ }
+      - { name: KC,   cn: 矿厂,     kind: manual,  required: true, dict_ref: DICT_KC }
+  - code_legacy: FORMZ_HZ_0163
+    code_current: PRI_FORM_000000011
+    fields:
+      - { name: MZ,   cn: 煤种,     kind: manual,  dict_ref: DICT_MZ_A4 }   # A.4 白名单 18 种
+      - { name: PINZ, cn: 品种,     kind: formula, readonly: true, source: "A.4 归类" }
+      - { name: QL,   cn: 全硫,     kind: manual,  scale: 2 }
+      - { name: FRL,  cn: 发热量,   kind: manual,  scale: 2 }
+  - code_legacy: FORMZ_LLK_189019
+    code_current: null                          # 待部署实测
+    fields:
+      - { name: ZJ,     cn: 总计,       kind: formula, readonly: true, required: true, source: "A.5/A.6" }
+      - { name: ZXDH,   cn: 执行单号,   kind: manual,  dynamic_required: "A.7 攀钢收货人时置必填" }
+      - { name: REMARK7, cn: 印花税,    kind: formula, source: "A.5=Σ(YHSJE+YHSSE)" }
+
+# =====================================================================
+# field_mappings —— 语义比较合同（核心）：没有合同的字段对，不产生结论
+#   normalize: trim|number|number_2dp|date_iso|none
+#   null_policy: both_null_equal|null_is_diff|legacy_null_expected|current_null_expected
+#   tolerance: 数值相对/绝对容差（abs:0.01 形式）
+#   dict_map_ref: 双端字典值→标准码映射表引用（dict_maps 段）
+#   redact: none|mask|hash —— 报告呈现时脱敏
+#   fixture_pair_required: true=该字段依赖双端各自选业务数据，必须配 fixture 才可比较
+# =====================================================================
+field_mappings:
+  - { legacy_field: CS,     target_field: CS,     normalize: number,        tolerance: "abs:0",     null_policy: both_null_equal, fixture_pair_required: true,  note: "磅房带入=勾选行数，双端各选不同数据须 fixture 配对" }
+  - { legacy_field: GHZL,   target_field: GHZL,   normalize: number_2dp,    tolerance: "abs:0.01",  null_policy: both_null_equal, fixture_pair_required: true }
+  - { legacy_field: ZSJL,   target_field: ZSJL,   normalize: number_2dp,    tolerance: "abs:0.01",  null_policy: both_null_equal, formula_ref: A.2 }
+  - { legacy_field: QSF,    target_field: QSF,    normalize: number,        tolerance: "abs:0",     null_policy: both_null_equal }
+  - { legacy_field: FYRQ,   target_field: FYRQ,   normalize: date_iso,      tolerance: "exact",     null_policy: both_null_equal }
+  - { legacy_field: FZ,     target_field: FZ,     normalize: trim,          tolerance: "exact",     null_policy: both_null_equal, dict_map_ref: DICT_FZ }
+  - { legacy_field: KC,     target_field: KC,     normalize: trim,          tolerance: "exact",     null_policy: both_null_equal, dict_map_ref: DICT_KC }
+  - { legacy_field: MZ,     target_field: MZ,     normalize: trim,          tolerance: "exact",     null_policy: both_null_equal, dict_map_ref: DICT_MZ_A4 }
+  - { legacy_field: PINZ,   target_field: PINZ,   normalize: trim,          tolerance: "exact",     null_policy: both_null_equal, formula_ref: A.4 }
+  - { legacy_field: ZJ,     target_field: ZJ,     normalize: number_2dp,    tolerance: "abs:0.01",  null_policy: both_null_equal, formula_ref: A.6 }
+  - { legacy_field: ZXDH,   target_field: ZXDH,   normalize: trim,          tolerance: "exact",     null_policy: null_is_diff, redact: mask }
+
+dict_maps:                                     # 字典双端值→标准码（值可后续回填）
+  DICT_KC:  { ref: "老库 17 项 vs 新库收敛值——首轮双开回填", map: {} }
+  DICT_FZ:  { ref: "新系统实测 opts=8", map: {} }
+  DICT_MZ_A4: { ref: "A.4 白名单 18 种（10 精煤+8 动力煤）", map: {} }
+
+fixtures:                                      # 双端数据配对（无配对≈OBSERVE，不判一致）
+  - { fixture_pair_id: FP-WEIGHT-P1, kind: 磅房, legacy_ref: "老系统未使用 2 行", current_ref: "新系统未使用 2 行", pairing_rule: "行数相同、净重列同分布口径；比较目标=回填字段口径(CS/GHZL)而非原始业务主键" }
+  - { fixture_pair_id: FP-95306-S3,  kind: "95306", legacy_ref: "攀钢收货人+印花税非空行", current_ref: 同左, pairing_rule: "收货人∈攀钢系且印花税列非空行≥1+空值行≥1" }
+
+formulas:                                      # 公式对拍（输入/期望/容差/挂载节点）
+  - { id: A.2, expr: "ZSJL=(100-QSF)/92*GHZL", inputs: { QSF: 10, GHZL: 1000 }, expected_legacy: 978.26, tolerance: "abs:0.01", nodes_applied: ["00","01","02","03","44"], current_note: "公路实测仅 00 生效——铁路 02 变体为关键比对点" }
+  - { id: A.4, expr: "MZ→PINZ 归类", inputs: { MZ: 焦精煤 }, expected_legacy: 冶炼精煤, tolerance: exact, nodes_applied: ["10"] }
+  - { id: A.5, expr: "95306 带入全套", inputs: { rows: 2, 收货人: 攀枝花盘江煤焦化 }, expected_legacy: "首行字段+CS=2+REMARK7=Σ+ZJ=运费+印花税+REMARK8", tolerance: "abs:0.01", nodes_applied: ["19"], fixture_pair_required: true }
+  - { id: A.6, expr: "ZJ=运费+印花税+REMARK8", inputs: { REMARK8: 100 }, expected_delta_legacy: "+100", tolerance: "abs:0.01", nodes_applied: ["19"] }
+  - { id: A.7, expr: "攀钢收货人→ZXDH 置必填", inputs: { ZXDH: "" }, expected_legacy: "提交被拦『请输入』", tolerance: exact, nodes_applied: ["19"] }
+
+routing:                                       # 路由合同
+  - { node: "00", candidates_legacy: ["01","02","03"], candidates_current: "待部署实测", must_not_contain: [] }
+  - { node: "01", candidates_legacy: ["02","03"], candidates_current: "待部署实测" }
+  - { node: "10", candidates_legacy: ["11","12","13"], candidates_current: "待部署实测" }
+  - { node: "11", candidates_legacy: ["12","13"], candidates_current: "待部署实测" }
+  - { node: "13", candidates_legacy: ["19"], candidates_current: "待部署实测", must_not_contain: ["20"], severity: P1 }   # 孤立节点出现=FAIL 级
+
+buttons:                                       # 按钮可见性合同（全量矩阵见手工用例 §2.4，此处登记差异断言点）
+  - { node: "00", expect_visible: [保存草稿, 作废流程, 退回至矿点(禁用)], expect_hidden: [退回流程] }
+  - { node: "10", expect_visible: [退回至矿点(可用=KB-07), 匹配历史单据], note: "return_mine 全流程仅 00/10" }
+  - { node: "19", expect_visible: [查看流程], note: "全流程唯一" }
+  - rule: { 手动盖章: "state=3/4 才可用（禁用提示『生成文件后才可盖章』）；MUST_SEAL=0 盖章非提交前置" }
+
+resources:                                     # 资源占用/释放合同
+  - { id: railway-weight, table: IO_DYN_WEIGHT_RQILWAY_TEST, status_col: USE_STATUS, occupy_on: submit, release_on: [return_lazy], check: checkBfsjStatus }
+  - { id: hp-95306,       table: IO_DYN_DATA_95306_SENDORDER, status_col: HP_STATUS, occupy_on: submit, release_on: [return_via_19, withdraw_via_19], check: check95306sjStatus }
+
+post_flow:
+  code: WFA_RY_HZ_0142
+  trigger: wait_start_register                  # S_FLOW_INS_WAIT_START 登记（非自动发起）
+  starter: { ref: "张天奇（NEXT_AUTH_USER 432/5056）", account_env: CURRENT_ZHANGTIANQI_PWD, note: "账号待确认" }
+  inherits: { count: 28, sample_fields: [KC, "ZSJL→结算量", CS, "QL→硫分", FRL] }
+
+cases:                                         # C/KB 同源用例（步骤为骨架，供三端生成）
+  - id: C-01
+    kb: KB-01
+    title: 标准全链路（12 节点主链）
+    required: true
+    steps:
+      - { node: "00", actor: renna1,         action: 发起+磅房P1+必填负向+记录, next: "01", pick: 冯永强 , form: {QSF: "8", FYDW: 霍煤李雅庄矿, SHDW: "河**********司", CS: "2", HCBZ: "140", GHZL: "139.54", FYRQ: "2026-09-08", FZ: 霍州, DZ: 轵城, KC: 李雅庄矿} }
+      - { node: "01", actor: fengyongqiang1, action: SHYJ同意,                  next: "02", pick: 张磊 }
+      - { node: "02", actor: hmzhanglei,     action: 同人续办,                  next: "03", pick: 张磊 }
+      - { node: "03", actor: hmzhanglei,     action: 完整盖章链(CA),            next: "10", pick: 杨松渊 }
+      - { node: "10", actor: yangsongyuan1,  action: 13条继承+A.4/A.3+记录,     next: "11", pick: 王海涛 }
+      - { node: "11", actor: hmwanghaitao,   action: SHYJ同意,                  next: "12", pick: 王海涛 }
+      - { node: "12", actor: hmwanghaitao,   action: 完整盖章链(CA),            next: "13", pick: 王海涛 }
+      - { node: "13", actor: hmwanghaitao,   action: 断言唯一19不含20,          next: "19", pick: 驻铁A }
+      - { node: "19", actor: lyz_zhukuang1,  action: 选S1+A.5全套+占用观察,     next: "21", pick: 驻铁A }
+      - { node: "21", actor: lyz_zhukuang1,  action: 上传附件,                  next: "44", pick: 常琨 }
+      - { node: "44", actor: changkun1,      action: G8比对1+SHYJ,              next: "45", pick: 常琨 }
+      - { node: "45", actor: changkun1,      action: G8比对2+SHYJ,              next: "99" }
+    assertions: [路径逐字一致, 双表单G8回显, 13候选唯一19, 磅房占用, 后置待启动登记]
+  - id: C-02
+    kb: KB-02
+    title: 多候选路由切换+候选池第2人
+    required: true
+    steps:
+      - { node: "00", actor: renna1,        action: 发起(跳段选02), next: "02", pick: 张磊 , form: {QSF: "8", FYDW: 霍煤李雅庄矿, SHDW: "河**********司", CS: "2", HCBZ: "140", GHZL: "139.54", FYRQ: "2026-09-08", FZ: 霍州, DZ: 轵城, KC: 李雅庄矿} }
+      - { node: "02", actor: hmzhanglei,    action: 同人续办,        next: "03", pick: 张磊 }
+      - { node: "03", actor: hmzhanglei,    action: 盖章按§6口径,    next: "10", pick: 李艳 }
+      - { node: "10", actor: hmliyan,       action: 候选池第2人办理, next: "12", pick: 王海涛 }
+      - { node: "12", actor: hmwanghaitao,  action: 盖章按§6口径,    next: "13", pick: 王海涛 }
+      - { node: "13", actor: hmwanghaitao,  action: 唯一19,          next: "19", pick: 驻铁A }
+      - { node: "19", actor: lyz_zhukuang1, action: 未使用行,        next: "21", pick: 驻铁A }
+      - { node: "21", actor: lyz_zhukuang1, action: 续办,            next: "44", pick: 常琨 }
+      - { node: "44", actor: changkun1,     action: 同人续办,        next: "45", pick: 常琨 }
+      - { node: "45", actor: changkun1,     action: 质量单复核收尾办结, next: "99" }
+    assertions: [跳段链流转记录逐字一致, 指定直达非候选池共享]
+  - id: C-03
+    kb: KB-03
+    title: 真实退回 21→19 含 95306 释放
+    required: true
+    steps:
+      - { node: "00", actor: renna1,        action: 发起(磅房P3),   next: "02", pick: 张磊 , form: {QSF: "8", FYDW: 霍煤李雅庄矿, SHDW: "河**********司", CS: "2", HCBZ: "140", GHZL: "139.54", FYRQ: "2026-09-08", FZ: 霍州, DZ: 轵城, KC: 李雅庄矿} }
+      - { node: "02", actor: hmzhanglei,    action: 续办,            next: "03", pick: 张磊 }
+      - { node: "03", actor: hmzhanglei,    action: 盖章按§6口径,    next: "10", pick: 杨松渊 }
+      - { node: "10", actor: yangsongyuan1, action: 跳段选12,        next: "12", pick: 王海涛 }
+      - { node: "12", actor: hmwanghaitao,  action: 盖章按§6口径,    next: "13", pick: 王海涛 }
+      - { node: "13", actor: hmwanghaitao,  action: 唯一19,          next: "19", pick: 驻铁A }
+      - { node: "19", actor: lyz_zhukuang1, action: 选S2提交置占用,  next: "21", pick: 驻铁A }
+      - { node: "21", actor: lyz_zhukuang1, action: G5退回→目标19,   next: "19(退回)" }
+      - { node: "19", actor: lyz_zhukuang1, action: 数据保持+S2已释放可重选+重选提交, next: "21", pick: 驻铁A }
+      - { node: "21", actor: lyz_zhukuang1, action: 续办,            next: "44", pick: 常琨 }
+      - { node: "44", actor: changkun1,     action: 续办,            next: "45", pick: 常琨 }
+      - { node: "45", actor: changkun1,     action: 质量单复核收尾办结, next: "99" }
+    assertions: [21→19退回轨迹, HP_STATUS释放(老系统硬预期), 退回数据保持]
+    notes: "s8 的 21→19(退回) 为老系统退回按钮语义（非 next-step 路由，服务端声明候选仅 44）——api 通道五原语暂不可表达，属已声明能力缺口（EXPECTED GAP）；候选池释放断言在浏览器通道覆盖"
+  - id: C-04
+    kb: KB-04
+    title: 作废+重新发起+磅房释放观察
+    required: true
+    steps:
+      - { node: "00", actor: renna1, action: 填表(磅房P2不提交)→保存草稿观察→G6作废→重发(核对P2呈现), next: none }
+      - { node: "00", actor: renna1, action: 重新发起全链(C-02跳段链), next: "99" , form: {QSF: "8", FYDW: 霍煤李雅庄矿, SHDW: "河**********司", CS: "2", HCBZ: "140", GHZL: "139.54", FYRQ: "2026-09-08", FZ: 霍州, DZ: 轵城, KC: 李雅庄矿} }
+    assertions: [作废终态, 磅房P2释放与否=O-9观察, 重发全链可走通]
+    notes: "s1 保存草稿/G6作废均为按钮语义，api 通道暂不可表达；s2 的 00→99 为压缩记法（全链经 C-02 跳段路径办结）——属已声明能力缺口（EXPECTED GAP）；作废链路在浏览器通道覆盖"
+  - id: C-05
+    kb: KB-05
+    title: 后置流程联动（WFA_RY_HZ_0142 待启动）
+    required: false                             # 观察口径
+    steps:
+      - { node: -, actor: 任一, action: 确认COMPLETED实例 }
+      - { node: -, actor: 张天奇(env待确认), action: 查待启动/新实例 }
+      - { node: -, actor: 视处理人, action: 28条继承抽3项比对 }
+    assertions: [S_FLOW_INS_WAIT_START登记, 继承抽样一致]
+  - id: C-06
+    kb: KB-06
+    title: 业务按钮+公式专项
+    required: true
+    steps:
+      - { node: "00", actor: renna1,        action: 磅房P4代入(CS=行数)+折水两分支(978.26例)+占用观察, next: "02", pick: 张磊 , form: {QSF: "8", FYDW: 霍煤李雅庄矿, SHDW: "河**********司", CS: "2", HCBZ: "140", GHZL: "139.54", FYRQ: "2026-09-08", FZ: 霍州, DZ: 轵城, KC: 李雅庄矿} }
+      - { node: "02", actor: hmzhanglei,    action: 折水跨节点变体O-5(改QSF=10看重算), next: "03", pick: 张磊 }
+      - { node: "03", actor: hmzhanglei,    action: 盖章按§6口径,  next: "10", pick: 杨松渊 }
+      - { node: "10", actor: yangsongyuan1, action: 13条继承+A.4匹配+A.3格式化, next: "12", pick: 王海涛 }
+      - { node: "12", actor: hmwanghaitao,  action: 盖章按§6口径,    next: "13", pick: 王海涛 }
+      - { node: "13", actor: hmwanghaitao,  action: 唯一19,          next: "19", pick: 驻铁A }
+      - { node: "19", actor: lyz_zhukuang1, action: S3全套A.5+A.7攀钢负向+A.6重算, next: "21", pick: 驻铁A }
+      - { node: "21", actor: lyz_zhukuang1, action: 附件+续办,       next: "44", pick: 常琨 }
+      - { node: "44", actor: changkun1,     action: 续办,            next: "45", pick: 常琨 }
+      - { node: "45", actor: changkun1,     action: 质量单复核收尾办结, next: "99" }
+      - { node: "00", actor: renna1,        action: G13重复占用负向→作废收尾, next: none }
+    assertions: [A.1~A.8数值逐项, 攀钢必填负向, 02折水重算口径O-5, 占用闭环]
+    notes: "作废流程（G6/G13 作废收尾）为独立按钮语义，api 通道暂不可表达——属已声明能力缺口（EXPECTED GAP）；作废链路在浏览器通道覆盖"
+  - id: C-07
+    kb: KB-07
+    title: 退回至矿点（10 节点 RETURN_MINE）
+    required: false                             # 观察口径
+    steps:
+      - { node: "00", actor: renna1,        action: 发起+观察00退回至矿点(禁用O-8), next: "02", pick: 张磊 , form: {QSF: "8", FYDW: 霍煤李雅庄矿, SHDW: "河**********司", CS: "2", HCBZ: "140", GHZL: "139.54", FYRQ: "2026-09-08", FZ: 霍州, DZ: 轵城, KC: 李雅庄矿} }
+      - { node: "02", actor: hmzhanglei,    action: 续办→03盖章按§6口径, next: "10", pick: 杨松渊 }
+      - { node: "10", actor: yangsongyuan1, action: 记录关键值→G5b退回至矿点→实测目标, next: 实测 }
+      - { node: -,   actor: 按实际目标,     action: 数据保持+按实际路径续走至99 }
+    notes: "s2 为压缩记法（02→03→10 两次提交记为一步）；s3 的 G5b 退回至矿点为独立按钮语义，api 通道暂不可表达——属已声明能力缺口（EXPECTED GAP）；退回至矿点链路在浏览器通道覆盖"
+    assertions: [按钮可用性, 回退目标(10重办or00重录), 数据保持, 磅房懒释放呈现]
+
+gates:                                         # 前置门禁（任一 P0/P1 失败 → BLOCKED）
+  # evidence_schema（第十三轮审计强制）：无自动检查器的 gate 必须声明"什么样的证据能证明它"——
+  #   kind=report：报告文件（json）须过 required_fields 断言（path/op: eq|contains|regex|gte|lte/value）
+  #                + flow_field 绑定契约 flow_code + sha256 现场复算
+  #   kind=http：证据 URL 必须命中 allowed_urls 白名单（scheme/host/port/path 边界）且现场探活 200
+  # 报告 artifact 由人工检查或检查命令生成（生成器说明见 ~/.agents/skills/flow-test-contract/references/execution-gate.md）
+  - id: GATE-DEPLOY
+    check: "流程已在新引擎部署且发起人可发起列表可见"
+    severity: P1
+    on_fail: BLOCKED
+    evidence_schema: {kind: report, file_format: json,
+                      flow_field: data.flow_code,
+                      required_fields: [{path: data.deploy_status, op: eq, value: DEPLOYED},
+                                        {path: data.launchable, op: eq, value: true}]}
+  - id: GATE-HEALTH
+    check: "三服务 health=200"
+    severity: P0
+    on_fail: BLOCKED
+    # GATE-HEALTH 为自动门禁：pipeline 按 environments.health_checks 执行，不需 evidence_schema
+  - id: GATE-ACCOUNT
+    check: "全部办理账号可登录（.env 引用）"
+    severity: P0
+    on_fail: BLOCKED
+    evidence_schema: {kind: report, file_format: json,
+                      required_fields: [{path: data.all_accounts_login, op: eq, value: true},
+                                        {path: data.failed_accounts_count, op: eq, value: 0}]}
+  - id: GATE-DATA
+    check: "磅房未使用≥4组 / 95306 未使用≥3行(含攀钢收货人)"
+    severity: P1
+    on_fail: BLOCKED
+    evidence_schema: {kind: report, file_format: json,
+                      required_fields: [{path: data.scale_free_groups, op: gte, value: 4},
+                                        {path: data.rail_free_rows, op: gte, value: 3},
+                                        {path: data.rail_free_rows_include_pangang, op: eq, value: true}]}
+  - id: GATE-CANVAS
+    check: "4 张表单画布控件渲染正常"
+    severity: P0
+    on_fail: BLOCKED
+    evidence_schema: {kind: report, file_format: json,
+                      flow_field: data.flow_code,
+                      required_fields: [{path: data.canvas_render_ok, op: eq, value: true},
+                                        {path: data.forms_checked, op: gte, value: 4}]}
+
+exemptions: []                                 # 豁免（须审批记录）：{id, scope, reason, approved_by}
+
+conclusions:                                   # 结论 Gate（conclude.py 执行，人工不得越过）
+  PASS:   "gates 全过 且 required 用例全部执行 且 未豁免语义差异=0"
+  FAIL:   "存在未豁免语义差异（field_mappings/formulas/routing/buttons/resources/post_flow 任一）"
+  BLOCKED: "任一 gate 失败 / 必测数据不可用 / 证据缺失（如字段采集为空）"
+
+report:
+  summary_fields: [run_id, conclusion, p0_count, p1_count, required_cases_done, semantic_diffs, exempted_diffs, evidence_paths]
+  aux_evidence: "像素 diff（dual-run-diff.js）仅辅助证据，不进入结论"

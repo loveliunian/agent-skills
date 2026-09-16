@@ -1,0 +1,50 @@
+# 新系统（current）· 浏览器通道配置 —— 骨架 + UI 录制清单（2026-09-09）
+#
+# ⚠️ 本文件含 __UI_RECORD__ 占位：browser-capture.py 检测到即拒跑（fail-closed，不猜 UI）。
+# 完成一次「UI 录制」即可启用（10 分钟）：
+#   1. 打开新系统前端（ headed），F12 或 a11y 快照逐项核对下方探针名：
+#      python3 browser-capture.py --probe --systems assets/systems-browser/current.yaml --headed
+#   2. 把 __UI_RECORD__ 换成实测值（菜单名/按钮名/弹窗标记与老系统同 schema）；
+#   3. 落到项目运行态：cp 本文件 <root>/.flowtrace/systems/browser/current.yaml 后改。
+# 老系统（legacy.yaml）已全量实测，可直接参考其结构。
+id: current
+label: 新系统（浏览器通道·待 UI 录制）
+channel: browser
+browser:
+  baseUrl: __UI_RECORD__                 # 新系统前端地址（如 http://localhost:5173）
+  session: ftc-current
+  profile: /tmp/ftc-current-profile
+  headed: true
+  loginWaitSeconds: 2.5
+  cliTimeoutSeconds: 60
+  taskWaitSeconds: 15
+  switchAccount: close-reopen            # 与老系统同纪律：整浏览器关开切号
+  whoamiContains: __UI_RECORD__          # 登录成功标识（页面标题/横幅文案）
+  instancePattern: "[A-Z0-9]{5,}"        # 新系统实例号形态（录制时核对）
+  login:                                 # 新系统登录页 a11y ref 不保证静态 → 建议删本块走探针兜底
+    userRef: __UI_RECORD__
+    passRef: __UI_RECORD__
+    submitRef: __UI_RECORD__
+nav:
+  flowMenu: __UI_RECORD__                # 流程菜单名（如 流程中心/港口煤发运流程）
+  launchItem: __UI_RECORD__              # 发起入口
+  todoItem: __UI_RECORD__                # 待办/待处理入口
+  todoRowOrdinal: 1
+  handleButton: __UI_RECORD__            # 办理按钮（如 办理/去处理）
+  launchButton: __UI_RECORD__            # 发起按钮（如 发起/启动）
+  fallbackMenu: {}                       # 新系统如无菜单缺失账号场景则留空
+form:
+  saveButton: __UI_RECORD__              # 保存按钮文案
+  nextNodeLabel: __UI_RECORD__           # 下一环节选择器占位文案
+  submitButton: __UI_RECORD__            # 提交按钮文案
+  confirmButton: 确定
+  autoConfirmPopups: 1
+  datePanelTrigger: __UI_RECORD__        # 日期控件触发文案（新系统 el-date-editor 脚本 fill
+                                         #   不生效——沿用「面板点选」策略，录制时核对触发文案）
+  forms: {}                              # 按节点码填单策略（对照契约 field_mappings 录制）
+popups: {}                               # 如新系统有数据选择弹窗，按 legacy popups.s95306 schema 录制
+handlerPick:
+  enabled: false                         # 新系统提交若为显式选人对话框则改 true + triggerLabel
+nodeNames: {}                            # 环节码 → 环节名（对齐契约 nodes[].code/name）
+actorMap:                                # 凭据零明文：CURRENT_<账号大写>_USER/PWD
+  admin: {username: CURRENT_ADMIN_USER, password: CURRENT_ADMIN_PWD}

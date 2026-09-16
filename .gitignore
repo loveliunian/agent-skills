@@ -1,2 +1,4 @@
 .DS_Store
 **/tests/logs/
+flow-test-contract/runtime/
+**/__pycache__/

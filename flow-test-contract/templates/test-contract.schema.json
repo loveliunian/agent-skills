@@ -1,0 +1,705 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "xyls-test-contract",
+  "title": "流程迁移测试契约",
+  "type": "object",
+  "required": [
+    "meta",
+    "environments",
+    "accounts",
+    "nodes",
+    "cases",
+    "gates"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": [
+        "flow_name",
+        "flow_code",
+        "shape",
+        "contract_version",
+        "status"
+      ],
+      "properties": {
+        "flow_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "flow_code": {
+          "type": "string",
+          "pattern": "^[A-Z]+(_[A-Z0-9]+)+_[0-9]+$"
+        },
+        "shape": {
+          "enum": [
+            "S1",
+            "S2",
+            "S3"
+          ]
+        },
+        "contract_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "enum": [
+            "DRAFT",
+            "TEST_READY"
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "kind"
+            ]
+          }
+        },
+        "notes": {
+          "type": "string"
+        },
+        "risk_seeds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "instance_policy": {
+          "description": "第十三轮：双端执行实例策略——launch（默认，每 run 发起本流程新实例，实例隔离防误操作）/ reuse（显式声明才允许复用既有待办，要求待办可按服务端流程编码验明身份）",
+          "enum": [
+            "launch",
+            "reuse"
+          ]
+        },
+        "coverage_manifest": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "object",
+              "required": [
+                "path"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      }
+    },
+    "environments": {
+      "type": "object",
+      "required": [
+        "legacy",
+        "current",
+        "health_checks"
+      ],
+      "properties": {
+        "legacy": {
+          "$ref": "#/definitions/env"
+        },
+        "current": {
+          "$ref": "#/definitions/env"
+        },
+        "health_checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "accounts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "env"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "env": {
+            "type": "string",
+            "pattern": "^CURRENT_[A-Z0-9_]+_PWD$"
+          },
+          "role": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "handlers"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "form": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "handlers": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "pool": {
+            "type": [
+              "array",
+              "string"
+            ]
+          },
+          "next": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "re_edit": {
+            "type": "boolean"
+          },
+          "seal": {
+            "type": "string"
+          },
+          "return_mine": {
+            "type": "boolean"
+          },
+          "unreachable": {
+            "type": "boolean"
+          },
+          "must_not_contain": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "forms": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "field_mappings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "legacy_field",
+          "target_field"
+        ],
+        "properties": {
+          "legacy_field": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_field": {
+            "type": "string",
+            "minLength": 1
+          },
+          "normalize": {
+            "enum": [
+              "trim",
+              "number",
+              "number_2dp",
+              "date_iso",
+              "none"
+            ]
+          },
+          "tolerance": {
+            "type": "string",
+            "pattern": "^(exact|abs:[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?)$"
+          },
+          "null_policy": {
+            "enum": [
+              "both_null_equal",
+              "null_is_diff",
+              "legacy_null_expected",
+              "current_null_expected"
+            ]
+          },
+          "dict_map_ref": {
+            "type": "string"
+          },
+          "redact": {
+            "enum": [
+              "none",
+              "mask",
+              "hash"
+            ]
+          },
+          "fixture_pair_required": {
+            "type": "boolean"
+          },
+          "formula_ref": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "fixture_pair_id": {
+            "type": "string",
+            "pattern": "^FP-[A-Z0-9-]+$"
+          },
+          "optional": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "dict_maps": {
+      "type": "object"
+    },
+    "fixtures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "fixture_pair_id",
+          "kind",
+          "legacy_ref",
+          "current_ref",
+          "pairing_rule"
+        ],
+        "properties": {
+          "fixture_pair_id": {
+            "type": "string",
+            "pattern": "^FP-[A-Z0-9-]+$"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "legacy_ref": {
+            "type": "string"
+          },
+          "current_ref": {
+            "type": "string"
+          },
+          "pairing_rule": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "formulas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "expr"
+        ]
+      }
+    },
+    "routing": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "node"
+        ]
+      }
+    },
+    "buttons": {
+      "type": "array"
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id"
+        ]
+      }
+    },
+    "post_flow": {
+      "type": "object"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "required",
+          "steps"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^C-[0-9]+$"
+          },
+          "kb": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "node",
+                "actor",
+                "action"
+              ],
+              "properties": {
+                "node": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "actor": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "action": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "next": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "pick": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "assertions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notes": {
+            "type": "string"
+          },
+          "instanceNo": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "object",
+                "minProperties": 1,
+                "properties": {
+                  "legacy": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "current": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "legacy",
+                  "current"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "businessKey": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "object",
+                "minProperties": 1,
+                "properties": {
+                  "legacy": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "current": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "legacy",
+                  "current"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "fixtureSelector": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "object",
+                "minProperties": 1,
+                "properties": {
+                  "legacy": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "current": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "legacy",
+                  "current"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        }
+      }
+    },
+    "gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "check",
+          "severity",
+          "on_fail"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "check": {
+            "type": "string",
+            "minLength": 1
+          },
+          "severity": {
+            "enum": [
+              "P0",
+              "P1"
+            ]
+          },
+          "on_fail": {
+            "const": "BLOCKED"
+          },
+          "evidence_schema": {
+            "description": "第十三轮审计：gate 证据 schema——证据必须能证明本 gate（http 白名单目标 / report 报告字段断言），通用 file|url 不再放行",
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "http",
+                  "report"
+                ]
+              },
+              "allowed_urls": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "pattern": "^https?://"
+                }
+              },
+              "file_format": {
+                "enum": [
+                  "json",
+                  "csv",
+                  "txt"
+                ]
+              },
+              "required_fields": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "path",
+                    "op",
+                    "value"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "op": {
+                      "enum": [
+                        "eq",
+                        "contains",
+                        "regex",
+                        "gte",
+                        "lte"
+                      ]
+                    },
+                    "value": {}
+                  }
+                }
+              },
+              "flow_field": {
+                "description": "可选：JSONPath 指向报告中的流程编码字段，须 == meta.flow_code（证据与目标流程绑定）",
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "exemptions": {
+      "description": "1.3.0：豁免必须带完整取证链（approval_ref/source_run_id/source_compare_sha256_16）——真实 run 绑定不止保护生成器入口，也保护最终契约入口；手写豁免无源 run 账本佐证=TEST_READY 拒绝",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "scope",
+          "match",
+          "reason",
+          "approved_by",
+          "approval_ref",
+          "source_run_id",
+          "source_compare_sha256_16"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "match": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "approved_by": {
+            "type": "string",
+            "minLength": 1
+          },
+          "approval_ref": {
+            "description": "审批工单号/签名引用（可追溯，由 exempt 子命令从 --approval-ref 落入）",
+            "type": "string",
+            "minLength": 1
+          },
+          "source_run_id": {
+            "description": "豁免证据来源 run 的 run_id（exempt 子命令核验账本链后写入）",
+            "type": "string",
+            "minLength": 1
+          },
+          "source_compare_sha256_16": {
+            "description": "来源 run 的 field-compare.json sha256 前 16 位（validator 对账本现算复验）",
+            "type": "string",
+            "pattern": "^[0-9a-f]{16}$"
+          }
+        },
+        "not": {
+          "properties": {
+            "scope": {
+              "const": "*"
+            },
+            "match": {
+              "const": "*"
+            }
+          }
+        }
+      }
+    },
+    "conclusions": {
+      "type": "object",
+      "required": [
+        "PASS",
+        "FAIL",
+        "BLOCKED"
+      ]
+    }
+  },
+  "definitions": {
+    "env": {
+      "type": "object",
+      "required": [
+        "base_url",
+        "login_path"
+      ],
+      "properties": {
+        "base_url": {
+          "type": "string",
+          "pattern": "^https?://"
+        },
+        "login_path": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

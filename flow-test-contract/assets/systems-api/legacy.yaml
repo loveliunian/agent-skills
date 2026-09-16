@@ -1,0 +1,129 @@
+# 老系统（legacy）· API 通道配置 —— 端点待按 F12 实录补齐
+#
+# ⚠️ 必读：本文件按"配置值"扫描 F12 录端点占位符（api-capture / legacy-config-check
+# 同规则——只认 YAML 解析后的值，注释中的字样不触发）。下方 TODO: __F12_RECORD__ 注释
+# 标出**待替换的值所在行**；全部替换后占位即消失。api-capture 检测到残留值 → 立即
+# 拒绝运行（绝不假跑）。完整 F12 录端点操作手册见：
+#   ~/.agents/skills/flow-test-contract/references/f12-record.md
+#   快捷检查：python3 legacy-config-check.py --systems .flowtrace/systems/api/legacy.yaml
+#
+# 备选：若老系统接口难以直调，可走 qianyi 老库抽取（存量对拍）——见
+# references/capture-channels.md「DB 通道（规划中）」。
+id: legacy
+label: 老系统（API 通道·待按 F12 实录）
+channel: api
+api:
+  baseUrl: http://<legacy-prod-host>            # 老系统后端根地址（F12 Network 看实际 API 前缀；可保留路径前缀）
+  taskWaitSeconds: 15
+  # ────── login：登录态获取（必填） ──────
+  # 录法：F12 Network → 提交登录表单 → 看那个 200 的 POST/GET，记录其 method/path 与
+  # 响应 JSON（复制 token 字段的"点路径"，如 "data.accessToken" / "token" / "data.data.token"）
+  login:
+    method: POST                            # F12 Network 中登录请求的 method
+    path: __F12_RECORD__                    # 录：完整登录端点路径（如 /api/auth/login）→ 替换本值
+    body: {username: "${USERNAME}", password: "${PASSWORD}"}   # 若老系统登录表单字段名不同，调整 key
+    tokenPath: __F12_RECORD__               # 录：token 在登录响应中的 JSONPath（如 data.accessToken / token）
+    tokenHeader: Authorization              # token 鉴权头名（一般 Bearer；若老系统用 cookie/X-Auth-Token，改这里）
+    tokenScheme: "Bearer "                  # token 头的前缀（空串=裸 token）
+  # ────── todo：按登录用户查待办（必填） ──────
+  # 录法：登录后进入主页/工作台 → F12 Network → 找主页/工作台初始化时调用的"我的待办/任务列表"接口
+  # 常见特征：GET 请求，QueryString 有 page/size/assignee/userId；响应为 {data: {content: [...]} 或 {list: [...]}
+  todo:
+    method: GET                             # 待办接口 method
+    path: __F12_RECORD__                    # 录：待办查询端点（如 /api/tasks/todo）→ 替换本值
+    params: {page: 0, size: 50}             # 翻页参数（若老系统用 pageNumber/limit，改这里）
+    listPath: __F12_RECORD__                # 录：待办列表在响应中的 JSONPath（如 data.content / data.list）
+    taskIdPath: __F12_RECORD__              # 录：待办条目中"任务 id"字段的 key（如 taskId / id）
+    nodePath: __F12_RECORD__                # 录：待办条目中"节点编码"字段的 key（与契约 nodes[].code 对齐）
+    instancePath: __F12_RECORD__            # 录：待办条目中"流程实例号"字段的 key
+    flowCodePath: __F12_RECORD__            # 录：待办条目中"流程编码"字段的 key（launch-first 实例隔离必填）
+    # selectorPaths（v1.3.6，可选）：场景用 businessKey/fixtureSelector 消歧 reuse 待办时，
+    # 指认各选择器对应的待办条目字段路径；未配而场景又提供该选择器 → 拒（不猜字段）。
+    # selectorPaths: {businessKey: bizKeyField, fixtureSelector: fixtureField}
+  # ────── launch：发起本流程新实例（launch-first 必填） ──────
+  # 录法：F12 Network → 找一个"发起新流程"按钮 → 提交后看那个 POST 请求（通常 body 含
+  # 流程编码/模板 id；响应含新建实例的 instanceNo + firstTaskId）
+  # 元素 ID（数字，必填）：env LAUNCH_ELEMENT_ID_<FLOW_CODE>（如 LAUNCH_ELEMENT_ID_WFA_RY_HZ_0162），
+  #   不录这条 env → api-capture 拒跑（不猜）
+  launch:                                   # launch-first 必填——每 run 先发起本流程新实例
+    method: POST
+    path: __F12_RECORD__                    # 录：发起端点（如 /api/flow/start）→ 替换本值
+    body: {flowCode: "${FLOW_CODE}"}        # 若老系统用 templateId/processKey，调整 body
+    instancePath: __F12_RECORD__            # 录：响应中实例号 JSONPath（如 data.instanceNo）
+    taskIdPath: __F12_RECORD__              # 录：响应中首任务 id JSONPath（可能为 null——可走 todo 查询）
+    elementIdEnv: LEGACY_LAUNCH_ELEMENT_ID  # 回退 env 名（若 env LAUNCH_ELEMENT_ID_<FLOW_CODE> 未设时用此；可改）
+  # ────── form：表单字段采集（必填） ──────
+  # 录法：F12 Network → 打开某个待办（点开任务详情/办理页）→ 看 Network 那个返回"表单字段"的 GET
+  # 响应 JSON 形如 {data: {formFields: {FIELD: value}}} 或 {data: {fields: {FIELD: value}}}
+  form:
+    method: GET
+    path: __F12_RECORD__                    # 录：表单字段端点（含 ${TASK_ID} 占位，如 /api/task/${TASK_ID}/form）
+    fieldsPath: __F12_RECORD__              # 录：字段字典在响应中的 JSONPath（须为 {字段: 值}）
+  # ────── submit：办理提交（必填） ──────
+  # 录法：F12 Network → 提交某个任务 → 看那个 POST 请求（通常 path 含 taskId/instanceNo）
+  # 响应通常为 {ok: true} 或 200/201；按钮编码（BUTTON）从 step.button 或此默认值取
+  submit:
+    method: POST
+    path: __F12_RECORD__                    # 录：提交端点（含 ${TASK_ID} 占位，如 /api/task/${TASK_ID}/submit）
+    defaultButton: __F12_RECORD__           # 录：场景 step.button 缺省时的按钮编码（F12 提交 body 里 buttonCode 的值）
+    body:
+      buttonCode: "${BUTTON}"               # 若老系统用 action/btnKey，调整 key
+      nextAssigneeId: "${NEXT_ASSIGNEE}"    # 流转选人——若老系统叫 nextUserId/toUserId，调整
+    successStatus: [200, 201]               # 提交成功的 HTTP 状态码列表
+  # ────── operations：按钮语义原语（可选，第三十五轮 v1.3.5） ──────
+  # 场景 step.button 命中下列键时改发该按钮的专属端点，不再走统一 submit——
+  # 老系统的退回/作废是独立端点与载荷，编码成 next_step 走提交会被服务端拒
+  # 「所选环节并不可用范围」（2026-09-10 李雅庄铁路 C-03/04/06/07 实测根因）。
+  # 已实证形态（霍州结算老系统，F12+前端 JS 双源取证，2026-09-10）：
+  #   退回流程(G5)   POST /workflowManage/backWorkflow      {WorkflowFlag{FlowInsCode,StepInsCode},
+  #                                                          backStepInstanceId, backDesc}
+  #                  目标列表=POST /workflowManage/getWorkflowInstanceRecordsBack2 {WorkflowFlag}
+  #                          → data.stepInfo[]（stepCode/stepInstCode/stepName/operUser…）
+  #   作废流程(G6)   POST /workflowManage/cancelWorkflow     {WorkflowFlag, reason}
+  #   退回至矿点(G5b) POST /workflowManage/backWorkflowMine   {WorkflowFlag, back_step_instance_ids,
+  #                                                          reason, back_descs}（多字段逗号串）
+  #   退回至待启动    POST /workflowManage/backWorkflowStart  {WorkflowFlag, reason:""}
+  #   撤回流程        POST /workflowManage/withdrawWorkflow   {WorkflowFlag}
+  #   待办重定位      POST /workflowManage/getCurrentUserProcessList（退回后新任务查此列表；
+  #                  行键 instCode/stepInstCode/flowInstCurrStep，无办理人姓名字段）
+  # 载荷模板可用占位：${INSTANCE_NO}/${TASK_ID}/${NEXT_NODE}/${BACK_NODE}/${BACK_TARGET}
+  # （BACK_NODE=场景 expectNext 去括号，如 "19(退回)"→"19"；BACK_TARGET=backTarget 解析器产出）
+  # operations:
+  #   REJECT:                                 # 键 = 场景 step.button 值（建议沿用新系统按钮码）
+  #     method: POST
+  #     path: /api/xxx/workflowManage/backWorkflow
+  #     body:
+  #       WorkflowFlag: {FlowInsCode: "${INSTANCE_NO}", StepInsCode: "${TASK_ID}"}
+  #       backStepInstanceId: "${BACK_TARGET}"
+  #       backDesc: "flow-test-contract api 通道退回"
+  #     backTarget:
+  #       path: /api/xxx/workflowManage/getWorkflowInstanceRecordsBack2
+  #       body: {WorkflowFlag: {FlowInsCode: "${INSTANCE_NO}", StepInsCode: "${TASK_ID}"}}
+  #       listPath: data.stepInfo             # 录：退回目标列表 JSONPath
+  #       nodeField: stepCode                 # 录：目标环节码字段
+  #       idField: stepInstCode               # 录：目标步实例字段（恰一命中，多候选=诚实失败）
+  #     ledger: refetch                       # refetch=按 todo 列表重登记退回后新任务
+  #     refetch:
+  #       path: /api/xxx/workflowManage/getCurrentUserProcessList
+  #       body: {sys_user_id: "", instance_no: "", page: 1, rows: 50}   # 按 F12 实录调整
+  #       listPath: data.data                 # 录：待办行数组 JSONPath
+  #       taskIdField: stepInstCode           # 录：新任务 ID 字段
+  #       nodeField: flowInstCurrStep         # 录：当前环节码字段
+  #       instanceField: instCode             # 录：流程实例码字段（与 ${INSTANCE_NO} 对齐）
+  #       pollSeconds: 10                     # v1.3.6（可选）：退回后新任务异步可见的有限轮询窗口；
+  #                                            # 缺省 0=只查一次（0 条即诚实失败，不盲登账本）
+  #   CANCEL:
+  #     method: POST
+  #     path: /api/xxx/workflowManage/cancelWorkflow
+  #     body:
+  #       WorkflowFlag: {FlowInsCode: "${INSTANCE_NO}", StepInsCode: "${TASK_ID}"}
+  #       reason: "flow-test-contract api 通道作废"
+  #     ledger: finish                        # finish=仅完结当前任务（作废=实例终态）
+# ─────── actorMap：与 browser 通道同构——actor → 环境变量名（凭据零明文） ───────
+# 与 .flowtrace/systems/legacy.yaml 的 actorMap 对齐。缺哪条 actor 就在此补
+# （env 名形如 LEGACY_<账号大写>_USER / LEGACY_<账号大写>_PWD，值由 $RUNTIME_DIR/env 提供；默认密码须显式授权）
+# ⚠️ 占位是合理的——这一节不需 F12 录；按 actor 表逐行补全
+actorMap:
+  admin:  {username: LEGACY_ADMIN_USER,  password: LEGACY_ADMIN_PWD}
+  admin2: {username: LEGACY_ADMIN2_USER, password: LEGACY_ADMIN2_PWD}
+  # 按需追加：xxx: {username: LEGACY_XXX_USER, password: LEGACY_XXX_PWD}

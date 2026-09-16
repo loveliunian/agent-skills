@@ -1,0 +1,52 @@
+# 新系统（current）· API 通道配置 —— 端点取自 frontend/src/api/（auth.ts / processCenter.ts / taskWorkbench.ts）
+# 端点若有变化改这里即可，采集器（api-capture.py）零改动；所有路径可按需调整。
+id: current
+label: 新系统（API 通道）
+channel: api
+api:
+  baseUrl: http://127.0.0.1:8080          # 直连 workflow 网关（绕过前端 5173 代理）
+  taskWaitSeconds: 15                     # 提交后等待下一节点任务可见的轮询窗口
+  login:
+    method: POST
+    path: /api/auth/login
+    body: {username: "${USERNAME}", password: "${PASSWORD}"}
+    tokenPath: data.token                 # 若响应裸给 token（无 data 包裹）改为 "token"
+    tokenHeader: Authorization
+    tokenScheme: "Bearer "
+  todo:                                   # 按登录用户查待办（token 即身份）
+    method: GET
+    path: /engine/flow/tasks/todo
+    params: {page: 0, size: 50}
+    listPath: data.content                # 分页列表（PageResponse.content）
+    taskIdPath: taskId
+    nodePath: stepCode                    # 场景 step.node 与此对齐（节点编码）
+    instancePath: flowInstanceNo
+    flowCodePath: flowCode                # 第十三轮：待办条目流程编码——配置后强制 == 场景 flow_code
+  launch:                                 # launch-first 必填（第十三轮：每 run 发起本流程新实例，
+                                          #   实例隔离防误操作他流程任务；元素 ID 见 elementIdEnv 注释）
+    method: POST
+    path: /api/governance/process-center/launch
+    body: {processElementId: "${ELEMENT_ID}"}
+    instancePath: data.flowInstanceNo
+    taskIdPath: data.firstTaskId
+    # 元素 ID（数字，按流程命名）: env LAUNCH_ELEMENT_ID_<FLOW_CODE>（如 LAUNCH_ELEMENT_ID_WFA_RY_HZ_0162），
+    # 回退本字段；两者皆缺 → api-capture 诚实拒绝（不猜测流程要素）
+    elementIdEnv: CURRENT_LAUNCH_ELEMENT_ID
+  form:                                   # 表单字段采集（capture: form-fields 的数据源）
+    method: GET
+    path: /engine/flow/task/${TASK_ID}/workbench
+    fieldsPath: data.formData             # → {字段: 值}；实际字段位置以 workbench 响应为准
+  submit:                                 # 办理（按钮执行）
+    method: POST
+    path: /engine/flow/task/${TASK_ID}/execute-button
+    defaultButton: 提交                   # step.button 缺省时的按钮编码（按流程调整）
+    body:
+      buttonCode: "${BUTTON}"
+      comment: "flow-test-contract api 通道"
+      nextAssigneeId: "${NEXT_ASSIGNEE}"  # 场景 expectAssignee 非空时才发送
+    successStatus: [200, 201]
+# actorMap：与 browser 通道同构——actor → 环境变量名（凭据零明文；值由 $RUNTIME_DIR/env 提供，默认密码须显式授权）
+# 首发先登记契约涉及账号，其余按需从 .flowtrace/systems/current.yaml 的 actorMap 增补
+actorMap:
+  admin:  {username: CURRENT_ADMIN_USER,  password: CURRENT_ADMIN_PWD}
+  admin2: {username: CURRENT_ADMIN2_USER, password: CURRENT_ADMIN2_PWD}

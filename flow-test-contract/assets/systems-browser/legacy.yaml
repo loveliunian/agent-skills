@@ -1,0 +1,96 @@
+# 老系统（legacy）· 浏览器通道配置 —— 数十轮实测选择器/SOP 固化（2026-09-09）
+#
+# 来源：老系统浏览器对比测试（23 分支 / 多轮复测）实战沉淀；全部选择器为实测值。
+# 探针纪律与 api 通道一致：解析值含 __UI_RECORD__ → browser-capture.py 拒跑（不猜 UI）。
+# 校验：python3 browser-capture.py --check-config --systems .flowtrace/systems/browser/legacy.yaml
+# 只读实测：python3 browser-capture.py --probe --systems .flowtrace/systems/browser/legacy.yaml --headed
+#
+# UI 变更时只需改本文件（脚本零改动）——语义探针按 a11y 快照行正则匹配。
+id: legacy
+label: 老系统（浏览器通道）
+channel: browser
+browser:
+  baseUrl: http://<legacy-prod-host>
+  session: ftc-legacy                    # playwright-cli --session（可并行多项目）
+  profile: /tmp/ftc-legacy-profile       # 持久 profile（JWT/免重复 warmup）
+  headed: true                           # 用户可见浏览器（default）；CI 置 false
+  loginWaitSeconds: 2.5
+  cliTimeoutSeconds: 60
+  taskWaitSeconds: 20                    # 提交后下一节点待办轮询窗口（老库忙时 15s 不够）
+  switchAccount: close-reopen            # 铁律：JWT 切号唯一可靠方式=整浏览器关开（同 profile）
+  whoamiContains: 线上支付结算系统        # 登录成功标识（页面标题）
+  instancePattern: "[A-Z]{2,10}\\d{5,}"  # 实例号（如 JMFXZXK001884）页面文本提取
+  login:                                 # 登录页静态 ref（数十轮稳定）；UI 改版时删除本块走探针兜底
+    userRef: e11                         # 第 1 textbox=账号
+    passRef: e17                         # 第 2 textbox=密码
+    submitRef: e31                       # 登录按钮
+nav:
+  flowMenu: 港口煤发运流程
+  launchItem: 发起流程
+  todoItem: 待处理流程
+  todoRowOrdinal: 1                      # launch-first 隔离下首行即本实例（s≥2 仍按实例号绑定校验）
+  handleButton: 去处理
+  launchButton: 启动流程
+  fallbackMenu:                          # G3.4 无菜单账号双通道入口
+    parent: 结算处理
+    item: 港口待处理结算
+form:
+  saveButton: 保存单据
+  nextNodeLabel: 请选择环节
+  submitButton: 提交流程
+  confirmButton: 确定
+  autoConfirmPopups: 1                   # 同人自动流转：提交确定后再弹确定
+  datePanelTrigger: 选择日期时间          # 00 日期陷阱：必须日历面板点选（键入不进模型）
+  forms:                                 # 按节点码的填单策略；value 支持 ${ENV:VAR}
+    "00":
+      popupSelect:
+        - {triggerNth: 1, optionContains: "京唐港"}   # 到站弹窗
+      datePanel: {day: today}
+      textboxes:
+        - {nth: 3, value: "古交"}                     # 发站（字段序号易错位，改前先 --probe 回读）
+        - {nth: 5, value: "50"}
+        - {nth: 6, value: "2000"}
+        - {nth: 7, value: "1900"}
+    "10":
+      textboxes:
+        - {nth: 1, value: "8.0"}                      # 全水分
+        - {nth: 2, value: "10.0"}                     # 灰分
+        - {nth: 3, value: "25.0"}                     # 发热量
+    "35":
+      popupSop: s95306                                # G3.1（见 popups.s95306）
+popups:
+  s95306:                                # G3.1 95306 数据弹窗 SOP（实测编码化）
+    openButtonContains: "95306"
+    resetButton: 重置
+    queryButton: 查询
+    waitSeconds: 9                       # 重置+查询后老库忙时 8~10s 才出数
+    usedMarker: 已被使用                  # 白色复选框=未使用；含此标记的行跳过
+handlerPick:                             # G3.3 处理人为空 → 提交静默失败 → 提交前补选
+  enabled: true
+  triggerLabel: 请选择处理人
+nodeNames:                               # 环节码 → 环节下拉显示名（选环节匹配用；WFA_RY_JM_126001）
+  "00": 数量鉴定单制单
+  "01": 数量鉴定单审核
+  "02": 数量鉴定单负责人
+  "05": 运销科负责人盖章
+  "06": 计量章负责人盖章
+  "10": 质量鉴定单制单
+  "11": 质量鉴定单审核
+  "12": 质量鉴定单负责人
+  "15": 化验章负责人盖章
+  "30": 计量衡重
+  "35": 95306货票明细制单
+  "40": 货运发票单制单
+  "41": 货运发票单审核
+  "42": 货运发票单负责人
+  "45": 计量部审核
+  "46": 计量部负责人
+  "47": 结算部审核
+  "50": 数量单复核
+  "55": 质量单复核
+actorMap:                                # 凭据零明文：actor → 环境变量名（值由 $RUNTIME_DIR/env 提供）
+  fx_houlijuan3: {username: LEGACY_FX_HOULIJUAN3_USER, password: LEGACY_FX_HOULIJUAN3_PWD}
+  fx_yingyun_wangzhefeng: {username: LEGACY_FX_YINGYUN_WANGZHEFENG_USER, password: LEGACY_FX_YINGYUN_WANGZHEFENG_PWD}
+  fx_yingyun_gaopeng: {username: LEGACY_FX_YINGYUN_GAOPENG_USER, password: LEGACY_FX_YINGYUN_GAOPENG_PWD}
+  lijuhua1: {username: LEGACY_LIJUHUA1_USER, password: LEGACY_LIJUHUA1_PWD}
+  # 其余分支账号按同格式追加（$RUNTIME_DIR/env 同步补值；无兜底时缺 env → 拒跑）
