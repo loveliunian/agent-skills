@@ -1,6 +1,6 @@
 ---
 name: design-review-committee
-version: "3.24.0"
+version: "3.25.0"
 description: 详设 P2a 五角色独立评审委员会；角色、探针和收据必须与 Gate 一致
 allowed-tools: [read, write, exec, grep, glob, task]
 ---
@@ -45,6 +45,7 @@ session 重新走两阶段全流程。
 ## 探针与发现契约
 
 每个角色先执行其适用的 P1–P6 探针，再给结论。每行探针记录必须写 `已执行` 或 `不适用`，并附证据位置和理由；不能只写“已阅”。
+详设声明了 REUSE/MODIFY/DELETE 基线条目时，**CODE-BASELINE 代码基线核验探针**必答（逐个基线目标与 §14/§15 实现交接对账；绿地纯 ADD 可记不适用）——v3.24.0 起 Gate 机检，证据锚点须解析到详设真实章节。
 
 深层发现可按实际情况为零。若零发现，角色必须提供 `ZERO-DF` 核查块，包含核查范围、证据锚点和验证方式；不得用固定数量凑数。
 

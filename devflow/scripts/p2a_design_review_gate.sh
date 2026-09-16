@@ -278,7 +278,7 @@ awk '/^```/{infence=!infence; next} !infence' "$REVIEW_PATH" > "$STRIP_FILE"
 # 必须解析到真实对象（虚构锚点曾以“结果：§99.99”混过深度子检查）。
 DESIGN_HEADINGS_FILE=$(mktemp -t p2a-dhead.XXXXXX)
 awk '/^```/{infence=!infence; next} !infence && /^#{1,6} /' "$DESIGN_PATH" 2>/dev/null \
-  | grep -oE '§?[0-9]+(\.[0-9]+)+' | sed 's/^§//' | sort -u > "$DESIGN_HEADINGS_FILE" || true
+  | grep -oE '§?[0-9]+(\.[0-9]+)*' | sed 's/^§//' | sort -u > "$DESIGN_HEADINGS_FILE" || true
 
 DF_TOTAL=$(grep -cE '^#### DF-[0-9]+' "$STRIP_FILE" || true)
 pass "DF findings counted without padding (actual: $DF_TOTAL)"
@@ -330,7 +330,7 @@ for role in "架构师" "后端专家" "前端专家" "测试开发" "DBA"; do
     # 该角色零发现：其 ZERO-DF 块必须含核查实质（核查范围/证据/验证方式任二字段非空，
     # 或块内实质内容 ≥3 行）——awk 局部变量防 $0 重建，块边界为下一个 #### 标题。
     zero_hollow=$(LC_ALL=C awk -v role="$role" '
-      function blank(r){ gsub(/[[:space:]:：、，。/-]/,"",r); return (r=="") }
+      function blank(r){ gsub(/[[:space:]:：、，。-]/,"",r); return (r=="") }
       BEGIN{inblk=0; bad=0; fields=0; lines=0}
       /^#### ZERO-DF/ && $0 ~ role {inblk=1; fields=0; lines=0; next}
       /^#### / && inblk { if (fields<2 && lines<3) bad++; inblk=0; next }
@@ -381,7 +381,7 @@ while IFS= read -r awline; do
   done
   # 「结果」段引用解析：§锚点 → 设计标题集合；DF-xx → 本报告 DF 编号
   _result="${awline#*结果：}"; _result="${_result%%｜*}"
-  _aw_refs=$(printf '%s' "$_result" | grep -oE '§[0-9]+(\.[0-9]+)+' | sed 's/^§//' | sort -u)
+  _aw_refs=$(printf '%s' "$_result" | grep -oE '§[0-9]+(\.[0-9]+)*' | sed 's/^§//' | sort -u)
   _aw_dfs=$(printf '%s' "$_result" | grep -oE 'DF-[0-9]+' | sort -u)
   _aw_ref_bad=0
   if [ -z "$_aw_refs" ] && [ -z "$_aw_dfs" ]; then
@@ -409,12 +409,28 @@ if grep -q '探针执行记录' "$REVIEW_PATH"; then
 else
   p0 "missing 探针执行记录 — 六类探针未留痕不得下结论"
 fi
-for probe in "P1" "P2" "P3" "P4" "P5" "P6"; do
+for probe in "P1" "P2" "P3" "P4" "P5" "P6" "CODE-BASELINE"; do
+  # v3.24.0(A02/报告§5)：CODE-BASELINE 代码基线核验探针——详设声明 REUSE/MODIFY/DELETE
+  # 时必答（绿地纯 ADD 可不适用）；命名避开流程阶段 P7（部署）。
+  _probe_required=1
+  if [ "$probe" = "CODE-BASELINE" ]; then
+    _probe_required=0
+    P2A_DJ="${STATE_DIR:-.devflow}/${FEATURE}/design.json"
+    if [ -f "$P2A_DJ" ] && command -v python3 >/dev/null 2>&1; then
+      # $( ) 本身就是子 shell——unset LC_ALL 仅影响命令替换内部，不污染 Gate 环境
+      _probe_required=$(unset LC_ALL; python3 -c 'import json,sys
+try:
+    es = json.load(open(sys.argv[1])).get("baseline", {}).get("entries", [])
+    print(1 if any(e.get("decision") in ("REUSE", "MODIFY", "DELETE") for e in es) else 0)
+except Exception:
+    print(0)' "$P2A_DJ" 2>/dev/null || echo 0)
+    fi
+  fi
   probe_row=$(grep -E "^\\|[[:space:]]*${probe}[[:space:]]" "$REVIEW_PATH" 2>/dev/null | head -1 || true)
   if printf '%s' "$probe_row" | grep -qE '已执行|不适用' && printf '%s' "$probe_row" | grep -qE '证据|§[0-9]+\.[0-9]+'; then
     # v3.24.0(A09)：证据列的 §锚点必须解析到设计文档真实标题——
     # "已执行｜证据" 六行空壳曾原样通过探针子检查。
-    probe_refs=$(printf '%s' "$probe_row" | grep -oE '§[0-9]+(\.[0-9]+)+' | sed 's/^§//' | sort -u)
+    probe_refs=$(printf '%s' "$probe_row" | grep -oE '§[0-9]+(\.[0-9]+)*' | sed 's/^§//' | sort -u)
     probe_ref_bad=0
     if [ -n "$probe_refs" ]; then
       for _pa in $probe_refs; do
@@ -426,6 +442,8 @@ for probe in "P1" "P2" "P3" "P4" "P5" "P6"; do
     else
       p0 "${probe} evidence anchors do not resolve in design（§锚点必须指向详设真实标题）"
     fi
+  elif [ "$_probe_required" = "0" ] && [ -z "$probe_row" ]; then
+    pass "${probe} not applicable（详设无 REUSE/MODIFY/DELETE 基线条目）"
   else
     p0 "${probe} execution row missing status or evidence"
   fi
@@ -443,6 +461,30 @@ if [ "$SF_COUNT" -gt "$DF_TOTAL" ] && [ "$DF_TOTAL" -gt 0 ]; then
   warn "SF($SF_COUNT) > DF($DF_TOTAL) — 表层 nitpick 超过深层发现，凑数嫌疑"
 fi
 rm -f "$STRIP_FILE" "$DESIGN_HEADINGS_FILE"
+
+# ---------- §3h 严重性修订纪律（v3.24.0/A13） ----------
+echo ""
+echo "=== §3h 严重性修订纪律 ==="
+# 报告存在"严重性修订"表时：修订后严重性与原严重性不同的行必须给出修订理由——
+# 不得靠把 P0/P1 改轻绕过关闭义务；确认评委列同步非空（当事人回避后须有人确认）。
+SEV_BAD=$(LC_ALL=C awk -F'|' '
+  function trim(s){gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s}
+  /严重性修订/ {intab=1; next}
+  /^\|/ && intab {
+    # 数据行：| 序号 | 原DF | 原严重性 | 修订后 | 修订理由 | 确认评委 |
+    if ($2 !~ /^[[:space:]]*[0-9]+[[:space:]]*$/) next
+    orig=trim($4); rev=trim($5); reason=trim($6); conf=trim($7)
+    if (orig != "" && rev != "" && orig != "—" && rev != "—" && orig != rev) {
+      if (reason == "" || reason == "—" || conf == "" || conf == "—") bad++
+    }
+  }
+  /^## / && intab && !/严重性修订/ {intab=0}
+  END{print bad+0}' "$REVIEW_PATH" 2>/dev/null || echo 0)
+if [ "${SEV_BAD:-0}" -eq 0 ]; then
+  pass "severity revisions carry reason and confirmer（无理由改轻 = 绕过关闭义务，直接 P0）"
+else
+  p0 "severity revisions without reason/confirmer: $SEV_BAD — MINOR/降级接受须有理由、边界与批准记录，不得靠改严重性绕过"
+fi
 
 # ---------- §4 遗留问题 = 0 ----------
 echo ""

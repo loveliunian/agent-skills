@@ -95,6 +95,22 @@ mkdir -p "$(dirname "$OUT")"
     echo "> 未检测到外部对接信号，本节跳过。若实际存在对接，请补充到需求文档后重新生成。"
     echo ""
   fi
+  # local-patch:design-quality v1 begin (2026-09-17) — design 阶段追加内容充分性自查项
+  if [ "$STAGE" = "design" ]; then
+    echo "## 详设内容充分性（本地补丁：治理服务-v2 事故教训）"
+    echo ""
+    if [ -f "scripts/check_design_doc_quality.py" ]; then
+      echo "- [ ] 已运行 \`python3 scripts/check_design_doc_quality.py --doc <详设路径>\` 退出码 0（证据：贴 SUMMARY 行）"
+    else
+      echo "- [ ] 接口详细定义全部物理置于声明子域块内，无【子域】补注（证据：§5.3 节清单）"
+      echo "- [ ] 每个接口小节含请求/响应双六列表（响应表头含恒出性），无散文式响应（证据：抽 3 节）"
+      echo "- [ ] §3 每条 R 规则被 §4 至少一个流程 [Rn] 引用（证据：未覆盖清单或全覆盖说明）"
+      echo "- [ ] §7.2 页面映射消费全部接口节；数字交叉引用全部有效（证据：核对方式）"
+      echo "- [ ] 表结构对账 ERROR=0（证据：对账报告计数行）"
+    fi
+    echo ""
+  fi
+  # local-patch:design-quality v1 end
 } > "$OUT"
 
 TOTAL=$(grep -cE '^- \[ \]' "$OUT" 2>/dev/null || true)

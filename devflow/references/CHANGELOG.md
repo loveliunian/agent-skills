@@ -1,12 +1,27 @@
 ---
 name: changelog
-version: "3.24.0"
+version: "3.25.0"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.24.0 Migration Guide
+# Changelog — devflow v1 → v3.25.0 Migration Guide
+
+## v3.25.0 (2026-09-17) — 全阶段结构化产物（每个环节的 md 产物都有 JSON 契约）
+
+> 把 P2 design.json / P6 verification.json 的「JSON → 校验 → 渲染 → Gate」失败关闭模式推广到全部环节：
+> 每个阶段的人读 Markdown 产物都有了机器可读的 JSON 正本（schema 声明「要填哪些内容」），
+> 校验器与渲染器在渲染前拦截缺字段/断链/占位/伪造证据，Gate 仍按原格式解析渲染产物（逐字段兼容）。
+
+- **15 个新结构化产物 kind**（`df_pipeline.py` 子命令 = JSON 落盘名）：clarification/acceptance/constraints（P0）、prd-review（P0b）、tech-selection（P1）、design-review（P2a）、self-check（P3）、code-review（P3b）、prd-validation（P4）、test-cases（P5）、deployment（P7）、monitoring（P8）、docs-index（P9）、retrospective/sharing（P10）、demo-signoff（P2b）、small-change（SMALL-CHANGE）。
+- **P2b/P10 收口**：demo-signoff 渲染与 p2b_demo_gate.sh 逐字段兼容（KUF 唯一编号 ≥3 且每条带走查、原型文件 docs/原型/ 实存反查、PO 结论禁止未决表述、签字人+日期）；sharing 覆盖 p10 知识分享 ≥3 条 lesson；retrospective 补「本次新发现」强制章节（p10 gate H2 检查）。
+- **产物路径对账修正**：phase 文档的渲染目标路径与 Gate 实际解析目录对齐——PRD评审→docs/需求、技术选型→docs/详细设计、监控配置→docs/发布（df_resolve_doc 目录键为准）。
+- **schema 注解通用引擎**：`df_validate.py` 支持 schema 顶层 `x-unique`（数组唯一）/`x-refs`（引用闭环）/`x-zeroable`（空集合必须 zero_results 显式声明，声明必须真为空）/`x-min-count`（数量下限）四类注解，15 个产物的通用规则一次实现；各 kind 深度规则在 `check_<kind>` 专项函数（P0 模糊点清零、验收点全 FROZEN、DF 五字段+角色覆盖、权重合计 100%、收据 session 一致、核心检查全 PASS、同人自签、P0 finding 全 CLOSED、决策可复算…）。
+- **整文档确定性渲染**：`df_render.py` 新增 14 个整文档渲染器 + small-change 三件套（报告 md + `small-change.env` + `project-scan.txt`）。渲染格式与各 Gate 的机器解析契约逐字段对齐：s0 的 P0 行扫描/分母冻结行/模板 H2 对齐、tc_constraints_lib 的 DEVFLOW:CONSTRAINTS 块、s1 的 CONSTRAINT-BINDINGS 块、p2a 的 REVIEW_RUN_ID/收据表/DF 块、p3b 的 `FINDING|P0|…|STATUS=…` 行（P0-ID 不在正文重复出现）、p4 的 `P0_BLOCKERS=0` 行、artifact_gate P7/P8/P9 的 KEY=VALUE 证据行。
+- **验收点 ID 规范形收紧**：acceptance.json 的 ID 必须 `M-xx-Fyy-Azz` 带连字符（s0/p5 Gate 的 M-ID 正则只认此形态，无连字符形态实测被判 invalid）。
+- **测试**：新增 `tests/test-structured-artifacts-phase-docs.sh`（97 断言：15 kind 正向校验、18 个代表性负向拦截、Gate 机器标记 grep、真实 s0 Gate 端到端、管线失败关闭）；原有 `test-structured-artifacts.sh` 72 断言回归通过。
+- **工作方式变化**：写阶段产物 = 填 `.devflow/<feature>/<kind>.json` → 跑 `df_pipeline.py <kind>` → 渲染产物进 Gate。模板保留为语义参考；校验失败不渲染、不落盘、不进 Gate（失败关闭语义与 P2/P6 一致）。
 
 ## v3.24.0 (2026-09-17) — 详设体系体检报告修复（业务行为契约 + 机器证据闭环）
 
@@ -40,6 +55,23 @@ disable-model-invocation: false
 - **A14 P0b 深度口径**：DF 按实际发现（废除总数 ≥5/每角色 ≥1 凑数），每角色须有 DF 或含核查实质的 ZERO-DF 证据，与 review-depth-methodology 统一。
 - **A11 模板示例冲突**：分文档 §5.3.1/§5.3.2 补全请求/响应双六列表；两模板删除时序改为"关联存在→回滚拒绝"分支先于写入（与伪代码一致）；完整版删除流程补并发口径说明（锁/复合约束二选一，"放进事务"不是并发安全证明）；审计失败回滚改为按审计策略显式决策。
 - **A15 回归钉**：新增 `tests/test-design-contract-hardening.sh`（30 断言）——每条负向断言从合法样本变异单一因素：块注册表/管线正向、业务操作覆盖缺口、虚构基线、类型冲突、空壳正文、PRD 源缺失、嵌套断链、角色表解析、纯计算豁免、frontend 漂移、花括号占位；废除 v3140 回归中过时的"9<10 DF 阈值"断言，改钉五字段/引用解析契约。
+
+### 第二轮补齐（2026-09-17，对照报告逐条收口）
+
+- **A02 收口**：`baseline.entries[]` 新增 `fingerprint`（64-hex 文件 SHA-256，工作区反查时实算比对，基线漂移拦截）与 `related_operations`（关联业务操作，悬空引用拦截）；**P2 收据证据树绑定基线调查过的源码文件**——评审/实现期间源码被改写 → audit-receipts 重验 FAIL。
+- **A03 收口**：五列表**约束列**与 JSON 比对（同字段约束不一致拦截）；`rules[].when_line` 逐字契约——正文伪代码改写而 JSON 不同步即"规则不一致"。
+- **A04 收口**：`acceptance.page/api/data` 支持**多对象数组**（一条验收行为可关联多个页面/接口/表），孤儿判定与断链校验按元素粒度；渲染器以「、」连接。
+- **A05 收口**：新增**设计包清单** `design-package.json`（`scripts/df_design_package.py`）——总分模式必填：子集并集=冻结分母（多/少即 FAIL）、登记文档必须存在（缺文档即失败）、当前文档按其验收子集做范围过滤的文档对账（`df_validate --scope-ids`）；三模板过时的"已知未决 total 逐点 COMPLETE"注记更新为设计包契约。
+- **A06 收口**：纯 UI/消息消费者/小程序/APP 四类**正向夹具**入回归（`test-design-package-modes.sh`）。DB 适用性仍由 `migrations.not_applicable_reason`（铁律 5）承载——P0 无 `--no-db` 冻结参数，新增属 P0 协议扩展另行评审。
+- **A07 收口**：sub/total 两模式完成「模板拷贝→最小合法填充→管线→Gate」**完整正向测试**（monolith 已有）；顺带修复模板自身两处缺陷——铁律注释块缺 `-->` 闭合、示例文本"成功占位"撞 Gate 占位词、总文档缺 acceptance-traceability 锚点。
+- **A08 收口**：**完整 P2a 正向 fixture** 落地（`test-review-receipt-lifecycle.sh`）——真实测试密钥签发 12 份 attestation、六角色两阶段收据、报告满足全部深度契约 → 整道 Gate PASS。
+- **A09 收口**：p2a § 锚点解析支持单级（§5 与 §2.3 同法），AW/探针引用解析覆盖全部真实章节。
+- **A10 收口**：初审/复审（新 session 全流程）/缺平台证明清楚报错/错误密钥签名拒绝，四条生命周期测试齐备。
+- **A13 收口**：**严重性修订纪律**机检（p2a §3h）——修订后严重性变化的行，修订理由与确认评委必填，无理由降级直接 P0。
+- **A15 收口**：负向断言升级为**点名被变异对象**（缺失的验收 ID、虚构目标路径、冲突类型值）；评审正文/复审生命周期/三模式完整正向测试补齐。
+- **A16 收口**：新增 `tests/test-prompt-refs.sh`——扫描活提示词（commands/phases/subagents/references/concepts/templates/SKILL.md）反引号与链接引用的 skill 内部路径（455 处）逐一验证存在；CHANGELOG 为历史迁移记录按设计豁免。
+- **CODE-BASELINE 探针**（报告 §5 建议）：p2a 新增第七类探针——详设含 REUSE/MODIFY/DELETE 基线时必答（绿地可记不适用），证据锚点须解析详设真实章节；同步更新评审报告模板、committee、02a、Gate 与测试。
+- **§4"业务对象与术语"**：由 data-model（tables[]/ER/孤儿与引用闭环）+ business_operations.related_objects 承载机器对账，语义判断归评审（报告原文："这些是必须作出决定的问题，不是预先规定的业务答案"）。
 
 ## v3.23.1 (2026-09-16) — 开源硬化（深度审阅报告修复）
 

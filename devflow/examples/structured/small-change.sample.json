@@ -1,0 +1,57 @@
+{
+  "feature": "c-sort-default",
+  "generated_at": "2026-09-16T11:10:00Z",
+  "template": { "id": "小需求变更-模板", "version": "3.25.0" },
+  "change_id": "c-sort-default",
+  "request": "把列表默认排序改成按更新时间倒序，用户想最快看到刚改过的记录",
+  "subject": "列表默认排序改为更新时间倒序",
+  "kind": "ui-behavior",
+  "old_behavior": "列表默认按创建时间倒序",
+  "new_behavior": "列表默认按更新时间倒序",
+  "target": "merge-ready",
+  "surfaces": ["ui"],
+  "paths": ["frontend/src/views/pay/List.vue"],
+  "scan": {
+    "db": "MISS",
+    "domain": "MISS",
+    "api": "MISS",
+    "client": "MISS",
+    "config": "MISS",
+    "test": "HIT",
+    "permission": "NA",
+    "workflow": "NA",
+    "cross_service": "NA",
+    "history_data": "NA"
+  },
+  "logical_change_count": 1,
+  "breaking": {
+    "api": 0,
+    "type_nullability": 0,
+    "permission": 0,
+    "state_machine": 0,
+    "cross_service": 0,
+    "new_table_or_service": 0,
+    "large_backfill": 0,
+    "migration_required": 0
+  },
+  "dialects": "",
+  "decision": "MICRO",
+  "decision_reason": "仅前端默认排序参数变化：扫描十维仅 test 命中，无权限/流程/跨服务/历史数据风险，逻辑变更数 1",
+  "verify_cmd": "npm run test:unit -- List",
+  "migration_verify_cmd": "",
+  "deploy_receipt_path": "",
+  "monitor_receipt_path": "",
+  "acceptance": {
+    "positive": "打开列表默认按更新时间倒序，刚编辑的记录在首行",
+    "boundary": "更新时间为空的存量记录排在末尾且不报错",
+    "failure": "排序参数异常时回退默认排序并记录 WARN 日志"
+  },
+  "verification": {
+    "cmd": "npm run test:unit -- List",
+    "exit_code": 0,
+    "log": ".devflow/c-sort-default/verify.log",
+    "env_boundary": "本地开发环境（node 20 / vitest）",
+    "conclusion": "MERGE_READY"
+  },
+  "zero_results": []
+}

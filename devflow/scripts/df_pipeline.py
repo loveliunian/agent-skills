@@ -20,6 +20,16 @@ Gate 仍是阶段权威（如 P6 的 s6_final_verification_gate.sh 会实际执�
       --out docs/测试/f-终验报告.md \
       --baseline .devflow/f/first-pass-baseline.tsv \
       --exec-record .devflow/f/test-execution-results.env
+
+  # v3.25.0 全阶段产物（每环节 md 产物都有 JSON 契约，失败关闭）：
+  #   clarification acceptance constraints prd-review tech-selection design-review
+  #   self-check code-review prd-validation test-cases deployment monitoring
+  #   docs-index retrospective small-change
+  python3 df_pipeline.py acceptance --input .devflow/f/acceptance.json \
+      --out docs/需求/f-验收点.md --criteria docs/PRD/f.md
+  python3 df_pipeline.py small-change --input .devflow/c1/small-change.json \
+      --out docs/小需求变更/c1-小需求变更.md \
+      --out-env .devflow/c1/small-change.env --out-scan .devflow/c1/project-scan.txt
 """
 import argparse
 import subprocess
@@ -38,13 +48,22 @@ def _run(cmd):
 
 
 def main():
+    # v3.25.0：kind 注册表 = df_validate._DEFAULT_SCHEMAS（design/verification 之外的
+    # 全阶段产物共用整文档渲染路径，extra outputs 支持 small-change 三件套）
+    import df_validate as _dv  # 同目录脚本，注册表单源
+    _PHASE_KINDS = sorted(set(_dv._DEFAULT_SCHEMAS) - {"design", "verification"})
+
     ap = argparse.ArgumentParser(description="validate → render → gate（失败关闭）")
-    ap.add_argument("kind", choices=["design", "verification"])
+    ap.add_argument("kind", choices=["design", "verification"] + _PHASE_KINDS)
     ap.add_argument("--input", required=True, help="结构化 JSON 路径")
     ap.add_argument("--schema", default=None, help="schema.json 路径（缺省用 skill 内置）")
     ap.add_argument("--doc", default=None, help="design: 拼接目标详设文档")
-    ap.add_argument("--out", default=None, help="输出 Markdown（verification 必填；design 独立输出时必填）")
-    ap.add_argument("--criteria", default=None, help="design: P0 验收点文件（冻结分母对账）")
+    ap.add_argument("--out", default=None, help="输出 Markdown（verification/各阶段报告必填）")
+    ap.add_argument("--out-env", default=None, help="small-change: small-change.env 输出路径")
+    ap.add_argument("--out-scan", default=None, help="small-change: project-scan.txt 输出路径")
+    ap.add_argument("--out-feedback", default=None, help="retrospective: feedback.md 输出路径")
+    ap.add_argument("--criteria", default=None, help="design/test-cases: P0 验收点文件（集合/覆盖对账）")
+    ap.add_argument("--constraints", default=None, help="tech-selection: P0 技术约束契约文件（绑定对账）")
     ap.add_argument("--baseline", default=None, help="verification: first-pass-baseline.tsv（P6 必填）")
     ap.add_argument("--exec-record", default=None, help="verification: test-execution-results.env（P6 必填）")
     ap.add_argument("--workspace", default=".", help="报告相对路径解析根")
@@ -71,6 +90,8 @@ def main():
         )
     if args.kind == "design" and not args.doc and not args.out:
         ap.error("design 需要 --doc 或 --out")
+    if args.kind in _PHASE_KINDS and not args.out:
+        ap.error(f"{args.kind} 需要 --out（渲染目标 Markdown）")
 
     validate_cmd = [sys.executable, _HERE / "df_validate.py", "--kind", args.kind,
                     "--input", args.input, "--workspace", args.workspace,
@@ -87,6 +108,10 @@ def main():
             validate_cmd += ["--baseline", args.baseline]
         if args.exec_record:
             validate_cmd += ["--exec-record", args.exec_record]
+    if args.kind == "test-cases" and args.criteria:
+        validate_cmd += ["--criteria", args.criteria]
+    if args.kind == "tech-selection" and args.constraints:
+        validate_cmd += ["--constraints", args.constraints]
 
     print("[pipeline] Step 1/2 校验结构化 JSON …")
     rc = _run(validate_cmd)
@@ -101,7 +126,14 @@ def main():
         render_cmd += (["--doc", args.doc] if args.doc else ["--out", args.out])
     else:
         render_cmd += ["--out", args.out]
-        if args.exec_record:
+        if args.kind == "small-change":
+            if args.out_env:
+                render_cmd += ["--out-env", args.out_env]
+            if args.out_scan:
+                render_cmd += ["--out-scan", args.out_scan]
+        if args.kind == "retrospective" and args.out_feedback:
+            render_cmd += ["--out-feedback", args.out_feedback]
+        if args.kind == "verification" and args.exec_record:
             render_cmd += ["--exec-record", args.exec_record]
     rc = _run(render_cmd)
     if rc != 0:

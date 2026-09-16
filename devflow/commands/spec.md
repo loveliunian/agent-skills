@@ -1,6 +1,6 @@
 ---
 name: spec
-version: "3.24.0"
+version: "3.25.0"
 description: Use when a user asks to clarify a PRD, produce field-level detailed design, design a database or legacy mapping, or complete /spec without implementing code.
 paths: [docs/PRD/**, docs/需求/**, docs/详细设计/**]
 disable-model-invocation: false
@@ -96,7 +96,9 @@ P1 必须读取 P0 技术约束契约，并逐条生成 `constraint_id` 绑定�
 
 > **技术选型标准**：所有详设必须遵循项目技术选型文档（如 `docs/技术选型.md`），模板中技术栈以 `{xxx}` 占位，由用户根据实际项目填写。
 
-**必须在进入 P2 前执行** `/init-fact-sources`，至少建立 7 份事实源：
+**必须在进入 P2 前执行** `/init-fact-sources`，至少建立 7 份事实源（`/init-fact-sources` 生成的
+文件自带 `DEVFLOW:FACT-SOURCE` 元数据块——来源/时点/适用范围；缺块时 P1 Gate WARN 提示补登记，
+「事实文件存在不等于调查完成」）：
 
 ### 手维护事实源（5份）
 
@@ -156,6 +158,11 @@ If the project has no approved `docs/templates/详细设计-模板.md`, initiali
 **结构、章节与写作细则一律以模板为正本**（本章不重复内嵌示例，避免与模板结构漂移）：
 按选定模式全文复制 `templates/详细设计-完整版-模板.md` / `详细设计-总分总文档-模板.md` /
 `详细设计-总分分文档-模板.md` 作为起点；产物必须替换 `{{template_version}}` 为所用模板 frontmatter 的 version。
+
+**总分模式设计包（v3.24.0/A05）**：选择总分结构时，必须在 P2 冻结
+`.devflow/<feature>/design-package.json`（`docs[].path/mode/acceptance_ids`）——分文档按自己的
+验收子集对账，子集**并集必须与 P0 冻结分母全等**，缺文档或并集不全等即 P2 Gate FAIL；
+跨模块引用以语义锚点解析。
 
 ### P2.2 设计覆盖率检查
 

@@ -1,0 +1,52 @@
+{
+  "feature": "demo-pay",
+  "generated_at": "2026-09-16T10:35:00Z",
+  "template": { "id": "代码审查报告-模板", "version": "3.25.0" },
+  "feature_name": "演示支付",
+  "date": "2026-09-16",
+  "scope": "backend/pay/",
+  "developer_id": "dev-zhangsan",
+  "reviewer_id": "reviewer-agent-b",
+  "session_id": "SES-P3B-20260916-01",
+  "overall_comment": "实现与详设一致，幂等与越权修复到位；发现一处 P1 已当场修复闭环",
+  "findings": [
+    {
+      "id": "P0-1",
+      "severity": "P0",
+      "file": "backend/pay/src/main/java/com/demo/pay/PayCloseService.java",
+      "line": 42,
+      "type": "安全",
+      "status": "CLOSED",
+      "summary": "close 接口未校验支付单属主（横向越权）",
+      "fix": "增加属主比对与 @PreAuthorize(pay:close)，已复核修复提交",
+      "owner": "张三",
+      "eta": "2026-09-16"
+    },
+    {
+      "id": "P1-1",
+      "severity": "P1",
+      "file": "backend/pay/src/main/java/com/demo/pay/PayQueryService.java",
+      "line": 88,
+      "type": "性能",
+      "status": "CLOSED",
+      "summary": "列表查询缺分页上限，深翻页可能拖垮数据库",
+      "fix": "限制 pageSize ≤ 100 并补默认值",
+      "owner": "张三",
+      "eta": "2026-09-16"
+    }
+  ],
+  "nits": [],
+  "files": [
+    { "path": "backend/pay/src/main/java/com/demo/pay/PayCloseService.java", "lines": 120 },
+    { "path": "backend/pay/src/main/java/com/demo/pay/PayQueryService.java", "lines": 200 }
+  ],
+  "unfixed": [],
+  "conclusion": "APPROVE",
+  "signoffs": [
+    { "role": "code-reviewer", "name": "reviewer-agent-b", "date": "2026-09-16" }
+  ],
+  "zero_results": [
+    { "path": "nits", "reason": "无 Nit 级建议" },
+    { "path": "unfixed", "reason": "全部 finding 已修复闭环" }
+  ]
+}

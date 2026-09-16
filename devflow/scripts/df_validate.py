@@ -22,6 +22,13 @@ minItems、pattern、properties、additionalProperties:false、items + $ref。
   python3 df_validate.py --kind design --input design.json [--criteria acceptance.md]
   python3 df_validate.py --kind verification --input verification.json \
       --baseline first-pass-baseline.tsv [--exec-record test-execution-results.env]
+
+v3.25.0 起支持全阶段产物（每个环节的 md 产物都有对应 JSON 契约）：
+  clarification / acceptance / constraints / prd-review / tech-selection /
+  design-review / self-check / code-review / prd-validation / test-cases /
+  deployment / monitoring / docs-index / retrospective / small-change
+  ——schema 的 x-unique/x-refs/x-zeroable/x-min-count 注解由通用引擎统一执行，
+  各 kind 的深度规则在 check_<kind> 专项函数中，失败一律非 0 退出。
 """
 import argparse
 import hashlib
@@ -35,9 +42,34 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 _HERE = Path(__file__).resolve().parent
+_SCHEMA_DIR = _HERE.parent / "schemas"
+# v3.25.0：全阶段结构化产物注册表——每个环节的 md 产物都有对应 schema（机器可读
+# 的「要填哪些内容」清单），AI 填 JSON → 本脚本校验 → df_render 确定性渲染 → Gate。
+# kind 名即 df_pipeline.py 的子命令名，与 .devflow/<feature>/<kind>.json 落盘名一致。
 _DEFAULT_SCHEMAS = {
-    "design": _HERE.parent / "schemas" / "design.schema.json",
-    "verification": _HERE.parent / "schemas" / "verification.schema.json",
+    "design": _SCHEMA_DIR / "design.schema.json",
+    "verification": _SCHEMA_DIR / "verification.schema.json",
+    # P0 / P0b
+    "clarification": _SCHEMA_DIR / "clarification.schema.json",
+    "acceptance": _SCHEMA_DIR / "acceptance.schema.json",
+    "constraints": _SCHEMA_DIR / "constraints.schema.json",
+    "prd-review": _SCHEMA_DIR / "prd-review.schema.json",
+    # P1 / P2a
+    "tech-selection": _SCHEMA_DIR / "tech-selection.schema.json",
+    "design-review": _SCHEMA_DIR / "design-review.schema.json",
+    # P3 / P3b / P4 / P5
+    "self-check": _SCHEMA_DIR / "self-check.schema.json",
+    "code-review": _SCHEMA_DIR / "code-review.schema.json",
+    "prd-validation": _SCHEMA_DIR / "prd-validation.schema.json",
+    "test-cases": _SCHEMA_DIR / "test-cases.schema.json",
+    # P7 / P8 / P9 / P10 / P2b / SMALL-CHANGE
+    "deployment": _SCHEMA_DIR / "deployment.schema.json",
+    "monitoring": _SCHEMA_DIR / "monitoring.schema.json",
+    "docs-index": _SCHEMA_DIR / "docs-index.schema.json",
+    "retrospective": _SCHEMA_DIR / "retrospective.schema.json",
+    "sharing": _SCHEMA_DIR / "sharing.schema.json",
+    "demo-signoff": _SCHEMA_DIR / "demo-signoff.schema.json",
+    "small-change": _SCHEMA_DIR / "small-change.schema.json",
 }
 
 
@@ -81,6 +113,17 @@ def validate(instance, schema, root, path="", errors=None):
         return errors
     if "$ref" in schema:
         validate(instance, _deref(schema["$ref"], root), root, path, errors)
+        return errors
+
+    # v3.24.0: anyOf 组合（acceptance page/api/data 多对象引用 string|array）
+    if "anyOf" in schema:
+        matched = False
+        for opt in schema["anyOf"]:
+            if not validate(instance, opt, root, path, []):
+                matched = True
+                break
+        if not matched:
+            errors.append(f"{path or '$'}: 不匹配 anyOf 任一分支（{len(schema['anyOf'])} 个候选）")
         return errors
 
     t = schema.get("type")
@@ -139,23 +182,29 @@ _PLACEHOLDER_RE = re.compile(
 )
 
 
-def _walk_strings(obj, path, hits):
+def _walk_strings(obj, path, hits, ignore_re=None):
+    def _hit(p):
+        return ignore_re is not None and ignore_re.search(p or "")
     if isinstance(obj, str):
-        m = _PLACEHOLDER_RE.search(obj)
-        if m:
-            hits.append((path, f"占位话术「{m.group(0)}」", obj[:50]))
+        if not _hit(path):
+            m = _PLACEHOLDER_RE.search(obj)
+            if m:
+                hits.append((path, f"占位话术「{m.group(0)}」", obj[:50]))
     elif isinstance(obj, dict):
         for k, v in obj.items():
-            _walk_strings(v, f"{path}.{k}" if path else k, hits)
+            _walk_strings(v, f"{path}.{k}" if path else k, hits, ignore_re)
     elif isinstance(obj, list):
         for i, v in enumerate(obj):
-            _walk_strings(v, f"{path}[{i}]", hits)
+            _walk_strings(v, f"{path}[{i}]", hits, ignore_re)
 
 
-def check_placeholders(data, errors):
-    """全文递归扫描字符串：占位话术直接拦截（必然是漏填的语义层）。"""
+def check_placeholders(data, errors, ignore_re=None):
+    """全文递归扫描字符串：占位话术直接拦截（必然是漏填的语义层）。
+
+    ignore_re：路径豁免（v3.25.0）——部分产物的字段本身就是「检查占位符的命令/
+    检查项名」（如完成度自检 grep TODO 的 cmd），对这些路径扫描会误伤合法内容。"""
     hits = []
-    _walk_strings(data, "", hits)
+    _walk_strings(data, "", hits, ignore_re)
     for path, kind, preview in hits:
         errors.append(f"{path}: {kind}（…{preview}…）")
 
@@ -547,6 +596,10 @@ def _norm_type(v):
     return re.sub(r"[^a-z0-9]", "", str(v or "").lower())
 
 
+def _norm_constraint(v):
+    return re.sub(r"[^a-z0-9]", "", str(v or "").lower())
+
+
 def check_doc_content_agreement(data, errors, doc_path):
     """v3.24.0(A03)：JSON ↔ 正文事实对账——同字段清单/类型不得双正本互相冲突。
 
@@ -608,12 +661,20 @@ def check_doc_content_agreement(data, errors, doc_path):
                     f"tables[{ti}]({t.get('name')}) 字段 {name!r} 未出现在 §{key} 表格首列"
                     f"（JSON 与正文字段清单冲突——同字段双正本必须一致）"
                 )
-            elif name in index and len(index[name]) == 1 and len(index[name][0]) >= 2:
-                if _norm_type(f.get("type")) and _norm_type(index[name][0][1]) \
-                   and _norm_type(f.get("type")) != _norm_type(index[name][0][1]):
+            elif name in index and len(index[name]) == 1:
+                row = index[name][0]
+                # v3.24.0(A03)：类型与约束列都比对（报告要求拒绝同字段类型/约束不一致）
+                if len(row) >= 2 and _norm_type(f.get("type")) and _norm_type(row[1]) \
+                   and _norm_type(f.get("type")) != _norm_type(row[1]):
                     errors.append(
                         f"tables[{ti}]({t.get('name')}) 字段 {name!r}: JSON 类型 {f.get('type')!r}"
-                        f" 与正文 §{key} 表格类型 {index[name][0][1]!r} 冲突"
+                        f" 与正文 §{key} 表格类型 {row[1]!r} 冲突"
+                    )
+                if len(row) >= 3 and _norm_constraint(f.get("constraint")) and _norm_constraint(row[2]) \
+                   and _norm_constraint(f.get("constraint")) != _norm_constraint(row[2]):
+                    errors.append(
+                        f"tables[{ti}]({t.get('name')}) 字段 {name!r}: JSON 约束 {f.get('constraint')!r}"
+                        f" 与正文 §{key} 表格约束 {row[2]!r} 冲突"
                     )
 
     for ai, a in enumerate(data.get("apis", [])):
@@ -649,6 +710,22 @@ def check_doc_content_agreement(data, errors, doc_path):
                                 f"apis[{ai}]({a.get('name')}) {side} 字段 {name!r}: "
                                 f"JSON 类型 {f.get('type')!r} 与正文表格类型 {row[1]!r} 冲突"
                             )
+
+    # v3.24.0(A03)：规则 WHEN 逐字契约——rules[].when_line 必须在该规则 §锚点小节
+    # 原文（含围栏）中逐字出现；正文改写伪代码而 JSON 不同步即"规则不一致"。
+    for ri, r in enumerate(data.get("rules", [])):
+        when_line = (r.get("when_line") or "").strip()
+        if not when_line:
+            continue
+        key = _norm_anchor(r.get("anchor"))
+        sec_raw = sections_raw.get(key)
+        if sec_raw is None:
+            continue  # 锚点缺失已由 check_doc_anchors 报告
+        if when_line not in sec_raw:
+            errors.append(
+                f"rules[{ri}]({r.get('id')}).when_line: 在 §{key} 小节中找不到逐字匹配的 WHEN 行"
+                f"（{when_line!r}）——正文伪代码与 JSON 规则不一致，二者必须同源"
+            )
 
 
 def check_prd_sources(data, errors, criteria_path=None, workspace=""):
@@ -777,6 +854,7 @@ def check_baseline(data, errors, workspace=""):
     base = data.get("baseline", {})
     entries = base.get("entries", [])
     ws = _workspace_effective(workspace)
+    bop_ids = {o.get("id") for o in data.get("business_operations", [])}
     if not entries:
         if not _zero_declared(data, "baseline.entries"):
             errors.append(
@@ -791,6 +869,11 @@ def check_baseline(data, errors, workspace=""):
         path_part = target.split("#", 1)[0].strip()
         if not (e.get("verify") or "").strip():
             errors.append(f"{where}: 缺 verify（每个基线条目必须有验证方式）")
+        for rop in e.get("related_operations", []):
+            if rop not in bop_ids:
+                errors.append(
+                    f"{where}.related_operations: 业务操作 {rop!r} 不在 business_operations[] 中（悬空引用）"
+                )
         if decision in ("REUSE", "MODIFY", "DELETE"):
             if not (e.get("existing_contract") or "").strip():
                 errors.append(
@@ -806,6 +889,17 @@ def check_baseline(data, errors, workspace=""):
                 errors.append(
                     f"{where}: ADD 条目缺 target_module（新增文件不要求已存在，但须声明所属模块与同类模式）"
                 )
+        # v3.24.0(A02)：证据指纹——64 hex 视为文件 SHA-256，工作区反查生效时与实算比对
+        fp = (e.get("fingerprint") or "").strip()
+        if fp and re.fullmatch(r"[0-9a-f]{64}", fp) and ws and path_part:
+            target_abs = Path(ws) / path_part
+            if target_abs.is_file():
+                actual_fp = _sha256(target_abs)
+                if actual_fp != fp:
+                    errors.append(
+                        f"{where}.fingerprint: 声明 {fp[:12]}… 与目标文件实算 {actual_fp[:12]}… 不一致"
+                        f"（基线在调查后被改写——回 P2 重新调查或更新指纹）"
+                    )
     dbe = base.get("db_evidence") or {}
     if dbe.get("source") == "live_schema" and not (dbe.get("note") or "").strip():
         errors.append(
@@ -814,7 +908,16 @@ def check_baseline(data, errors, workspace=""):
         )
 
 
-def check_design(data, errors, criteria_path=None, doc_path=None, workspace=""):
+def _ref_list(v):
+    """v3.24.0(A04)：验收行引用值归一——单对象字符串或多对象数组统一为列表。"""
+    if isinstance(v, list):
+        return [x for x in v if isinstance(x, str)]
+    if isinstance(v, str):
+        return [v]
+    return []
+
+
+def check_design(data, errors, criteria_path=None, doc_path=None, workspace="", scope_ids=None):
     acceptance = data.get("acceptance", [])
     pages = {p.get("anchor") for p in data.get("pages", [])}
     apis = {a.get("anchor") for a in data.get("apis", [])}
@@ -853,15 +956,18 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace=""):
     # （pages/tables/apis 合法为空）的验收行不再必然断链。
     declared_empty = {z.get("path") for z in data.get("zero_results", [])}
     # v3.17.3(B-8): 豁免是集合级——但字段值不得残留旧锚点（声明为空后仍写 §7 即陈旧引用）
+    # v3.24.0(A04): page/api/data 支持多对象数组——一条验收行为可关联多个页面/接口/表
     for i, a in enumerate(acceptance):
         where = f"acceptance[{i}]({a.get('id')})"
         for field, coll, items in (("page", "pages", pages), ("api", "apis", apis), ("data", "tables", tables)):
-            if a.get(field) in items:
+            refs = _ref_list(a.get(field))
+            if refs and all(r in items for r in refs):
                 continue
             if coll in declared_empty:
-                if a.get(field) not in ("—", ""):
+                stale = [r for r in refs if r not in ("—", "")]
+                if stale:
                     errors.append(
-                        f"{where}.{field}: 集合 {coll} 已声明为空，但验收行仍写锚点 {a.get(field)!r}"
+                        f"{where}.{field}: 集合 {coll} 已声明为空，但验收行仍写锚点 {stale!r}"
                         f"（陈旧引用——写 — 占位或从声明中移除空集合）"
                     )
                 continue
@@ -870,8 +976,11 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace=""):
             errors.append(f"{where}.rule: 规则 {a.get('rule')!r} 不在 rules[].id 中（引用断链）")
 
     # 4. 孤儿条目（收录了却无人引用——要么漏回填引用，要么显式声明理由）
+    # v3.24.0(A04)：多对象引用数组的每个元素都计入引用集合
     def _orphan(items, item_key, acc_key, label):
-        referenced = {a.get(acc_key) for a in acceptance}
+        referenced = set()
+        for a in acceptance:
+            referenced.update(_ref_list(a.get(acc_key)))
         for i, it in enumerate(items):
             if it.get(item_key) not in referenced and not it.get("unreferenced_reason"):
                 errors.append(
@@ -981,13 +1090,40 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace=""):
     # 9. 接口概览 ↔ 详细定义闭环（含文档双向对账）
     check_api_detail_closure(data, errors, doc_path=doc_path)
 
-    # 9b. 全锚点文档对账（v3.19.0 P1-4）："锚点是证据"不只适用于接口详细定义——
-    # pages/tables/apis/rules 声明的每个 § 锚点都必须在文档中以标题真实存在。
+    # 9b. 全锚点文档对账（v3.19.0 P1-4）+ v3.24.0(A05) 设计包范围过滤：
+    # 总分模式一份 feature 级 JSON 对应多份分/总文档——提供 --scope-ids（该文档的
+    # 验收子集，来自设计包清单）时，文档对账只针对本子集引用到的对象；
+    # 未提供（单文档承载全部）则全量对账。
     if doc_path:
-        check_doc_anchors(data, errors, doc_path)
-        # v3.24.0(A03/A04)：嵌套锚点闭环 + JSON↔正文事实对账（字段/类型冲突、空壳小节）
-        check_nested_anchors(data, errors, doc_path)
-        check_doc_content_agreement(data, errors, doc_path)
+        doc_view = data
+        if scope_ids:
+            scope_set = set(scope_ids)
+
+            def _acc_refs(field):
+                out = set()
+                for a in acceptance:
+                    if a.get("id") in scope_set:
+                        out.update(_ref_list(a.get(field)))
+                return out
+
+            doc_view = dict(data)
+            doc_view["acceptance"] = [a for a in acceptance if a.get("id") in scope_set]
+            doc_view["pages"] = [p for p in data.get("pages", []) if p.get("anchor") in _acc_refs("page")]
+            doc_view["tables"] = [t for t in data.get("tables", []) if t.get("anchor") in _acc_refs("data")]
+            doc_view["apis"] = [x for x in data.get("apis", []) if x.get("anchor") in _acc_refs("api")]
+            doc_view["rules"] = [r for r in data.get("rules", []) if r.get("id") in _acc_refs("rule")]
+            doc_view["business_operations"] = [
+                o for o in data.get("business_operations", []) if scope_set & set(o.get("acceptance_refs", []))
+            ]
+            # 跨切面集合（资源/操作/集成/配置）不按子集强绑文档——只登记零结果，不参与本文档锚点对账
+            doc_view["resources"] = []
+            doc_view["operations"] = []
+            doc_view["integrations"] = []
+            doc_view["configs"] = []
+        check_doc_anchors(doc_view, errors, doc_path)
+        # v3.24.0(A03/A04)：嵌套锚点闭环 + JSON↔正文事实对账（字段/类型/约束冲突、空壳小节、WHEN 逐字契约）
+        check_nested_anchors(doc_view, errors, doc_path)
+        check_doc_content_agreement(doc_view, errors, doc_path)
 
     # 9c. PRD 来源存在性（v3.24.0 A04）
     check_prd_sources(data, errors, criteria_path=criteria_path, workspace=workspace)
@@ -1221,16 +1357,778 @@ def check_verification(data, errors, baseline_path=None, exec_record_path=None, 
     check_placeholders(data, errors)
 
 
+# ---------- v3.25.0 全阶段产物：schema 注解驱动的通用检查引擎 ----------
+#
+# schema 顶层注解（x-* 扩展字段）声明跨字段规则，本引擎统一执行，避免每个
+# 产物各写一套重复逻辑：
+#   "x-unique":     ["cases[].id", ...]              数组字段值全数组唯一
+#   "x-refs":       [{"from": "cases[].acceptance_refs", "to": "acceptance.id",
+#                     "label": "用例→验收点"}, ...]     引用闭环（from 值可为 string|array）
+#   "x-zeroable":   ["defects", "evidence.client"]    可空集合：空必须 zero_results 声明，
+#                                                     声明必须真为空（零结果也是证据）
+#   "x-min-count":  [{"path": "aw", "min": 2, "why": "对抗走查 ≥2 条"}]
+#
+# design/verification 不走本引擎（已有更严的专项检查）。
+
+
+def _split_array_path(p):
+    """'cases[].acceptance_refs' → ('cases', 'acceptance_refs')；非数组路径返回 None。"""
+    if "[]" not in p:
+        return None
+    arr, _, rest = p.partition("[]")
+    return arr.strip(), rest.strip(".")
+
+
+def _get_path(data, dotted):
+    cur = data
+    for part in dotted.split("."):
+        if not isinstance(cur, dict) or part not in cur:
+            return None
+        cur = cur[part]
+    return cur
+
+
+def check_generic(data, errors, schema):
+    for spec in schema.get("x-unique", []):
+        parts = _split_array_path(spec)
+        if not parts:
+            continue
+        arr_name, field = parts
+        arr = data.get(arr_name) or []
+        vals = [it.get(field) for it in arr if isinstance(it, dict)]
+        dups = sorted({v for v in vals if vals.count(v) > 1 and v is not None})
+        if dups:
+            errors.append(f"{arr_name}[].{field} 存在重复: {dups[:5]}（每条目唯一标识不得重复）")
+
+    for spec in schema.get("x-refs", []):
+        fparts = _split_array_path(spec.get("from", ""))
+        tparts = _split_array_path(spec.get("to", ""))
+        if not fparts or not tparts:
+            continue
+        farr, ffield = fparts
+        tarr, tfield = tparts
+        label = spec.get("label", f"{farr}[].{ffield} → {tarr}[].{tfield}")
+        targets = {it.get(tfield) for it in (data.get(tarr) or []) if isinstance(it, dict)}
+        for i, it in enumerate(data.get(farr) or []):
+            for ref in _ref_list(it.get(ffield)):
+                if not ref or ref == "—":
+                    continue  # 空引用=显式「无关联」（如边界枚举已定义行为 df_ref 留空）
+                if ref not in targets:
+                    errors.append(
+                        f"{farr}[{i}].{ffield}: 引用 {ref!r} 不在 {tarr}[].{tfield} 中"
+                        f"（{label} 悬空引用）"
+                    )
+
+    zeroable = set(schema.get("x-zeroable", []))
+    declared_paths = [z.get("path") for z in data.get("zero_results", [])]
+    dup_paths = sorted({p for p in declared_paths if declared_paths.count(p) > 1})
+    if dup_paths:
+        errors.append(f"zero_results.path 存在重复声明: {dup_paths}")
+    for path in sorted(zeroable):
+        val = _get_path(data, path)
+        if not val and path not in declared_paths:
+            errors.append(
+                f"{path} 为空但 zero_results 未声明"
+                f"（静默省略即违规——零结果也是证据，须声明 path + reason）"
+            )
+    for z in data.get("zero_results", []):
+        p = z.get("path")
+        if p not in zeroable:
+            errors.append(
+                f"zero_results.path={p!r} 不在本产物的可空集合词汇表内（{sorted(zeroable)}）"
+                f"（过时/伪造的空声明）"
+            )
+        elif _get_path(data, p):
+            errors.append(f"zero_results 声明 {p} 为空，但该集合非空（伪造空声明——二者只能择一）")
+
+    for spec in schema.get("x-min-count", []):
+        val = _get_path(data, spec.get("path", "")) or []
+        need = int(spec.get("min", 0))
+        if len(val) < need:
+            errors.append(
+                f"{spec.get('path')} 共 {len(val)} 条，少于下限 {need}"
+                f"（{spec.get('why', '数量下限未达标')}）"
+            )
+
+
+# ---------- v3.25.0 各产物专项检查 ----------
+
+
+def check_clarification(data, errors):
+    """P0 需求澄清：P0 级模糊点必须全部澄清（带结论与验收点关联）才能进详设。"""
+    for i, a in enumerate(data.get("ambiguities", [])):
+        where = f"ambiguities[{i}]({a.get('id')})"
+        if a.get("priority") == "P0":
+            if a.get("status") != "resolved":
+                errors.append(
+                    f"{where}: P0 模糊点未澄清（status={a.get('status')!r}）"
+                    f"——阻塞开发的模糊点必须清零后才能进入详细设计"
+                )
+            if not (a.get("conclusion") or "").strip():
+                errors.append(f"{where}: P0 模糊点缺澄清结论（结论是唯一的澄清产出）")
+            if not _ref_list(a.get("acceptance_refs")):
+                errors.append(f"{where}: P0 模糊点未关联验收点（澄清必须落到可验证行为上）")
+        elif a.get("status") == "resolved" and not (a.get("conclusion") or "").strip():
+            errors.append(f"{where}: 已声明 resolved 但结论为空（自相矛盾）")
+    if data.get("exclusions") and not data.get("exclusions_covered"):
+        errors.append(
+            "exclusions 非空但 exclusions_covered=false"
+            "（排除条款是一等需求——必须落为排除性验收点后再声明覆盖，或确无排除条款时清空 exclusions）"
+        )
+    if data.get("permission_scope") == "declared" and not data.get("permissions"):
+        errors.append("permission_scope=declared 但 permissions 为空（权限码清单不得为空）")
+    summaries = data.get("conclusion", {})
+    for sec in ("boundaries", "data_rules", "business_rules", "exceptions"):
+        if not (summaries.get(sec) or "").strip():
+            errors.append(
+                f"conclusion.{sec} 为空（澄清结论汇总四节必须逐节填写；确无内容写「无」并说明）"
+            )
+
+
+def check_acceptance(data, errors, workspace=""):
+    """P0 验收点清单：全部 FROZEN + PRD 来源真实存在（冻结后才能进 P2）。"""
+    pts = data.get("points", [])
+    draft = [p.get("id") for p in pts if p.get("status") != "FROZEN"]
+    if draft:
+        errors.append(
+            f"points 存在非 FROZEN 验收点 {len(draft)} 个: {draft[:5]}…"
+            f"（验收点清单必须在 P2 详设前冻结——先评审后冻结，或回到草稿态不要走管线）"
+        )
+    check_prd_sources(
+        {"acceptance": [{"id": p.get("id"), "prd_anchor": p.get("prd_anchor")} for p in pts]},
+        errors, workspace=workspace,
+    )
+
+
+def check_constraints(data, errors):
+    """P0 技术约束契约：FROZEN + 用户确认；空约束必须 constraint_set=NONE。"""
+    items = data.get("constraints", [])
+    if not items:
+        if not data.get("no_constraints") or not data.get("confirmed"):
+            errors.append(
+                "constraints 为空时必须显式声明 no_constraints=true 且 confirmed=true"
+                "（constraint_set=NONE 也是一个冻结决定，不得省略）"
+            )
+        return
+    if not data.get("confirmed"):
+        errors.append(
+            "constraints.confirmed=false（硬约束必须经用户明确批准后才能冻结；"
+            "confirmed=false 会被所有下游 Gate 阻断）"
+        )
+    for i, c in enumerate(items):
+        where = f"constraints[{i}]({c.get('constraint_id')})"
+        if c.get("status") != "FROZEN":
+            errors.append(f"{where}: status={c.get('status')!r} 非 FROZEN（DRAFT 会被所有 Gate 阻断）")
+        if not c.get("confirmed"):
+            errors.append(f"{where}: 该约束未经用户确认（confirmed 必须逐条为 true）")
+        if c.get("type") == "MUST_USE" and not (c.get("required_product") or "").strip():
+            errors.append(f"{where}: MUST_USE 必须声明 required_product（必须采用的产品）")
+        if not (c.get("source_anchor") or "").strip():
+            errors.append(f"{where}: 缺 source_anchor（每条约束必须能追溯到 PRD/用户原话）")
+
+
+def check_review(data, errors, kind):
+    """P0b PRD 评审 / P2a 详设评审 共用深度契约检查。
+
+    差异由参数驱动：角色集合、AW 下限、探针清单、DF 处置要求。
+    口径与 artifact_gate.sh P0b / p2a_design_review_gate.sh 一致。"""
+    is_design = kind == "design-review"
+    roles = (["架构师", "后端专家", "前端专家", "测试开发", "DBA"] if is_design
+             else ["业务", "后端", "前端", "测试", "安全"])
+    aw_min = 3 if is_design else 2
+    df_items = data.get("df", [])
+    df_ids = {d.get("id") for d in df_items}
+
+    # 1. DF 五字段（触发场景/影响链/完善建议/验证方式 + §位置）由 schema minLength 保证，
+    #    此处查结构性规则：归属角色合法、OPEN 的 P0/P1（详设评审）阻断。
+    for i, d in enumerate(df_items):
+        where = f"df[{i}]({d.get('id')})"
+        if d.get("role") not in roles:
+            errors.append(f"{where}.role={d.get('role')!r} 不在评审角色集合 {roles} 中")
+        if is_design and d.get("severity") in ("P0", "P1") and d.get("status") != "CLOSED":
+            errors.append(
+                f"{where}: P0/P1 级 DF 处于 OPEN（详设评审通过前必须全部 CLOSED——"
+                f"MINOR 接受须有理由、边界与批准记录，不得靠改严重性绕过）"
+            )
+
+    # 2. 每角色必须有 DF 或 ZERO-DF 核查证据
+    df_roles = {d.get("role") for d in df_items}
+    zero_roles = {z.get("role") for z in data.get("zero_df_roles", [])}
+    for r in roles:
+        if r not in df_roles and r not in zero_roles:
+            errors.append(
+                f"角色 {r} 既无 DF 也无 ZERO-DF 核查证据"
+                f"（按实际发现允许零发现，但零发现必须附核查范围/证据锚点/验证方式）"
+            )
+    for i, z in enumerate(data.get("zero_df_roles", [])):
+        where = f"zero_df_roles[{i}]({z.get('role')})"
+        if z.get("role") not in roles:
+            errors.append(f"{where} 不在评审角色集合中")
+        for f in ("scope", "evidence_anchor", "verify"):
+            if not (z.get(f) or "").strip():
+                errors.append(f"{where}: ZERO-DF 块缺 {f}（空壳核查记录不构成零发现证据）")
+
+    # 3. AW 对抗走查：数量下限由 x-min-count 声明；每条结果必须收尾（发现 DF-xx 或 §锚点）
+    for i, a in enumerate(data.get("aw", [])):
+        where = f"aw[{i}]({a.get('id')})"
+        refs_df = _ref_list(a.get("df_refs"))
+        has_anchor = bool((a.get("evidence_anchor") or "").strip())
+        if refs_df and all(r in df_ids for r in refs_df):
+            continue
+        if refs_df and not all(r in df_ids for r in refs_df):
+            errors.append(f"{where}.df_refs 引用了不存在的 DF 编号（走查结果必须指向本报告真实 DF）")
+            continue
+        if not has_anchor and not refs_df:
+            errors.append(
+                f"{where}: 走查结果必须以「发现 DF-xx」或「证据 §锚点」收尾（无收尾的走查不构成对抗证据）"
+            )
+
+    # 4. 探针执行记录：全部已执行（CODE-BASELINE 仅详设评审且可用 not_applicable+理由豁免）
+    for i, p in enumerate(data.get("probes", [])):
+        where = f"probes[{i}]({p.get('id')})"
+        if p.get("executed"):
+            if not (p.get("output") or "").strip():
+                errors.append(f"{where}: 已执行但缺产出位置/结论（留痕 = 产出可查）")
+            continue
+        if is_design and p.get("id") == "CODE-BASELINE" and (p.get("not_applicable_reason") or "").strip():
+            continue
+        errors.append(f"{where}: 探针未执行（未执行探针不得下评审结论）")
+
+    # 5. 歧义术语：逐条决议；整表为空必须显式声明无歧义 + 核查证据
+    #    （歧义术语决议表是 P0b PRD 评审的必做项；P2a 详设评审无此节，不检查）
+    if not is_design:
+        terms = data.get("ambiguity_terms", [])
+        if not terms:
+            if not (data.get("no_ambiguity_evidence") or "").strip():
+                errors.append(
+                    "ambiguity_terms 为空但 no_ambiguity_evidence 未声明"
+                    "（确无歧义须写「无歧义术语」核查证据；PRD 评审不允许静默跳过）"
+                )
+        else:
+            for i, t in enumerate(terms):
+                where = f"ambiguity_terms[{i}]({t.get('id')})"
+                if not t.get("resolved"):
+                    errors.append(f"{where}: 术语未决议（歧义术语必须逐条形成决议口径）")
+                if not (t.get("resolution") or "").strip():
+                    errors.append(f"{where}: 缺决议口径")
+
+    # 6. 边界条件枚举：P2 探针产出必须留痕
+    if not data.get("boundary_enums"):
+        errors.append(
+            "boundary_enums 为空（边界与极端值枚举是必做探针——未定义行为应登记为 DF，"
+            "确无边界可枚举时在 zero_results 声明 boundary_enums 并给理由）"
+        )
+
+    if is_design:
+        # 7. 评审委员会独立性：5 角色收据、session 与报告头一致、reviewer 唯一
+        run_id = (data.get("run_id") or "").strip()
+        if not run_id:
+            errors.append("run_id 缺失（REVIEW_RUN_ID 是独立评审可追溯的唯一凭据）")
+        receipts = data.get("receipts", [])
+        got_roles = [r.get("role") for r in receipts]
+        for r in roles:
+            if r not in got_roles:
+                errors.append(f"receipts 缺角色 {r} 的独立性收据（5 角色各一条）")
+        rids = [r.get("reviewer_id") for r in receipts]
+        dups = sorted({x for x in rids if x and rids.count(x) > 1})
+        if dups:
+            errors.append(f"receipts[].reviewer_id 存在重复: {dups}（每角色唯一评委）")
+        for i, r in enumerate(receipts):
+            if run_id and r.get("session_id") and r.get("session_id") != run_id:
+                errors.append(
+                    f"receipts[{i}]({r.get('role')}).session_id 与报告头 run_id 不一致"
+                    f"（报告一套、收据一套 = 独立性造假）"
+                )
+        # 8. 严重性修订纪律：改轻必须给理由 + 确认评委
+        for i, rev in enumerate(data.get("severity_revisions", [])):
+            where = f"severity_revisions[{i}]({rev.get('df_id')})"
+            if rev.get("df_id") not in df_ids:
+                errors.append(f"{where}: 引用的 DF 编号不存在（悬空修订记录）")
+            if rev.get("from") != rev.get("to"):
+                if not (rev.get("reason") or "").strip() or not (rev.get("confirmor") or "").strip():
+                    errors.append(
+                        f"{where}: 严重性 {rev.get('from')}→{rev.get('to')} 但缺修订理由或确认评委"
+                        f"（无理由改轻视为绕过关闭义务）"
+                    )
+
+
+def check_tech_selection(data, errors, constraints_path=None, workspace=""):
+    """P1 技术选型：先淘汰后评分；矩阵/权重/证据完备；绑定块与约束契约对账。"""
+    candidates = data.get("candidates", [])
+    dims = data.get("dimensions", [])
+    cand_ids = {c.get("id") for c in candidates}
+    if len(candidates) < 2:
+        errors.append(f"candidates 仅 {len(candidates)} 个（Gate 要求至少评估 2 个候选方案）")
+    if len(dims) < 3:
+        errors.append(f"dimensions 仅 {len(dims)} 个（Gate 要求决策矩阵 ≥ 3 个评估维度）")
+    weight_total = sum(int(d.get("weight", 0)) for d in dims)
+    if weight_total != 100:
+        errors.append(f"dimensions 权重合计 {weight_total}% ≠ 100%（评分矩阵权重必须归一）")
+    for i, d in enumerate(dims):
+        for s in d.get("scores") or []:
+            cid = s.get("candidate")
+            if cid not in cand_ids:
+                errors.append(f"dimensions[{i}]({d.get('name')}).scores 引用未知候选 {cid!r}")
+            elif not (s.get("evidence") or "").strip():
+                errors.append(
+                    f"dimensions[{i}]({d.get('name')}) 候选 {cid} 评分无证据"
+                    f"（无证据的评分无效——须附基准/引用）"
+                )
+    decision = data.get("decision", {})
+    if decision.get("chosen") not in cand_ids:
+        errors.append(
+            f"decision.chosen={decision.get('chosen')!r} 不在候选方案中"
+            f"（选定方案必须来自 Step 2 淘汰后的候选集合）"
+        )
+    if data.get("user_confirmed") not in ("已确认", "YES"):
+        errors.append(
+            f"user_confirmed={data.get('user_confirmed')!r} 非用户批准值"
+            f"（原则 12：选型结论必须由用户明确批准后填写「已确认」或「YES」）"
+        )
+    # 硬约束淘汰与绑定
+    scans = {s.get("constraint_id"): s for s in data.get("constraints_scan", [])}
+    bindings = {b.get("constraint_id"): b for b in data.get("bindings", [])}
+    for cid, s in scans.items():
+        if s.get("verdict") == "淘汰" and not (s.get("reason") or "").strip():
+            errors.append(f"constraints_scan({cid}): 淘汰判定缺理由（加权评分不能覆盖硬约束，理由必须写明违反点）")
+    for i, b in enumerate(data.get("bindings", [])):
+        where = f"bindings[{i}]({b.get('constraint_id')})"
+        if b.get("compliance") == "PASS" and not (b.get("evidence") or "").strip():
+            errors.append(f"{where}: compliance=PASS 但缺 evidence（依赖坐标/POC/配置路径）")
+        if (b.get("selected_product") or "").strip().lower().startswith(("未引入", "不使用", "没有")):
+            errors.append(
+                f"{where}: selected_product 写了否定描述（必须写实际选定的产品名——"
+                f"「未引入 X」这类描述不参与 Gate 判定）"
+            )
+    # 与技术约束契约文件对账（可选提供 --constraints）
+    if constraints_path:
+        cp = Path(constraints_path)
+        if not cp.exists():
+            errors.append(f"--constraints 文件不存在: {constraints_path}")
+        else:
+            text = cp.read_text(encoding="utf-8", errors="replace")
+            frozen_ids = set(re.findall(r"constraint_id=(TC-[A-Z]+-[0-9]{3})", text))
+            for cid in frozen_ids:
+                if cid not in bindings:
+                    errors.append(
+                        f"bindings 缺少冻结约束 {cid} 的选型绑定"
+                        f"（P1 必须逐条回应技术约束契约；冲突即 BLOCKED）"
+                    )
+
+
+def check_self_check(data, errors, workspace=""):
+    """P3 完成度自检：核心检查项必须全部 PASS（FAIL 即阻塞进入下个 Phase）。"""
+    checks = data.get("checks", [])
+    failed = [c.get("id") for c in checks if c.get("category") == "core" and c.get("status") != "PASS"]
+    if failed:
+        errors.append(
+            f"核心检查项存在非 PASS {len(failed)} 个: {failed[:5]}…"
+            f"（完成度自检是 Phase 切换凭据——先修复失败项再重跑，不得带 FAIL 进入下个阶段）"
+        )
+    for i, c in enumerate(checks):
+        where = f"checks[{i}]({c.get('id')})"
+        if c.get("status") == "PASS" and not (c.get("actual") or "").strip():
+            errors.append(f"{where}: PASS 但 actual 为空（实测结果必须留痕，禁止只打勾）")
+    for i, o in enumerate(data.get("outputs", [])):
+        if len((o.get("output") or "")) < 8:
+            errors.append(f"outputs[{i}]({o.get('check_id')}): 命令输出过短（粘贴实际输出，禁止只写「已验证」）")
+
+
+def check_code_review(data, errors, workspace=""):
+    """P3b 代码审查：角色分离 + P0 findings 全 CLOSED + 目标文件真实存在。"""
+    dev = (data.get("developer_id") or "").strip()
+    rev = (data.get("reviewer_id") or "").strip()
+    ses = (data.get("session_id") or "").strip()
+    if not dev or not rev:
+        errors.append("DEVELOPER_ID/REVIEWER_ID 缺失（角色分离字段自 v3.16.0 起缺失即阻断）")
+    elif dev.lower() == rev.lower():
+        errors.append(f"role conflict: DEVELOPER_ID = REVIEWER_ID = {dev}（同人自签）")
+    if not ses:
+        errors.append("session_id 缺失（审查会话不可追溯）")
+    findings = data.get("findings", [])
+    open_p0 = [f.get("id") for f in findings if f.get("severity") == "P0" and f.get("status") != "CLOSED"]
+    if open_p0:
+        errors.append(
+            f"存在未关闭的 P0 finding {len(open_p0)} 个: {open_p0[:5]}…"
+            f"（P0 为阻断性问题，必须全部修复后才能进入下个 Phase）"
+        )
+    ws = _workspace_effective(workspace)
+    for i, f in enumerate(findings):
+        path_part = (f.get("file") or "").split("#", 1)[0].split(":", 1)[0].strip()
+        if ws and path_part and not (Path(ws) / path_part).is_file():
+            errors.append(
+                f"findings[{i}]({f.get('id')}): 文件不存在: {path_part}"
+                f"（finding 必须指向真实代码——虚构位置直接拦截）"
+            )
+    conclusion = data.get("conclusion")
+    if conclusion == "APPROVE" and any(f.get("status") == "OPEN" and f.get("severity") in ("P0", "P1") for f in findings):
+        errors.append("conclusion=APPROVE 但存在 OPEN 的 P0/P1 finding（结论与发现矛盾）")
+
+
+def check_prd_validation(data, errors, workspace="."):
+    """P4 PRD 验证：P0 阻断清零 + 机器字段与 Gate 契约一致 + 证据文件真实。"""
+    blockers = data.get("p0_blockers", [])
+    open_blockers = [b.get("id") for b in blockers if b.get("status") != "已修复"]
+    machine = data.get("machine", {})
+    declared = machine.get("p0_blockers")
+    if declared is None:
+        errors.append("machine.p0_blockers 缺失（P4 Gate 机器可读结论必须声明）")
+    elif int(declared) != len(open_blockers):
+        errors.append(
+            f"machine.p0_blockers={declared} 与实际未修复阻断项 {len(open_blockers)} 不一致"
+            f"（机器字段必须如实反映 P0 阻断清单）"
+        )
+    if open_blockers:
+        errors.append(
+            f"存在未修复 P0 阻断项 {len(open_blockers)} 个: {open_blockers[:5]}…"
+            f"（P0 阻断项必须全部修复才能进入 P5）"
+        )
+    cmd = machine.get("p4_cmd", "")
+    bad = _cmd_is_placeholder(cmd)
+    if bad:
+        errors.append(f"machine.p4_cmd: {bad}: {cmd}")
+    for key, label in (("p4_results_path", "P4_RESULTS_PATH"), ("validation_evidence", "VALIDATION_EVIDENCE")):
+        rp = (machine.get(key) or "").strip()
+        if not rp:
+            errors.append(f"machine.{key} 缺失（{label} 是 P4 Gate 必填机器字段）")
+            continue
+        resolved = Path(workspace) / rp if not os.path.isabs(rp) else Path(rp)
+        if not resolved.exists():
+            errors.append(f"machine.{key} 文件不存在: {rp}（证据必须由本轮验证真实生成）")
+    for arr, label in (("features", "功能点"), ("fields", "数据字段"), ("apis", "接口")):
+        for i, it in enumerate(data.get(arr, [])):
+            if it.get("result") == "失败" and it.get("blocker_ref") is None:
+                errors.append(
+                    f"{arr}[{i}]: 验证结果失败但未关联 blocker_ref"
+                    f"（失败项必须升级为 P0 阻断或显式登记 blocker_ref=null+理由）"
+                )
+    if data.get("conclusion") == "PASS" and open_blockers:
+        errors.append("conclusion=PASS 但 P0 阻断清单未清零（结论与事实矛盾）")
+
+
+def check_test_cases(data, errors, criteria_path=None):
+    """P5 测试用例：TC-ID 唯一、每条 ≥1 步骤、验收点全覆盖、边界用例 ≥1、凭证可追溯。"""
+    cases = data.get("cases", [])
+    for i, c in enumerate(cases):
+        where = f"cases[{i}]({c.get('id')})"
+        if not c.get("steps"):
+            errors.append(f"{where}: 缺测试步骤（无步骤的用例不可执行）")
+        if not c.get("precondition"):
+            errors.append(f"{where}: 缺前置条件")
+    creds = data.get("credentials", [])
+    for i, c in enumerate(creds):
+        if not (c.get("source_file") or "").strip() or not (c.get("line") or "").strip():
+            errors.append(
+                f"credentials[{i}]({c.get('item')}): 缺代码来源（铁律 6：凭证只能从 seed/配置事实源追溯，禁止盲猜）"
+            )
+    covered = set()
+    for c in cases:
+        covered.update(_ref_list(c.get("acceptance_refs")))
+    types = {c.get("type") for c in cases}
+    if not types & {"边界", "异常"}:
+        errors.append("缺少边界/异常类用例（至少 1 条：空输入/越界/失败路径等）")
+    if criteria_path:
+        cp = Path(criteria_path)
+        if not cp.exists():
+            errors.append(f"--criteria 验收点文件不存在: {criteria_path}（无法建立用例↔验收点对照）")
+        else:
+            frozen = set(re.findall(r"M-?[0-9]{2}-F[0-9]{2}-A[0-9]{2}",
+                                    cp.read_text(encoding="utf-8", errors="replace")))
+            not_covered = sorted(frozen - covered)
+            illegal = sorted(covered - frozen)
+            if not frozen:
+                errors.append(f"验收点文件无任何 M-ID（{criteria_path}）——无法建立用例↔验收点对照")
+            if not_covered:
+                errors.append(f"验收点未被用例覆盖 {len(not_covered)} 个: {not_covered[:5]}…（全覆盖是 P5 放行条件）")
+            if illegal:
+                errors.append(f"用例引用了不存在的验收点 ID: {illegal[:5]}…（悬空引用）")
+
+
+def check_deployment(data, errors, workspace="."):
+    """P7 部署记录：制品指纹、健康检查、步骤退出码、证据文件与 Gate 同口径。"""
+    art = data.get("artifact", {})
+    sha = (art.get("sha256") or "").strip()
+    if not re.fullmatch(r"[0-9a-f]{64}", sha):
+        errors.append(f"artifact.sha256={sha[:16]!r}… 非 64 位 hex（制品指纹是部署证据锚点）")
+    ws = _workspace_effective(workspace)
+    ap = (art.get("path") or "").strip()
+    if ap and ws:
+        target = Path(ws) / ap if not Path(ap).is_absolute() else Path(ap)
+        if not target.is_file():
+            errors.append(f"artifact.path 不存在: {ap}（制品必须真实产出）")
+        elif target.is_file() and re.fullmatch(r"[0-9a-f]{64}", sha):
+            actual = _sha256(target)
+            if actual != sha:
+                errors.append(
+                    f"artifact.sha256 声明 {sha[:12]}… 与实算 {actual[:12]}… 不一致"
+                    f"（制品在记录后被替换——重新部署或更新指纹）"
+                )
+    health = data.get("health", {})
+    url = (health.get("url") or "").strip()
+    if not re.match(r"^https?://", url):
+        errors.append(f"health.url 必须是 http(s): {url!r}（实时探测地址缺失不构成部署证据）")
+    elif re.search(r"//169\.254\.|//[Ff][Ee]80:|//.*metadata", url):
+        errors.append(f"health.url 指向 link-local/metadata 段: {url}")
+    if health.get("status") != 200:
+        errors.append(f"health.status={health.get('status')!r} 非 200（HEALTH_HTTP_STATUS=200 是 Gate 硬条件）")
+    for i, s in enumerate(data.get("steps", [])):
+        if s.get("exit_code") != 0:
+            errors.append(f"steps[{i}]({s.get('name')}): exit_code={s.get('exit_code')} 非 0（失败步骤不得写成完成）")
+    rp = (data.get("release_evidence_path") or "").strip()
+    if rp:
+        resolved = Path(workspace) / rp if not os.path.isabs(rp) else Path(rp)
+        if not resolved.exists():
+            errors.append(f"release_evidence_path 不存在: {rp}（部署运行输出必须落盘）")
+    if not data.get("rollback_steps"):
+        errors.append("rollback_steps 为空（回滚方案是部署记录的必备组成，不得省略）")
+    if data.get("result") != "SUCCESS":
+        errors.append(
+            f"result={data.get('result')!r} 非 SUCCESS（失败的部署不是完成——先修复重部，"
+            f"或在 zero_results 不可用时报 BLOCKED 停在 P7）"
+        )
+
+
+def check_monitoring(data, errors, workspace="."):
+    """P8 监控配置：证据三件套与 artifact_gate.sh P8 同口径（文件真实 + 内容实质）。"""
+    m = data.get("machine", {})
+    ws = _workspace_effective(workspace) or "."
+    ep = (m.get("metrics_endpoint") or "").strip()
+    if not re.match(r"^https?://", ep):
+        errors.append(f"machine.metrics_endpoint 必须是 http(s): {ep!r}")
+    elif re.search(r"//169\.254\.|//[Ff][Ee]80:|//.*metadata", ep):
+        errors.append(f"machine.metrics_endpoint 指向 link-local/metadata 段: {ep}")
+
+    def _resolve(p):
+        return Path(ws) / p if p and not os.path.isabs(p) else Path(p) if p else None
+
+    lqe = _resolve((m.get("log_query_evidence") or "").strip())
+    if lqe is None:
+        errors.append("machine.log_query_evidence 缺失（日志查询必须附真实结果文件）")
+    elif not lqe.is_file():
+        errors.append(f"machine.log_query_evidence 不存在: {m.get('log_query_evidence')}")
+    elif len(lqe.read_text(encoding="utf-8", errors="replace").splitlines()) < 2:
+        errors.append(f"machine.log_query_evidence 行数 <2: {m.get('log_query_evidence')}（须含真实查询结果）")
+
+    ar = _resolve((m.get("alert_rule") or "").strip())
+    if ar is None:
+        errors.append("machine.alert_rule 缺失（告警规则必须指向含 alert:/expr: 的规则文件）")
+    elif not ar.is_file():
+        errors.append(f"machine.alert_rule 不存在: {m.get('alert_rule')}")
+    else:
+        text = ar.read_text(encoding="utf-8", errors="replace")
+        if "alert:" not in text or "expr:" not in text:
+            errors.append(f"machine.alert_rule 文件缺 alert:/expr: 定义: {m.get('alert_rule')}")
+
+    ato = _resolve((m.get("alert_test_output") or "").strip())
+    if m.get("alert_tested") == "PASS":
+        if ato is None:
+            errors.append("machine.alert_tested=PASS 但 alert_test_output 缺失")
+        elif not ato.is_file():
+            errors.append(f"machine.alert_test_output 不存在: {m.get('alert_test_output')}")
+        else:
+            raw = ato.read_bytes()
+            if len(raw) < 20:
+                errors.append(f"machine.alert_test_output 疑似占位（{len(raw)}B < 20B）")
+            else:
+                text = raw.decode("utf-8", errors="replace")
+                for marker in ("ALERT_TRIGGERED", "NOTIFICATION_CONFIRMED", "RECOVERY_RECORDED"):
+                    if marker not in text:
+                        errors.append(f"machine.alert_test_output 缺 {marker}= 记录（告警三要素不齐全）")
+                if re.search(r"\bFAIL\b", text):
+                    errors.append("machine.alert_test_output 含 FAIL 但声明 ALERT_TESTED=PASS（自相矛盾）")
+    else:
+        errors.append("machine.alert_tested 必须 PASS（告警未验证 = 监控三件套不齐全，P8 不放行）")
+    for i, c in enumerate(data.get("checklist", [])):
+        if c.get("status") != "PASS":
+            errors.append(f"checklist[{i}]({c.get('item')}): 非 PASS（验证清单必须全过才能签发 P8 收据）")
+
+
+def check_docs_index(data, errors, workspace="."):
+    """P9 文档交付索引：路径存在 + SHA-256 实算一致 + substantive（口径同 artifact_gate P9）。"""
+    ws = _workspace_effective(workspace) or "."
+    kind_keywords = {
+        "USER_DOC": "使用|快速开始|指南|入门|操作|FAQ",
+        "DEVELOPER_DOC": "开发|构建|部署|接口|API",
+        "API_DOC": "接口|API",
+        "OPERATIONS_DOC": "运维|部署|监控",
+        "RELEASE_NOTES": "变更|版本|发布|修复|新增|已知",
+    }
+    seen = set()
+    for i, d in enumerate(data.get("docs", [])):
+        where = f"docs[{i}]({d.get('kind')})"
+        kind = d.get("kind")
+        if kind in seen:
+            errors.append(f"{where}: 文档类别重复（每类恰好一份）")
+        seen.add(kind)
+        p = (d.get("path") or "").strip()
+        resolved = Path(ws) / p if p and not os.path.isabs(p) else Path(p) if p else None
+        if resolved is None or not resolved.is_file():
+            errors.append(f"{where}: 文件不存在: {p}")
+            continue
+        text = resolved.read_text(encoding="utf-8", errors="replace")
+        lines = text.splitlines()
+        headings = [ln for ln in lines if ln.startswith("#")]
+        body = [ln for ln in lines if ln.strip() and not ln.startswith("#")]
+        if len(lines) < 10 or len(headings) < 2 or len(body) < 5:
+            errors.append(
+                f"{where}: 非 substantive 文档（{len(lines)} 行/{len(headings)} 标题/{len(body)} 正文行，"
+                f"要求 ≥10/≥2/≥5）: {p}"
+            )
+        if not re.search(kind_keywords.get(kind, "."), text):
+            errors.append(f"{where}: 文档缺类别语义章节（{kind} 须含关键词 {kind_keywords[kind]}）: {p}")
+        declared_sha = (d.get("sha256") or "").strip()
+        if not re.fullmatch(r"[0-9a-f]{64}", declared_sha):
+            errors.append(f"{where}: sha256 非 64 位 hex")
+        else:
+            actual = _sha256(resolved)
+            if actual != declared_sha:
+                errors.append(f"{where}: sha256 声明 {declared_sha[:12]}… 与实算 {actual[:12]}… 不一致: {p}")
+
+
+def check_retrospective(data, errors, workspace="."):
+    """P10 复盘：每行阶段事实必须附真实收据；反馈队列字段完整。"""
+    ws = _workspace_effective(workspace) or "."
+    for i, pf in enumerate(data.get("phase_facts", [])):
+        where = f"phase_facts[{i}]({pf.get('phase')})"
+        rp = (pf.get("receipt_path") or "").strip()
+        if not rp:
+            errors.append(f"{where}: 缺收据路径（禁止无证据自评）")
+            continue
+        resolved = Path(ws) / rp if not os.path.isabs(rp) else Path(rp)
+        if not resolved.is_file():
+            errors.append(f"{where}: 收据文件不存在: {rp}")
+        if pf.get("gate_result") == "SKIPPED" and not (pf.get("skip_note") or "").strip():
+            errors.append(f"{where}: SKIPPED 须附 skip-log 授权记录说明")
+    fb = data.get("feedback", {})
+    if not re.fullmatch(r"FB-[0-9]{8}-[0-9]{3}", fb.get("feedback_id") or ""):
+        errors.append(f"feedback.feedback_id={fb.get('feedback_id')!r} 不符合 FB-YYYYMMDD-NNN 格式")
+    if fb.get("scope") != "project":
+        errors.append("feedback.scope 必须 project（反馈队列保持项目本地，不外传）")
+    if fb.get("status") not in ("PROPOSED", "ACCEPTED"):
+        errors.append("feedback.status 必须 PROPOSED 或 ACCEPTED")
+    if not (fb.get("root_cause") or "").strip():
+        errors.append("feedback.root_cause 缺失（p10 Gate：根因必须记录）")
+    if not fb.get("target_files"):
+        errors.append("feedback.target_files 缺失（p10 Gate：整改目标文件必须列出）")
+    if fb.get("decision") not in ("fix", "defer"):
+        errors.append("feedback.decision 必须 fix 或 defer")
+    elif fb.get("decision") == "defer" and not (fb.get("defer_reason") or "").strip():
+        errors.append("feedback.decision=defer 但缺 defer_reason（p10 Gate：DEFER 必须给理由）")
+    if not data.get("actions"):
+        errors.append("actions 为空（复盘必须产出可执行改进项；确无改进项在 zero_results 声明并给理由）")
+    out = (data.get("verify_output") or "").strip()
+    if len(out) < 20:
+        errors.append(
+            "verify_output 过短（复核命令的实际输出必须粘贴——禁止只写「已验证」自评）"
+        )
+
+
+_SMALL_CHANGE_KINDS_MICRO = {"ui-copy", "ui-behavior", "bugfix", "additive-api",
+                             "additive-persistence", "validation-default", "config"}
+_SMALL_CHANGE_KINDS_FULL = {"breaking-api", "schema-breaking", "permission", "state-machine",
+                            "cross-service", "new-module-service", "large-backfill", "multi-change"}
+_SMALL_CHANGE_SCAN_KEYS = ["db", "domain", "api", "client", "config", "test",
+                           "permission", "workflow", "cross_service", "history_data"]
+
+# P2b PO 结论行禁止出现的消极词（与 p2b_demo_gate.sh 的 PO_SIGN 排除集同口径）
+_DEMO_PO_BAD_RE = re.compile(r"不通过|驳回|❌|待确认|待定|未确认|进行中")
+
+
+def check_demo_signoff(data, errors, workspace="."):
+    """P2b 原型确认：KUF ≥3 且逐条有走查、原型文件实存、PO 明确结论、签字齐备。
+
+    口径与 p2b_demo_gate.sh 一致（KUF 唯一编号、走查记录、原型引用实存检查）。"""
+    kufs = data.get("kufs", [])
+    ids = [k.get("id") for k in kufs]
+    dups = sorted({x for x in ids if ids.count(x) > 1})
+    if dups:
+        errors.append(f"kufs[].id 存在重复: {dups}（重复编号不计入 KUF 数量——凑数即拦截）")
+    for i, k in enumerate(kufs):
+        if not (k.get("walkthrough") or "").strip():
+            errors.append(f"kufs[{i}]({k.get('id')}): 缺 walkthrough 走查记录（无走查的旅程不构成原型确认）")
+    ws = _workspace_effective(workspace)
+    refs = data.get("prototype_refs", [])
+    if not refs:
+        errors.append("prototype_refs 为空（原型确认必须引用 docs/原型/ 下的真实原型文件）")
+    for i, r in enumerate(refs):
+        if not re.match(r"^docs/(原型|demo)/", r):
+            errors.append(f"prototype_refs[{i}]: 原型引用必须在 docs/原型/（或历史 docs/demo/）下: {r}")
+        elif ws:
+            target = Path(ws) / r if not Path(r).is_absolute() else Path(r)
+            if not target.is_file():
+                errors.append(f"prototype_refs[{i}]: 原型文件不存在: {r}（Gate 逐一实存检查）")
+    po = (data.get("po_conclusion") or "").strip()
+    if not po:
+        errors.append("po_conclusion 缺失（缺少 PO（产品负责人）明确结论 = P2b 不放行）")
+    elif _DEMO_PO_BAD_RE.search(po):
+        errors.append(f"po_conclusion 含未决/消极表述: {po!r}（PO 结论必须明确通过；迭代中的原型不得进入 P3）")
+    if not data.get("conclusion_passed"):
+        errors.append("conclusion_passed=false（原型确认未通过不得签发 P2b 收据）")
+
+
+def check_sharing(data, errors):
+    """P10 知识分享：≥3 条可复用 lesson（与 p10_feedback_gate.sh 的 lesson 计数同口径）。"""
+    if len(data.get("lessons", [])) < 3:
+        errors.append("lessons 少于 3 条（p10 Gate 要求知识分享 ≥3 条可复用教训）")
+    for i, l in enumerate(data.get("lessons", [])):
+        if not (l.get("content") or "").strip() or len(l.get("content", "")) < 8:
+            errors.append(f"lessons[{i}]({l.get('topic')}): 内容过短或为空（一句话不算可复用教训）")
+
+
+def check_small_change(data, errors, workspace="."):
+    """SMALL-CHANGE：决策计算与 small-change-gate.sh 同口径（kind/风险命中 → FULL）。"""
+    kind = data.get("kind") or (data.get("summary") or {}).get("kind")
+    if kind not in _SMALL_CHANGE_KINDS_MICRO | _SMALL_CHANGE_KINDS_FULL:
+        errors.append(f"kind={kind!r} 不受支持（{sorted(_SMALL_CHANGE_KINDS_MICRO | _SMALL_CHANGE_KINDS_FULL)}）")
+    scan = data.get("scan", {})
+    for k in _SMALL_CHANGE_SCAN_KEYS:
+        if scan.get(k) not in ("HIT", "MISS", "NA"):
+            errors.append(f"scan.{k}={scan.get(k)!r} 必须 HIT|MISS|NA")
+    risky = any(scan.get(k) == "HIT" for k in ("permission", "workflow", "cross_service", "history_data"))
+    count = data.get("logical_change_count", 1)
+    computed = "FULL" if (kind in _SMALL_CHANGE_KINDS_FULL or risky or count != 1) else "MICRO"
+    declared = data.get("decision")
+    if declared != computed:
+        errors.append(
+            f"decision={declared!r} 与按证据计算值 {computed} 不一致"
+            f"（kind={kind}, 风险扫描命中={risky}, 逻辑变更数={count}——决策必须可由证据复算）"
+        )
+    if not (data.get("decision_reason") or "").strip():
+        errors.append("decision_reason 缺失（决策必须附基于项目证据的理由）")
+    vc = (data.get("verify_cmd") or "").strip()
+    bad = _cmd_is_placeholder(vc)
+    if bad:
+        errors.append(f"verify_cmd: {bad}: {vc}")
+    target = data.get("target", "merge-ready")
+    if target == "released":
+        ws = _workspace_effective(workspace) or "."
+        for key, label in (("deploy_receipt_path", "P7 收据"), ("monitor_receipt_path", "P8 收据")):
+            rp = (data.get(key) or "").strip()
+            resolved = Path(ws) / rp if rp and not os.path.isabs(rp) else Path(rp) if rp else None
+            if resolved is None or not resolved.is_file():
+                errors.append(f"{key} 缺失或不存在: {rp}（RELEASED 必须绑定成功的 {label}）")
+    acceptance = data.get("acceptance", {})
+    for sec in ("positive", "boundary", "failure"):
+        if not (acceptance.get(sec) or "").strip():
+            errors.append(f"acceptance.{sec} 缺失（正向/边界/失败三路验收条件必须逐条给出）")
+
+
+# ---------- v3.25.0 各产物专项检查结束 ----------
+
+
 def main():
-    ap = argparse.ArgumentParser(description="校验 devflow 结构化业务产物（design.json / verification.json）")
-    ap.add_argument("--kind", required=True, choices=["design", "verification"])
+    ap = argparse.ArgumentParser(description="校验 devflow 结构化业务产物（design.json / verification.json / 各阶段产物 JSON）")
+    ap.add_argument("--kind", required=True, choices=sorted(_DEFAULT_SCHEMAS))
     ap.add_argument("--input", required=True, help="待校验的 JSON 路径")
     ap.add_argument("--schema", default=None, help="schema.json 路径（缺省用 skill 内置）")
-    ap.add_argument("--criteria", default=None, help="design: P0 验收点文件（启用集合全等对账）")
+    ap.add_argument("--criteria", default=None, help="design/test-cases: P0 验收点文件（集合对账/用例覆盖对照）")
     ap.add_argument("--doc", default=None, help="design: 详设文档路径（启用接口概览↔详细定义双向对账）")
+    ap.add_argument("--constraints", default=None, help="tech-selection: P0 技术约束契约文件（绑定对账）")
     ap.add_argument("--baseline", default=None, help="verification: first-pass-baseline.tsv（启用冻结集合对账）")
     ap.add_argument("--exec-record", default=None, help="verification: test-execution-results.env（启用实际退出码对账）")
     ap.add_argument("--workspace", default=None, help="相对路径解析根（默认当前目录；design 全仓反查仅在显式传入时启用）")
+    ap.add_argument("--scope-ids", dest="scope_ids", default=None,
+                    help="design: 设计包验收子集（逗号分隔 M-ID）——提供时文档对账只针对本子集引用到的对象（总分多文档模式）")
     ap.add_argument("--frontend-scope", default=None, dest="frontend_scope",
                     help="verification: P0 冻结的前端范围（对账声明与 CLIENT_EXEMPT 不可覆盖冻结值）")
     ap.add_argument("--max-errors", type=int, default=100, help="最多输出的错误条数")
@@ -1250,12 +2148,45 @@ def main():
         # v3.17.3(B-6): schema 自身不合法时输出结构化错误而非裸 traceback
         print(f"  ✗ schema 不合法: {e}")
         sys.exit(2)
+    ws = args.workspace or ""
     if args.kind == "design":
-        check_design(data, errors, criteria_path=args.criteria, doc_path=args.doc, workspace=args.workspace or "")
-    else:
+        scope = [s.strip() for s in (args.scope_ids or "").replace("，", ",").split(",") if s.strip()] or None
+        check_design(data, errors, criteria_path=args.criteria, doc_path=args.doc,
+                     workspace=ws, scope_ids=scope)
+    elif args.kind == "verification":
         check_verification(data, errors, baseline_path=args.baseline,
-                           exec_record_path=args.exec_record, workspace=args.workspace or ".",
+                           exec_record_path=args.exec_record, workspace=ws or ".",
                            frontend_scope=args.frontend_scope)
+    else:
+        # v3.25.0 全阶段产物：schema 注解通用引擎 + kind 专项检查
+        check_generic(data, errors, schema)
+        _KIND_CHECKS = {
+            "clarification": lambda: check_clarification(data, errors),
+            "acceptance": lambda: check_acceptance(data, errors, workspace=ws),
+            "constraints": lambda: check_constraints(data, errors),
+            "prd-review": lambda: check_review(data, errors, "prd-review"),
+            "design-review": lambda: check_review(data, errors, "design-review"),
+            "tech-selection": lambda: check_tech_selection(data, errors, constraints_path=args.constraints, workspace=ws),
+            "self-check": lambda: check_self_check(data, errors, workspace=ws),
+            "code-review": lambda: check_code_review(data, errors, workspace=ws),
+            "prd-validation": lambda: check_prd_validation(data, errors, workspace=ws or "."),
+            "test-cases": lambda: check_test_cases(data, errors, criteria_path=args.criteria),
+            "deployment": lambda: check_deployment(data, errors, workspace=ws or "."),
+            "monitoring": lambda: check_monitoring(data, errors, workspace=ws or "."),
+            "docs-index": lambda: check_docs_index(data, errors, workspace=ws or "."),
+            "retrospective": lambda: check_retrospective(data, errors, workspace=ws or "."),
+            "sharing": lambda: check_sharing(data, errors),
+            "demo-signoff": lambda: check_demo_signoff(data, errors, workspace=ws or "."),
+            "small-change": lambda: check_small_change(data, errors, workspace=ws or "."),
+        }
+        if args.kind in _KIND_CHECKS:
+            _KIND_CHECKS[args.kind]()
+        # v3.25.0：占位话术扫描——完成度自检的 cmd/item 与输出附件本身是
+        # 「检查占位符的命令」（grep TODO…），对这些路径豁免（否则合法内容误伤）
+        _ph_ignore = None
+        if args.kind == "self-check":
+            _ph_ignore = re.compile(r"checks\[\d+\]\.(cmd|item)|outputs\[\d+\]\.output")
+        check_placeholders(data, errors, ignore_re=_ph_ignore)
 
     if errors:
         n = len(errors)

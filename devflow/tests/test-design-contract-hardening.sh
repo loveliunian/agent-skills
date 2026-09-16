@@ -86,6 +86,8 @@ json.dump(e, open("d-bopstate.json", "w"), ensure_ascii=False)
 PYEOF
 assert_out "覆盖缺口" "missing restore/refund operation caught as coverage gap (A01)" \
   python3 "$V" --kind design --input d-bopgap.json --criteria criteria.md
+assert_out "M01-F02-A01" "coverage gap names the exact uncovered acceptance ID (A15)" \
+  python3 "$V" --kind design --input d-bopgap.json --criteria criteria.md
 assert_out "source_state" "stateful op without source_state rejected (A01)" \
   python3 "$V" --kind design --input d-bopstate.json --criteria criteria.md
 
@@ -113,6 +115,25 @@ check_rc 0 "baseline MODIFY target exists passes reverse lookup (A02)" \
   bash -c "cd '$WSA' && python3 '$V' --kind design --input base.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
 assert_out "目标文件不存在" "fictional MODIFY target rejected in real workspace (A02)" \
   bash -c "cd '$WSA' && python3 '$V' --kind design --input miss.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
+# v3.24.0(A02) 补充：fingerprint 证据指纹（64-hex = 文件 SHA-256，工作区反查时实算比对）
+python3 - <<'PYEOF'
+import hashlib, json
+d = json.load(open("ws-a/base.json"))
+fp = hashlib.sha256(open("ws-a/backend/x/src/main/java/FooController.java", "rb").read()).hexdigest()
+d["baseline"]["entries"][0]["fingerprint"] = fp
+d["baseline"]["entries"][0]["related_operations"] = ["BOP-1"]
+json.dump(d, open("ws-a/fp-ok.json", "w"), ensure_ascii=False)
+e = json.loads(json.dumps(d)); e["baseline"]["entries"][0]["fingerprint"] = "0" * 64
+json.dump(e, open("ws-a/fp-bad.json", "w"), ensure_ascii=False)
+f = json.loads(json.dumps(d)); f["baseline"]["entries"][0]["related_operations"] = ["BOP-9"]
+json.dump(f, open("ws-a/rop-bad.json", "w"), ensure_ascii=False)
+PYEOF
+check_rc 0 "baseline fingerprint matching actual file accepted (A02)" \
+  bash -c "cd '$WSA' && python3 '$V' --kind design --input fp-ok.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
+assert_out "指纹" "stale baseline fingerprint rejected (A02)" \
+  bash -c "cd '$WSA' && python3 '$V' --kind design --input fp-bad.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
+assert_out "悬空引用" "baseline related_operations dangling id rejected (A02)" \
+  bash -c "cd '$WSA' && python3 '$V' --kind design --input rop-bad.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
 
 # ---------- A03：JSON↔正文对账 + 空壳拦截 ----------
 # 正文 §2.1 注入五列表，order_no 类型与 JSON 冲突（BOOLEAN vs VARCHAR(64)）
@@ -145,6 +166,38 @@ Path("doc-hollow.md").write_text(t, encoding="utf-8")
 PYEOF
 assert_out "空壳" "headings-only section rejected as hollow (A03)" \
   python3 "$V" --kind design --input design.json --criteria criteria.md --doc doc-hollow.md
+
+# ---------- A03 补充：约束列比对 + WHEN 逐字契约 ----------
+python3 - <<'PYEOF'
+import json
+d = json.load(open("design.json"))
+d["rules"][0]["when_line"] = "WHEN 同一 order_no 在 60 秒内重复提交：直接二次扣款。"   # 与正文反义
+json.dump(d, open("d-wl.json", "w"), ensure_ascii=False)
+PYEOF
+assert_out "逐字" "JSON WHEN line diverging from doc pseudocode rejected (A03)" \
+  python3 "$V" --kind design --input d-wl.json --criteria criteria.md --doc doc.md
+assert_out "约束" "doc table constraint column conflict rejected (A03)" \
+  python3 "$V" --kind design --input design.json --criteria criteria.md --doc doc-typeconflict.md
+
+# ---------- A04 补充：一条验收行为关联多个对象（数组引用） ----------
+python3 - <<'PYEOF'
+import json
+d = json.load(open("design.json"))
+d["acceptance"][0]["page"] = ["§7.1", "§7.2"]
+d["acceptance"][0]["api"] = ["§3.1"]
+json.dump(d, open("d-multiref.json", "w"), ensure_ascii=False)
+PYEOF
+check_rc 0 "acceptance row may reference multiple objects via arrays (A04)" \
+  python3 "$V" --kind design --input d-multiref.json --criteria criteria.md --doc doc.md
+python3 - <<'PYEOF'
+import json
+d = json.load(open("design.json"))
+d["acceptance"][0]["page"] = ["§7.1", "§7.99"]
+json.dump(d, open("d-multiref-bad.json", "w"), ensure_ascii=False)
+PYEOF
+assert_out "引用断链" "array reference with dangling element rejected (A04)" \
+  python3 "$V" --kind design --input d-multiref-bad.json --criteria criteria.md
+
 
 # ---------- A04：PRD 来源存在 + 嵌套锚点 ----------
 python3 - <<'PYEOF'
@@ -336,6 +389,72 @@ python3 -c "import json; p='$WS2/.devflow/pure/design.json'; d=json.load(open(p)
 printf '\n### 7.1 计算页\n计算页正文与权限说明。\n' >> "$WS2/docs/详细设计/pure-详细设计.md"
 S2_DRIFT=$(cd "$WS2" && bash "$ROOT/scripts/s2_design_coverage_gate.sh" docs/详细设计/pure-详细设计.md docs/需求/pure-验收点.md 2>&1 || true)
 printf '%s' "$S2_DRIFT" | grep -q "client scope drift" && ok "s2 rejects frozen frontend drift (A06)" || bad "s2 missed client scope drift (A06)"
+
+# ---------- CODE-BASELINE 探针（报告§5：新增基线探针，避免与流程阶段 P7 同名） ----------
+WCB="$WORK/cb"; mkdir -p "$WCB/docs/detailed-design" "$WCB/docs/requirements" "$WCB/docs/review" "$WCB/.devflow/cb"
+WORKSPACE="$WCB" bash "$ROOT/scripts/devflow-state.sh" init cb --frontend=not-applicable >/dev/null 2>&1
+printf '# d\n## §1 概览\n含 REUSE/MODIFY 基线的设计。\n' > "$WCB/docs/detailed-design/cb-design.md"
+printf '# c\n| M-01-F01-A01 | FROZEN |\n' > "$WCB/docs/requirements/cb-acceptance-criteria.md"
+printf '# review\n' > "$WCB/docs/review/cb-design-review-report.md"
+printf '{"feature":"cb","baseline":{"repo_root":".","entries":[{"id":"BL-1","target":"backend/x/Foo.java","decision":"MODIFY","existing_contract":"x","verify":"t"}]}}\n' \
+  > "$WCB/.devflow/cb/design.json"
+CB_OUT=$(cd "$WCB" && bash "$ROOT/scripts/p2a_design_review_gate.sh" cb 2>&1 || true)
+printf '%s' "$CB_OUT" | grep -q "CODE-BASELINE execution row missing" \
+  && ok "p2a requires CODE-BASELINE probe when baseline has MODIFY (A02/§5)" \
+  || bad "p2a CODE-BASELINE probe not enforced"
+printf '| CODE-BASELINE | 架构师+后端专家 | 不适用（改为核验 §1） | 证据：§1 |\n' >> "$WCB/docs/review/cb-design-review-report.md"
+CB_OUT2=$(cd "$WCB" && bash "$ROOT/scripts/p2a_design_review_gate.sh" cb 2>&1 || true)
+printf '%s' "$CB_OUT2" | grep -q "CODE-BASELINE execution row missing" \
+  && bad "CODE-BASELINE answered row still rejected" \
+  || ok "answered CODE-BASELINE row accepted (A02/§5)"
+# v3.24.0(A13)：严重性修订纪律——无理由降级（P0→P2）直接 P0
+cat >> "$WCB/docs/review/cb-design-review-report.md" <<'EOF'
+
+## 严重性修订
+
+| # | 原 DF | 原严重性 | 修订后严重性 | 修订理由 | 确认评委 |
+|---|--------|----------|--------------|----------|----------|
+| 1 | DF-01 | P0 | P2 | | |
+EOF
+CB_OUT3=$(cd "$WCB" && bash "$ROOT/scripts/p2a_design_review_gate.sh" cb 2>&1 || true)
+printf '%s' "$CB_OUT3" | grep -q "severity revisions without reason" \
+  && ok "downgrade without reason/confirmer rejected (A13)" \
+  || bad "severity downgrade not policed"
+# 补全理由与确认评委后放行
+sed -i '' 's/| 1 | DF-01 | P0 | P2 | |/| 1 | DF-01 | P0 | P2 | 经复核确认为表层提示 | 评审主持人 |/' \
+  "$WCB/docs/review/cb-design-review-report.md" 2>/dev/null || \
+  sed -i 's/| 1 | DF-01 | P0 | P2 | |/| 1 | DF-01 | P0 | P2 | 经复核确认为表层提示 | 评审主持人 |/' \
+  "$WCB/docs/review/cb-design-review-report.md"
+CB_OUT4=$(cd "$WCB" && bash "$ROOT/scripts/p2a_design_review_gate.sh" cb 2>&1 || true)
+printf '%s' "$CB_OUT4" | grep -q "severity revisions without reason" \
+  && bad "documented downgrade still rejected" \
+  || ok "documented downgrade with reason+confirmer accepted (A13)"
+
+# ---------- A15：缺陷级断言升级（错误信息必须点名被变异对象） ----------
+assert_out "does-not-exist.md" "PRD negative names the broken source path (A15)" \
+  python3 "$V" --kind design --input d-prdmiss.json --criteria criteria.md
+assert_out "NotFound.java" "baseline negative names the fictional target (A15)" \
+  bash -c "cd '$WSA' && python3 '$V' --kind design --input miss.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
+assert_out "BOOLEAN" "type-conflict negative names the conflicting type (A15)" \
+  python3 "$V" --kind design --input design.json --criteria criteria.md --doc doc-typeconflict.md
+
+# ---------- A14：s1 事实源元数据（来源/时点/适用范围） ----------
+WSM="$WORK/s1meta"; mkdir -p "$WSM/docs/detailed-design"
+WORKSPACE="$WSM" bash "$ROOT/scripts/devflow-state.sh" init s1m --frontend=not-applicable >/dev/null 2>&1
+for f in _commons.md _权限矩阵.md _环境与账号.md _菜单Seed索引.md INDEX-章节锚点.md INDEX-表.md INDEX-接口.md; do
+  printf '# %s\n1\n2\n3\n4\n5\n6\n7\n' "$f" > "$WSM/docs/detailed-design/$f"
+done
+S1M_OUT=$(cd "$WSM" && bash "$ROOT/scripts/s1_fact_sources_gate.sh" docs/detailed-design 2>&1 || true)
+printf '%s' "$S1M_OUT" | grep -q "缺事实源元数据块" \
+  && ok "s1 warns fact sources without source/as_of/scope metadata (A14)" \
+  || bad "s1 metadata warn missing"
+for f in _commons.md _权限矩阵.md _环境与账号.md _菜单Seed索引.md INDEX-章节锚点.md INDEX-表.md INDEX-接口.md; do
+  printf '<!-- DEVFLOW:FACT-SOURCE\nsource=代码走查\nas_of=2026-09-17\nscope=全局\n-->\n' >> "$WSM/docs/detailed-design/$f"
+done
+S1M_OUT2=$(cd "$WSM" && bash "$ROOT/scripts/s1_fact_sources_gate.sh" docs/detailed-design 2>&1 || true)
+printf '%s' "$S1M_OUT2" | grep -q "all fact sources carry source/as_of/scope metadata" \
+  && ok "s1 metadata complete after DEVFLOW:FACT-SOURCE blocks (A14)" \
+  || bad "s1 metadata completion not detected"
 
 echo "=== design contract hardening RESULT PASS=$PASS FAIL=$FAIL ==="
 [ "$FAIL" -eq 0 ] || exit 1

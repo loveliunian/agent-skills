@@ -1,0 +1,49 @@
+{
+  "feature": "demo-pay",
+  "generated_at": "2026-09-16T10:40:00Z",
+  "template": { "id": "PRD验证报告-模板", "version": "3.25.0" },
+  "feature_name": "演示支付",
+  "prd_doc": "docs/PRD/demo-pay.md",
+  "date": "2026-09-16",
+  "validator": "验证代理",
+  "machine": {
+    "p0_blockers": 0,
+    "p4_cmd": "./scripts/validate-demo-pay.sh",
+    "p4_results_path": "docs/测试/demo-pay-p4-results.tsv",
+    "validation_evidence": "docs/测试/demo-pay-raw-validation.md"
+  },
+  "p0_blockers": [
+    {
+      "id": "B-1",
+      "desc": "普通用户可调用 close 接口（权限未限制）",
+      "location": "backend/pay/PayCloseController.java",
+      "impact": "资金安全",
+      "fix": "增加 @PreAuthorize(pay:close)",
+      "status": "已修复"
+    }
+  ],
+  "features": [
+    { "name": "创建支付单", "priority": "P0", "impl_status": "已实现", "result": "通过", "note": "", "blocker_ref": "" },
+    { "name": "关闭他人支付单", "priority": "P0", "impl_status": "已实现", "result": "通过", "note": "B-1 修复后复验通过", "blocker_ref": "B-1" }
+  ],
+  "fields": [
+    { "name": "amount", "prd_req": "必填，>0 两位小数", "impl": "BigDecimal(10,2) 校验齐备", "db": "numeric(10,2)", "result": "通过", "blocker_ref": "" }
+  ],
+  "apis": [
+    { "name": "创建支付单", "method": "POST", "path": "/api/pay/orders", "permission": "pay:add", "impl_status": "已实现", "result": "通过", "blocker_ref": "" },
+    { "name": "关闭支付单", "method": "PUT", "path": "/api/pay/orders/{no}/close", "permission": "pay:close", "impl_status": "已实现", "result": "通过", "blocker_ref": "" }
+  ],
+  "permissions": [
+    { "role": "管理员", "allowed": ["创建", "查看", "关闭"], "result": "通过", "issue": "" },
+    { "role": "普通用户", "allowed": ["创建", "查看"], "result": "通过", "issue": "" }
+  ],
+  "leftovers": [],
+  "conclusion": "PASS",
+  "signoffs": [
+    { "role": "验证人", "name": "验证代理", "date": "2026-09-16" },
+    { "role": "开发负责人", "name": "张三", "date": "2026-09-16" }
+  ],
+  "zero_results": [
+    { "path": "leftovers", "reason": "无遗留项" }
+  ]
+}

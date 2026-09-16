@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "devflow/schemas/small-change.schema.json",
+  "title": "devflow SMALL-CHANGE 小需求变更结构化产物（small-change.json）",
+  "description": "小需求/小改动的机器可读业务产物层。决策必须可由证据复算：kind 枚举 + 十维影响扫描（HIT|MISS|NA）+ 逻辑变更数 → MICRO/FULL（与 small-change-gate.sh 同口径）；风险面（权限/流程/跨服务/历史数据）命中即 FULL。管线一次产出三件：报告 md + .devflow/<id>/small-change.env 机器契约 + project-scan.txt 证据（scan 文件含 CHANGE_SUBJECT）。",
+  "type": "object",
+  "x-unique": ["paths[]"],
+  "required": ["feature", "generated_at", "template", "change_id", "request", "subject", "kind", "old_behavior", "new_behavior", "target", "surfaces", "paths", "scan", "logical_change_count", "breaking", "dialects", "decision", "decision_reason", "verify_cmd", "migration_verify_cmd", "deploy_receipt_path", "monitor_receipt_path", "acceptance", "verification", "zero_results"],
+  "additionalProperties": false,
+  "properties": {
+    "feature": { "type": "string", "minLength": 1, "description": "change-id（与 .devflow/<change-id> 一致）" },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "template": {
+      "type": "object",
+      "required": ["id", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "const": "小需求变更-模板" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "change_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "description": "ASCII 变更标识（机器契约层不翻译）" },
+    "request": { "type": "string", "minLength": 4, "description": "用户原话" },
+    "subject": { "type": "string", "minLength": 2, "description": "变更主题；project-scan.txt 必须包含本字符串（Gate 对账）" },
+    "kind": { "enum": ["ui-copy", "ui-behavior", "bugfix", "additive-api", "additive-persistence", "validation-default", "config", "breaking-api", "schema-breaking", "permission", "state-machine", "cross-service", "new-module-service", "large-backfill", "multi-change"] },
+    "old_behavior": { "type": "string", "minLength": 2 },
+    "new_behavior": { "type": "string", "minLength": 2 },
+    "target": { "enum": ["merge-ready", "released"], "description": "released 必须绑定成功 P7+P8 收据（跨字段校验）" },
+    "surfaces": {
+      "type": "array",
+      "minItems": 1,
+      "description": "影响面（如 ui-behavior 必须 SURFACES=ui）",
+      "items": { "enum": ["ui", "api", "persistence", "config"] }
+    },
+    "paths": {
+      "type": "array",
+      "minItems": 1,
+      "description": "受影响路径（AFFECTED_PATHS）",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "scan": {
+      "type": "object",
+      "description": "十维项目影响扫描（每项 HIT|MISS|NA）；扫描命令、范围、命中文件写入 project-scan.txt",
+      "required": ["db", "domain", "api", "client", "config", "test", "permission", "workflow", "cross_service", "history_data"],
+      "additionalProperties": false,
+      "properties": {
+        "db": { "enum": ["HIT", "MISS", "NA"] },
+        "domain": { "enum": ["HIT", "MISS", "NA"] },
+        "api": { "enum": ["HIT", "MISS", "NA"] },
+        "client": { "enum": ["HIT", "MISS", "NA"] },
+        "config": { "enum": ["HIT", "MISS", "NA"] },
+        "test": { "enum": ["HIT", "MISS", "NA"] },
+        "permission": { "enum": ["HIT", "MISS", "NA"], "description": "HIT → 必须 FULL" },
+        "workflow": { "enum": ["HIT", "MISS", "NA"], "description": "HIT → 必须 FULL" },
+        "cross_service": { "enum": ["HIT", "MISS", "NA"], "description": "HIT → 必须 FULL" },
+        "history_data": { "enum": ["HIT", "MISS", "NA"], "description": "HIT → 必须 FULL" }
+      }
+    },
+    "logical_change_count": { "type": "integer", "minimum": 1, "description": "≠1 必须 FULL（跨字段校验）" },
+    "breaking": {
+      "type": "object",
+      "required": ["api", "type_nullability", "permission", "state_machine", "cross_service", "new_table_or_service", "large_backfill", "migration_required"],
+      "additionalProperties": false,
+      "properties": {
+        "api": { "type": "integer", "enum": [0, 1] },
+        "type_nullability": { "type": "integer", "enum": [0, 1] },
+        "permission": { "type": "integer", "enum": [0, 1] },
+        "state_machine": { "type": "integer", "enum": [0, 1] },
+        "cross_service": { "type": "integer", "enum": [0, 1] },
+        "new_table_or_service": { "type": "integer", "enum": [0, 1] },
+        "large_backfill": { "type": "integer", "enum": [0, 1] },
+        "migration_required": { "type": "integer", "enum": [0, 1] }
+      }
+    },
+    "dialects": { "type": "string", "description": "migration_required=1 时列方言（h2,postgresql,oracle,kingbase）" },
+    "decision": { "enum": ["MICRO", "FULL"], "description": "必须与按 kind/scan/count 复算值一致（跨字段校验）" },
+    "decision_reason": { "type": "string", "minLength": 8, "description": "基于项目证据的决策理由" },
+    "verify_cmd": { "type": "string", "minLength": 4, "description": "聚焦验证命令（占位命令被校验拒绝）" },
+    "migration_verify_cmd": { "type": "string" },
+    "deploy_receipt_path": { "type": "string", "description": "target=released 时必须指向存在的 P7 收据（跨字段校验）" },
+    "monitor_receipt_path": { "type": "string", "description": "target=released 时必须指向存在的 P8 收据（跨字段校验）" },
+    "acceptance": {
+      "type": "object",
+      "description": "验收条件（正向/边界/失败三路必须逐条给出）",
+      "required": ["positive", "boundary", "failure"],
+      "additionalProperties": false,
+      "properties": {
+        "positive": { "type": "string", "minLength": 2 },
+        "boundary": { "type": "string", "minLength": 2 },
+        "failure": { "type": "string", "minLength": 2 }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "description": "实际验证记录（命令、真实退出码、日志和环境边界）",
+      "required": ["cmd", "exit_code", "log", "env_boundary", "conclusion"],
+      "additionalProperties": false,
+      "properties": {
+        "cmd": { "type": "string", "minLength": 2 },
+        "exit_code": { "type": "integer" },
+        "log": { "type": "string", "minLength": 1 },
+        "env_boundary": { "type": "string", "minLength": 1 },
+        "conclusion": { "enum": ["MERGE_READY", "RELEASED", "BLOCKED"], "description": "RELEASED 仅在 target=released 且绑定 P7+P8 收据时合法" }
+      }
+    },
+    "zero_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

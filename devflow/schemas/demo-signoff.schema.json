@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "devflow/schemas/demo-signoff.schema.json",
+  "title": "devflow P2b 原型确认结构化产物（demo-signoff.json）",
+  "description": "P2b 原型 Demo 的机器可读业务产物层。渲染格式与 p2b_demo_gate.sh 的机械解析逐字段兼容：KUF 唯一编号 ≥3 且每条带 walkthrough 走查记录（编号 80 字符内含「走查/walkthrough」）、原型引用必须是 docs/原型/（或历史 docs/demo/）下的实存文件（Gate 逐一检查）、PO（产品负责人）结论明确（不得含不通过/驳回/待确认/进行中等未决表述）、签字人与日期齐备。",
+  "type": "object",
+  "x-unique": ["kufs[].id"],
+  "x-min-count": [
+    { "path": "kufs", "min": 3, "why": "P2b 要求 ≥3 个关键用户旅程（KUF）walkthrough；重复编号不计" }
+  ],
+  "required": ["feature", "generated_at", "template", "feature_name", "date", "prototype_refs", "kufs", "po_conclusion", "conclusion_passed", "signoffs", "zero_results"],
+  "additionalProperties": false,
+  "properties": {
+    "feature": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "template": {
+      "type": "object",
+      "required": ["id", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "const": "原型确认-模板" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "feature_name": { "type": "string", "minLength": 1 },
+    "date": { "type": "string", "minLength": 1 },
+    "prototype_refs": {
+      "type": "array",
+      "minItems": 1,
+      "description": "原型文件引用（docs/原型/… 或历史 docs/demo/…）；工作区反查必须实存（跨字段校验）",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "kufs": {
+      "type": "array",
+      "minItems": 3,
+      "description": "关键用户旅程；id 唯一（KUF-1..N），每条必须有走查记录",
+      "items": {
+        "type": "object",
+        "required": ["id", "journey", "walkthrough", "result"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^KUF-[0-9]{1,3}$" },
+          "journey": { "type": "string", "minLength": 2, "description": "旅程名称" },
+          "walkthrough": { "type": "string", "minLength": 8, "description": "走查记录（用户操作→原型反馈→结论）" },
+          "result": { "enum": ["通过", "未通过"], "description": "未通过项须回原型迭代，不得签发（conclusion_passed 联动）" }
+        }
+      }
+    },
+    "po_conclusion": { "type": "string", "minLength": 2, "description": "PO（产品负责人）明确结论；含未决/消极表述会被校验拦截（跨字段校验）" },
+    "conclusion_passed": { "type": "boolean", "description": "false 不签发 P2b 收据（跨字段校验）" },
+    "signoffs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["role", "name", "date"],
+        "additionalProperties": false,
+        "properties": {
+          "role": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "description": "签字日期（Gate 检查 YYYY-MM-DD 存在）" }
+        }
+      }
+    },
+    "zero_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

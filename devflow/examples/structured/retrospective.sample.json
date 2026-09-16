@@ -1,0 +1,92 @@
+{
+  "feature": "demo-pay",
+  "generated_at": "2026-09-16T11:05:00Z",
+  "template": {
+    "id": "复盘报告-模板",
+    "version": "3.25.0"
+  },
+  "feature_name": "演示支付",
+  "date": "2026-09-16",
+  "participants": [
+    "张三",
+    "李四",
+    "王五"
+  ],
+  "period": {
+    "from": "2026-09-10",
+    "to": "2026-09-16"
+  },
+  "phase_facts": [
+    {
+      "phase": "P0",
+      "gate_result": "PASS",
+      "receipt_path": ".devflow/demo-pay/gates/P0/receipt.txt",
+      "skip_note": ""
+    },
+    {
+      "phase": "P2",
+      "gate_result": "PASS",
+      "receipt_path": ".devflow/demo-pay/gates/P2/receipt.txt",
+      "skip_note": ""
+    },
+    {
+      "phase": "P3c",
+      "gate_result": "SKIPPED",
+      "receipt_path": ".devflow/demo-pay/skip-log.txt",
+      "skip_note": "压测：非支付峰值路径，用户授权跳过（skip-log 第 3 行）"
+    }
+  ],
+  "facts": [
+    {
+      "title": "P4 阶段发现越权漏洞",
+      "what": "close 接口未校验属主，普通用户可关闭他人支付单",
+      "why": "详设接口清单只写了权限码，未写属主校验规则",
+      "why_missed": "P2a 评审安全角色走了 ZERO-DF，越权路径核查停留在权限矩阵层面",
+      "impact": "P4 返工一轮，进度延后 1 天",
+      "owner": "张三",
+      "eta": "2026-09-17"
+    }
+  ],
+  "misses": [
+    {
+      "item": "越权场景未纳入 AW 走查必选清单",
+      "impact": "安全缺陷漏到 P4 才发现",
+      "fix": "AW 模板固化「越权访问」场景（已在本次评审执行）"
+    }
+  ],
+  "actions": [
+    {
+      "item": "详设接口卡增加「属主校验」必填字段",
+      "priority": "P0",
+      "owner": "老周",
+      "eta": "2026-09-20"
+    },
+    {
+      "item": "P2a 安全角色 ZERO-DF 必须附越权走查证据",
+      "priority": "P1",
+      "owner": "王五",
+      "eta": "2026-09-25"
+    }
+  ],
+  "feedback": {
+    "feedback_id": "FB-20260916-001",
+    "scope": "project",
+    "status": "PROPOSED",
+    "skill_modify_approved": false,
+    "root_cause": "详设接口卡模板缺「属主校验」必填字段，安全设计停留在权限码层面",
+    "target_files": [
+      "docs/详细设计/demo-pay-详细设计.md",
+      "schemas/design.schema.json"
+    ],
+    "decision": "fix"
+  },
+  "verify_output": "$ find .devflow docs -name receipt.txt | sort\n.devflow/demo-pay/gates/P0/receipt.txt\n.devflow/demo-pay/gates/P2/receipt.txt\n$ bash p10_feedback_gate.sh demo-pay\nP10 RESULT: PASS=3 FAIL=0",
+  "zero_results": [],
+  "new_findings": [
+    {
+      "item": "幂等键口径在两份文档中不一致（§3.2 与接口卡）",
+      "impact": "若按接口卡实现会与回调幂等冲突",
+      "fix": "P2 渲染 biz-ops 块后已统一为 order_no+渠道"
+    }
+  ]
+}

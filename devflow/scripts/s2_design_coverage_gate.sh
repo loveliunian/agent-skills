@@ -194,6 +194,23 @@ else
   # --workspace .：仓库标志存在时启用基线/配置全仓反查（A02）。
   V_ARGS=(--kind design --input "$DESIGN_JSON" --workspace . --doc "$DESIGN")
   [ -n "$CRITERIA" ] && V_ARGS+=(--criteria "$CRITERIA")
+  # v3.24.0(A05)：设计包清单——总分模式必填；子集并集=冻结分母、缺文档即失败；
+  # 当前文档按其验收子集做范围过滤的文档对账（--scope-ids）。
+  PKG_FILE="${STATE_DIR:-.devflow}/${EFF_FEATURE}/design-package.json"
+  if [ "$MODE" != "monolith" ]; then
+    if [ ! -f "$PKG_FILE" ]; then
+      p0 "design-package.json 缺失: ${PKG_FILE}——总分模式必须登记设计包（docs[].path/mode/acceptance_ids；子集并集=冻结分母，缺文档即失败）"
+    elif command -v python3 >/dev/null 2>&1; then
+      PKG_OUT=$(_python3 "$SKILL_ROOT/scripts/df_design_package.py" --package "$PKG_FILE" --criteria "$CRITERIA" --doc "$DESIGN" 2>&1)
+      if [ $? -eq 0 ]; then
+        PKG_SCOPE=$(printf '%s\n' "$PKG_OUT" | sed -n 's/^SCOPE=//p')
+        pass "design-package 清单校验通过（当前文档子集 ${#PKG_SCOPE} 字符）"
+        [ -n "$PKG_SCOPE" ] && V_ARGS+=(--scope-ids "$PKG_SCOPE")
+      else
+        p0 "design-package 清单校验失败: $(printf '%s' "$PKG_OUT" | head -2 | tr '\n' ' ')"
+      fi
+    fi
+  fi
   if _python3 "$SKILL_ROOT/scripts/df_validate.py" "${V_ARGS[@]}"; then
     pass "design.json 校验通过（schema + 跨字段 + criteria 全等 + 正文锚点/字段对账）"
   else
@@ -440,6 +457,18 @@ EXIT_CODE=$([ "$FAIL" -gt 0 ] && echo 1 || echo 0)
   if command -v jq >/dev/null 2>&1; then
     _P2_EV_ARGS=("$DESIGN" "$CRITERIA")
     [ -f "$DESIGN_JSON" ] && _P2_EV_ARGS+=("$DESIGN_JSON")
+    # v3.24.0(A02)：收据绑定调查过的源码证据——design.json baseline 中真实存在的
+    # 目标文件一并纳入证据树；评审/实现期间源码被改写 → audit-receipts 重验 FAIL。
+    if [ -f "$DESIGN_JSON" ] && command -v python3 >/dev/null 2>&1; then
+      while IFS= read -r _bl_f; do
+        [ -n "$_bl_f" ] && [ -f "$_bl_f" ] && _P2_EV_ARGS+=("$_bl_f")
+      done < <(_python3 -c 'import json,sys
+try:
+    for e in json.load(open(sys.argv[1])).get("baseline", {}).get("entries", []):
+        print((e.get("target") or "").split("#", 1)[0].strip())
+except Exception:
+    pass' "$DESIGN_JSON" 2>/dev/null || true)
+    fi
     _P2_EV_TREE=$(receipt_evidence_tree "${_P2_EV_ARGS[@]}")
     if [ -n "$_P2_EV_TREE" ]; then
       _P2_PATHS='['

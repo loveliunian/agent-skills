@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "devflow/schemas/constraints.schema.json",
+  "title": "devflow P0 技术约束契约结构化产物（constraints.json）",
+  "description": "P0 技术硬约束契约的机器可读业务产物层。渲染器派生 <!-- DEVFLOW:CONSTRAINTS --> 机器契约块（tech_constraints_lib.sh 唯一机读事实源，字段格式勿改）与人读约束清单表；校验器强制 FROZEN + 用户确认 + 来源锚点。无硬约束时 constraints 为空且 no_constraints=true（constraint_set=NONE 同样是冻结决定）。",
+  "type": "object",
+  "x-unique": ["constraints[].constraint_id"],
+  "required": ["feature", "generated_at", "template", "feature_name", "prd_doc", "frozen_date", "confirmer", "constraints", "no_constraints", "confirmed", "zero_results"],
+  "additionalProperties": false,
+  "properties": {
+    "feature": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "template": {
+      "type": "object",
+      "required": ["id", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "const": "技术约束-模板" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "feature_name": { "type": "string", "minLength": 1 },
+    "prd_doc": { "type": "string", "minLength": 1 },
+    "frozen_date": { "type": "string", "minLength": 1 },
+    "confirmer": { "type": "string", "minLength": 1, "description": "确认人（用户/产品负责人）" },
+    "constraints": {
+      "type": "array",
+      "description": "硬约束清单；为空时必须 no_constraints=true 且 confirmed=true（constraint_set=NONE）",
+      "items": {
+        "type": "object",
+        "required": ["constraint_id", "type", "subject", "required_product", "status", "confirmed", "source_anchor"],
+        "additionalProperties": false,
+        "properties": {
+          "constraint_id": { "type": "string", "pattern": "^TC-[A-Z]+-[0-9]{3}$", "description": "全局唯一；P2 详设、P1 绑定、P3/P4b 对账使用同一组 ID" },
+          "type": { "enum": ["MUST_USE", "MUST_NOT_USE"] },
+          "subject": { "type": "string", "minLength": 1, "description": "约束对象（能力域，如 workflow-engine）" },
+          "required_product": { "type": "string", "minLength": 1, "description": "MUST_USE=必须采用的产品；MUST_NOT_USE=禁止出现的产品" },
+          "required_version": { "type": "string", "description": "MUST_USE 时的最低/固定版本（可选）" },
+          "status": { "enum": ["FROZEN", "DRAFT"], "description": "必须 FROZEN；DRAFT 会被所有 Gate 阻断（跨字段校验）" },
+          "confirmed": { "type": "boolean", "description": "用户明确批准后才能置 true（跨字段校验）" },
+          "source_anchor": { "type": "string", "minLength": 1, "description": "来源锚点（PRD 路径#行号 或 用户原话记录）" }
+        }
+      }
+    },
+    "no_constraints": { "type": "boolean", "description": "constraints 为空时必须 true" },
+    "confirmed": { "type": "boolean", "description": "整体契约用户确认标记；false 会被所有下游 Gate 阻断" },
+    "zero_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

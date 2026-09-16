@@ -1,0 +1,90 @@
+{
+  "feature": "demo-pay",
+  "generated_at": "2026-09-16T10:20:00Z",
+  "template": { "id": "技术选型报告-模板", "version": "3.25.0" },
+  "feature_name": "演示支付",
+  "date": "2026-09-16",
+  "selector": "张三",
+  "reviewer": "架构师-老周",
+  "existing_stack": "Spring Boot 3.2 / PostgreSQL 15 / Redis 7（读取自 backend/pom.xml 与 deploy/）",
+  "constraints_doc": "docs/需求/demo-pay-技术约束.md",
+  "constraints_scan": [
+    {
+      "constraint_id": "TC-TECH-001",
+      "candidate": "FlowCore",
+      "verdict": "淘汰",
+      "reason": "违反 TC-TECH-001 MUST_NOT_USE：禁用产品 FlowCore 出现在候选中"
+    }
+  ],
+  "facts": [
+    { "fact": "Camunda 7.24 与 Spring Boot 3.2 兼容性", "method": "POC 启动验证", "conclusion": "启动正常，流程部署与执行通过" }
+  ],
+  "candidates": [
+    {
+      "id": "A",
+      "name": "Camunda 7.24.0",
+      "description": "成熟开源工作流引擎，与现有 Java 栈集成成本低",
+      "pros": ["社区成熟", "团队有使用经验"],
+      "cons": [" license 版本限制 "]
+    },
+    {
+      "id": "B",
+      "name": "自研轻量状态机",
+      "description": "仅覆盖支付单状态流转的极简状态机",
+      "pros": ["零外部依赖"],
+      "cons": ["缺少审批/回滚等编排能力", "自研维护成本高"]
+    }
+  ],
+  "dimensions": [
+    {
+      "name": "集成兼容性",
+      "weight": 40,
+      "scores": [
+        { "candidate": "A", "score": 5, "evidence": "POC 启动验证通过（facts[0]）" },
+        { "candidate": "B", "score": 3, "evidence": "需自行适配事务边界，引用内部评审记录" }
+      ]
+    },
+    {
+      "name": "功能覆盖",
+      "weight": 35,
+      "scores": [
+        { "candidate": "A", "score": 5, "evidence": "官方文档：审批/回滚/定时边界事件齐全" },
+        { "candidate": "B", "score": 2, "evidence": "需求盘点：缺 3 项编排能力" }
+      ]
+    },
+    {
+      "name": "维护成本",
+      "weight": 25,
+      "scores": [
+        { "candidate": "A", "score": 4, "evidence": "团队 2 人有生产经验（技能矩阵）" },
+        { "candidate": "B", "score": 2, "evidence": "自研需长期 1 人维护（估算）" }
+      ]
+    }
+  ],
+  "decision": {
+    "chosen": "A",
+    "reason": "加权合计 A=470 领先；集成兼容性与功能覆盖证据充分（POC + 官方文档），维护成本可接受"
+  },
+  "user_confirmed": "已确认",
+  "risks": [
+    { "risk": "Camunda 社区版 license 变更", "impact": "中", "mitigation": "锁定 7.24.0 并跟踪 release note" }
+  ],
+  "bindings": [
+    {
+      "constraint_id": "TC-TECH-001",
+      "selected_product": "camunda",
+      "selected_version": "7.24.0",
+      "compliance": "PASS",
+      "evidence": "backend/pom.xml 依赖坐标 org.camunda.bpm"
+    }
+  ],
+  "plan": [
+    { "task": "依赖引入与 POC 复验", "owner": "张三", "due": "2026-09-18" },
+    { "task": "集成测试", "owner": "王五", "due": "2026-09-22" }
+  ],
+  "signoffs": [
+    { "role": "技术负责人", "name": "老周", "date": "2026-09-16" },
+    { "role": "架构师", "name": "老周", "date": "2026-09-16" }
+  ],
+  "zero_results": []
+}

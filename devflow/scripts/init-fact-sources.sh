@@ -112,6 +112,8 @@ while IFS= read -r tpl; do
     continue
   fi
   sed "s/{DATE}/$DATE/g" "$src" > "$dst"
+  # v3.24.0(A14)：事实源元数据块（来源/时点/适用范围）——s1 §1a 检查；请按实际调查方式修订
+  { cat "$dst"; printf '\n<!-- DEVFLOW:FACT-SOURCE\nsource=人工登记\nas_of=%s\nscope=全局\n-->\n' "$DATE"; } > "$dst.tmp" && mv "$dst.tmp" "$dst"
   echo "  [OK]   $tpl"
   COPIED=$((COPIED + 1))
 done <<< "$TEMPLATES_LIST"

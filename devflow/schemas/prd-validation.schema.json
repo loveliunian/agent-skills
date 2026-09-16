@@ -1,0 +1,168 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "devflow/schemas/prd-validation.schema.json",
+  "title": "devflow P4 PRD 验证结构化产物（prd-validation.json）",
+  "description": "P4 PRD 验证的机器可读业务产物层。PRD 逐条 vs 实现证据；P0 阻断项必须全部修复才能进入 P5。渲染器派生 P4 Gate 机器可读结论行（P0_BLOCKERS/P4_CMD/P4_RESULTS_PATH/VALIDATION_EVIDENCE——p4_validation_gate.sh 机械解析格式逐字段兼容）与各对照表；校验器强制机器字段与阻断清单一致、P4_CMD 非占位、证据文件真实存在。",
+  "type": "object",
+  "x-unique": ["p0_blockers[].id"],
+  "x-zeroable": ["p0_blockers", "leftovers"],
+  "required": ["feature", "generated_at", "template", "feature_name", "prd_doc", "date", "validator", "machine", "p0_blockers", "features", "fields", "apis", "permissions", "leftovers", "conclusion", "signoffs", "zero_results"],
+  "additionalProperties": false,
+  "properties": {
+    "feature": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "template": {
+      "type": "object",
+      "required": ["id", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "const": "PRD验证报告-模板" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "feature_name": { "type": "string", "minLength": 1 },
+    "prd_doc": { "type": "string", "minLength": 1 },
+    "date": { "type": "string", "minLength": 1 },
+    "validator": { "type": "string", "minLength": 1 },
+    "machine": {
+      "type": "object",
+      "description": "P4 Gate 机器可读结论（完成验证后由 JSON 声明真实值）",
+      "required": ["p0_blockers", "p4_cmd", "p4_results_path", "validation_evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "p0_blockers": { "type": "integer", "minimum": 0, "description": "未修复 P0 阻断数；必须与 p0_blockers 清单一致（跨字段校验）" },
+        "p4_cmd": { "type": "string", "minLength": 4, "description": "直接调用受信验证运行器的命令（占位命令与 shell 转包被校验拒绝）" },
+        "p4_results_path": { "type": "string", "minLength": 1, "description": "ID<TAB>STATUS 结果表路径（文件必须存在）" },
+        "validation_evidence": { "type": "string", "minLength": 1, "description": "原始验证证据路径（文件必须存在）" }
+      }
+    },
+    "p0_blockers": {
+      "type": "array",
+      "description": "P0 阻断项；全部已修复才能 conclusion=PASS（跨字段校验）",
+      "items": {
+        "type": "object",
+        "required": ["id", "desc", "location", "impact", "fix", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^B-[0-9]{1,3}$" },
+          "desc": { "type": "string", "minLength": 4 },
+          "location": { "type": "string", "minLength": 1 },
+          "impact": { "type": "string", "minLength": 1 },
+          "fix": { "type": "string", "minLength": 2 },
+          "status": { "enum": ["已修复", "未修复"] }
+        }
+      }
+    },
+    "features": {
+      "type": "array",
+      "minItems": 1,
+      "description": "功能点验证",
+      "items": {
+        "type": "object",
+        "required": ["name", "priority", "impl_status", "result", "note", "blocker_ref"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "priority": { "enum": ["P0", "P1", "P2"] },
+          "impl_status": { "enum": ["已实现", "未实现", "部分实现"] },
+          "result": { "enum": ["通过", "失败", "部分通过"] },
+          "note": { "type": "string" },
+          "blocker_ref": { "type": "string", "description": "失败项关联的阻断项编号（B-n）；确非阻断必须留空并在 note 说明理由" }
+        }
+      }
+    },
+    "fields": {
+      "type": "array",
+      "description": "数据字段验证（PRD 要求 vs 代码实现 vs 数据库）",
+      "items": {
+        "type": "object",
+        "required": ["name", "prd_req", "impl", "db", "result", "blocker_ref"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "prd_req": { "type": "string", "minLength": 1 },
+          "impl": { "type": "string", "minLength": 1 },
+          "db": { "type": "string", "minLength": 1 },
+          "result": { "enum": ["通过", "失败", "部分通过"] },
+          "blocker_ref": { "type": "string" }
+        }
+      }
+    },
+    "apis": {
+      "type": "array",
+      "description": "接口验证",
+      "items": {
+        "type": "object",
+        "required": ["name", "method", "path", "permission", "impl_status", "result", "blocker_ref"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "method": { "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"] },
+          "path": { "type": "string", "minLength": 1 },
+          "permission": { "type": "string", "minLength": 1 },
+          "impl_status": { "enum": ["已实现", "未实现", "部分实现"] },
+          "result": { "enum": ["通过", "失败", "部分通过"] },
+          "blocker_ref": { "type": "string" }
+        }
+      }
+    },
+    "permissions": {
+      "type": "array",
+      "minItems": 1,
+      "description": "权限矩阵对照",
+      "items": {
+        "type": "object",
+        "required": ["role", "allowed", "result", "issue"],
+        "additionalProperties": false,
+        "properties": {
+          "role": { "type": "string", "minLength": 1 },
+          "allowed": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "result": { "enum": ["通过", "失败"] },
+          "issue": { "type": "string", "description": "失败时必须描述问题（如「接口未限制」）" }
+        }
+      }
+    },
+    "leftovers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "item", "severity", "owner", "eta"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "item": { "type": "string", "minLength": 2 },
+          "severity": { "enum": ["P0", "P1", "P2"] },
+          "owner": { "type": "string", "minLength": 1 },
+          "eta": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "conclusion": { "enum": ["PASS", "FAIL"], "description": "P0 阻断清单未清零时不得 PASS（跨字段校验）" },
+    "signoffs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["role", "name", "date"],
+        "additionalProperties": false,
+        "properties": {
+          "role": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "date": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "zero_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

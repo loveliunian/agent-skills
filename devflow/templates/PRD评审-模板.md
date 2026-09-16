@@ -1,8 +1,10 @@
 ---
 name: PRD评审-模板
-version: "3.24.0"
+version: "3.25.0"
 description: PRD 评审模板（P0b 阶段，多角色评审循环，DF/AW 深度契约 v3.14.0）
 ---
+
+> **v3.25.0 结构化产物**：本产物已 JSON 化——按 `schemas/prd-review.schema.json` 填 `.devflow/<feature>/prd-review.json`，经 `python3 scripts/df_pipeline.py prd-review` 校验后确定性生成本文档（样例见 `examples/structured/prd-review.sample.json`）；校验失败不渲染、不进 Gate。本模板保留为语义参考。
 
 # PRD 评审模板 - {FeatureName}
 

@@ -1,0 +1,215 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "devflow/schemas/prd-review.schema.json",
+  "title": "devflow P0b PRD 评审结构化产物（prd-review.json）",
+  "description": "P0b PRD 评审的机器可读业务产物层。DF/AW 深度契约 v3.14.0：问题分深层发现（DF，五字段缺一 Gate 判无效）与表层发现（SF）；歧义术语必须逐条决议或声明无歧义+核查证据；对抗场景走查 ≥2 条且每条以结果收尾；四类探针执行留痕。渲染器派生 DF 块/AW 行/探针表（artifact_gate.sh P0b 的机械解析格式，逐字段兼容）；校验器强制角色覆盖（每角色 DF 或 ZERO-DF 核查证据）。",
+  "type": "object",
+  "x-unique": ["df[].id", "sf[].id", "ambiguity_terms[].id", "boundary_enums[].id", "aw[].id"],
+  "x-refs": [
+    { "from": "aw[].df_refs", "to": "df[].id", "label": "走查→DF" },
+    { "from": "boundary_enums[].df_ref", "to": "df[].id", "label": "边界枚举→DF" }
+  ],
+  "x-zeroable": ["risks", "leftovers", "sf", "boundary_enums"],
+  "x-min-count": [
+    { "path": "probes", "min": 4, "why": "P0b 必做四类探针（P1 对抗走查 / P2 边界枚举 / P4 跨产物一致性 / P5 决策 Why 链）" },
+    { "path": "aw", "min": 2, "why": "对抗场景走查 ≥2 条——端到端走查是 PRD 评审最有效的深挖探针" }
+  ],
+  "required": ["feature", "generated_at", "template", "feature_name", "prd_doc", "date", "host", "reviewers", "probes", "ambiguity_terms", "no_ambiguity_evidence", "boundary_enums", "aw", "df", "sf", "zero_df_roles", "risks", "leftovers", "conclusion_passed", "signoffs", "zero_results"],
+  "additionalProperties": false,
+  "properties": {
+    "feature": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "template": {
+      "type": "object",
+      "required": ["id", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "const": "PRD评审-模板" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "feature_name": { "type": "string", "minLength": 1 },
+    "prd_doc": { "type": "string", "minLength": 1 },
+    "date": { "type": "string", "minLength": 1 },
+    "host": { "type": "string", "minLength": 1, "description": "评审主持人" },
+    "reviewers": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "probes": {
+      "type": "array",
+      "description": "探针执行记录；全部 executed=true 才能下结论（跨字段校验）",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "owner", "executed", "output"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "enum": ["P1", "P2", "P4", "P5"] },
+          "name": { "type": "string", "minLength": 2 },
+          "owner": { "type": "string", "minLength": 1 },
+          "executed": { "type": "boolean" },
+          "output": { "type": "string", "description": "产出位置/结论；executed=true 时必填" }
+        }
+      }
+    },
+    "ambiguity_terms": {
+      "type": "array",
+      "description": "歧义术语决议表；为空必须给 no_ambiguity_evidence（跨字段校验）",
+      "items": {
+        "type": "object",
+        "required": ["id", "term", "prd_anchor", "ambiguity", "resolution", "decider", "resolved"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^T-[0-9]{1,3}$" },
+          "term": { "type": "string", "minLength": 1 },
+          "prd_anchor": { "type": "string", "minLength": 1 },
+          "ambiguity": { "type": "string", "minLength": 4 },
+          "resolution": { "type": "string", "description": "决议口径；resolved=true 时必填（跨字段校验）" },
+          "decider": { "type": "string", "minLength": 1 },
+          "resolved": { "type": "boolean" }
+        }
+      }
+    },
+    "no_ambiguity_evidence": { "type": "string", "description": "无歧义术语时的核查证据；ambiguity_terms 为空时必填（跨字段校验）" },
+    "boundary_enums": {
+      "type": "array",
+      "description": "边界与极端值枚举（P2 探针产出）；未定义行为登记为 DF（df_ref 关联）",
+      "items": {
+        "type": "object",
+        "required": ["id", "object", "values", "prd_defined", "df_ref"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^B-[0-9]{1,3}$" },
+          "object": { "type": "string", "minLength": 1 },
+          "values": { "type": "string", "minLength": 1, "description": "枚举值（0/1/max/null/空串/超长/并发重复…）" },
+          "prd_defined": { "type": "boolean" },
+          "df_ref": { "type": "string", "description": "未定义→DF 编号（如 DF-01）；已定义或无关联留空串" }
+        }
+      }
+    },
+    "aw": {
+      "type": "array",
+      "description": "对抗场景走查；每条必须以「发现 DF-xx」或「证据 §锚点」收尾（跨字段校验）",
+      "items": {
+        "type": "object",
+        "required": ["id", "scenario", "path", "df_refs", "evidence_anchor"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^AW-[0-9]{1,3}$" },
+          "scenario": { "type": "string", "minLength": 4, "description": "中途失败/重复提交/部分成功回滚/越权访问…" },
+          "path": { "type": "string", "minLength": 4, "description": "走查路径（用户操作→系统行为→数据结果）" },
+          "df_refs": { "type": "array", "items": { "type": "string", "pattern": "^DF-[0-9]{2}$" } },
+          "evidence_anchor": { "type": "string", "description": "无问题时的证据锚点（§x.y）" }
+        }
+      }
+    },
+    "df": {
+      "type": "array",
+      "description": "深层发现；五字段（触发场景/影响链/完善建议/验证方式/文档位置 §x.y）缺一 Gate 判无效",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "role", "doc_anchor", "trigger_scene", "impact_chain", "root_cause", "suggestion", "verify", "severity", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^DF-[0-9]{2}$" },
+          "title": { "type": "string", "minLength": 4 },
+          "role": { "enum": ["业务", "后端", "前端", "测试", "安全"] },
+          "doc_anchor": { "type": "string", "pattern": "^§[0-9]+([.][0-9]+)*$", "description": "PRD 位置（禁止「详见 PRD」）" },
+          "trigger_scene": { "type": "string", "minLength": 8, "description": "在【什么业务/操作场景】下，当【动作/事件】发生时" },
+          "impact_chain": { "type": "string", "minLength": 8, "description": "不澄清/不修复将导致【具体后果】的传导路径" },
+          "root_cause": { "enum": ["缺失定义", "边界遗漏", "一致性冲突", "决策无依据", "可测性不足", "性能容量", "安全权限"] },
+          "suggestion": { "type": "string", "minLength": 4 },
+          "verify": { "type": "string", "minLength": 4, "description": "如何确认已解决：补充验收点 X / 更新口径表…" },
+          "severity": { "enum": ["P0", "P1", "P2"] },
+          "status": { "enum": ["OPEN", "CLOSED"] }
+        }
+      }
+    },
+    "sf": {
+      "type": "array",
+      "description": "表层发现（不计配额、不阻塞 Gate，单角色 ≤5 条）",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "role", "doc_anchor", "suggestion"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^SF-[0-9]{2}$" },
+          "title": { "type": "string", "minLength": 2 },
+          "role": { "type": "string", "minLength": 1 },
+          "doc_anchor": { "type": "string", "minLength": 1 },
+          "suggestion": { "type": "string", "minLength": 2 }
+        }
+      }
+    },
+    "zero_df_roles": {
+      "type": "array",
+      "description": "零发现角色的核查记录；每个评审角色必须有 DF 或 ZERO-DF 证据（跨字段校验）",
+      "items": {
+        "type": "object",
+        "required": ["role", "scope", "evidence_anchor", "verify"],
+        "additionalProperties": false,
+        "properties": {
+          "role": { "enum": ["业务", "后端", "前端", "测试", "安全"] },
+          "scope": { "type": "string", "minLength": 4, "description": "核查范围" },
+          "evidence_anchor": { "type": "string", "minLength": 2, "description": "证据锚点" },
+          "verify": { "type": "string", "minLength": 4, "description": "验证方式" }
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "severity", "strategy", "owner", "eta"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 4 },
+          "severity": { "enum": ["P0", "P1", "P2"] },
+          "strategy": { "type": "string", "minLength": 2 },
+          "owner": { "type": "string", "minLength": 1 },
+          "eta": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "leftovers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "item", "owner", "eta", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "item": { "type": "string", "minLength": 2 },
+          "owner": { "type": "string", "minLength": 1 },
+          "eta": { "type": "string", "minLength": 1 },
+          "status": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "conclusion_passed": { "type": "boolean", "description": "评审结论：所有角色 ✅ 且遗留问题清零后为 true" },
+    "signoffs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["role", "name", "date"],
+        "additionalProperties": false,
+        "properties": {
+          "role": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "date": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "zero_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

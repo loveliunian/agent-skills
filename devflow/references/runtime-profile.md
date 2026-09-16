@@ -1,6 +1,6 @@
 ---
 name: runtime-profile
-version: "3.24.0"
+version: "3.25.0"
 description: 技术栈无关的 Runtime Profile 契约——P3 前必须解析并冻结，核心流程不得假设具体框架。
 ---
 

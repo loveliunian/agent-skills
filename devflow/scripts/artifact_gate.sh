@@ -161,7 +161,7 @@ case "$PHASE" in
         fi
         if [ "$role_cnt" -eq 0 ] && [ "$zero_cnt" -gt 0 ]; then
           zero_hollow=$(LC_ALL=C awk -v role="$role_label" '
-            function blank(r){ gsub(/[[:space:]:：、，。/-]/,"",r); return (r=="") }
+            function blank(r){ gsub(/[[:space:]:：、，。-]/,"",r); return (r=="") }
             BEGIN{inblk=0; bad=0; fields=0; lines=0}
             /^#### ZERO-DF/ && $0 ~ role {inblk=1; fields=0; lines=0; next}
             /^#### / && inblk { if (fields<2 && lines<3) bad++; inblk=0; next }

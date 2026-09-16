@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "devflow/schemas/docs-index.schema.json",
+  "title": "devflow P9 文档交付索引结构化产物（docs-index.json）",
+  "description": "P9 文档交付索引的机器可读业务产物层。五类交付文档（用户/开发/API/运维/发布说明）逐一声明路径与 SHA-256；校验器实算哈希比对 + substantive 检查（≥10 行、≥2 标题、≥5 正文行、含类别语义章节）——口径与 artifact_gate.sh P9 一致。渲染器派生 KEY=VALUE 机器契约行。",
+  "type": "object",
+  "x-unique": ["docs[].kind"],
+  "required": ["feature", "generated_at", "template", "feature_name", "docs", "zero_results"],
+  "additionalProperties": false,
+  "properties": {
+    "feature": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "template": {
+      "type": "object",
+      "required": ["id", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "const": "文档索引-模板" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "feature_name": { "type": "string", "minLength": 1 },
+    "docs": {
+      "type": "array",
+      "minItems": 5,
+      "description": "五类交付文档各一份（kind 唯一，跨字段校验）",
+      "items": {
+        "type": "object",
+        "required": ["kind", "path", "sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "enum": ["USER_DOC", "DEVELOPER_DOC", "API_DOC", "OPERATIONS_DOC", "RELEASE_NOTES"] },
+          "path": { "type": "string", "minLength": 1, "description": "本次交付实际维护的文档路径（文件必须存在）" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "文档 SHA-256（校验器实算比对）" }
+        }
+      }
+    },
+    "zero_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

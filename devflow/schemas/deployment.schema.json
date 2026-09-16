@@ -1,0 +1,187 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "devflow/schemas/deployment.schema.json",
+  "title": "devflow P7 部署记录结构化产物（deployment.json）",
+  "description": "P7 部署记录的机器可读业务产物层（原则 14：外部副作用必须有授权收据；Gate 才能声明 RELEASED）。渲染器派生 P7 Gate 机器可读证据行（DEPLOYMENT_ID/ARTIFACT_SHA256/HEALTH_HTTP_STATUS=200/HEALTH_URL/BUILD_INFO_URL/RELEASE_EVIDENCE_PATH——artifact_gate.sh P7 机械解析格式逐字段兼容）；校验器强制制品指纹实算一致、健康 200、步骤退出码全 0、回滚方案齐备、结果 SUCCESS。",
+  "type": "object",
+  "x-unique": ["steps[].name"],
+  "required": ["feature", "generated_at", "template", "feature_name", "date", "deployer", "environment", "strategy", "deployment_id", "artifact", "health", "build_info_url", "release_evidence_path", "prechecks", "steps", "post_checks", "function_checks", "rollback_triggers", "rollback_steps", "result", "started_at", "ended_at", "duration_minutes", "problems", "signoffs", "zero_results"],
+  "additionalProperties": false,
+  "properties": {
+    "feature": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "template": {
+      "type": "object",
+      "required": ["id", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "const": "部署记录-模板" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "feature_name": { "type": "string", "minLength": 1 },
+    "date": { "type": "string", "minLength": 1 },
+    "deployer": { "type": "string", "minLength": 1 },
+    "environment": { "enum": ["staging", "production"], "description": "部署环境（与机器契约 ENVIRONMENT 一致）" },
+    "strategy": { "type": "string", "minLength": 2, "description": "蓝绿/滚动/重新创建" },
+    "deployment_id": { "type": "string", "minLength": 4, "description": "部署唯一 ID（DEPLOYMENT_ID）" },
+    "artifact": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "description": "制品相对路径（工作区反查必须存在，且 SHA-256 实算一致）" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "制品指纹（64 hex）" }
+      }
+    },
+    "health": {
+      "type": "object",
+      "required": ["url", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "url": { "type": "string", "pattern": "^https?://\\S+$", "description": "实时探测地址（link-local/metadata 段被校验拒绝）" },
+        "status": { "type": "integer", "description": "必须 200（HEALTH_HTTP_STATUS=200 是 Gate 硬条件）" }
+      }
+    },
+    "build_info_url": { "type": "string", "pattern": "^https?://\\S+$", "description": "运行实例须回显 ARTIFACT_SHA256 前 12 位或 DEPLOYMENT_ID 原值，证明运行实例即该制品" },
+    "release_evidence_path": { "type": "string", "minLength": 1, "description": "发布运行输出落盘路径（文件必须存在）" },
+    "prechecks": {
+      "type": "object",
+      "required": ["services", "db_backup", "dependencies"],
+      "additionalProperties": false,
+      "properties": {
+        "services": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["service", "status", "owner"],
+            "additionalProperties": false,
+            "properties": {
+              "service": { "type": "string", "minLength": 1 },
+              "status": { "type": "string", "minLength": 1 },
+              "owner": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "db_backup": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["database", "time", "file", "by"],
+            "additionalProperties": false,
+            "properties": {
+              "database": { "type": "string", "minLength": 1 },
+              "time": { "type": "string", "minLength": 1 },
+              "file": { "type": "string", "minLength": 1 },
+              "by": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "version", "ok"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "version": { "type": "string", "minLength": 1 },
+              "ok": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "description": "部署步骤；退出码必须全 0（跨字段校验）",
+      "items": {
+        "type": "object",
+        "required": ["name", "cmd", "exit_code", "evidence"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "cmd": { "type": "string", "minLength": 2 },
+          "exit_code": { "type": "integer" },
+          "evidence": { "type": "string", "minLength": 2, "description": "执行证据（输出摘要/日志位置）" }
+        }
+      }
+    },
+    "post_checks": {
+      "type": "array",
+      "minItems": 1,
+      "description": "部署后健康检查",
+      "items": {
+        "type": "object",
+        "required": ["item", "cmd", "expected", "actual", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "item": { "type": "string", "minLength": 1 },
+          "cmd": { "type": "string", "minLength": 2 },
+          "expected": { "type": "string", "minLength": 1 },
+          "actual": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["PASS", "FAIL"] }
+        }
+      }
+    },
+    "function_checks": {
+      "type": "array",
+      "minItems": 1,
+      "description": "功能验证",
+      "items": {
+        "type": "object",
+        "required": ["feature", "method", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "feature": { "type": "string", "minLength": 1 },
+          "method": { "type": "string", "minLength": 2, "description": "验证方式（curl …）" },
+          "status": { "enum": ["PASS", "FAIL"] }
+        }
+      }
+    },
+    "rollback_triggers": {
+      "type": "array",
+      "minItems": 1,
+      "description": "自动回滚触发条件",
+      "items": { "type": "string", "minLength": 4 }
+    },
+    "rollback_steps": {
+      "type": "array",
+      "minItems": 1,
+      "description": "回滚步骤（真实命令，逐行一条）",
+      "items": { "type": "string", "minLength": 2 }
+    },
+    "result": { "enum": ["SUCCESS", "FAILED"], "description": "FAILED 会被管线拒绝（失败的部署不是完成）" },
+    "started_at": { "type": "string", "minLength": 1 },
+    "ended_at": { "type": "string", "minLength": 1 },
+    "duration_minutes": { "type": "integer", "minimum": 0 },
+    "problems": { "type": "string", "description": "部署过程问题及解决方案；无问题写「无」" },
+    "signoffs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["role", "name", "date"],
+        "additionalProperties": false,
+        "properties": {
+          "role": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "date": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "zero_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

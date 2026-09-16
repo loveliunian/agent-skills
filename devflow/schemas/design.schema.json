@@ -551,19 +551,37 @@
           "description": "PRD 锚点，须含 #"
         },
         "page": {
-          "type": "string",
-          "minLength": 1,
-          "description": "页面/任务 §锚点，须存在于 pages"
+          "description": "页面/任务 §锚点（单对象字符串或多对象数组——一条验收行为可关联多个页面），须存在于 pages",
+          "anyOf": [
+            { "type": "string", "minLength": 1 },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            }
+          ]
         },
         "api": {
-          "type": "string",
-          "minLength": 1,
-          "description": "接口 §锚点，须存在于 apis"
+          "description": "接口 §锚点（单对象字符串或多对象数组），须存在于 apis",
+          "anyOf": [
+            { "type": "string", "minLength": 1 },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            }
+          ]
         },
         "data": {
-          "type": "string",
-          "minLength": 1,
-          "description": "数据 §锚点，须存在于 tables"
+          "description": "数据 §锚点（单对象字符串或多对象数组），须存在于 tables",
+          "anyOf": [
+            { "type": "string", "minLength": 1 },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            }
+          ]
         },
         "rule": {
           "type": "string",
@@ -918,6 +936,11 @@
         "summary": {
           "type": "string",
           "minLength": 1
+        },
+        "when_line": {
+          "type": "string",
+          "minLength": 1,
+          "description": "该规则对应的 WHEN 准伪代码行（逐字契约）：提供时必须在该规则 §锚点小节原文中出现——正文改写伪代码而 JSON 不同步即规则不一致（跨字段校验）"
         }
       }
     },
@@ -1078,12 +1101,24 @@
           "type": "string",
           "description": "REUSE/MODIFY 必填：现有契约（签名/行为/表结构，跨字段校验）"
         },
+        "fingerprint": {
+          "type": "string",
+          "description": "调查时点的证据指纹：目标文件的 SHA-256（64 hex，提供 --workspace 时与实算比对）或上游版本号（如 git commit / 依赖版本）——防止基线在评审与实现之间漂移"
+        },
         "related_acceptance": {
           "type": "array",
           "description": "关联验收点 ID",
           "items": {
             "type": "string",
             "pattern": "^M-?[0-9]{2}-F[0-9]{2}-A[0-9]{2}$"
+          }
+        },
+        "related_operations": {
+          "type": "array",
+          "description": "关联业务操作 ID（business_operations[].id）——基线与操作契约互相锚定（悬空引用拦截）",
+          "items": {
+            "type": "string",
+            "pattern": "^BOP-[0-9]+$"
           }
         },
         "verify": {

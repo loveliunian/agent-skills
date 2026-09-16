@@ -1,6 +1,6 @@
 ---
 name: small-change
-version: "3.24.0"
+version: "3.25.0"
 description: Use when a user requests a bounded change to an existing project, such as a local UI behavior, configuration, bugfix, optional API addition, validation/default adjustment, or additive persistence update.
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
@@ -59,3 +59,13 @@ bash "$SKILL_ROOT/scripts/small-change-gate.sh" verify <change-id>
 ## 强制升级 FULL
 
 破坏性 API、schema 破坏、权限、状态机、跨服务、新模块/服务、大回填、多项逻辑变更，或扫描命中权限/流程/跨服务/历史数据，必须 FULL。
+
+---
+
+## 结构化产物层（v3.25.0）
+
+本阶段产物已结构化：AI 按 `schemas/small-change.schema.json`（样例 `examples/structured/small-change.sample.json`）填 `.devflow/<change-id>/small-change.json`（feature 字段即 change-id），再跑管线校验并确定性渲染 Markdown——**校验失败不渲染、不落盘、不进 Gate**；空集合必须 `zero_results` 显式声明。渲染格式与阶段 Gate 的机器解析契约逐字段兼容，模板保留为语义参考。
+
+```bash
+python3 scripts/df_pipeline.py small-change --input .devflow/<feature>/(<change-id>/)small-change.json --out docs/小需求变更/<change-id>-小需求变更.md
+```

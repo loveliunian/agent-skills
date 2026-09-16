@@ -1,6 +1,6 @@
 ---
 name: prd-review
-version: "3.24.0"
+version: "3.25.0"
 description: "Use when reviewing PRD documents to ensure requirements are complete, feasible, and aligned with business goals."
 number-scheme: legacy-P-retained
 devflow-phase: P0b
@@ -166,3 +166,13 @@ bash "$SKILL_ROOT/scripts/artifact_gate.sh" P0b <feature>
 | 遗留问题 = 0 | `grep -cE '遗留\|未解决\|待修复' docs/需求/<f>-PRD评审.md = 0` |
 | 无占位符 | `grep -cE 'TODO\|TBD' docs/需求/<f>-PRD评审.md = 0` |
 | 浅层信号 | "已阅/LGTM/无明显问题"式结论无核查清单 → FAIL |
+
+---
+
+## 结构化产物层（v3.25.0）
+
+本阶段产物已结构化：AI 按 `schemas/prd-review.schema.json`（样例 `examples/structured/prd-review.sample.json`）填 `.devflow/<feature>/prd-review.json`，再跑管线校验并确定性渲染 Markdown——**校验失败不渲染、不落盘、不进 Gate**；空集合必须 `zero_results` 显式声明。渲染格式与阶段 Gate 的机器解析契约逐字段兼容，模板保留为语义参考。
+
+```bash
+python3 scripts/df_pipeline.py prd-review --input .devflow/<feature>/prd-review.json --out docs/需求/<feature>-PRD评审.md
+```

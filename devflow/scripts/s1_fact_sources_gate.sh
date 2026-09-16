@@ -72,6 +72,29 @@ for fname in $FACT_FILES; do
   fi
 done
 
+# ---------- §1a 事实源元数据：来源/时点/适用范围（v3.24.0/A14） ----------
+# 报告 A14：「事实文件存在不等于调查完成」——每份事实源应声明证据来源、调查时点
+# 与适用范围。机器块格式（init-fact-sources.sh 生成的模板已内嵌）：
+#   <!-- DEVFLOW:FACT-SOURCE
+#   source=<代码走查/DDL/现网查询/人工登记>
+#   as_of=<YYYY-MM-DD>
+#   scope=<适用模块或全局>
+#   -->
+# v3.24.0 起为 WARN（存量事实源兼容），P1 输出提示补登记；新项目经 init-fact-sources 生成即自带。
+echo ""
+echo "=== §1a 事实源元数据（来源/时点/适用范围） ==="
+META_MISS=0
+for fname in $FACT_FILES; do
+  f="$DOC_DIR/$fname"
+  if [ ! -f "$f" ] && [ -n "$ALT_DOC_DIR" ] && [ -f "$ALT_DOC_DIR/$fname" ]; then f="$ALT_DOC_DIR/$fname"; fi
+  [ -f "$f" ] || continue
+  if ! grep -q "DEVFLOW:FACT-SOURCE" "$f" 2>/dev/null; then
+    warn "$f 缺事实源元数据块（source/as_of/scope）——事实文件存在不等于调查完成，建议运行 init-fact-sources 或补登记"
+    META_MISS=$((META_MISS + 1))
+  fi
+done
+[ "$META_MISS" -eq 0 ] && pass "all fact sources carry source/as_of/scope metadata" || true
+
 # ---------- §1b 技术选型与硬约束契约 ----------
 echo ""
 echo "=== §1b 技术选型报告与硬约束契约 ==="

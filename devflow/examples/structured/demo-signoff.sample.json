@@ -1,0 +1,38 @@
+{
+  "feature": "demo-pay",
+  "generated_at": "2026-09-16T10:22:00Z",
+  "template": { "id": "原型确认-模板", "version": "3.25.0" },
+  "feature_name": "演示支付",
+  "date": "2026-09-16",
+  "prototype_refs": [
+    "docs/原型/demo-pay-支付单管理.fig",
+    "docs/原型/demo-pay-关闭流程.png"
+  ],
+  "kufs": [
+    {
+      "id": "KUF-1",
+      "journey": "创建支付单",
+      "walkthrough": "用户点击新增→填写 order_no/amount→保存→列表出现新支付单，交互顺畅",
+      "result": "通过"
+    },
+    {
+      "id": "KUF-2",
+      "journey": "关闭支付单",
+      "walkthrough": "用户点击关闭→二次确认弹窗→状态变为已关闭，按钮态与设计一致",
+      "result": "通过"
+    },
+    {
+      "id": "KUF-3",
+      "journey": "支付失败重试",
+      "walkthrough": "模拟渠道失败→错误提示清晰→重试入口可见，符合异常口径",
+      "result": "通过"
+    }
+  ],
+  "po_conclusion": "通过：三个关键旅程走查全部符合预期，原型可进入详细设计",
+  "conclusion_passed": true,
+  "signoffs": [
+    { "role": "PO（产品负责人）", "name": "李四", "date": "2026-09-16" },
+    { "role": "设计负责人", "name": "赵六", "date": "2026-09-16" }
+  ],
+  "zero_results": []
+}

@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "devflow/schemas/clarification.schema.json",
+  "title": "devflow P0 需求澄清结构化产物（clarification.json）",
+  "description": "P0 需求澄清的机器可读业务产物层。AI 只填语义判断（模糊点/结论/边界）；统计行与表格由 df_render.py 派生。P0 级模糊点必须全部澄清并关联验收点；排除条款是一等需求，未落为验收点必须声明。空集合必须在 zero_results 声明（path + reason），静默省略即校验拦截。渲染格式与 s0_acceptance_gate.sh 的 P0 行扫描/模板 H2 对齐契约逐字段兼容。",
+  "type": "object",
+  "x-unique": ["ambiguities[].id"],
+  "x-zeroable": ["followups", "exclusions"],
+  "required": ["feature", "generated_at", "template", "feature_name", "prd_doc", "date", "participants", "ambiguities", "conclusion", "exclusions", "exclusions_covered", "permission_scope", "signoffs", "zero_results"],
+  "additionalProperties": false,
+  "properties": {
+    "feature": { "type": "string", "minLength": 1, "description": "feature 标识（与 .devflow/<feature> 一致）" },
+    "generated_at": { "type": "string", "minLength": 1, "description": "ISO8601 时间戳" },
+    "template": {
+      "type": "object",
+      "required": ["id", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "const": "需求澄清-模板" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "feature_name": { "type": "string", "minLength": 1 },
+    "prd_doc": { "type": "string", "minLength": 1, "description": "PRD 文档路径" },
+    "date": { "type": "string", "minLength": 1, "description": "澄清日期 YYYY-MM-DD" },
+    "participants": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "ambiguities": {
+      "type": "array",
+      "description": "模糊点清单；P0 级（阻塞开发）必须全部 resolved 且带结论与验收点关联",
+      "items": {
+        "type": "object",
+        "required": ["id", "priority", "description", "impact", "conclusion", "acceptance_refs", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^AMB-[0-9]{2,}$" },
+          "priority": { "enum": ["P0", "P1", "P2"] },
+          "description": { "type": "string", "minLength": 4 },
+          "impact": { "type": "string", "minLength": 4 },
+          "conclusion": { "type": "string", "description": "澄清结论；P0 或 resolved 必填（跨字段校验）" },
+          "acceptance_refs": {
+            "type": "array",
+            "description": "关联的原子验收点；P0 必填（跨字段校验）",
+            "items": { "type": "string", "pattern": "^M-?[0-9]{2}-F[0-9]{2}-A[0-9]{2}$" }
+          },
+          "status": { "enum": ["resolved", "pending"] }
+        }
+      }
+    },
+    "conclusion": {
+      "type": "object",
+      "description": "澄清结论汇总四节；确无内容写「无」并说明，不得留空",
+      "required": ["boundaries", "data_rules", "business_rules", "exceptions"],
+      "additionalProperties": false,
+      "properties": {
+        "boundaries": { "type": "string", "minLength": 2, "description": "功能边界（包含/不包含）" },
+        "data_rules": { "type": "string", "minLength": 2, "description": "数据约束（必填/可选/唯一性/外键）" },
+        "business_rules": { "type": "string", "minLength": 2, "description": "业务规则" },
+        "exceptions": { "type": "string", "minLength": 2, "description": "异常处理（正常/边界/异常）" }
+      }
+    },
+    "exclusions": {
+      "type": "array",
+      "description": "排除条款清单（不走/除外/手动输入…）；与包含条款同为一级需求",
+      "items": { "type": "string", "minLength": 2 }
+    },
+    "exclusions_covered": { "type": "boolean", "description": "exclusions 非空时必须 true（排除场景已落为排除性验收点）" },
+    "permission_scope": { "enum": ["declared", "not-applicable"], "description": "declared=本需求涉及权限码（须给 permissions 清单，与权限矩阵对账）；not-applicable=渲染「权限矩阵=not-applicable」声明式豁免" },
+    "permissions": {
+      "type": "array",
+      "description": "本需求涉及的权限码清单；permission_scope=declared 时必填",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "followups": {
+      "type": "array",
+      "description": "遗留项（需后续跟进）",
+      "items": {
+        "type": "object",
+        "required": ["id", "item", "owner", "eta"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "item": { "type": "string", "minLength": 2 },
+          "owner": { "type": "string", "minLength": 1 },
+          "eta": { "type": "string", "minLength": 1 },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "signoffs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["role", "name", "date"],
+        "additionalProperties": false,
+        "properties": {
+          "role": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "date": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "zero_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

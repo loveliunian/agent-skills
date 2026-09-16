@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "devflow/schemas/sharing.schema.json",
+  "title": "devflow P10 知识分享结构化产物（sharing.json）",
+  "description": "P10 知识分享的机器可读业务产物层。p10_feedback_gate.sh 要求 docs/知识沉淀/<feature>-知识分享.md 存在且含 ≥3 条可复用教训（列表项计数同口径）；渲染器派生列表项。一句话不算可复用教训（内容长度下限跨字段校验）。",
+  "type": "object",
+  "x-min-count": [
+    { "path": "lessons", "min": 3, "why": "p10 Gate 要求知识分享 ≥3 条可复用教训" }
+  ],
+  "required": ["feature", "generated_at", "template", "title", "sharer", "date", "lessons", "zero_results"],
+  "additionalProperties": false,
+  "properties": {
+    "feature": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "template": {
+      "type": "object",
+      "required": ["id", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "const": "知识分享" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "title": { "type": "string", "minLength": 2 },
+    "sharer": { "type": "string", "minLength": 1 },
+    "date": { "type": "string", "minLength": 1 },
+    "audience": { "type": "string", "description": "受众（可选）" },
+    "lessons": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["topic", "content"],
+        "additionalProperties": false,
+        "properties": {
+          "topic": { "type": "string", "minLength": 2 },
+          "content": { "type": "string", "minLength": 8, "description": "可复用教训正文（跨字段校验长度下限）" }
+        }
+      }
+    },
+    "zero_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

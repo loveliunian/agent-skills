@@ -1,0 +1,66 @@
+{
+  "feature": "demo-pay",
+  "generated_at": "2026-09-16T10:05:00Z",
+  "template": {
+    "id": "验收点-模板",
+    "version": "3.25.0"
+  },
+  "feature_name": "演示支付",
+  "module": "01",
+  "prd_doc": "docs/PRD/demo-pay.md",
+  "date": "2026-09-16",
+  "splitter": "张三",
+  "points": [
+    {
+      "id": "M-01-F01-A01",
+      "feature_label": "支付单管理",
+      "description": "新增支付单成功返回支付单 ID",
+      "verify_method": "API",
+      "prd_anchor": "docs/PRD/demo-pay.md#L12",
+      "status": "FROZEN"
+    },
+    {
+      "id": "M-01-F01-A02",
+      "feature_label": "支付单管理",
+      "description": "列表按创建时间倒序返回",
+      "verify_method": "API",
+      "prd_anchor": "docs/PRD/demo-pay.md#L15",
+      "status": "FROZEN"
+    },
+    {
+      "id": "M-01-F02-A01",
+      "feature_label": "支付关闭",
+      "description": "关闭已支付支付单返回 409 且状态不变",
+      "verify_method": "API",
+      "prd_anchor": "docs/PRD/demo-pay.md#L21",
+      "status": "FROZEN"
+    }
+  ],
+  "reviews": [
+    {
+      "round": 1,
+      "reviewer": "李四",
+      "date": "2026-09-16",
+      "verdict": "✅ 通过",
+      "leftovers": "无"
+    }
+  ],
+  "signoffs": [
+    {
+      "role": "产品经理",
+      "name": "李四",
+      "date": "2026-09-16"
+    },
+    {
+      "role": "开发负责人",
+      "name": "张三",
+      "date": "2026-09-16"
+    },
+    {
+      "role": "测试负责人",
+      "name": "王五",
+      "date": "2026-09-16"
+    }
+  ],
+  "zero_results": []
+}

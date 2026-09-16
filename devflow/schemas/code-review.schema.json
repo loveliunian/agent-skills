@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "devflow/schemas/code-review.schema.json",
+  "title": "devflow P3b 代码审查结构化产物（code-review.json）",
+  "description": "P3b 代码审查的机器可读业务产物层。3 评审并行（feasibility/completeness/scope）；角色分离（DEVELOPER_ID ≠ REVIEWER_ID）；P0 finding 必须 CLOSED。渲染器派生 Gate 机器字段块与结构化 FINDING 行（p3b_code_review_gate.sh 只解析本节 finding 行；P0-ID 不得在文档其他位置重复出现——渲染器已保证）；统计由 JSON 派生。",
+  "type": "object",
+  "x-unique": ["findings[].id"],
+  "x-zeroable": ["nits", "unfixed"],
+  "required": ["feature", "generated_at", "template", "feature_name", "date", "scope", "developer_id", "reviewer_id", "session_id", "overall_comment", "findings", "nits", "files", "unfixed", "conclusion", "signoffs", "zero_results"],
+  "additionalProperties": false,
+  "properties": {
+    "feature": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "template": {
+      "type": "object",
+      "required": ["id", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "const": "代码审查报告-模板" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "feature_name": { "type": "string", "minLength": 1 },
+    "date": { "type": "string", "minLength": 1 },
+    "scope": { "type": "string", "minLength": 1, "description": "代码范围（backend/ / frontend/src/）" },
+    "developer_id": { "type": "string", "minLength": 1, "description": "被审开发者唯一 ID；与 reviewer_id 相同即同人自签（跨字段校验）" },
+    "reviewer_id": { "type": "string", "minLength": 1, "description": "code-reviewer 唯一 ID" },
+    "session_id": { "type": "string", "minLength": 1, "description": "独立审查会话 ID（REVIEW_SESSION_ID）" },
+    "overall_comment": { "type": "string", "minLength": 8, "description": "整体评价" },
+    "findings": {
+      "type": "array",
+      "description": "结构化 finding；P0 状态非 CLOSED 会被校验拦截（跨字段校验）",
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "file", "line", "type", "status", "summary", "fix"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^P[012]-[0-9]{1,3}$", "description": "按严重性前缀编号（P0-1/P1-2…）；p3b Gate 按前缀机械解析" },
+          "severity": { "enum": ["P0", "P1", "P2"] },
+          "file": { "type": "string", "minLength": 1, "description": "目标文件路径（工作区反查必须存在）" },
+          "line": { "type": "integer", "minimum": 1 },
+          "type": { "enum": ["安全", "逻辑", "权限", "性能", "可维护性", "代码风格", "命名"] },
+          "status": { "enum": ["OPEN", "CLOSED"] },
+          "summary": { "type": "string", "minLength": 8, "description": "问题描述（进入 FINDING 行第 5 列，禁止含竖线）" },
+          "fix": { "type": "string", "minLength": 4, "description": "修复建议" },
+          "owner": { "type": "string" },
+          "eta": { "type": "string" }
+        }
+      }
+    },
+    "nits": {
+      "type": "array",
+      "description": "Nit 问题（建议改进）",
+      "items": {
+        "type": "object",
+        "required": ["id", "file", "issue", "suggestion"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^Nit-[0-9]{1,3}$" },
+          "file": { "type": "string", "minLength": 1 },
+          "issue": { "type": "string", "minLength": 2 },
+          "suggestion": { "type": "string", "minLength": 2 }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "description": "审查文件清单",
+      "items": {
+        "type": "object",
+        "required": ["path", "lines"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "lines": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "unfixed": {
+      "type": "array",
+      "description": "未修复问题汇总（OPEN 状态 finding 逐条列出）",
+      "items": {
+        "type": "object",
+        "required": ["severity", "description", "owner", "eta"],
+        "additionalProperties": false,
+        "properties": {
+          "severity": { "enum": ["P0", "P1", "P2"] },
+          "description": { "type": "string", "minLength": 4 },
+          "owner": { "type": "string", "minLength": 1 },
+          "eta": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "conclusion": { "enum": ["APPROVE", "REQUEST_CHANGES", "BLOCK"], "description": "APPROVE 时不得存在 OPEN 的 P0/P1（跨字段校验）" },
+    "signoffs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["role", "name", "date"],
+        "additionalProperties": false,
+        "properties": {
+          "role": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "date": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "zero_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "feature": "demo-pay",
+  "generated_at": "2026-09-16T10:10:00Z",
+  "template": { "id": "技术约束-模板", "version": "3.25.0" },
+  "feature_name": "演示支付",
+  "prd_doc": "docs/PRD/demo-pay.md",
+  "frozen_date": "2026-09-16",
+  "confirmer": "用户",
+  "constraints": [
+    {
+      "constraint_id": "TC-TECH-001",
+      "type": "MUST_USE",
+      "subject": "workflow-engine",
+      "required_product": "camunda",
+      "required_version": "7.24.0",
+      "status": "FROZEN",
+      "confirmed": true,
+      "source_anchor": "docs/PRD/demo-pay.md#L5"
+    }
+  ],
+  "no_constraints": false,
+  "confirmed": true,
+  "zero_results": []
+}

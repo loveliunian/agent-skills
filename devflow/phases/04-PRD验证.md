@@ -1,6 +1,6 @@
 ---
 name: prd-validation
-version: "3.24.0"
+version: "3.25.0"
 description: "Use when validating implementation against PRD requirements through multiple iterations. v2.0 关键变更：P0 阻断项必须全部修复才能进入 Phase 5。"
 ---
 
@@ -298,3 +298,13 @@ digraph validation {
 2. **记录证据** - 保存测试截图、日志等
 3. **及时修复** - 发现问题立即修复
 4. **回归测试** - 修复后必须重新验证
+
+---
+
+## 结构化产物层（v3.25.0）
+
+本阶段产物已结构化：AI 按 `schemas/prd-validation.schema.json`（样例 `examples/structured/prd-validation.sample.json`）填 `.devflow/<feature>/prd-validation.json`，再跑管线校验并确定性渲染 Markdown——**校验失败不渲染、不落盘、不进 Gate**；空集合必须 `zero_results` 显式声明。渲染格式与阶段 Gate 的机器解析契约逐字段兼容，模板保留为语义参考。
+
+```bash
+python3 scripts/df_pipeline.py prd-validation --input .devflow/<feature>/prd-validation.json --out docs/测试/<feature>-PRD验证报告.md
+```

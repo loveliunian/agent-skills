@@ -1,0 +1,57 @@
+{
+  "feature": "demo-pay",
+  "generated_at": "2026-09-16T10:30:00Z",
+  "template": { "id": "完成度自检报告-模板", "version": "3.25.0" },
+  "feature_name": "演示支付",
+  "phase": "P3",
+  "phase_name": "规范实现",
+  "executor": "completeness-auditor",
+  "executed_at": "2026-09-16 10:30",
+  "checks": [
+    {
+      "id": "C-1",
+      "category": "core",
+      "item": "TODO 残留",
+      "cmd": "grep -rn TODO backend/src/main --include=*.java",
+      "expected": "0",
+      "actual": "0",
+      "status": "PASS"
+    },
+    {
+      "id": "C-2",
+      "category": "core",
+      "item": "单元测试存在且通过",
+      "cmd": "mvn test -q",
+      "expected": "BUILD SUCCESS",
+      "actual": "Tests run: 6, Failures: 0",
+      "status": "PASS"
+    },
+    {
+      "id": "C-3",
+      "category": "module",
+      "item": "ACTIVE 唯一性约束",
+      "cmd": "grep -n existsByOrderNoAndStatus backend/src/main/java/*Service.java",
+      "expected": "命中",
+      "actual": "PayOrderService.java:48 命中",
+      "status": "PASS"
+    }
+  ],
+  "unfixed": [],
+  "conclusion": "PASS",
+  "outputs": [
+    {
+      "check_id": "C-1",
+      "output": "$ grep -rn TODO backend/src/main --include=*.java\n（无输出，退出码 0）"
+    },
+    {
+      "check_id": "C-2",
+      "output": "$ mvn test -q\nTests run: 6, Failures: 0, Errors: 0, Skipped: 0"
+    }
+  ],
+  "signoffs": [
+    { "role": "completeness-auditor", "name": "审计代理", "date": "2026-09-16" }
+  ],
+  "zero_results": [
+    { "path": "unfixed", "reason": "无未修复 P1/P2 项" }
+  ]
+}
