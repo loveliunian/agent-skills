@@ -7,11 +7,9 @@ trap 'rm -rf "$TMP"' EXIT
 hash_file() { if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | awk '{print $1}'; else sha256sum "$1" | awk '{print $1}'; fi; }
 
 expect_file "commands/small-change.md"
-expect_file "commands/field-change.md"
 expect_file "templates/小需求变更-模板.md"
 expect_file "references/small-change-classification.md"
 expect_file "scripts/small-change-gate.sh"
-expect_file "scripts/field-change-gate.sh"
 expect_contains "concepts/natural-language-triggers.md" '小需求|小改动|修复|改.*字段' "natural language routes small changes"
 expect_contains "commands/ROUTING.md" '/small-change' "small-change command is routed"
 expect_contains "README.md" 'small-change' "README exposes the small-change fast path"
@@ -51,8 +49,6 @@ MICRO=$(cd "$W" && bash "$ROOT/scripts/small-change-gate.sh" classify order-filt
 if printf '%s' "$MICRO" | grep -q 'DECISION=MICRO' && printf '%s' "$MICRO" | grep -q 'rc=0$'; then ok "UI behavior is MICRO"; else bad "UI behavior is MICRO"; fi
 VERIFY=$(cd "$W" && bash "$ROOT/scripts/small-change-gate.sh" verify order-filter 2>&1; echo "rc=$?")
 if printf '%s' "$VERIFY" | grep -q 'STATUS=MERGE_READY' && printf '%s' "$VERIFY" | grep -q 'rc=0$'; then ok "MICRO verification writes MERGE_READY receipt"; else bad "MICRO verification writes MERGE_READY receipt"; fi
-ALIAS=$(cd "$W" && bash "$ROOT/scripts/field-change-gate.sh" classify order-filter 2>&1; echo "rc=$?")
-if printf '%s' "$ALIAS" | grep -q 'DECISION=MICRO' && printf '%s' "$ALIAS" | grep -q 'rc=0$'; then ok "field-change compatibility alias delegates"; else bad "field-change compatibility alias delegates"; fi
 
 cp "$W/.devflow/order-filter/small-change.env" "$W/.devflow/order-filter/config.env"
 sed -i '' -e 's/CHANGE_KIND=ui-behavior/CHANGE_KIND=config/' -e 's/SURFACES=ui/SURFACES=config/' -e 's/SCAN_CONFIG=MISS/SCAN_CONFIG=HIT/' -e 's/SCAN_CLIENT=HIT/SCAN_CLIENT=MISS/' "$W/.devflow/order-filter/config.env" 2>/dev/null || sed -i -e 's/CHANGE_KIND=ui-behavior/CHANGE_KIND=config/' -e 's/SURFACES=ui/SURFACES=config/' -e 's/SCAN_CONFIG=MISS/SCAN_CONFIG=HIT/' -e 's/SCAN_CLIENT=HIT/SCAN_CLIENT=MISS/' "$W/.devflow/order-filter/config.env"

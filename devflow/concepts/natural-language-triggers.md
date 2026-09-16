@@ -15,7 +15,6 @@
 |--------|-----------|------|
 | `/devflow` | 走完整生命周期 | `commands/devflow.md` |
 | `/small-change` | 现有项目小需求/小改动的项目事实分类与聚焦验证 | `commands/small-change.md` |
-| `/field-change` | 字段修改兼容别名 | `commands/field-change.md` |
 | `/spec` | 出详细设计 | `commands/spec.md` |
 | `/build` | 全栈编码 | `commands/build.md` |
 | `/test` | 业务测试 + 迁移测试 | `commands/test.md` |

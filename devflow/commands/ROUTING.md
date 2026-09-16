@@ -1,10 +1,10 @@
 ---
 name: devflow-routing
-version: "3.23.0"
+version: "3.23.1"
 description: devflow 命令、阶段、Gate 与人工资源注册表。
 ---
 
-# devflow 路由索引（v3.23.0）
+# devflow 路由索引（v3.23.1）
 
 本文件只负责路由。执行规则以 `SKILL.md`、对应 command/phase 和 `concepts/core.md` 为准。
 
@@ -14,7 +14,6 @@ description: devflow 命令、阶段、Gate 与人工资源注册表。
 |---|---|---|---|
 | `/devflow` | P0-P10 | `commands/devflow.md` | 全链 Gate |
 | `/small-change` | 现有项目小需求/小改动 | `commands/small-change.md` | `SMALL-CHANGE`：`small-change-gate.sh classify/verify` |
-| `/field-change` | 字段修改兼容别名 | `commands/field-change.md` | 路由到 `/small-change` |
 | `/spec` | P0-P2 | `commands/spec.md` | `s0_acceptance_gate.sh`、`s1_fact_sources_gate.sh`、`s2_design_coverage_gate.sh` |
 | `/design-review` | P2a | `commands/design-review.md` | `gen-domain-checklist.sh`、`p2a_design_review_gate.sh` |
 | `/plan` | P2.5 | `commands/plan.md` | 计划审查 |

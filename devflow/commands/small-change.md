@@ -1,13 +1,13 @@
 ---
 name: small-change
-version: "3.23.0"
+version: "3.23.1"
 description: Use when a user requests a bounded change to an existing project, such as a local UI behavior, configuration, bugfix, optional API addition, validation/default adjustment, or additive persistence update.
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
 
 # /small-change - 现有项目的小需求 / 小改动
 
-不要按需求字数判断“小”。必须先扫描当前项目，再让机器契约决定 MICRO 或 FULL。`/field-change` 是本命令的兼容别名。
+不要按需求字数判断“小”。必须先扫描当前项目，再让机器契约决定 MICRO 或 FULL。
 
 > Gate 阶段名 `SMALL-CHANGE`（收据 `gates/SMALL-CHANGE/`）：`classify` 产出分类合同，`verify` 产出完成收据。
 

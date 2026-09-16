@@ -1,6 +1,6 @@
 ---
 name: devflow-command
-version: "3.23.0"
+version: "3.23.1"
 description: Use when running the complete devflow lifecycle or resuming a checkpoint.
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
@@ -21,7 +21,7 @@ allowed-tools: [read, write, exec, glob, grep, task]
 
 - `--frontend` 必须显式冻结；不得从目录存在与否猜测。
 - `new` 从 P0 开始；`change`/`extend` 先读取当前实现与已有冻结基线，再从最早受影响阶段恢复。
-- `small-change` 先加载 `commands/small-change.md` 扫描项目并分类；结果为 FULL 时自动回到 `change`，不得继续快速路径。`field-change` 是此模式的兼容别名。
+- `small-change` 先加载 `commands/small-change.md` 扫描项目并分类；结果为 FULL 时自动回到 `change`，不得继续快速路径。
 - `--design-only` 在 P2 Gate 后停止，只能声明设计完成。
 - 小程序或 APP 在 P2 后必须生成并冻结 `devflow-client.json`；PC Web 也推荐使用同一契约。
 
