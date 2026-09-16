@@ -1,0 +1,8 @@
+interface:
+  display_name: "devflow"
+  short_description: "Phase-gated full-stack delivery from PRD through release evidence."
+  default_prompt: "Run devflow for this PRD with explicit phase gates and evidence."
+policy:
+  allow_implicit_invocation: true
+dependencies:
+  tools: []

@@ -1,0 +1,878 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "devflow/schemas/design.schema.json",
+  "title": "devflow P2 详细设计结构化核心（design.json）",
+  "description": "P2 详设的机器可读业务产物层。AI 只填语义层（设计判断、证据、锚点）；编号、计数、覆盖率、追溯矩阵、索引表、零结果话术由 df_render.py 派生，AI 不填。定位器（codegraph/历史文档）不是证据：锚点必须指向当前详设文档章节。空集合必须在 zero_results 声明（path + reason），静默省略即校验拦截。本 schema 刻意领域无关：不含任何具体业务表单/流程编码。v3.20.0：吸收数据恢复矩阵（resources×operations 补偿链闭环）、外部集成强制验证链（integrations 失败路径/幂等必填）、配置消费规格卡（configs 全仓消费点/失败路径/置信级）三个机制。v3.17.1：接口概览↔详细定义闭环（apis[].detail_anchor 必填，双向对账文档小节）；DDR↔字段一一对应（decisions[] + 每字段必填 ddr 引用，双向闭环）。",
+  "type": "object",
+  "required": [
+    "feature",
+    "generated_at",
+    "template",
+    "acceptance",
+    "tables",
+    "apis",
+    "pages",
+    "rules",
+    "client",
+    "migrations",
+    "decisions",
+    "zero_results"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "feature": {
+      "type": "string",
+      "minLength": 1,
+      "description": "feature 标识（与 .devflow/<feature> 一致）"
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ISO8601 时间戳"
+    },
+    "template": {
+      "type": "object",
+      "description": "产物声明使用的模板身份（s2 Gate 精确匹配）",
+      "required": [
+        "id",
+        "version",
+        "mode"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "enum": [
+            "monolith",
+            "total",
+            "sub"
+          ]
+        }
+      }
+    },
+    "acceptance": {
+      "type": "array",
+      "minItems": 1,
+      "description": "验收点追溯行——与 P0 冻结验收点集合全等（校验器对账 criteria 文件）",
+      "items": {
+        "$ref": "#/definitions/acceptance_row"
+      }
+    },
+    "tables": {
+      "type": "array",
+      "description": "数据模型表清单（五列字段契约：字段名|类型|约束|默认值|口径说明）",
+      "items": {
+        "$ref": "#/definitions/table_def"
+      }
+    },
+    "apis": {
+      "type": "array",
+      "description": "接口清单（请求/响应六列字段契约）。概览与详细定义同源：每项必须携带 detail_anchor 指向详设中的详细定义小节（§3.1 概览 ↔ §3.2 详细定义一一对应，校验器对文档双向对账）",
+      "items": {
+        "$ref": "#/definitions/api_def"
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "minItems": 1,
+      "description": "设计决策记录（DDR，§2.3）。与表设计字段一一对应：每个表字段必须以 ddr 引用 ≥1 条决策；每条决策必须被 ≥1 字段引用（全局决策可写 unreferenced_reason 豁免）",
+      "items": {
+        "$ref": "#/definitions/decision_def"
+      }
+    },
+    "pages": {
+      "type": "array",
+      "description": "前端页面/任务清单；无前端时为空数组并声明 zero_results",
+      "items": {
+        "$ref": "#/definitions/page_def"
+      }
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "description": "编号业务规则（R1..RN，含 WHEN 准伪代码的锚点）",
+      "items": {
+        "$ref": "#/definitions/rule_def"
+      }
+    },
+    "client": {
+      "type": "object",
+      "description": "客户端范围（与启动时冻结的 --frontend 一致）",
+      "required": [
+        "scope"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "enum": [
+            "pc-web",
+            "mini-program",
+            "app",
+            "not-applicable"
+          ]
+        },
+        "not_applicable_reason": {
+          "type": "string",
+          "description": "scope=not-applicable 时必填（跨字段校验）"
+        },
+        "journeys": {
+          "type": "array",
+          "description": "客户端旅程（scope≠not-applicable 时 minItems 1，跨字段校验）",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "page",
+              "evidence"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "page": {
+                "type": "string",
+                "minLength": 1,
+                "description": "§页面锚点"
+              },
+              "evidence": {
+                "type": "string",
+                "minLength": 1,
+                "description": "旅程证据形态（真实浏览器/开发者工具/模拟器/真机）"
+              }
+            }
+          }
+        }
+      }
+    },
+    "migrations": {
+      "type": "object",
+      "description": "数据库迁移声明（不适用须显式说明——铁律 5）",
+      "required": [
+        "applicable"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "applicable": {
+          "type": "boolean"
+        },
+        "dialects": {
+          "type": "array",
+          "description": "适用时四方言齐全（h2/postgresql/oracle/kingbase），偏离须 dialect_exception",
+          "items": {
+            "enum": [
+              "h2",
+              "postgresql",
+              "oracle",
+              "kingbase"
+            ]
+          }
+        },
+        "not_applicable_reason": {
+          "type": "string",
+          "description": "applicable=false 时必填（跨字段校验）"
+        },
+        "dialect_exception": {
+          "type": "string",
+          "description": "四方言不齐时的冻结设计说明（跨字段校验）"
+        }
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "description": "P0 冻结技术硬约束的引用位（s2 Gate 另行对账 constraints 文件）",
+      "items": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "anchor": {
+            "type": "string",
+            "description": "详设内引用位置 §锚点"
+          }
+        }
+      }
+    },
+    "zero_results": {
+      "type": "array",
+      "description": "零结果/空集合声明——任何合法为空的集合（含顶层 pages/tables/apis）都必须在此登记（path 精确匹配，渲染器生成显式话术）。双向闭环：非空集合的声明即伪造拦截；已声明为空的集合豁免验收行锚点引用校验，但验收行不得残留旧锚点（须写 — 占位）",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "reason"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "如 pages、apis[2].request.fields"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "resources": {
+      "type": "array",
+      "description": "正向副作用占用的资源清单（锁/配额/占用标记/外部预占/缓存态等）。为空须 zero_results 声明。每个资源必须在每个反向操作（cancel/rollback/timeout/retry）的 resource_closure 中逐一表态——补偿链闭环（借鉴数据恢复矩阵）",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "anchor"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "lock",
+              "quota",
+              "hold",
+              "cache",
+              "external_reservation",
+              "file",
+              "other"
+            ]
+          },
+          "anchor": {
+            "type": "string",
+            "minLength": 1,
+            "description": "§锚点（资源获取与释放逻辑所在章节）"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "operations": {
+      "type": "array",
+      "description": "改变资源状态的操作清单。resources 非空时必须非空；每个 cancel/rollback/timeout/retry 操作的 resource_closure 必须覆盖全部资源（逐一表态，禁止静默遗漏）",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "type",
+          "anchor",
+          "resource_closure"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "enum": [
+              "create",
+              "update",
+              "cancel",
+              "rollback",
+              "timeout",
+              "retry"
+            ]
+          },
+          "anchor": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resource_closure": {
+            "type": "array",
+            "description": "本操作对每个资源的处置表态",
+            "items": {
+              "type": "object",
+              "required": [
+                "resource",
+                "release_timing"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "resource": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "resources[].id"
+                },
+                "release_timing": {
+                  "enum": [
+                    "on_operation",
+                    "on_next_submit",
+                    "never",
+                    "not_applicable"
+                  ],
+                  "description": "立即释放/下次提交懒释放/永不释放/本操作不涉及"
+                },
+                "evidence": {
+                  "type": "string",
+                  "description": "代码证据（文件#方法）；never/not_applicable 时必填理由（跨字段校验）"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "integrations": {
+      "type": "array",
+      "description": "外部集成（出向调用/入向回调）。为空须 zero_results 声明。失败路径与幂等必填——外部调用缺失败路径是最常见生产缺陷（借鉴外部推送 6 步强制验证链）",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "direction",
+          "anchor",
+          "timeout",
+          "idempotency",
+          "failure_path"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "direction": {
+            "enum": [
+              "outbound",
+              "inbound"
+            ]
+          },
+          "anchor": {
+            "type": "string",
+            "minLength": 1
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "端点/MQ 主题/回调路径"
+          },
+          "timeout": {
+            "type": "string",
+            "minLength": 1,
+            "description": "超时策略（数值+单位+重试次数）"
+          },
+          "idempotency": {
+            "type": "string",
+            "minLength": 1,
+            "description": "幂等机制（幂等键/去重窗口/唯一约束）"
+          },
+          "failure_path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "失败路径：超时/对端 5xx/报文非法时各自的行为（重试、降级、告警、补偿）"
+          },
+          "fallback": {
+            "type": "string",
+            "description": "降级/兜底（如定时兜底任务须与事件驱动走同一执行方法）"
+          }
+        }
+      }
+    },
+    "configs": {
+      "type": "array",
+      "description": "本 feature 引入或消费的配置键规格卡。为空须 zero_results 声明。借鉴配置消费规格卡：全仓消费点（含死代码标注）+ 值格式 + 失败路径 + 置信级",
+      "items": {
+        "type": "object",
+        "required": [
+          "key",
+          "value_format",
+          "consumption_points",
+          "failure_path",
+          "confidence"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value_format": {
+            "type": "string",
+            "minLength": 1,
+            "description": "值格式与解析规则（分隔符逐 key 登记，勿套通用解析）"
+          },
+          "consumption_points": {
+            "type": "array",
+            "minItems": 1,
+            "description": "全仓反查的消费点（含常量中转；死代码必须标注依据）",
+            "items": {
+              "type": "object",
+              "required": [
+                "location",
+                "status"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "location": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "文件#方法（行号）"
+                },
+                "status": {
+                  "enum": [
+                    "active",
+                    "dead_code",
+                    "commented_out"
+                  ]
+                },
+                "note": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "failure_path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "配置缺失/值不匹配/下游缺失时的代码行为（抛错文案与回滚/静默跳过）；无判空处标潜在缺陷"
+          },
+          "confidence": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "description": "置信级：静态源码直读=high；现值未盘点=medium；跨入口行为待业务确认=low"
+          },
+          "confidence_reason": {
+            "type": "string",
+            "description": "confidence 为 low/medium 时的原因（跨字段校验）"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "acceptance_row": {
+      "type": "object",
+      "description": "一行验收点追溯：ID + 六类锚点 + 状态。锚点是证据位——必须指向当前详设/PRD 文档真实章节",
+      "required": [
+        "id",
+        "prd_anchor",
+        "page",
+        "api",
+        "data",
+        "rule",
+        "test_case",
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^M-?[0-9]{2}-F[0-9]{2}-A[0-9]{2}$"
+        },
+        "prd_anchor": {
+          "type": "string",
+          "minLength": 1,
+          "description": "PRD 锚点，须含 #"
+        },
+        "page": {
+          "type": "string",
+          "minLength": 1,
+          "description": "页面/任务 §锚点，须存在于 pages"
+        },
+        "api": {
+          "type": "string",
+          "minLength": 1,
+          "description": "接口 §锚点，须存在于 apis"
+        },
+        "data": {
+          "type": "string",
+          "minLength": 1,
+          "description": "数据 §锚点，须存在于 tables"
+        },
+        "rule": {
+          "type": "string",
+          "pattern": "^R[0-9]+$",
+          "description": "业务规则编号，须存在于 rules"
+        },
+        "test_case": {
+          "type": "string",
+          "pattern": "^TC-[A-Za-z0-9-]+$",
+          "description": "规划测试用例编号"
+        },
+        "status": {
+          "enum": [
+            "COMPLETE"
+          ]
+        }
+      }
+    },
+    "table_def": {
+      "type": "object",
+      "required": [
+        "anchor",
+        "name",
+        "fields"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "type": "string",
+          "minLength": 1,
+          "description": "§锚点（详设章节）"
+        },
+        "unreferenced_reason": {
+          "type": "string",
+          "description": "未被任何验收点引用时的显式理由（如共享基础设施表）；缺省且无验收点引用即孤儿拦截"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fields": {
+          "type": "array",
+          "description": "五列字段 + ddr 决策引用；为空须 zero_results 声明",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "type",
+              "constraint",
+              "default",
+              "note",
+              "ddr"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "constraint": {
+                "type": "string",
+                "minLength": 1
+              },
+              "default": {
+                "type": "string",
+                "minLength": 1,
+                "description": "无默认值写显式占位 —"
+              },
+              "note": {
+                "type": "string",
+                "minLength": 1,
+                "description": "口径说明"
+              },
+              "ddr": {
+                "type": "array",
+                "minItems": 1,
+                "description": "决定该字段设计的 DDR 编号（§2.3 一一对应，双向闭环）",
+                "items": {
+                  "type": "string",
+                  "pattern": "^DDR-[0-9]+$"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "api_def": {
+      "type": "object",
+      "required": [
+        "anchor",
+        "detail_anchor",
+        "name",
+        "method",
+        "path",
+        "permission",
+        "request",
+        "response"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "detail_anchor": {
+          "type": "string",
+          "pattern": "^§[0-9]+(\\.[0-9]+)+$",
+          "description": "详细接口定义小节锚点（如 §3.2.1）；与概览一一对应，校验器检查文档中真实存在且无多余小节"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "接口名称（概览表列）"
+        },
+        "unreferenced_reason": {
+          "type": "string",
+          "description": "未被任何验收点引用时的显式理由（如内部健康检查接口）；缺省且无验收点引用即孤儿拦截"
+        },
+        "method": {
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE",
+            "PATCH"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "permission": {
+          "type": "string",
+          "minLength": 1,
+          "description": "权限标识；公开接口须在 zero_results 声明后写显式占位"
+        },
+        "request": {
+          "$ref": "#/definitions/field_group_req"
+        },
+        "response": {
+          "$ref": "#/definitions/field_group_res"
+        }
+      }
+    },
+    "decision_def": {
+      "type": "object",
+      "description": "一条 DDR：决策点 + 备选方案 + 选定 + 理由（理由禁止只写经验/习惯，须业务口径、规范条目或量化数据）",
+      "required": [
+        "id",
+        "topic",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^DDR-[0-9]+$",
+          "description": "决策编号，全文档唯一；被 table fields[].ddr 引用"
+        },
+        "topic": {
+          "type": "string",
+          "minLength": 1,
+          "description": "决策点（如 order_no 长度、索引策略、状态存储）"
+        },
+        "alternatives": {
+          "type": "string",
+          "description": "备选方案（如 varchar(20) / varchar(30)）"
+        },
+        "chosen": {
+          "type": "string",
+          "description": "选定方案"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "理由：业务口径 / §13 规范条目编号 / 量化数据；禁止只写经验/习惯/常用"
+        },
+        "unreferenced_reason": {
+          "type": "string",
+          "description": "全局性决策（未被任何单字段引用）的显式豁免理由；缺省且无字段引用即孤儿拦截"
+        }
+      }
+    },
+    "field_group_req": {
+      "type": "object",
+      "required": [
+        "anchor",
+        "fields"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fields": {
+          "type": "array",
+          "description": "请求六列：字段|类型|必填|校验规则|数据来源|脱敏",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "type",
+              "required",
+              "rule",
+              "source",
+              "masking"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "rule": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1
+              },
+              "masking": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "field_group_res": {
+      "type": "object",
+      "required": [
+        "anchor",
+        "fields"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fields": {
+          "type": "array",
+          "description": "响应六列：字段|类型|恒出性|取值规则|数据来源|脱敏",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "type",
+              "always",
+              "rule",
+              "source",
+              "masking"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "always": {
+                "type": "string",
+                "minLength": 1,
+                "description": "恒出性（是/否/条件）"
+              },
+              "rule": {
+                "type": "string",
+                "minLength": 1,
+                "description": "取值规则"
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1
+              },
+              "masking": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "page_def": {
+      "type": "object",
+      "required": [
+        "anchor",
+        "name",
+        "permission"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unreferenced_reason": {
+          "type": "string",
+          "description": "未被任何验收点引用时的显式理由（如登录页）；缺省且无验收点引用即孤儿拦截"
+        },
+        "permission": {
+          "type": "string",
+          "minLength": 1,
+          "description": "页面所需权限；公开页须显式占位（如 public）"
+        }
+      }
+    },
+    "rule_def": {
+      "type": "object",
+      "required": [
+        "id",
+        "anchor",
+        "summary"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^R[0-9]+$"
+        },
+        "anchor": {
+          "type": "string",
+          "minLength": 1,
+          "description": "§规则章节锚点（WHEN 准伪代码所在）"
+        },
+        "unreferenced_reason": {
+          "type": "string",
+          "description": "未被任何验收点引用时的显式理由；缺省且无验收点引用即孤儿拦截"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

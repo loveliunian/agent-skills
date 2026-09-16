@@ -1,0 +1,51 @@
+---
+name: small-change
+version: "3.21.1"
+description: Use when a user requests a bounded change to an existing project, such as a local UI behavior, configuration, bugfix, optional API addition, validation/default adjustment, or additive persistence update.
+allowed-tools: [read, write, exec, glob, grep, task]
+---
+
+# /small-change - 现有项目的小需求 / 小改动
+
+不要按需求字数判断“小”。必须先扫描当前项目，再让机器契约决定 MICRO 或 FULL。`/field-change` 是本命令的兼容别名。
+
+> Gate 阶段名 `SMALL-CHANGE`（收据 `gates/SMALL-CHANGE/`）：`classify` 产出分类合同，`verify` 产出完成收据。
+
+## 用法
+
+```text
+/small-change <change-id> "<自然语言需求>" [--target=merge-ready|released]
+/devflow --mode=small-change <change-id> "<自然语言需求>"
+```
+
+默认 `merge-ready`。只有绑定并重验 P7 部署和 P8 监控收据，才可声明 `RELEASED`。
+
+## 项目扫描与自动路由
+
+将命令、范围、命中文件和结论写入 `.devflow/<change-id>/project-scan.txt`。十个表面必须逐项填写 `HIT|MISS|NA`：DB、领域模型、API、客户端、配置、测试、权限、流程、跨服务、历史数据。
+
+```bash
+bash "$SKILL_ROOT/scripts/small-change-gate.sh" classify <change-id>
+```
+
+- `DECISION=MICRO`：一个有界改动，执行聚焦验证。
+- `DECISION=FULL`：自动改走 `/devflow --mode=change`，不得手工降级。
+- 扫描缺项、无法定位受影响面或合同矛盾：`BLOCKED`。
+
+分类矩阵见 `references/small-change-classification.md`。
+
+## MICRO 验证
+
+1. 用 `templates/小需求变更-模板.md` 冻结主题、影响面、受影响文件、验收条件和验证命令。
+2. 对现有垂直切片做最小实现；持久化改动仍须四方言 Flyway。
+3. 执行：
+
+```bash
+bash "$SKILL_ROOT/scripts/small-change-gate.sh" verify <change-id>
+```
+
+4. Gate 绑定合同、扫描、报告、受影响文件、实际验证日志和必要的迁移/P7/P8 收据。
+
+## 强制升级 FULL
+
+破坏性 API、schema 破坏、权限、状态机、跨服务、新模块/服务、大回填、多项逻辑变更，或扫描命中权限/流程/跨服务/历史数据，必须 FULL。

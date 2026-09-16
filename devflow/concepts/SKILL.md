@@ -1,0 +1,280 @@
+---
+name: concepts
+description: Use when planning or reviewing work under devflow and its phase, command, or subagent invariants must be applied.
+metadata:
+  version: "3.21.1"
+---
+
+# Concepts — True North（不可违背的铁律）
+
+> 源自 M-03 / M-05 实战教训。每次 Phase gate 失败、每个 P0 阻断项都可以追溯到本文件的某一条。
+> 所有 phase skill / command skill / subagent 必须与本文对齐。冲突时以本文为准。
+
+---
+
+## 1. Phase Gate System（完成度门控）
+
+**铁律**：每个 Phase 必须通过对应的验收 gate 才能进入下一个 Phase。
+
+```
+PRD → P0 需求澄清 → P0b PRD评审 → P1 技术选型 → P2 详细设计 → P2a 设计评审 → P2b 原型Demo
+    → P3 编码 → P3b 代码审查 → P3c/P3d 安全与性能 → P4 PRD验证 → P4b PRD-vs-Code
+    → P5 测试用例 → P6 测试执行（含 P6-final 部署前终验）→ P7 部署 → P8 监控 → P9 文档 → P10 复盘
+（每阶段通过对应 Gate 后才能推进；各阶段 Gate 脚本对照以 commands/devflow.md Gate 参数矩阵为准）
+```
+
+**禁止**：
+- 仅以"文档产出"判定为完成
+- 仅以"代码骨架 / TODO"判定为完成
+- 开发 Agent 自评（必须由独立角色 audit）
+
+**必须**：
+- 运行机器可执行的自检命令
+- 凭据可追溯性（从代码 seed 找，不用猜）
+- 产出文件实际存在
+
+---
+
+## 2. Vertical Slices（垂直切片优先）
+
+**铁律**：按功能垂直切片执行，不要按层级（后端→前端）水平执行。
+
+```
+切片1 = 一组表 + 后端 API + 客户端页面 + 单测 + 平台导航/发布证据
+切片2 = 下一组功能...
+```
+
+**禁止**：先写完全部后端 → 再写完全部前端（认知负荷高、不可独立交付）
+**必须**：每个切片独立可运行、可测试、可部署
+
+---
+
+## 3. Agent Role Separation（角色隔离）
+
+| 角色 | 做什么 | 不能做什么 |
+|------|--------|-----------|
+| `backend-dev` | 写 Entity / Service / Controller / 单测 | 自评代码 |
+| `frontend-dev` | 写 PC Web、小程序或 APP 客户端与 API 调用 | 自评 |
+| `sql-dev` | 写 Flyway DDL + 菜单 seed | 自评 |
+| `completeness-auditor` | 运行 P3-P10 gate 自检 | 写代码 |
+| `code-reviewer` | 找 P0 缺陷 | 自评 |
+| `test-engineer` | 写测试用例 / 执行测试 | 自评 |
+
+---
+
+## 4. Flyway Four-Dialect Standard（4 方言标准）
+
+**铁律**：每次数据库变更必须生成 4 个方言的 Flyway 脚本。
+
+```
+backend/<service>/src/main/resources/db/migration/
+├── h2/           # 开发 / 本地测试
+├── postgresql/   # 生产 / Staging
+├── oracle/       # 企业客户
+└── kingbase/     # 国产化客户
+```
+
+**禁止**：
+- 只写 1 个方言就提交
+- 创建表后不写 Flyway（直接改生产 DB）
+- 表名 / 字段与 Entity 不同步
+
+**必须**：
+- 每个 `CREATE TABLE` 同步到 4 个方言
+- 菜单 seed（`sys_menu` / `sys_menu_operation` / `sys_permission_group` / `sys_user_effective_perm`）4 方言齐全
+- postgresql 方言末尾 `setval` 序列同步
+
+---
+
+## 5. Menu Seed Completeness（菜单完整性）
+
+**铁律（仅 PC Web）**：每个新增 PC Web 页面必须配套生成菜单 seed SQL。小程序和 APP 以 `app.json` / 客户端导航配置及 `devflow-client.json` 页面清单证明可达性。
+
+新增 `frontend/src/views/<feature>/index.vue` 但没有对应的 `V*__seed_<feature>_menus.sql` → **PC Web 不可达** = 功能未完成。
+
+**菜单 seed 必须含 5 段**：
+1. `sys_menu` INSERT（CATALOG + 每个页面 MENU，含 `route_path` + `perm_code`）
+2. `sys_menu_operation` INSERT（每菜单至少 VIEW 操作）
+3. `sys_permission_group` INSERT（与 `perm_code` 对齐）
+4. `sys_user_effective_perm` INSERT（admin user_id=1 自动授予全部）
+5. `setval` 序列同步（postgresql 必须，其他可选）
+
+参考路径形态：`backend/<menu-service>/src/main/resources/db/migration/postgresql/<module>/V*__seed_<feature>_menus.sql`
+
+---
+
+## 6. Credential Traceability（凭证可追溯性）
+
+**铁律**：测试报告中的所有凭证必须从代码 seed 中找到实际值，禁止猜密码。
+
+**禁止**：
+- 测试报告写"尝试 admin/admin123 及多个常见密码"
+- E2E 脚本硬编码 `admin123` / `admin888` / `12345678`
+
+**必须**：
+- 测试用例"前置条件"段含凭证三要素表：项 / 值 / 代码来源（行号定位）
+- E2E 脚本用 `ADMIN_PASSWORD` 常量（来自 `frontend/tests/helpers.ts` 或后端 seed）
+- 凭证阻塞时从 `init/BuiltinDataInitializer` / `V*__seed_sys_user.sql` / `helpers.ts` 找实际值
+
+---
+
+## 7. Cross-Platform POSIX Standard（跨平台 POSIX 标准）
+
+**铁律**：所有 shell 自检命令必须在 macOS（BSD grep）+ Linux（GNU grep）+ Windows Git Bash 3.2 下通用。
+正反例清单与兼容性细则见 `references/concepts-detail.md` §POSIX。
+
+---
+
+## 8. Red Flags（红旗，必须停止）
+
+| 红旗 | 立即停止并汇报 |
+|------|--------------|
+| 无 Flyway 直接改 DB | 后端依赖不存在的表 |
+| 前端页面写完但无菜单 seed | 用户看不到功能 |
+| 测试报告含"盲猜密码" | 审计错误，P0 阻断 |
+| admin 无 `sys_user_effective_perm` 授权 | admin 看不到菜单 |
+| `setval` 缺失导致 ID 冲突 | 部署失败 |
+| postgresql 无 menu seed | 功能不完整 |
+| Controller 无 `@PreAuthorize` | 权限漏洞 |
+| Mapper ≠ Entity 数量 | 逻辑表无 DAO 层 |
+
+---
+
+## 9. Version Discipline（版本纪律）
+
+> **v3.14.2 起强制**：任何修复/升级合入后必须递增版本号 z 位（x.y.z → x.y.z+1）。
+> 版本单一事实源 = SKILL.md frontmatter；gate 收据戳、audit-receipts、verify_evidence_receipt 均动态派生，
+> 因此漏改任何一处硬编码都会在 check-skill-version / release-audit 立即暴露。
+
+- 每个文件 `version:` frontmatter 与 SKILL.md 主版本同步
+- 破坏性变更（删除命令 / 改变 gate 条件）必须更新 changelog
+- `references/CHANGELOG.md` 记录从 v1 → v2 → v2.3 → v2.4 的迁移路径
+
+---
+
+## 10. Skill Loading Order（加载顺序）
+
+```
+规划 / 审查时：
+  1. 先读 concepts/SKILL.md（本文件）— true north
+  2. 再读 commands/<phase>.md — 本阶段流程
+  3. 再读 subagents/<role>.md — 本角色职责
+  4. 按需读 references/*.md — 详细约定
+
+执行 / 编码时：
+  1. SKILL.md（主入口）
+  2. commands/build.md（编码流程 + 自检）
+  3. subagents/<role>.md（子 Agent 职责）
+  4. scripts/*.sh（自检脚本，按需调用）
+```
+
+---
+
+## 11. Engineering Fact Sources（工程事实源体系，铁律）
+
+**铁律**：所有跨模块约定必须沉淀到 `docs/detailed-design/_*.md` / `INDEX-*.md`，不允许在代码注释、wiki、对话中"口口相传"。
+
+### 11.1 必须维护的事实源（7 份手维护 + 5 份 auto）
+
+> 完整清单（文件/类型/维护方/触发时机表）、初始化命令、auto 索引差异审查、
+> 跨项目复用原则已移至 `references/concepts-detail.md` §Fact-Sources。
+> 核心不变量：跨模块约定只能沉淀在 `docs/detailed-design/_*.md` / `INDEX-*.md`；
+> 跳过事实源直接编码被 `s1_fact_sources_gate.sh` 阻断。
+
+### 11.5 跨项目初始化
+
+> 正文已抽离至 references/concepts-detail.md §跨项目初始化。
+> 核心原则：新项目从模板仓库克隆而非复制粘贴；事实源随模板走。
+## 12. Skill Universalization（skill 通用化，铁律）
+
+> 正文已抽离至 references/concepts-detail.md §Skill-Universalization。
+> 核心不变量：三层解耦（领域逻辑/平台胶水/工具编排）；参数化路径；平台无关。
+
+## 13. 架构评分卡(指针)
+
+> **v3.9 抽离**:本节原内容(§13 L-GEVITY + §14 S.U.P.E.R)已抽到独立文件
+> [`architecture-scorecard.md`](./architecture-scorecard.md)。
+> 该文件是权威定义,**任何 PR / Phase 切换的架构评分都按那份来。**
+
+**为什么抽离**:`concepts/SKILL.md` 是铁律入口,500+ 行太长,L-GEVITY/S.U.P.E.R 是参考评分表(非铁律)。
+放在独立文件便于:
+1. 单独被 `audit-pitfalls.sh` / `super-scorecard.sh` 直接引用
+2. 单独维护(随 Marlo-AI / spec_driven_develop 上游更新)
+3. 单独 review(架构评审组 PR 只动这一份)
+
+**快速对照**:
+
+| 框架 | 维度数 | 触发时机 | 通过阈值 | 脚本 |
+|------|--------|----------|----------|------|
+| L-GEVITY | 4 | Phase 切换 | ≥ 16/20 | (手填) |
+| S.U.P.E.R | 5 | 每次 PR | ≥ 20/25 | `scripts/super-scorecard.sh` |
+
+---
+
+## 14. (已抽离)
+
+> **v3.9 起 §14 S.U.P.E.R 已并入 [`architecture-scorecard.md`](./architecture-scorecard.md) §14。**
+> 保留本占位节号以避免后续 PR 文档章节号偏移。
+
+---
+
+## 15. Architecture Pitfalls（架构陷阱自动检查 · 铁律）
+
+> **问题根因**：v3.4 之前将"踩过的坑"散落在多个文档/Postmortem/复盘里，缺少统一事实源，导致同类问题在不同项目反复出现。
+>
+> **铁律**：本 skill 用户**必须在 P3b（代码审查 gate）推进前完成架构陷阱自检**——
+> check-arch-pitfalls 以 `--receipt` 组合内嵌于 p3b gate（§6，产出 ARCH-PITFALLS
+> 收据），是 P3b 的强制组成；缺收据则状态机拒绝推进 P3b（v3.16.3 起）。
+> （历史口径"任意 Phase 切换前必跑"自 v3.16.11 起收敛为 P3b 门禁——
+> 收据化与消费点唯一化后，"每阶段"承诺已由真实执行路径承载）
+
+### 15.1 适用范围
+
+- Java + Spring Boot 后端及 PC Web、小程序、APP 客户端组合项目；其他后端栈必须提供等价的项目级检查器
+- P3b 推进前（经 p3b gate §6 内嵌执行并产出 ARCH-PITFALLS 收据；任意时点也可手动跑 `--all` 自检）
+- Postmortem 后必须登记新坑
+
+### 15.2 必读文档
+
+| 文档 | 必读理由 |
+|------|---------|
+| `concepts/architecture-pitfalls.md` | 30+ 通用 Anti-Pattern + 11 类陷阱分类 |
+| `concepts/中文文风规范.md` | 全部产出文档的中文写作契约（说人话、表达准确），P2/P2a/P9 评审按此核对 |
+| `concepts/Java开发手册_黄山版.md` | Java 代码生成与评审的强制基准（P3 编码前对照章节、P3b 逐条核对，【强制】条款无豁免） |
+| `docs/架构升级改造计划.md`（项目级） | 54 项 D-XX 偏差 + 21 项 G 守卫 |
+
+### 15.3 必跑命令
+
+```bash
+# P3b 推进前必跑（critical > 0 阻塞；p3b gate 以 --receipt 组合自动执行）
+bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --all
+
+# 或分类跑
+bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category config       # 配置分散
+bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category api          # API 契约
+bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category security     # 安全/密钥
+bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category code         # 代码规范
+bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category perf         # 性能
+bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category obs          # 可观测性
+bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category deploy       # 部署
+bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category test         # 测试
+```
+
+### 15.4 与其他铁律的协同
+
+- 与铁律 1（Phase Gate）：Pitfalls 在 P3b Gate 内强制执行；P3/P7/P8 仅消费已绑定收据，不重复声称独立切换 Gate
+- 与铁律 3（Role Separation）：Pitfalls 可由 `completeness-auditor` 或主Agent 跑，但失败修复由对应 dev 完成
+- 与 §11（Engineering Fact Sources）：Pitfalls 反哺新坑进 `concepts/architecture-pitfalls.md` + `concepts/SKILL.md`
+
+### 15.5 Postmortem 反馈循环
+
+```
+P11 Postmortem → 新坑登记到 architecture-pitfalls.md
+                → checks/check-arch-pitfalls.sh 新增检查
+                → CHANGELOG.md 新增条目
+                → 跨项目同步
+```
+
+*本文是所有 devflow skills 的 invariant。任何 phase skill / command / subagent 不得以"方便"为由违背上述任何一条。*
+
+---

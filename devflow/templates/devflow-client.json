@@ -1,0 +1,12 @@
+{
+  "platform": "mini-program",
+  "commands": {
+    "build": ["replace-with-build-executable", "arg1"],
+    "test": ["replace-with-test-executable", "arg1"],
+    "release": ["replace-with-release-executable", "arg1"]
+  },
+  "pages": [
+    "replace-with-a-page-file-or-mini-program-page-route"
+  ],
+  "release_evidence": "artifact=mini-program-upload.zip;version=1.0.0;location=wechat-preview"
+}

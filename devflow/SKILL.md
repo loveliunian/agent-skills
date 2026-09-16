@@ -1,0 +1,77 @@
+---
+name: devflow
+description: "Use when a user provides a PRD or asks to run /devflow for phase-gated Java/Spring/Flyway backend, PC Web, WeChat Mini Program, or mobile app delivery with design, implementation, testing, deployment, or checkpoint recovery."
+license: MIT
+metadata:
+  author: xingyunliushui
+  version: "3.21.1"
+  compatibility: [cursor, claude-code, codex, trae]
+  updated: "2026-09-15"
+  tags: [prd, detailed-design, development, migration, phase-gate, checkpoint-recovery]
+allowed-tools: [read, write, exec, glob, grep, task]
+---
+
+# devflow — PRD to production（v3.21.1）
+
+本文件是唯一权威入口。历史迁移只查 `references/CHANGELOG.md`；命令、阶段、角色和模板按需加载，不在入口重复。
+
+## 适用范围
+
+- 从零构建、存量系统新增、已有需求修改。
+- 基于现有项目的小需求、小改动可由自然语言触发 `/small-change`；必须先扫描当前项目，风险扩大时自动升级完整 `change` 流程。
+- 内置服务端 Gate 面向 Java/Spring/Flyway；客户端覆盖 PC Web、微信小程序、APP 或明确的 `not-applicable` 前端范围。
+- PRD 到详设、实现、测试、部署、监控、文档、复盘，或从 checkpoint 恢复。
+
+仅回答概念、只做独立代码审查或没有交付生命周期诉求时，不启动全流程。
+
+## 不可违背的原则
+
+1. 每阶段 Gate 返回 0 后才能推进；文档存在、静态构建或 H2 结果不能替代真实运行证据。
+2. 完成声明附命令、退出码、文件和环境边界；`运行未验证` 不得写成完成。
+3. 开发、审查、完成度审计角色分离；不能自签。
+4. 按“数据 + API + 客户端 + 测试 + 可达性”垂直切片。
+5. 适用 Flyway 时保持 h2、postgresql、oracle、kingbase 四方言一致；不适用需在冻结设计说明。
+6. 测试凭据只能从 seed 或配置事实源追溯，禁止猜测和记录明文秘密。
+7. 写产物前读对应模板，写后跑对应 Gate；模板与产物标题和字段契约一致。
+8. Gate 失败立即保存 checkpoint、记录证据并停止；修复后重跑同一 Gate。
+9. P10 教训先写入项目本地 feedback queue；修改已安装 skill 必须获得用户明确批准。
+10. 设计必须显式说明成熟组件复用、公共服务/组件抽取、命名/开发/注释规范及关键设计理由。
+11. 评审必须先跑主责探针再下结论：深层发现（DF）按五字段场景链契约输出，零发现 ✅ 须附核查证据；规范见 `concepts/review-depth-methodology.md`。
+12. 用户/PRD 明确指定的技术组件、版本、许可证或部署方式必须在 P0 冻结为硬约束；P1 只能在约束内评分，偏离必须 `BLOCKED` 并经用户批准后重冻。
+
+完整铁律与工程边界见 `concepts/SKILL.md`；细节原则见 `concepts/principles-detailed.md`；经验教训库见 `concepts/lessons-learned.md`（25 条可复现教训）。
+
+## 启动与路由
+
+1. 先读 `concepts/SKILL.md`。
+2. 读 `commands/ROUTING.md`，选择全流程或单阶段命令。
+3. 只加载当前 command、phase、subagent、template 和 Gate 脚本。
+4. 初始化时冻结 `--frontend=pc-web|mini-program|app|not-applicable`；小程序、APP 和配置化 PC Web 在 P2 后冻结 `devflow-client.json` 哈希。
+
+“小需求/小改动、局部 UI、配置、修复、字段/默认值/校验”等先加载 `commands/small-change.md`；`SMALL-CHANGE` 默认只到 `MERGE_READY`，明确要求上线才绑定 P7+P8 收据并声明 `RELEASED`。
+
+全流程编排、参数、Gate 调用、跳过与恢复见 `commands/devflow.md`。自然语言触发与反例见 `concepts/natural-language-triggers.md`。
+
+## P0-P10 单轨
+
+| 阶段 | 目标 | Gate |
+|---|---|---|
+| P0/P0b | 澄清、原子验收点、PRD 评审（DF/AW 深度契约 + 领域专项清单） | `s0_acceptance_gate.sh`、`gen-domain-checklist.sh`、`artifact_gate.sh P0b` |
+| P1 | 技术选型与工程事实源 | `s1_fact_sources_gate.sh` |
+| P2/P2a/P2b | 字段级详设、5 角色评审（DF/AW 深度契约）、原型 | `df_pipeline.py design`（design.json 结构化产物层，失败关闭）、`s2_design_coverage_gate.sh`（§2c 对账）、`p2a_design_review_gate.sh`、`p2b_demo_gate.sh` |
+| P3/P3b/P3c/P3d | 实现、代码审查、安全、性能 | `build-watchdog.sh gate`（P3-build）、`p3_completion_gate.sh`、`p3b_code_review_gate.sh`、`p3_security_perf_gate.sh` |
+| P4/P4b | PRD 验证与精确 PRD-vs-Code | `p4_validation_gate.sh`、`p4_prd_vs_code.sh` |
+| P5/P6 | 测试设计、执行、迁移、凭证、准确率 | `p5_test_cases_gate.sh`(主)、`s5_migration_gate.sh`(B/C，P5-migration)、`s6_first_pass_accuracy.sh`、`p6_credential_gate.sh` |
+| P6 终验 | 部署前强制：验收点集合与冻结 baseline 全等 + FAIL=0；Gate 实际执行五类测试命令并绑定报告、日志与真实退出码；verification.json 必填并对账冻结前端范围 | `s6_final_verification_gate.sh`（执行→校验→渲染报告→收据绑定 `gates/P6-final/`，缺失则 complete P6 拒绝） |
+| P7/P8/P9 | 部署、监控、文档 | `artifact_gate.sh P7/P8/P9` |
+| P10 | 复盘与项目反馈闭环 | `p10_feedback_gate.sh` |
+
+P11 只用于独立事故复盘，不计入正常交付链。
+
+## 停止条件
+
+- 输入、冻结哈希或证据漂移：回到最早受影响阶段。
+- Gate 非零或独立审计不可用：报告 `BLOCKED`，不得继续或自签。
+- 用户明确授权的合法跳过必须写入 `.devflow/<feature>/skip-log.txt`；P3、P4b、P6、P7-P10 不可跳过。
+
+发布技能自身前必须运行唯一发布入口 `bash scripts/release.sh`（含完整测试、版本一致性、Release Audit、ShellCheck、Manifest、副本对账、树 hash 七道门禁，任一失败即禁止发布）。
