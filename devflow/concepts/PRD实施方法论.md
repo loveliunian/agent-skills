@@ -1,18 +1,14 @@
 ---
 name: PRD实施方法论
-version: "3.22.0"
+version: "3.23.0"
 description: >-
   PRD → 详设 → 代码实施 闭环路径方法论。
   Use when following the PRD-to-code implementation methodology.
   扩展既有 devflow v3.6，编排 PRD、澄清决议、总详设、模块详设、工程事实源、数据映射和门控脚本。
-compatibility:
- - cursor
- - claude-code
- - codex
- - trae
+compatibility: Devflow agent skill; requires a repository workspace and command execution.
 metadata:
   author: "xingyunliushui"
-  tags: ["concept", "methodology", "prd", "detailed-design", "100-percent", "prd-implementation"]
+  tags: "concept,methodology,prd,detailed-design,100-percent,prd-implementation"
 ---
 
 # PRD → 详设 → 代码实施 闭环路径

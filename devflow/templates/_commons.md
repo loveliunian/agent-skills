@@ -1,6 +1,6 @@
 ---
 name: _commons
-version: "3.22.0"
+version: "3.23.0"
 description: 工程公约骨架（公共字段/错误码/缓存/幂等/2FA/审计等单一事实源）
 ---
 
@@ -186,3 +186,21 @@ public class ApiResponse<T> {
 - 菜单 Seed：`./_菜单Seed索引.md`
 - ER 图：`./_ER图索引.md`
 - Schema 变更：`./_Schema变更日志.md`
+
+---
+
+## 12. 模板变量约定
+
+- 所有未解析变量必须使用双花括号：`{{variable_name}}`。
+- 不得引入新的 `<name>` 或 `{name}` 占位符；历史产物保持原样，不回改。
+- 常用变量：
+
+| 变量 | 含义 |
+|---|---|
+| `{{feature_id}}` | feature / change 标识 |
+| `{{service_name}}` | 目标服务 |
+| `{{frontend_scope}}` | 冻结的客户端范围 |
+| `{{acceptance_id}}` | 原子验收点 ID |
+| `{{evidence_path}}` | 证据文件路径 |
+
+产物中残留任何未解析 `{{...}}` 记号即视为未完成，对应 Gate 不得判定通过（本文档举例说明处除外）。

@@ -14,6 +14,7 @@ PER_GROUP_TIMEOUT="${RUN_TESTS_TIMEOUT:-900}"
 
 SUITES=(
   "test-contracts.sh:契约面"
+  "test-trigger-eval.sh:触发评测语料"
   "test-state.sh:state 机"
   "test-client-platforms.sh:客户端平台"
   "test-phase-gates.sh:阶段门控"
@@ -27,9 +28,7 @@ SUITES=(
   "test-evidence-hardening-rounds.sh:证据硬化-行为钉轮次"
   "test-report-regressions.sh:报告回归"
   "test-p6-hardening.sh:P6 硬化"
-  "test-v3203-hardening.sh:v3.20.3 硬化"
-  "test-v3212-integrity.sh:v3.21.2 发布完整性"
-  "test-v3209-evidence-gates.sh:v3.21.1 证据门禁"
+  "test-version-hardening.sh:历史版本硬化（v3.20.3/v3.21.1/v3.21.2）"
   "test-release.sh:发布审计"
 )
 

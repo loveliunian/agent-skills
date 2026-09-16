@@ -1,6 +1,6 @@
 ---
 name: field-change
-version: "3.22.0"
+version: "3.23.0"
 description: Use when a user explicitly asks to change one existing field, default, validation, or display label.
 allowed-tools: [read, write, exec, glob, grep, task]
 ---

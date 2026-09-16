@@ -88,6 +88,9 @@ except Exception:
 
 # v3.16.21: YAML 语法有效不代表 allowed-tools 字段语义有效。
 # 空值或错误缩进会被解析为 null，导致实际需要的 write/exec/task 权限静默丢失。
+# v3.23.0: Agent Skills 规范形式为空格分隔字符串；Claude Code 惯用 YAML 列表。
+#          两种形式都接受，但工具名白名单/去重/非空校验保持 fail-closed。
+#          同时校验顶层 compatibility 为字符串、metadata 为 string→string。
 validate_allowed_tools_semantics() {
   local file="$1"
   if command -v python3 >/dev/null 2>&1 && python3 -c "import yaml" >/dev/null 2>&1; then
@@ -99,16 +102,32 @@ parts = text.split("---", 2)
 if len(parts) < 3:
     raise SystemExit(0)
 data = yaml.safe_load(parts[1]) or {}
+known = {"read", "write", "exec", "glob", "grep", "task"}
+
+def parse_tools(value):
+    if isinstance(value, str):
+        items = value.replace(",", " ").split()
+    elif isinstance(value, list):
+        items = value
+    else:
+        return None
+    if not items or any(not isinstance(x, str) or not x.strip() or x not in known for x in items):
+        return None
+    if len(items) != len(set(items)):
+        return None
+    return items
+
 required = path.split("/")[-2] in {"commands", "subagents"} and path.split("/")[-1] != "ROUTING.md"
 if required and "allowed-tools" not in data:
     raise SystemExit(1)
-if "allowed-tools" in data:
-    tools = data["allowed-tools"]
-    known = {"read", "write", "exec", "glob", "grep", "task"}
-    if (not isinstance(tools, list) or not tools or
-            any(not isinstance(x, str) or not x.strip() or x not in known for x in tools) or
-            len(tools) != len(set(tools))):
-        raise SystemExit(1)
+if "allowed-tools" in data and parse_tools(data["allowed-tools"]) is None:
+    raise SystemExit(1)
+if "compatibility" in data and not isinstance(data["compatibility"], str):
+    raise SystemExit(1)
+metadata = data.get("metadata")
+if metadata is not None and (not isinstance(metadata, dict) or
+        any(not isinstance(k, str) or not isinstance(v, str) for k, v in metadata.items())):
+    raise SystemExit(1)
 PY
     return $?
   fi

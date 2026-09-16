@@ -1,6 +1,6 @@
 ---
 name: small-change
-version: "3.22.0"
+version: "3.23.0"
 description: Use when a user requests a bounded change to an existing project, such as a local UI behavior, configuration, bugfix, optional API addition, validation/default adjustment, or additive persistence update.
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
@@ -45,6 +45,16 @@ bash "$SKILL_ROOT/scripts/small-change-gate.sh" verify <change-id>
 ```
 
 4. Gate 绑定合同、扫描、报告、受影响文件、实际验证日志和必要的迁移/P7/P8 收据。
+
+## Bug 修复契约（bugfix 类）
+
+1. 修复前：复现问题，保存失败命令与原始输出（`BASELINE_FAIL: command/exit_code/evidence`）。
+2. 定位最小根因（`ROOT_CAUSE: file:line/explanation`）。
+3. 修复后必须新增 `FAIL_TO_PASS` 回归测试，并运行相关 `PASS_TO_PASS` 回归套件。
+4. 禁止删除/放宽失败测试、用 catch/默认值屏蔽错误或顺手重构；不得改变未被 bug 涉及的公共行为。
+5. 修复范围扩大时升级 FULL。
+
+完成条件：`FAIL_TO_PASS=PASS`、`PASS_TO_PASS=PASS`、`SCOPE_DRIFT=0`。
 
 ## 强制升级 FULL
 

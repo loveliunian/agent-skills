@@ -100,6 +100,7 @@ cat > "$TMP/docs/detailed-design/foo-design.md" <<'EOF'
 ## §1 功能概述
 分页查询 foo 数据。
 ## §2 数据模型
+<!-- anchor: data-model -->
 CREATE TABLE foo (id BIGINT PRIMARY KEY, page INT);
 ### 表: foo
 | 字段名 | 类型 | 约束 | 默认值 | 口径说明 |
@@ -107,6 +108,7 @@ CREATE TABLE foo (id BIGINT PRIMARY KEY, page INT);
 | id | BIGINT | PK | auto | 主键 |
 | page | INT | 非空 | 1 | 页码；最大值由接口校验 |
 ## §3 接口设计
+<!-- anchor: api-contracts -->
 #### 3.2.1 分页列表
 | 方法 | 路径 | 接口 |
 |---|---|---|
@@ -123,6 +125,7 @@ CREATE TABLE foo (id BIGINT PRIMARY KEY, page INT);
 |---|---|---|
 | 查询 | admin | 是 |
 ## §5 业务规则
+<!-- anchor: business-rules -->
 | 规则编号 | 规则描述 |
 |----------|----------|
 | R1 | page 必须大于等于 1。 |
@@ -148,7 +151,12 @@ TC-TECH-001：数据库使用 postgresql 16。
 成熟组件复用清单：hibernate-validator；公共抽取登记：分页契约复用。
 ## §13 规范遵循
 命名/开发/注释规范：阿里巴巴 Java 开发手册；无偏离。
-## §14 变更历史
+## §14 实现交接（Implementation Handoff）
+<!-- anchor: implementation-handoff -->
+| 文件/符号 | ADD/MODIFY/DELETE | 设计依据 | 验收点 |
+|---|---|---|---|
+| `FooController#list` | MODIFY | anchor: api-contracts §3 | M-01-F01-A01 |
+## §15 变更历史
 v1 fixture。
 ## 设计决策记录（DDR）
 BIGINT 用于主键以覆盖长期增长；INT 用于页码因其业务上限明确。

@@ -112,10 +112,10 @@ fi
 
 # Declared tool capabilities must cover the operations each command/subagent
 # explicitly requires.
-if grep -qF 'allowed-tools: [read, write, exec, glob, grep, task]' "$ROOT/SKILL.md"; then
-  ok "main skill declares execution capability"
+if grep -qxF 'allowed-tools: read write exec glob grep task' "$ROOT/SKILL.md"; then
+  ok "main skill declares execution capability in agent-skills string form"
 else
-  bad "main skill declares execution capability"
+  bad "main skill declares execution capability in agent-skills string form"
 fi
 if grep -qE '^  - write$' "$ROOT/commands/review.md" &&
    grep -qE '^  - exec$' "$ROOT/commands/review.md" &&
@@ -127,17 +127,27 @@ else
   bad "review command and coordinator declare required capabilities"
 fi
 
-# Release Audit must validate allowed-tools as a list, not merely accept YAML
+# Release Audit must validate allowed-tools semantics, not merely accept YAML
 # that silently turns it into null or folds list items into another scalar.
+# v3.23.0: Agent Skills space-separated string and Claude Code list both accepted;
+# unknown tool names must still be rejected in either form.
 W_AUDIT="$TMP/audit"
 cp -R "$ROOT" "$W_AUDIT"
 printf '%s\n' '---' 'name: malformed-tools-fixture' 'version: "3.16.24"' 'allowed-tools:' 'paths: []' 'disable-model-invocation: false' '  - read' '---' > "$W_AUDIT/subagents/malformed-tools-fixture.md"
 printf '%s\n' '---' 'name: unknown-tools-fixture' 'version: "3.16.24"' 'allowed-tools: [read, exce]' 'paths: []' '---' > "$W_AUDIT/subagents/unknown-tools-fixture.md"
+printf '%s\n' '---' 'name: unknown-string-tools-fixture' 'version: "3.16.24"' 'allowed-tools: read exce' 'paths: []' '---' > "$W_AUDIT/subagents/unknown-string-tools-fixture.md"
+printf '%s\n' '---' 'name: string-tools-fixture' 'version: "3.16.24"' 'allowed-tools: read write exec' 'paths: []' '---' > "$W_AUDIT/subagents/string-tools-fixture.md"
 AUDIT_OUT=$(DEVFLOW_AUDIT_ROOT="$W_AUDIT" bash "$ROOT/scripts/release-audit.sh" 2>&1; echo "rc=$?")
 if printf '%s' "$AUDIT_OUT" | grep -q 'allowed-tools' && ! printf '%s' "$AUDIT_OUT" | grep -q 'rc=0$'; then
   ok "release audit rejects malformed allowed-tools semantics"
 else
   bad "release audit accepts malformed allowed-tools semantics"
+fi
+if printf '%s' "$AUDIT_OUT" | grep -q 'allowed-tools semantic structure invalid: subagents/unknown-string-tools-fixture.md' &&
+   printf '%s' "$AUDIT_OUT" | grep -q 'allowed-tools semantics ok: subagents/string-tools-fixture.md'; then
+  ok "release audit accepts space-separated allowed-tools and rejects unknown names"
+else
+  bad "release audit mishandles space-separated allowed-tools"
 fi
 
 # Every command/subagent must declare a non-empty allow-list using only the

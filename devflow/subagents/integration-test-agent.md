@@ -1,7 +1,7 @@
 ---
 name: integration-test-agent
 subagent_type: generalPurpose
-version: "3.22.0"
+version: "3.23.0"
 responsibility: "/test --integration-only。TestContainers 真库真中间件跑集成测试。凭证必须从 helpers.ts 取,禁止硬编码。"
 description: >-
   Use when running integration tests with TestContainers, mentions

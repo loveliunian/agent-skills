@@ -1,6 +1,6 @@
 ---
 name: devflow-command
-version: "3.22.0"
+version: "3.23.0"
 description: Use when running the complete devflow lifecycle or resuming a checkpoint.
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
@@ -27,7 +27,7 @@ allowed-tools: [read, write, exec, glob, grep, task]
 
 ## Required load order
 
-1. `concepts/SKILL.md`
+1. `concepts/core.md`
 2. 本文件与 `commands/ROUTING.md`
 3. 当前 `phases/<phase>.md`
 4. 当前 `subagents/<role>.md`
@@ -61,7 +61,7 @@ P11 是独立事故复盘，不属于正常交付完成条件。
 | P4b | `p4_prd_vs_code.sh <feature> ...` |
 | P5 | `p5_test_cases_gate.sh <feature>`（主收据）+ `s5_migration_gate.sh <A|B|C> <evidence>`（B/C 辅助，P5-migration 收据） |
 | P6 | `s6_first_pass_accuracy.sh <feature> 80`（首轮质量指标）+ `s6_final_verification_gate.sh <feature>`（**部署前终验：验收点 FAIL=0；Gate 实际执行五类命令并绑定报告、日志与真实退出码；verification.json 必填**，Gate 执行通过后自动渲染终验报告并入收据证据树；CLIENT_EXEMPT 仅对冻结前端范围 not-applicable 生效）+ `p6_credential_gate.sh <feature>`（凭证收据 `gates/P6-credential/`）（终验收据 `gates/P6-final/receipt.txt`，complete P6 强制） |
-| P7 | `artifact_gate.sh P7 <feature>` |
+| P7 | `artifact_gate.sh P7 <feature>`（前置：存在有效发布授权收据 `.devflow/<feature>/authorizations/release.json`，见 Release Authorization） |
 | P8 | `artifact_gate.sh P8 <feature>` |
 | P9 | `artifact_gate.sh P9 <feature>` |
 | P10 | `p10_feedback_gate.sh <feature>` |
@@ -138,6 +138,28 @@ check_skip_authorization() {
 - “已有产物”只有在当前 Gate 重新返回 0 后才算前置条件满足。
 - 不使用 `read -p` 等交互等待；未授权时直接 `BLOCKED`。
 
+## Release Authorization（外部副作用人工授权）
+
+进入 P7 前，若目标包含任何外部副作用——staging/production 部署、数据库迁移、merge、push 或对外通知——必须存在显式人工授权收据：
+
+`.devflow/<feature>/authorizations/release.json`
+
+```json
+{
+  "feature": "<feature>",
+  "target": "<environment>",
+  "authorized_by": "<user-or-approved-actor>",
+  "authorization_source": "explicit-user-request",
+  "authorized_at": "<timestamp>",
+  "scope": ["deploy"]
+}
+```
+
+- 收据只能由用户在当前会话中的明确指令生成；模型不得自行推断或代签。
+- 无有效收据时最高只能声明 `READY_TO_RELEASE`；不得声明 `RELEASED`，也不得执行任何外部副作用命令。
+- 授权范围以 `scope` 为准；超出范围的副作用需要新的授权。
+- 破坏性 migration、生产数据回填、不可逆操作与 `EXTERNAL`/`IRREVERSIBLE` 副作用一律要求人工批准。
+
 ## Checkpoint recovery
 
 ```bash
@@ -164,4 +186,5 @@ bash "$SKILL_ROOT/scripts/checkpoint-state.sh" orphans <feature>
 - 设计覆盖率 100%，首轮准确率达到冻结阈值，B/C 迁移零差异；
 - 数据库、客户端旅程、部署、监控和文档证据分别标明“已验证/运行未验证”；
 - 独立审查与完成度审计未由开发者自签；
+- 声明 `RELEASED` 时另有有效发布授权收据（`authorizations/release.json`）；无授权最高为 `READY_TO_RELEASE`；
 - P10 项目反馈队列已通过 `p10_feedback_gate.sh`；安装 skill 的改动另行经用户批准。

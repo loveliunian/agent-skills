@@ -75,5 +75,25 @@ else
   echo "[PASS] 脚本 banner 版本一致"
 fi
 
+# v3.23.0: 模板正文版本字面量守卫——写作铁律要求产物头与模板 frontmatter 相等；
+# 正文 `> 模板版本：`x.y.z`` 字面量漂移会误导产物直抄旧版本（历史事故：正文停在 3.16.25）。
+# 允许写法：{{template_version}} 变量（推荐）或与 frontmatter 完全一致的字面量。
+_TPL_DRIFT=''
+for _t in "$ROOT"/templates/*.md; do
+  [ -f "$_t" ] || continue
+  _fm=$(sed -n 's/^version: "\([0-9.]*\)"/\1/p' "$_t" | head -1)
+  _lit=$(grep -oE '模板版本[：:][[:space:]]*`[0-9]+\.[0-9]+\.[0-9]+`' "$_t" 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+  if [ -n "$_lit" ] && [ "$_lit" != "$_fm" ]; then
+    _TPL_DRIFT="$_TPL_DRIFT
+  ${_t#$ROOT/}: 正文模板版本 $_lit != frontmatter $_fm"
+  fi
+done
+if [ -n "$_TPL_DRIFT" ]; then
+  echo "[FAIL] 模板正文版本字面量漂移（改为 {{template_version}} 或与 frontmatter 同步）:$_TPL_DRIFT"
+  FAIL=$((FAIL + 1))
+else
+  echo "[PASS] 模板正文版本字面量无漂移"
+fi
+
 echo "VERSION GATE: expected=$EXPECTED fail=$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

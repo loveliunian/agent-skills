@@ -1,6 +1,6 @@
 ---
 name: postmortem
-version: "3.22.0"
+version: "3.23.0"
 description: |
   触发条件：生产 P0/P1 故障、SLA 违约、安全事件、影响用户的 Bug。
   强制产出 docs/事故复盘/<incident>-事故复盘.md（§1-§10 完整 + 5 Why + 改进项可追溯）。
@@ -11,7 +11,7 @@ disable-model-invocation: false
 allowed-tools: [read, write, exec, glob, grep, task]
 metadata:
   author: "xingyunliushui"
-  tags: ["postmortem", "incident", "rca", "phase-p11"]
+  tags: "postmortem,incident,rca,phase-p11"
 ---
 
 # /postmortem — 事故复盘命令

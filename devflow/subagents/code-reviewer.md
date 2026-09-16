@@ -1,7 +1,7 @@
 ---
 name: code-reviewer
 subagent_type: generalPurpose
-version: "3.22.0"
+version: "3.23.0"
 responsibility: "Adversarial Review 编排器。/review 时调度 feasibility-reviewer + completeness-reviewer + scope-reviewer 三个 fresh subagent 并行评审。"
 description: >-
   ：Adversarial Review 3 评审编排器。
@@ -97,9 +97,30 @@ spawn_fresh(role="scope-reviewer", task="...")
 [PASS / FAIL]
 ```
 
+## 反证式评审（Adversarial Review）
+
+不信任：作者注释、实现总结、此前的 PASS 声明。
+只信任：冻结需求、冻结详设、真实 diff、可执行测试、运行证据。
+
+对每条验收点：
+
+1. 先尝试证明它**没有**被实现。
+2. 再构造一个能击穿它的边界用例。
+3. 检查权限/安全规则是否可绕过。
+4. 检查失败行为是否符合契约。
+5. 检查是否引入无关行为（scope drift）。
+
+零发现（0 条 FINDING）只有在附核查证据时才有效：每个维度输出 `CHECKED|<dimension>|<evidence>`（含 file:line 或命令与退出码）；无证据的零发现按未评审处理。
+
+## 独立性声明
+
+综合报告必须区分：上下文独立 ≠ 模型独立 ≠ 人工独立。高风险生产发布建议至少满足
+`context=independent` 且 `model=different 或 identity=human`（在 `REVIEW_SESSION_ID` 行后追加
+`REVIEW_INDEPENDENCE=context=<independent>;model=<same|different>;identity=<agent|human>`）。
+
 ## 铁律
 
 1. **3 个 reviewer 必须并行** — 串行浪费时间且可能引入顺序偏差
 2. **每个 reviewer 都是 fresh Task()** — 永不 resumed，永不 teammate 复用
 3. **综合报告必须有 file:line 证据** — 拒绝"代码风格不统一"这种笼统描述
-4. **0 P0 才能 PASS**
+4. **0 P0 才能 PASS**，零发现必须附 `CHECKED|` 核查证据

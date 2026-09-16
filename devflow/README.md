@@ -1,12 +1,26 @@
 ---
 name: devflow-readme
-version: "3.22.0"
+version: "3.23.0"
 description: devflow 的非权威导航页。
 ---
 
-# devflow v3.22.0
+# devflow v3.23.0
 
 `SKILL.md` 是唯一权威入口；本文件只用于人工导航，不重复流程、Gate 或执行规则。
+
+## 30 秒上手
+
+```text
+用户：用 devflow 根据 docs/需求/refund-需求澄清.md 做存量功能改造，
+      前端是 PC Web，先做到详细设计，不部署。
+
+预期：P0 → P0b → P1 → P2 逐阶段 PASS（每阶段返回 Receipt），
+      因 --design-only 在 P2 后停止；产物在 docs/详细设计/。
+      任一 Gate FAIL → BLOCKED + checkpoint，修复后重跑同一 Gate。
+```
+
+安装：见仓库根 `README.md`。Claude Code 为 `~/.claude/skills/devflow`；Codex 当前用户级目录为 `$HOME/.agents/skills/devflow`（旧的 `~/.codex/skills` 已过时）；
+也可用 `bash scripts/install.sh --platform <claude|codex|cursor|trae|trae-cn>`，再用 `bash scripts/doctor.sh` 体检依赖。
 
 ## 整体流程图
 
@@ -64,7 +78,7 @@ flowchart LR
 - 全流程、增量需求、修改需求、断点恢复：读 [`SKILL.md`](SKILL.md)。
 - “小需求/小改动、局部 UI、配置、修复、字段/默认值/校验”：读 [`commands/small-change.md`](commands/small-change.md)，由项目扫描自动决定 MICRO 或完整 change。
 - 命令、Phase、Gate、产物映射：读 [`commands/ROUTING.md`](commands/ROUTING.md)。
-- 不可违背的工程约束：读 [`concepts/SKILL.md`](concepts/SKILL.md)。
+- 不可违背的工程约束：读 [`concepts/core.md`](concepts/core.md)。
 - 版本变化：读 [`references/CHANGELOG.md`](references/CHANGELOG.md)。
 - 回归与发布校验：运行 `bash tests/run-tests.sh`。
 

@@ -297,9 +297,25 @@ else
     p0 "design.md 缺少需求追溯锚点: <!-- anchor: acceptance-traceability -->（章节号仅用于展示，语义锚点为唯一机器契约）"
   fi
 
+  # v3.23.0: 语义锚点契约扩展——data-model / api-contracts / business-rules / implementation-handoff。
+  # 前三个为历史必含章节，缺失锚点时按同义 H2 标题回退（兼容在途产物）；实现交接为新增必含节。
+  check_semantic_anchor() {
+    local anchor="$1" h2pat="$2" label="$3"
+    if grep -q "anchor: $anchor" "$DESIGN" 2>/dev/null \
+       || echo "$PRODUCT_H2" | grep -qE "$h2pat"; then
+      pass "design.md 语义锚点存在: ${anchor}（${label}）"
+    else
+      p0 "design.md 缺少语义锚点: <!-- anchor: ${anchor} -->（${label}；章节编号仅展示，锚点是 /plan、/build 与评审的定位正本）"
+    fi
+  }
+  check_semantic_anchor "data-model" '数据模型' "数据模型"
+  check_semantic_anchor "api-contracts" '接口' "接口契约"
+  check_semantic_anchor "business-rules" '业务规则' "业务规则"
+  check_semantic_anchor "implementation-handoff" '实现交接' "实现交接（施工图：基线/变更/不变量）"
+
   # 必含章节（核心，仅单体模式强制——总分模式的章节契约由上方模板对齐检查覆盖）
   if [ "$MODE" = "monolith" ]; then
-    REQUIRED=("§1 功能概述" "§2 数据模型" "§3 接口设计" "§4 权限矩阵" "§5 业务规则" "§6 关键流程" "§7 前端页面" "§8 数据库迁移" "§9 验收标准" "§11 需求追溯与覆盖率基线")
+    REQUIRED=("§1 功能概述" "§2 数据模型" "§3 接口设计" "§4 权限矩阵" "§5 业务规则" "§6 关键流程" "§7 前端页面" "§8 数据库迁移" "§9 验收标准" "§11 需求追溯与覆盖率基线" "§14 实现交接")
     for sec in "${REQUIRED[@]}"; do
       # v3.9.1: 直接在产物 H2 里 grep 该章节前 5 字符（容忍"§6 关键流程（WHEN...）"）
       SEC_PREFIX="${sec:0:5}"

@@ -1,8 +1,8 @@
 ---
-name: concepts
-description: Use when planning or reviewing work under devflow and its phase, command, or subagent invariants must be applied.
+name: devflow-concepts-core
+description: devflow 不可违背的铁律（true north）；规划、评审与全部 phase/command/subagent 的最高约束。
 metadata:
-  version: "3.22.0"
+  version: "3.23.0"
 ---
 
 # Concepts — True North（不可违背的铁律）
@@ -156,7 +156,7 @@ backend/<service>/src/main/resources/db/migration/
 
 ```
 规划 / 审查时：
-  1. 先读 concepts/SKILL.md（本文件）— true north
+  1. 先读 concepts/core.md（本文件）— true north
   2. 再读 commands/<phase>.md — 本阶段流程
   3. 再读 subagents/<role>.md — 本角色职责
   4. 按需读 references/*.md — 详细约定
@@ -196,7 +196,7 @@ backend/<service>/src/main/resources/db/migration/
 > [`architecture-scorecard.md`](./architecture-scorecard.md)。
 > 该文件是权威定义,**任何 PR / Phase 切换的架构评分都按那份来。**
 
-**为什么抽离**:`concepts/SKILL.md` 是铁律入口,500+ 行太长,L-GEVITY/S.U.P.E.R 是参考评分表(非铁律)。
+**为什么抽离**:`concepts/core.md` 是铁律入口,500+ 行太长,L-GEVITY/S.U.P.E.R 是参考评分表(非铁律)。
 放在独立文件便于:
 1. 单独被 `audit-pitfalls.sh` / `super-scorecard.sh` 直接引用
 2. 单独维护(随 Marlo-AI / spec_driven_develop 上游更新)
@@ -264,7 +264,7 @@ bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category test         # 测�
 
 - 与铁律 1（Phase Gate）：Pitfalls 在 P3b Gate 内强制执行；P3/P7/P8 仅消费已绑定收据，不重复声称独立切换 Gate
 - 与铁律 3（Role Separation）：Pitfalls 可由 `completeness-auditor` 或主Agent 跑，但失败修复由对应 dev 完成
-- 与 §11（Engineering Fact Sources）：Pitfalls 反哺新坑进 `concepts/architecture-pitfalls.md` + `concepts/SKILL.md`
+- 与 §11（Engineering Fact Sources）：Pitfalls 反哺新坑进 `concepts/architecture-pitfalls.md` + `concepts/core.md`
 
 ### 15.5 Postmortem 反馈循环
 
@@ -274,6 +274,24 @@ P11 Postmortem → 新坑登记到 architecture-pitfalls.md
                 → CHANGELOG.md 新增条目
                 → 跨项目同步
 ```
+
+## 16. Release Authorization（外部副作用授权，铁律）
+
+**铁律**：任何外部副作用——staging/production 部署、数据库迁移、push/merge、对外通知——在执行前必须有显式人工授权收据 `.devflow/<feature>/authorizations/release.json`（字段见 `commands/devflow.md` §Release Authorization）。
+
+- 无收据：不得执行外部副作用命令，最高只能声明 `READY_TO_RELEASE`，不得声明 `RELEASED`。
+- 收据只能来自用户当前会话的明确指令；模型不得推断或代签。
+- 不可逆操作（生产回填、破坏性 migration）一律要求人工批准。
+
+## 17. Runtime Profile（技术栈解耦，铁律）
+
+**铁律**：P3 前必须按 `references/runtime-profile.md` 解析并冻结 Runtime Profile 能力位（BUILD/TEST/COVERAGE/AUTHORIZATION/MIGRATION/CLIENT/SECURITY）。
+
+- 核心流程（SKILL/commands/phases）不得假设 Maven、Spring、Flyway、JaCoCo、Vue 或具体数据库方言；这些断言只属于对应 Profile。
+- `java-spring-flyway` 是内置参考 Profile；其他技术栈在 P1 冻结等价 adapter。
+- 能力位缺失：`STATUS=BLOCKED` + `MISSING_CAPABILITY=<capability>`，不得猜测顶替。
+
+---
 
 *本文是所有 devflow skills 的 invariant。任何 phase skill / command / subagent 不得以"方便"为由违背上述任何一条。*
 

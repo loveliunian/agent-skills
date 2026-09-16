@@ -1,0 +1,48 @@
+schema: devflow-trigger-eval-v1
+description: >-
+  Skill 触发评测语料——用于校正 SKILL.md description 的 should-trigger /
+  should-not-trigger 边界。每条建议运行 3 次以上记录触发率；
+  调整 description 后必须重跑并对比基线。
+targets:
+  trigger_precision: ">=0.95"
+  trigger_recall: ">=0.95"
+  false_positive_rate: "<=0.05"
+cases:
+  - prompt: "帮我把订单详情页加一个备注字段"
+    should_trigger: true
+    expected_route: small-change
+  - prompt: "根据这个 PRD 把整个功能开发出来"
+    should_trigger: true
+    expected_route: devflow
+  - prompt: "修复这个 bug，并补回归测试"
+    should_trigger: true
+    expected_route: small-change
+  - prompt: "把支付接口改成异步，并修改数据库结构"
+    should_trigger: true
+    expected_route: devflow
+  - prompt: "帮我 review 这次实现，重点看遗漏需求"
+    should_trigger: true
+    expected_route: review
+  - prompt: "实现这个需求"
+    should_trigger: true
+    expected_route: devflow
+  - prompt: "帮我加一个查询条件"
+    should_trigger: true
+    expected_route: small-change
+  - prompt: "修改这个接口的返回字段"
+    should_trigger: true
+    expected_route: small-change
+  - prompt: "给这个页面加一个字段"
+    should_trigger: true
+    expected_route: small-change
+  - prompt: "上线部署到生产环境"
+    should_trigger: true
+    expected_route: deploy
+  - prompt: "这个 Spring 异常是什么意思？不要改代码"
+    should_trigger: false
+  - prompt: "解释一下 Flyway 是什么"
+    should_trigger: false
+  - prompt: "帮我写一封请假邮件"
+    should_trigger: false
+  - prompt: "这段 Java 代码为什么慢？只分析原因，不要动仓库"
+    should_trigger: false

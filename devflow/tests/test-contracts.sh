@@ -9,8 +9,14 @@ words=$(wc -w < "$ROOT/SKILL.md" | tr -d ' ')
 [ "${words:-99999}" -le 500 ] && ok "SKILL.md <=500 words" || bad "SKILL.md too large: $words words"
 
 CURRENT_VER=$(sed -n 's/^  version: "\(.*\)"/\1/p' "$ROOT/SKILL.md" | head -1)
-expect_contains "SKILL.md" '^description: "Use when ' "discovery description is trigger-oriented"
-expect_not_contains "SKILL.md" '^compatibility:' "unsupported compatibility is not top-level"
+expect_contains "SKILL.md" '^description: >-' "discovery description uses folded trigger block"
+expect_contains "SKILL.md" '修复 a bug|修复 bug|fixing a bug|fix a bug' "discovery description covers natural-language bugfix"
+expect_contains "SKILL.md" '^compatibility: ' "agent-skills compatibility is declared top-level"
+expect_contains "SKILL.md" '^allowed-tools: read write exec glob grep task$' "allowed-tools uses spec space-separated form"
+expect_file "references/runtime-profile.md"
+expect_file "references/profiles/java-spring-flyway.md"
+expect_file "references/sensitive-data-policy.md"
+expect_file "tests/trigger-cases.yaml"
 expect_contains "references/CHANGELOG.md" "^## v${CURRENT_VER}" "changelog contains current release"
 expect_contains "commands/devflow.md" 'execute_gate' "orchestrator defines gate execution"
 expect_contains "commands/devflow.md" 'check_skip_authorization' "orchestrator defines skip authorization"

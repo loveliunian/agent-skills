@@ -1,6 +1,6 @@
 ---
 name: severity-tiers
-version: "3.22.0"
+version: "3.23.0"
 description: P0/P1/P2 严重程度分级定义（单一来源，被 audit-completeness 和 devflow 共同引用）
 ---
 
@@ -106,7 +106,7 @@ SELECT setval(pg_get_serial_sequence('sys_user_effective_perm', 'id'), GREATEST(
 
 - `commands/build.md` §4 编码范围应链接到本节
 - `commands/audit-completeness.md` P3 §12-15 应链接到本节
-- `commands/build.md` §2 sql-dev 职责行应链接到本节（开发角色无独立 subagent 文件，职责内联于 build 命令与 `concepts/SKILL.md` §3 角色表）
+- `commands/build.md` §2 sql-dev 职责行应链接到本节（开发角色无独立 subagent 文件，职责内联于 build 命令与 `concepts/core.md` §3 角色表）
 
 ## 审计错误（盲猜凭证）— P0 阻断
 

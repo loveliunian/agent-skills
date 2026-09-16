@@ -1,10 +1,11 @@
 ---
 name: git-branch-strategy
-version: "3.22.0"
+version: "3.23.0"
 description: >-
   Git 分支策略与工作流规范。配合 /devflow 使用，确保多 Phase 并行开发时的分支管理。
   ：与 devflow-state.sh checkpoint 集成。
-tags: ["git", "branch", "workflow", "devflow"]
+metadata:
+  tags: "git,branch,workflow,devflow"
 ---
 
 # Git 分支策略 

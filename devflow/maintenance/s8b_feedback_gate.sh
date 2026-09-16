@@ -705,7 +705,7 @@ step_verify() {
   echo "| File | Status |" >> "$report"
   echo "|------|--------|" >> "$report"
 
-  for f in SKILL.md commands/devflow.md commands/retro.md phases/10-知识沉淀.md concepts/SKILL.md concepts/PRD实施方法论.md; do
+  for f in SKILL.md commands/devflow.md commands/retro.md phases/10-知识沉淀.md concepts/core.md concepts/PRD实施方法论.md; do
     if [ -f "${SKILL_ROOT}/${f}" ]; then
       ok "存在：$f"
       echo "| \`$f\` | ✓ |" >> "$report"

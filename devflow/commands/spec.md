@@ -1,6 +1,6 @@
 ---
 name: spec
-version: "3.22.0"
+version: "3.23.0"
 description: Use when a user asks to clarify a PRD, produce field-level detailed design, design a database or legacy mapping, or complete /spec without implementing code.
 paths: [docs/PRD/**, docs/需求/**, docs/详细设计/**]
 disable-model-invocation: false
@@ -10,7 +10,7 @@ allowed-tools: [read, write, exec, glob, grep, task]
 # /spec — P0-P2: PRD to Detailed Design
 
 > **方法论权威参考**：`concepts/PRD实施方法论.md`（V1.1）
-> **铁律**：`concepts/SKILL.md`
+> **铁律**：`concepts/core.md`
 > **命名体系**：本 skill 采用 P0-P10 单轨（v3.9.6 起旧编号描述已全部清除，脚本文件名中的 s 前缀仅为历史标识）。
 
 ## Usage
@@ -153,27 +153,9 @@ If the project has no approved `docs/templates/详细设计-模板.md`, initiali
 | 多团队并行开发 | **总分** | 分文档减少合并冲突 |
 | 独立模块无跨域依赖 | **单体或总分** | 视复杂度由 AI 决策 |
 
-**总分模式结构：**
-
-```text
-docs/
-├── 系统详细设计.md          # 总文档：全局架构、跨域决策、全局模型
-└── detailed-design/
-    └── M-01-xxx-详细设计.md  # 分文档：模块内设计
-```
-
-**总文档内容：**
-- §1 系统架构图（全局服务、调用关系）
-- §2 模块边界与依赖
-- §3 跨域数据模型
-- §4 全局业务规则
-
-**分文档内容：**
-- §1 模块内数据模型
-- §2 模块内接口设计
-- §3 模块内业务规则
-- §4 模块内关键流程
-- §5 前端页面
+**结构、章节与写作细则一律以模板为正本**（本章不重复内嵌示例，避免与模板结构漂移）：
+按选定模式全文复制 `templates/详细设计-完整版-模板.md` / `详细设计-总分总文档-模板.md` /
+`详细设计-总分分文档-模板.md` 作为起点；产物必须替换 `{{template_version}}` 为所用模板 frontmatter 的 version。
 
 ### P2.2 设计覆盖率检查
 
@@ -183,8 +165,11 @@ docs/
 - Numbered rules and `WHEN` pseudo-code for core write paths.
 - Page/background-task to API, permission, rule, and test mappings.
 - Explicit errors, idempotency, transactions, failure and fallback behavior.
+- Implementation handoff: existing-implementation baseline, planned ADD/MODIFY/DELETE targets, invariants.
 
-Chapter numbers are not authoritative; semantic anchors are.
+Chapter numbers are not authoritative; semantic anchors are the machine contract:
+`data-model` / `api-contracts` / `business-rules` / `acceptance-traceability` / `implementation-handoff`
+（详见 `phases/02-详细设计.md`）。
 
 ### P2 Gate Check
 
@@ -207,6 +192,7 @@ bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category api
 | 7 | 无占位符 | `grep -cE 'TODO\|TBD\|待补充\|REPLACE_WITH'` = 0 |
 | 8 | 设计覆盖率公式 | 存在 `设计覆盖率.*100%` 文本 |
 | 9 | 架构决策 | 存在总分/单体决策记录 |
+| 10 | 实现交接 | 存在 `anchor: implementation-handoff` 节（基线/变更/不变量） |
 
 **P2 Pseudo-code Keywords (at least one present in core write paths):**
 

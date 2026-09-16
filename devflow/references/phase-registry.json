@@ -93,7 +93,7 @@
       "script": "checks/check-arch-pitfalls.sh",
       "receipt": "gates/ARCH-PITFALLS",
       "docs": [
-        "concepts/SKILL.md"
+        "concepts/core.md"
       ]
     },
     {

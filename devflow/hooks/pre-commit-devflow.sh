@@ -67,6 +67,37 @@ if [ "${SKIP_DEVFLOW_AUDIT:-0}" = "1" ]; then
   exit 0
 fi
 
+# 0.5 明文秘密扫描（所有暂存文件；契约见 references/sensitive-data-policy.md）
+# v3.23.0: 与 scripts/secret-scan.sh 同口径的高置信度模式；命中即阻断入库。
+# 例外：同一行写 `secret-scan: allow` 并说明理由（仅限文档举例）。
+SECRET_PATTERNS=(
+  '-----BEGIN [A-Z ]*PRIVATE KEY-----'
+  'AKIA[0-9A-Z]{16}'
+  'ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}'
+  'xox[baprs]-[A-Za-z0-9-]{10,}'
+  'sk-[A-Za-z0-9]{32,}'
+  "(api[_-]?key|apikey|secret|token|password|passwd|passphrase)[\"']?[[:space:]]*[:=][[:space:]]*[\"']?[A-Za-z0-9!@#%^&*_+./-]{16,}"
+)
+SECRET_HITS=0
+while IFS= read -r sf; do
+  [ -n "$sf" ] || continue
+  [ -f "$sf" ] || continue
+  case "$sf" in */secret-scan.sh) continue ;; esac
+  for sp in "${SECRET_PATTERNS[@]}"; do
+    slines=$(grep -InE "$sp" "$sf" 2>/dev/null | grep -v 'secret-scan: allow' | cut -d: -f1 || true)
+    [ -n "$slines" ] || continue
+    while IFS= read -r sl; do
+      [ -n "$sl" ] || continue
+      echo -e "${RED}[devflow-audit] FAIL${NC} SECRET_FOUND|high-confidence|$sf:$sl|VALUE=<redacted>"
+      SECRET_HITS=$((SECRET_HITS + 1))
+    done <<< "$slines"
+  done
+done < <(git diff --cached --name-only --diff-filter=ACM -z 2>/dev/null | tr '\0' '\n')
+if [ "$SECRET_HITS" -gt 0 ]; then
+  echo -e "${RED}[devflow-audit] 发现疑似明文秘密 $SECRET_HITS 处，阻塞 commit。仅允许登记 SECRET_SOURCE/SECRET_FINGERPRINT。${NC}"
+  exit 1
+fi
+
 # 1. 仅在 backend/frontend 改动时跑
 if ! git diff --cached --name-only 2>/dev/null | grep -qE "^(backend|frontend)/"; then
   echo "[devflow-audit] 无 backend/frontend 改动，跳过"

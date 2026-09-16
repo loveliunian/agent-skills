@@ -1,6 +1,6 @@
 ---
 name: design-review
-version: "3.22.0"
+version: "3.23.0"
 description: Use when reviewing a detailed design through the independent five-role P2a committee.
 paths: [docs/详细设计/**, docs/评审/**]
 allowed-tools: [read, write, exec, glob, grep, task]
@@ -116,7 +116,7 @@ bash "$SKILL_ROOT/scripts/p2a_design_review_gate.sh" <feature>
 | 4 | 遗留问题 = 0 | v3.14.1 起 p2a 硬阻断：出现"遗留/待修复/TBD/FIXME"即 FAIL |
 | 5 | 需求追溯 = P0 验收点 | 验收 ID 集合相等（comm -23/-13 为空） |
 | 6 | P2 覆盖率 = 100% | `s2_design_coverage_gate.sh` exit = 0 |
-| 7 | 四要素齐备 | 详设含 §12 组件复用/公共抽取、§13 规范、§2.3 DDR |
+| 7 | 五要素齐备 | 详设含 §12 组件复用/公共抽取、§13 规范、§2.3 DDR、§14 实现交接（anchor: implementation-handoff） |
 | 8 | DF/ZERO-DF 证据 | DF 按实际发现；每角色必须有 DF 或 ZERO-DF 核查证据，字段完整 |
 | 9 | AW 走查 | ≥3 条且有结果收尾 |
 

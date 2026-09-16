@@ -188,7 +188,7 @@ P0 → P0b → P1 → P2 → P2a → P2b → P3 → P3b → P3c/P3d → P4 → P
 
 ## Skill 路径
 
-- 概念铁律：$SKILL_DIR/concepts/SKILL.md
+- 概念铁律：$SKILL_DIR/concepts/core.md
 - 命令入口：$SKILL_DIR/commands/
 CROSS_EOF
       echo "  [CANDIDATE] 已存在无标记的 ${target}，候选写入 ${candidate}"
@@ -222,7 +222,7 @@ P0 → P0b → P1 → P2 → P2a → P2b → P3 → P3b → P3c/P3d → P4 → P
 
 ## Skill 路径
 
-- 概念铁律：$SKILL_DIR/concepts/SKILL.md
+- 概念铁律：$SKILL_DIR/concepts/core.md
 - Phase 流程：$SKILL_DIR/phases/
 - 命令入口：$SKILL_DIR/commands/
 - 当前平台：**$platform_label**

@@ -1,11 +1,12 @@
 ---
 name: build
-version: "3.22.0"
+version: "3.23.0"
 description: >-
-  Use when implementing backend APIs, frontend pages, or Flyway migrations for a new feature after /plan,
+  Use when implementing backend APIs, frontend pages, or migrations for a new feature after /plan,
   mentions "/build", "build it", "编码实现", "实现这个功能", "写代码", "全栈开发", or "start implementation".
-  Includes 23-item completion gate (4-dialect Flyway + menu-seed 4-table + @PreAuthorize + Maven + frontend build).
-  Runs sql-dev + backend-dev + frontend-dev subagents. Must pass all 23 items before issuing P3b ticket.
+  Resolves the frozen runtime profile first; the java-spring-flyway profile adds the 23-item completion gate
+  (4-dialect Flyway + menu-seed 4-table + @PreAuthorize + Maven + frontend build).
+  Runs sql-dev + backend-dev + frontend-dev subagents. Must pass the profile gate before issuing the P3b ticket.
 paths:
   - "backend/**/*.java"
   - "frontend/src/**"
@@ -22,10 +23,11 @@ allowed-tools:
 
 # /build - 全栈编码（P3）
 
-> **内置后端范围**：Java/Spring/Flyway。其他后端技术栈必须在 P1 冻结等价 build/test/security/migration adapter；不得把 Maven、`@PreAuthorize` 或四方言检查误当作其已验证证据。
+> **技术栈解析（P3 前置）**：先读 `references/runtime-profile.md` 解析 `PROFILE_ID` 并冻结能力位（BUILD/TEST/COVERAGE/AUTHORIZATION/MIGRATION/CLIENT/SECURITY_ADAPTER）。`java-spring-flyway` 是内置参考 Profile（`references/profiles/java-spring-flyway.md`）；其他技术栈使用项目 Profile，不得把 Maven、`@PreAuthorize` 或四方言检查误当作其已验证证据。能力位缺失：`STATUS=BLOCKED` + `MISSING_CAPABILITY=<capability>`。
 
 > **前置依赖**：P0-P2与`/plan`全部通过；首轮baseline必须在任何代码修改前冻结。
 > **完成度自检**：先跑 `scripts/build-watchdog.sh gate <feature>` 产出 P3-build 收据，再以 `scripts/p3_completion_gate.sh` 非零/零退出码为最终 P3 判定。
+> **施工顺序（P2 → Plan → Build 边界）**：详设 = WHAT + CONTRACT（含「实现交接」施工图 `anchor: implementation-handoff`）；`/plan` = WHERE + HOW TO VERIFY（exact target / action / invariants / verify）；`/build` = MINIMAL PATCH——先 READ EXISTING CODE 对账实现交接 → 最小补丁 → 目标测试 → 相关回归 → DIFF scope review（子 Agent 细则见 `subagents/backend-dev.md`）。
 
 ## 使用方式
 
@@ -66,6 +68,9 @@ bash "$SKILL_ROOT/scripts/s4_first_pass_snapshot.sh" freeze <feature> docs/需�
 
 加载`phases/03-规范实现.md`。任一命令非零立即阻断，不得只打印告警继续。
 
+开工前先读详设「实现交接」节（`anchor: implementation-handoff`）：Target 与实际代码不符、或详设未给出基线，
+`STATUS=BLOCKED` 回 P2 补齐——禁止编码 Agent 自行重新研究实现方案。
+
 开始实现前读取`references/git-branch-strategy.md`；涉及前端时同时读取`references/frontend-tech-stack.md`。用户明确要求在当前分支工作时以用户指令为准，但必须记录分支和检查点。
 
 ### 2. 并行调度子 Agent（按垂直切片）
@@ -80,9 +85,25 @@ bash "$SKILL_ROOT/scripts/s4_first_pass_snapshot.sh" freeze <feature> docs/需�
 
 ### 3. 按垂直切片执行（不要按层级）
 
-每个切片 = 一组表 + 后端端点 + 前端组件 + 单测 + **菜单 seed**。
+每个切片 = 一组表 + 后端端点 + 前端组件 + 单测 + 客户端可达性证据（PC Web 为**菜单 seed**）。
+
+### 3.5 Stack-neutral 能力位（核心不变量）
+
+P3 不直接要求任何框架特有实现；先解析冻结的 Runtime Profile，由 Profile 提供适用能力位：
+
+- `BUILD_ADAPTER`、`TEST_ADAPTER`、`COVERAGE_ADAPTER`
+- `AUTHORIZATION_ADAPTER`（存在权限模型时）
+- `MIGRATION_ADAPTER`（存在持久化时）
+- `CLIENT_BUILD_ADAPTER`、`CLIENT_JOURNEY_ADAPTER`
+- `SECURITY_ADAPTER`
+
+Java/Spring/Flyway 特有规则仅在 `PROFILE_ID=java-spring-flyway` 时加载（见 `references/profiles/java-spring-flyway.md`）。
 
 ### 4. 编码范围
+
+通用（所有 Profile）：按冻结详设实现当前垂直切片，最小完整改动，不做未授权重构。
+
+以下为 `PROFILE_ID=java-spring-flyway` 的规则：
 
 - **后端**：按详设实现 API / Service / Repository，**所有 Controller 必须加 `@PreAuthorize`**
 - **前端**：按 API 契约实现页面、组件、API 调用 + **router 注册**
@@ -114,7 +135,7 @@ bash "$SKILL_ROOT/scripts/p3_completion_gate.sh" <service> <feature>   # 最终�
 
 `bash "$SKILL_ROOT/scripts/p3_completion_gate.sh" <service> <feature>`退出码=0才签发P3b入场券；任一FAIL、WARN型编译/测试失败或脚本异常都阻断。
 
-Gate
+Gate（`PROFILE_ID=java-spring-flyway` 时的能力位；其他 Profile 由冻结的等价 adapter 提供同名能力位）
 
 | 项 | 强制条件 |
 |----|----------|

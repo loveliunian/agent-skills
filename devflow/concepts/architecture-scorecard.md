@@ -1,8 +1,8 @@
 ---
 name: architecture-scorecard
-version: "3.22.0"
+version: "3.23.0"
 description: >-
-  架构评分卡权威定义。v3.9 起从 concepts/SKILL.md 抽出。
+  架构评分卡权威定义。v3.9 起从 concepts/core.md 抽出。
   包含两个互补框架:
   - L-GEVITY (4 维,Marlo-AI): 架构治理视角,Phase 切换时用,≥16/20 PASS
   - S.U.P.E.R (5 维,spec_driven_develop): 代码质量视角,每次 PR 用,≥20/25 PASS

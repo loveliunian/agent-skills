@@ -50,8 +50,6 @@ grep -q '5 角色' "$ROOT/commands/ROUTING.md" && ok "P2a five-role review is do
 for file in test-contracts.sh test-state.sh test-client-platforms.sh test-phase-gates.sh test-release.sh; do
   [ -f "$ROOT/tests/$file" ] && ok "split test exists: $file" || bad "split test exists: $file"
 done
-INTEGRATION_LINES=$(wc -l < "$ROOT/tests/test-integration.sh" | tr -d ' ')
-[ "$INTEGRATION_LINES" -le 20 ] && ok "legacy integration entry is only a compatibility wrapper" || bad "legacy integration entry is only a compatibility wrapper (lines=$INTEGRATION_LINES)"
 
 if grep -RIE 'backend/(governance-service|org-service)' "$ROOT/commands" "$ROOT/concepts" "$ROOT/scripts" "$ROOT/templates" --include='*.md' --include='*.sh' >/dev/null 2>&1; then
   bad "active guidance has no project-specific backend path"

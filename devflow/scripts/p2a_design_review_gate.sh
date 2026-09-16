@@ -234,6 +234,17 @@ fi
 echo ""
 echo "=== §3e 详设章节结构位置 ==="
 STRUCT_MISSING=0
+# v3.23.0: 语义锚点优先（正本）——章节编号仅展示，锚点是 /plan、/build 与评审定位契约
+for _spec in "data-model:数据模型" "api-contracts:接口" "business-rules:业务规则" "acceptance-traceability:需求追溯" "implementation-handoff:实现交接"; do
+  _a="${_spec%%:*}"; _t="${_spec#*:}"
+  if grep -q "anchor: $_a" "$DESIGN_PATH" 2>/dev/null \
+     || grep -qE "^## .*$_t" "$DESIGN_PATH" 2>/dev/null; then
+    pass "design semantic anchor present: $_a"
+  else
+    p0 "design missing semantic anchor: ${_a}（补 <!-- anchor: ${_a} --> 或标题含「${_t}」的章节）"
+    STRUCT_MISSING=$((STRUCT_MISSING+1))
+  fi
+done
 for sec_pat in '§12\.1|### *12\.1|## *12\.1' '§12\.2|### *12\.2|## *12\.2' '§13|## *13[^.]|### *13\.' '§2\.3|### *2\.3|## *2\.3'; do
   label="${sec_pat%%|*}"; label="${label//\\/}"
   if grep -qE "${sec_pat#*|}" "$DESIGN_PATH" 2>/dev/null; then

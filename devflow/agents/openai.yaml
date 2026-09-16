@@ -1,8 +1,10 @@
 interface:
   display_name: "devflow"
-  short_description: "Phase-gated full-stack delivery from PRD through release evidence."
-  default_prompt: "Run devflow for this PRD with explicit phase gates and evidence."
+  short_description: "Phase-gated delivery from PRD through release evidence; external side effects require explicit authorization."
+  default_prompt: "Run devflow for this request with explicit phase gates and real evidence. Stop before any deploy, migration, push, or merge until a release authorization receipt exists."
+# v3.23.1: devflow 可写码、执行迁移并最终部署——Codex 侧关闭隐式自动触发，
+# 必须由用户显式选择/调用；Claude Code / Cursor / Trae 按 description 触发不受影响。
 policy:
-  allow_implicit_invocation: true
+  allow_implicit_invocation: false
 dependencies:
   tools: []

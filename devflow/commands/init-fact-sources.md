@@ -1,17 +1,13 @@
 ---
 name: init-fact-sources
 description: "Use when initializing or validating a project's engineering fact sources before detailed design or implementation."
-version: "3.22.0"
+version: "3.23.0"
 license: MIT
 paths: ["docs/**", "scripts/*", "backend/**"]
-compatibility:
- - cursor
- - claude-code
- - codex
- - trae
+compatibility: Devflow agent skill; requires a repository workspace and command execution.
 metadata:
  author: "xingyunliushui"
- tags: ["documentation", "baseline", "auto-generation", "p2", "fact-sources"]
+ tags: "documentation,baseline,auto-generation,p2,fact-sources"
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
 

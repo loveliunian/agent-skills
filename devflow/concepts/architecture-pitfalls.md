@@ -1,6 +1,6 @@
 ---
 name: architecture-pitfalls
-version: "3.22.0"
+version: "3.23.0"
 description: |
   从 `docs/架构升级改造计划.md` 54 项 D-XX 偏差、21 项 G 守卫、44 项 B 改进中归纳的
   通用化"架构陷阱"清单。**任何项目在任何 Phase 切换前都应自检**。
@@ -9,7 +9,7 @@ description: |
 license: MIT
 metadata:
   author: "xingyunliushui"
-  tags: ["architecture", "pitfalls", "anti-patterns", "phase-gate"]
+  tags: "architecture,pitfalls,anti-patterns,phase-gate"
 ---
 
 # Architecture Pitfalls（架构陷阱清单 · v3.4）

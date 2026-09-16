@@ -1,6 +1,6 @@
 ---
 name: deploy
-version: "3.22.0"
+version: "3.23.0"
 description: >-
   Use when deploying to staging or production after P6 and Review Gates pass, mentions
   "/deploy", "部署", "发布", "go live", "上线", "staging", or "production release".
@@ -49,7 +49,12 @@ test -f docs/复盘/<feature>-audit-P6.md || { echo "BLOCKED: P6 自检未完成
 # E2E 通过率 ≥95%
 # 单测覆盖率 ≥80%
 # 集成测试 全 PASS
+
+# 外部副作用人工授权（强制）：staging/production 部署、迁移、push/merge、对外通知
+test -f ".devflow/<feature>/authorizations/release.json" || { echo "BLOCKED: 缺少发布授权收据；最高只能声明 READY_TO_RELEASE"; exit 1; }
 ```
+
+发布授权收据字段与规则见 `commands/devflow.md` §Release Authorization：无收据不得执行任何外部副作用命令，也不得声明 `RELEASED`。
 
 ### 2. 部署到目标环境
 

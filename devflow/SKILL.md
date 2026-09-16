@@ -1,25 +1,40 @@
 ---
 name: devflow
-description: "Use when a user provides a PRD or asks to run /devflow for phase-gated Java/Spring/Flyway backend, PC Web, WeChat Mini Program, or mobile app delivery with design, implementation, testing, deployment, or checkpoint recovery."
+description: >-
+  Use this skill for repository-level software delivery: implementing a feature,
+  changing existing behavior, fixing a bug, modifying an API/UI/config/schema,
+  executing a PRD, reviewing an implementation, testing, deploying, or resuming
+  interrupted work. Applies to small bounded changes and full-lifecycle delivery
+  even when the user never says "devflow"; typical triggers include 开发这个功能,
+  实现需求, 加一个字段, 修改接口, 修复 bug, 补测试, 上线部署. Do not use for
+  conceptual Q&A that requires no repository changes.
 license: MIT
+compatibility: Requires a repository workspace and command execution; stack-specific build, test, and migration commands are resolved from a frozen runtime profile.
 metadata:
   author: xingyunliushui
-  version: "3.22.0"
-  compatibility: [cursor, claude-code, codex, trae]
-  updated: "2026-09-15"
-  tags: [prd, detailed-design, development, migration, phase-gate, checkpoint-recovery]
-allowed-tools: [read, write, exec, glob, grep, task]
+  version: "3.23.0"
+  updated: "2026-09-16"
+  tags: "prd,detailed-design,development,migration,phase-gate,checkpoint-recovery,agent-skills"
+allowed-tools: read write exec glob grep task
 ---
 
-# devflow — PRD to production（v3.22.0）
+# devflow — PRD to production（v3.23.0）
 
 本文件是唯一权威入口。历史迁移只查 `references/CHANGELOG.md`；命令、阶段、角色和模板按需加载，不在入口重复。
+
+## 输入 / 输出契约
+
+- 输入（必需）：PRD 路径或等价需求文本；交付模式 `new` / `change` / `extend` / `small-change`。
+- 输入（可选）：`--frontend=pc-web|mini-program|app|not-applicable`、service、迁移策略、`--design-only`。
+- 每阶段输出 Receipt：`phase`、`status: PASS|BLOCKED|SKIPPED`、`artifacts[]`、`verification[]`、`blockers[]`、`next_phase`。
+- Gate 失败不得推进；外部副作用先有授权收据（原则 14）。
 
 ## 适用范围
 
 - 从零构建、存量系统新增、已有需求修改。
 - 基于现有项目的小需求、小改动可由自然语言触发 `/small-change`；必须先扫描当前项目，风险扩大时自动升级完整 `change` 流程。
-- 内置服务端 Gate 面向 Java/Spring/Flyway；客户端覆盖 PC Web、微信小程序、APP 或明确的 `not-applicable` 前端范围。
+- 服务端先按 `references/runtime-profile.md` 解析 Runtime Profile；`java-spring-flyway` 是内置参考 Profile，其他技术栈在 P1 冻结等价 adapter（build/test/security/migration），核心流程不假设具体框架。
+- 客户端覆盖 PC Web、微信小程序、APP 或明确的 `not-applicable` 前端范围。
 - PRD 到详设、实现、测试、部署、监控、文档、复盘，或从 checkpoint 恢复。
 
 仅回答概念、只做独立代码审查或没有交付生命周期诉求时，不启动全流程。
@@ -38,12 +53,14 @@ allowed-tools: [read, write, exec, glob, grep, task]
 10. 设计必须显式说明成熟组件复用、公共服务/组件抽取、命名/开发/注释规范及关键设计理由。
 11. 评审必须先跑主责探针再下结论：深层发现（DF）按五字段场景链契约输出，零发现 ✅ 须附核查证据；规范见 `concepts/review-depth-methodology.md`。
 12. 用户/PRD 明确指定的技术组件、版本、许可证或部署方式必须在 P0 冻结为硬约束；P1 只能在约束内评分，偏离必须 `BLOCKED` 并经用户批准后重冻。
+13. P3 前必须解析 Runtime Profile；核心流程不得假设 Maven/Spring/Flyway/JaCoCo/Vue，只有 profile 声明的能力才能作为验证依据；能力缺失即 `BLOCKED`。
+14. 部署、迁移、推送、发布等外部副作用必须有显式人工授权收据（`authorizations/release.json`）；无授权时最高只能声明 `READY_TO_RELEASE`，不得声明 `RELEASED`。
 
-完整铁律与工程边界见 `concepts/SKILL.md`；细节原则见 `concepts/principles-detailed.md`；经验教训库见 `concepts/lessons-learned.md`（25 条可复现教训）。
+完整铁律与工程边界见 `concepts/core.md`；细节原则见 `concepts/principles-detailed.md`；经验教训库见 `concepts/lessons-learned.md`（25 条可复现教训）。
 
 ## 启动与路由
 
-1. 先读 `concepts/SKILL.md`。
+1. 先读 `concepts/core.md`。
 2. 读 `commands/ROUTING.md`，选择全流程或单阶段命令。
 3. 只加载当前 command、phase、subagent、template 和 Gate 脚本。
 4. 初始化时冻结 `--frontend=pc-web|mini-program|app|not-applicable`；小程序、APP 和配置化 PC Web 在 P2 后冻结 `devflow-client.json` 哈希。

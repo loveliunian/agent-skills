@@ -1,6 +1,6 @@
 ---
 name: audit-pitfalls
-version: "3.22.0"
+version: "3.23.0"
 description: |
   架构陷阱自检命令。独立于 /audit-completeness，专门扫描 30+ 通用架构陷阱。
   触发场景：任意 Phase 切换前必跑 / Postmortem 后 / 跨项目 onboarding。
@@ -12,7 +12,7 @@ disable-model-invocation: false
 allowed-tools: [read, write, exec, glob, grep, task]
 metadata:
   author: "xingyunliushui"
-  tags: ["pitfalls", "anti-patterns", "architecture", "phase-gate"]
+  tags: "pitfalls,anti-patterns,architecture,phase-gate"
 ---
 
 # /audit-pitfalls — 架构陷阱自检
