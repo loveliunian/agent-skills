@@ -1,6 +1,6 @@
 ---
 name: retro
-version: "3.22.0"
+version: "3.23.0"
 description: >-
   Use when conducting a retrospective or lessons-learned session after a feature ships, mentions
   "/retro", "复盘", "回顾", "retrospective", "知识沉淀", "lessons learned", or "post-mortem".
@@ -166,7 +166,7 @@ bash "$SKILL_ROOT/scripts/p10_feedback_gate.sh" <feature>
 
 # 3) 仅在用户明确批准“修改 skill”后执行。默认 s8b 只收集，不会 apply。
 # bash "$SKILL_ROOT/maintenance/s8b_feedback_gate.sh" <feature> --apply --authorize-apply --write
-# bash "$SKILL_ROOT/scripts/sync-copies.sh" --apply
+# bash "$SKILL_ROOT/scripts/check-copies.sh"
 ```
 
 Gate（强制）
@@ -180,7 +180,7 @@ Gate（强制）
 | 知识分享条数 | **≥ 3 条** |
 | 全流程数据表 | 必须覆盖 P0-P10（含 P2a/P2b/P4b 行） |
 | 项目反馈队列 | `.devflow/<feature>/feedback/feedback.md` 含 ID、`SCOPE=project`、`STATUS=PROPOSED/ACCEPTED` |
-| Skill 应用/同步收据 | `s8b-apply-receipt.env` 显式记录 `NOTHING_TO_APPLY/DRY_RUN/FAILED/APPLIED/VERIFIED/VERIFY_FAILED`、应用数量、报告 SHA 和 `SYNC_REQUIRED`；P10 gate 拒绝悬挂的 `STATUS=APPLIED` |
+| Skill 应用/同步收据 | `s8b-apply-receipt.env` 显式记录 `NOTHING_TO_APPLY/DRY_RUN/FAILED/APPLIED/VERIFIED/VERIFY_FAILED`、应用数量、报告 SHA 和 `COPY_VERIFY_REQUIRED`；P10 gate 拒绝悬挂的 `STATUS=APPLIED` |
 | P10 feedback gate | `bash "$SKILL_ROOT/scripts/p10_feedback_gate.sh" <feature>` 退出码 = 0 |
 
 ## 输出

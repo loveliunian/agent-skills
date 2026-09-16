@@ -1,6 +1,6 @@
 ---
 name: windows-compatibility
-version: "3.22.0"
+version: "3.23.0"
 description: 跨平台兼容性事实清单（v3.15.x 实测口径）。
 paths: []
 disable-model-invocation: false
@@ -32,11 +32,10 @@ disable-model-invocation: false
   当前仅测试与诊断脚本使用，跨平台执行前需适配。
 - **rsync 2.6.9（macOS 自带）**：check 阶段已改用纯 SHA 集合对账（portable_diff），
   rsync 仅用于 apply 且 `--checksum` 选项在 2.6.9 可用。
-- **python3/jq/shasum 依赖**：sha256sum 或 shasum 二选一；双缺失时 portable
-  同步与相关审计 fail-closed 拒绝运行（不产生空哈希相等假绿）。
+- **python3/jq/shasum 依赖**：sha256sum 或 shasum 二选一；双缺失时相关审计 fail-closed 拒绝运行（不产生空哈希相等假绿）。
 
 ## Windows 专项注意
 
-- 路径分隔符：SYNC_TARGETS 用换行分隔（盘符冒号不参与切分，sync-copies 已兼容 CRLF）。
+- 路径分隔符：副本目标列表（DEVFLOW_COPY_TARGETS）用换行分隔（盘符冒号不参与切分，check-copies 已兼容 CRLF）。
 - Git Bash 下 `mktemp`/`find -print0` 行为一致；PowerShell/CMD 不受支持。
 - CI 收据（Ubuntu/Git Bash）为待办：接入后在本表补退出码与日志路径。

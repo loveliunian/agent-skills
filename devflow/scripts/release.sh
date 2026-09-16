@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # release.sh · 唯一发布入口（版本随 SKILL.md 单一事实源动态读取，本文件不写死版本号）
-# v3.21.1: 复盘修复版（修复清单见 CHANGELOG）。
+# v3.23.0: 通用化版本（Runtime Profile + 发布授权 + Secret scan；详见 CHANGELOG）。
 # 原子事务化（自 v3.20.8）——旧流程第 5 步落不可变 manifest、第 6 步才查副本，
 # 中途失败留下"manifest 已占位、副本未同步"的半发布态。现改为两段式：
 #   Phase A（只读预检，任一失败即退出，仓库零改动）：
-#     1 完整测试 → 2 版本一致性 → 3 Release Audit → 4 ShellCheck
-#     → 5 state 冻结对照 → 6 stage 临时 manifest（不落盘）→ 7 副本对账
+#     1 完整测试 → 2 版本一致性 → 3 Release Audit → 4 Secret scan → 5 ShellCheck
+#     → 6 state 冻结对照 → 7 stage 临时 manifest（不落盘）→ 8 副本直连校验
 #   Phase B（提交，任一失败自动回滚 manifest+台账）：
 #     B1 activate 原子落盘 manifest + 追加 CHAIN 台账
-#     → B2 副本同步 --apply → B3 终复核（manifest check + 副本 --check + 树 hash）
+#     → B2 终复核（manifest check + 副本直连校验 + 树 hash）
 # 回滚安全性：manifest 内容与 chain_hash 由 (version, tree, parent chain) 决定性
 # 生成——回滚后重跑产出逐字节一致的 manifest，不会产生台账分叉。
 set -uo pipefail
@@ -23,16 +23,19 @@ STAGED_MANIFEST=$(mktemp -t devflow-staged.XXXXXX) || { echo "[FAIL] 无法创�
 trap 'rm -f "$STAGED_MANIFEST"' EXIT
 
 # ---------- Phase A：只读预检 ----------
-step "1/7 完整测试套件 (run-tests.sh)"
+step "1/8 完整测试套件 (run-tests.sh)"
 if bash "$ROOT/tests/run-tests.sh"; then echo "  [OK] 完整测试 PASS"; else echo "  [FAIL] 完整测试 FAIL"; FAIL=1; fi
 
-step "2/7 版本一致性 (check-skill-version.sh)"
+step "2/8 版本一致性 (check-skill-version.sh)"
 if bash "$ROOT/scripts/check-skill-version.sh"; then echo "  [OK] 版本一致性 PASS"; else echo "  [FAIL] 版本一致性 FAIL"; FAIL=1; fi
 
-step "3/7 Release Audit (release-audit.sh)"
+step "3/8 Release Audit (release-audit.sh)"
 if bash "$ROOT/scripts/release-audit.sh"; then echo "  [OK] Release Audit PASS"; else echo "  [FAIL] Release Audit FAIL"; FAIL=1; fi
 
-step "4/7 ShellCheck（全量脚本）"
+step "4/8 Secret scan（明文秘密，契约见 references/sensitive-data-policy.md）"
+if bash "$ROOT/scripts/secret-scan.sh"; then echo "  [OK] 无高置信度明文秘密"; else echo "  [FAIL] 发现明文秘密——禁止发布"; FAIL=1; fi
+
+step "5/8 ShellCheck（全量脚本）"
 if command -v shellcheck >/dev/null 2>&1; then
   if find "$ROOT/scripts" "$ROOT/hooks" "$ROOT/tests" "$ROOT/maintenance" -type f -name '*.sh' ! -name '*.bak-*' -exec shellcheck -S warning {} + 2>&1; then
     echo "  [OK] ShellCheck 全量 PASS"
@@ -43,7 +46,7 @@ else
   echo "  [FAIL] shellcheck 不可用——ShellCheck 门禁不可跳过"; FAIL=1
 fi
 
-step "5/7 树 hash 一致性（state 冻结对照——硬门禁）"
+step "6/8 树 hash 一致性（state 冻结对照——硬门禁）"
 # v3.15.1: ① skill 发布树内不得包含任何项目 state 文件（测试垃圾入库即 FAIL）；
 # ② 显式提供的外部 state（DEVFLOW_RELEASE_STATES，冒号或换行分隔）冻结树必须等于当前发布树。
 # v3.20.3: 移入只读预检段（原第 7 步在 manifest 落盘后，失败同样制造半发布态）。
@@ -92,7 +95,7 @@ if [ -z "$RELEASE_VERSION" ]; then
   FAIL=1
 fi
 
-step "6/7 stage 临时 manifest（只读——activate 前不落盘）"
+step "7/8 stage 临时 manifest（只读——activate 前不落盘）"
 if [ "$FAIL" -ne 0 ]; then
   echo "  [SKIP] 前置门禁失败，不 stage manifest"
 elif [ -f "$RELEASE_MANIFEST" ]; then
@@ -110,35 +113,18 @@ else
   fi
 fi
 
-step "7/7 副本对账（只读判定）"
+step "8/8 副本直连校验（只读判定）"
 if [ "$FAIL" -ne 0 ]; then
   echo "  [SKIP] 前置门禁失败"
 else
-  # 已发布版本：副本必须当前就一致。新版本首发：副本漂移是预期（Phase B 将同步），
-  # 此处只做可行性探测——目标可达且无致命错配即放行。
-  if [ "$MANIFEST_EXISTS" -eq 1 ]; then
-    if bash "$ROOT/scripts/sync-copies.sh" --check; then
-      echo "  [OK] 副本对账一致"
-    else
-      SYNC_RC=$?
-      if [ "$SYNC_RC" -eq 2 ]; then
-        echo "  [FAIL] 副本结构错误（symlink 异常/目标缺失——不能用 --apply 修复，须人工处理）"; FAIL=1
-      else
-        echo "  [FAIL] 副本漂移（先运行 sync-copies.sh --apply）"; FAIL=1
-      fi
-    fi
+  # v3.23.0 瘦身：副本形态为直连软链（不再是 rsync 实体副本），发布树即副本内容，
+  # 不存在"首发预期漂移"——必须直连口径全绿（check-copies：1=漂移，2=结构错误）。
+  if bash "$ROOT/scripts/check-copies.sh"; then
+    echo "  [OK] 副本直连校验一致"
   else
-    SYNC_PROBE_OUT=$(bash "$ROOT/scripts/sync-copies.sh" --check 2>&1); SYNC_PROBE_RC=$?
-    if [ "$SYNC_PROBE_RC" -eq 0 ]; then
-      echo "  [OK] 副本已一致（无需同步）"
-    elif [ "$SYNC_PROBE_RC" -eq 1 ]; then
-      # rc=1 = 存在 DIFF（内容漂移）——新版本首发的预期状态
-      echo "  [INFO] 新版本首发：副本漂移为预期（Phase B 同步）"
-    else
-      echo "  [FAIL] 副本对账探测异常（rc=${SYNC_PROBE_RC}，非内容漂移）:"
-      printf '%s\n' "$SYNC_PROBE_OUT" | sed 's/^/    /' | head -10
-      FAIL=1
-    fi
+    CP_RC=$?
+    echo "  [FAIL] 副本直连校验失败（rc=${CP_RC}）——跑仓库级 sync.sh 修复后重试"
+    FAIL=1
   fi
 fi
 
@@ -158,7 +144,7 @@ echo "════════════════════════�
 B_ROLLBACK_NEEDED=0
 
 do_rollback() {
-  # 仅新版本首发需要回滚；已发布版本 Phase B 只做同步，不动 manifest。
+  # 仅新版本首发需要回滚；已发布版本 Phase B 只做终复核，不动 manifest。
   if [ "$MANIFEST_EXISTS" -eq 0 ] && [ -f "$RELEASE_MANIFEST" ]; then
     LEDGER="$ROOT/references/manifest/CHAIN.json"
     if [ -f "$LEDGER" ] && command -v jq >/dev/null 2>&1; then
@@ -176,7 +162,7 @@ do_rollback() {
   fi
 }
 
-step "B1/3 activate manifest（原子落盘 + 台账追加）"
+step "B1/2 activate manifest（原子落盘 + 台账追加）"
 if [ "$MANIFEST_EXISTS" -eq 1 ]; then
   echo "  [SKIP] 已发布版本（增量同步模式，不重写不可变 manifest）"
 else
@@ -188,18 +174,7 @@ else
   fi
 fi
 
-step "B2/3 副本同步 (sync-copies.sh --apply)"
-if [ "$FAIL" -ne 0 ]; then
-  echo "  [SKIP] activate 失败，不同步"
-else
-  if bash "$ROOT/scripts/sync-copies.sh" --apply; then
-    echo "  [OK] 副本同步完成"
-  else
-    echo "  [FAIL] 副本同步失败"; FAIL=1; B_ROLLBACK_NEEDED=1
-  fi
-fi
-
-step "B3/3 终复核（manifest check + 副本 --check + 树 hash）"
+step "B2/2 终复核（manifest check + 副本直连校验 + 树 hash）"
 if [ "$FAIL" -ne 0 ]; then
   echo "  [SKIP] 前置提交失败"
 else
@@ -208,7 +183,7 @@ else
   else
     echo "  [FAIL] manifest check 终验失败"; FAIL=1; B_ROLLBACK_NEEDED=1
   fi
-  if bash "$ROOT/scripts/sync-copies.sh" --check >/dev/null 2>&1; then
+  if bash "$ROOT/scripts/check-copies.sh" >/dev/null 2>&1; then
     echo "  [OK] 副本终验一致"
   else
     echo "  [FAIL] 副本终验漂移"; FAIL=1; B_ROLLBACK_NEEDED=1
@@ -232,8 +207,8 @@ fi
 
 echo ""
 if [ "$FAIL" -eq 0 ]; then
-  echo "RELEASE GATE: ALL GREEN — 发布完成（manifest+台账+副本一致）"
+  echo "RELEASE GATE: ALL GREEN — 发布完成（manifest+台账+副本直连一致）"
   exit 0
 fi
-echo "RELEASE GATE: FAIL — 已回滚 manifest 占位；副本如已部分同步请修复后重跑（sync-copies.sh --apply 幂等）"
+echo "RELEASE GATE: FAIL — 已回滚 manifest 占位；副本失联时跑仓库级 sync.sh 修复后重跑（check-copies.sh 只读幂等）"
 exit 1

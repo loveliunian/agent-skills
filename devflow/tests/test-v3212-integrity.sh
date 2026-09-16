@@ -26,12 +26,12 @@ else
   ok "strict reviewer receipt blocks an unsigned self-declared identity"
 fi
 
-grep -q -- "--exclude='tests/logs/'" "$ROOT/scripts/sync-copies.sh" \
-  && ok "rsync excludes runtime test logs" \
-  || bad "rsync can copy runtime test logs"
+grep -q 'scripts/check-copies.sh' "$ROOT/scripts/release.sh" \
+  && ok "release gate verifies copy links (check-copies)" \
+  || bad "release gate lost copy link verification"
 grep -q '副本终验漂移"; FAIL=1; B_ROLLBACK_NEEDED=1' "$ROOT/scripts/release.sh" \
-  && ok "B3 copy drift requests rollback" \
-  || bad "B3 copy drift can leave an activated manifest"
+  && ok "B2 copy drift requests rollback" \
+  || bad "B2 copy drift can leave an activated manifest"
 if python3 - "$ROOT/agents/openai.yaml" <<'PY'
 import sys, yaml
 d = yaml.safe_load(open(sys.argv[1]))

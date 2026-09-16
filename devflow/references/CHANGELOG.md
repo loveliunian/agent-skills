@@ -1,12 +1,31 @@
 ---
 name: changelog
-version: "3.22.0"
+version: "3.23.0"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.22.0 Migration Guide
+# Changelog — devflow v1 → v3.23.0 Migration Guide
+
+## v3.23.0 (2026-09-16) — 通用化修复（Agent Skills 兼容 + Runtime Profile + 发布授权 + Secret scan）
+
+- **Agent Skills 规范对齐**：`SKILL.md` frontmatter 改为顶层 `compatibility` 字符串、`metadata` 全字符串、`allowed-tools` 空格分隔字符串；`description` 覆盖自然语言开发触发（实现需求/加字段/改接口/修复 bug/上线部署），不再依赖用户提到 `/devflow`。`release-audit.sh` 同时接受空格分隔字符串与 YAML 列表两种 `allowed-tools`，未知工具名仍 fail-closed。
+- **触发评测语料**：新增 `tests/trigger-cases.yaml`（正/负样例、期望路由与 precision/recall 目标）与 `tests/test-trigger-eval.sh` 结构校验，注册进完整测试套件。
+- **Runtime Profile（技术栈解耦）**：新增 `references/runtime-profile.md` 能力位契约与 `references/profiles/{java-spring-flyway,generic}.md`；`commands/build.md` 将 `@PreAuthorize`/四方言/JaCoCo 等 Java 规则下沉到 profile，核心 P3 只要求 BUILD/TEST/COVERAGE/AUTHORIZATION/MIGRATION/CLIENT/SECURITY 能力位。
+- **代码生成 Subagent I/O 契约**：`backend-dev`/`frontend-dev`/`sql-dev` 统一 Input/Scope/Output/Forbidden/Stop 契约（缺输入 BLOCKED、PLAN 先行、真实退出码）。
+- **发布授权硬门禁**：P7 前必须存在 `.devflow/<feature>/authorizations/release.json` 显式人工授权；无收据最高 `READY_TO_RELEASE`，不得声明 `RELEASED`（`commands/devflow.md`、`commands/deploy.md`、`phases/07-发布部署.md`）。
+- **敏感信息机器契约**：新增 `references/sensitive-data-policy.md` 与 `scripts/secret-scan.sh`（高置信度模式、脱敏输出、`secret-scan: allow` 例外）；接入 `release.sh` Phase A 与 `hooks/pre-commit-devflow.sh` 暂存文件扫描。
+- **模板变量约定**：`templates/_commons.md` §12 统一 `{{variable_name}}`，未解析变量不得判定完成。
+- **版本一致性修复**：修复 `ROUTING.md`/`prd-review-committee.md` 标题与 `release.sh`/`devflow_paths.sh` banner 的版本漂移。
+- **P2 详设链路重构（语义锚点正本）**：
+  - 三个详设模板新增/对齐五个语义锚点——`data-model`、`api-contracts`、`business-rules`、`acceptance-traceability`、`implementation-handoff`；章节编号降级为展示与 design.json 定位用途，`s2`/`p2a` Gate、`/plan`、`/build` 一律以锚点为机器契约（历史产物按同义 H2 标题回退兼容）。
+  - **新增 §14 实现交接（Implementation Handoff）**：现有实现基线、预计代码变更（ADD/MODIFY/DELETE）、不变量清单；`s2` 必含校验，`/plan` 从其派生执行契约，`/build` 开工前对账，不符即 `BLOCKED`。
+  - **模板版本硬冲突修复**：模板正文 `> 模板版本：` 改为 `{{template_version}}`（必须替换为 frontmatter version），并新增 `check-skill-version.sh` 正文版本字面量守卫；写作铁律中陈旧的 §9.1/§2.3/§5.3/§4/表头 H5 等级等引用全部修正为真实结构（追溯矩阵 §11.1、表 §2.2、接口 §3.2、流程 §6）。
+  - **模板状态默认值收紧**：文档状态由「✅ 评审通过」改为 `⏳ DRAFT`、评审结论 `UNREVIEWED`——只有 P2a 通过后才更新为 ✅，消除"生成即已评审"的误导。
+  - **`phases/02-详细设计.md` 瘦身**：删除与模板重复的示例骨架（架构图/users SQL/ERD/前后对比），改为"输入 → 现有代码基线调查 → 模板选择 → 必答设计问题 → Gate → 失败处理"；DB 关键字清单移至 `references/db-reserved-words.md`；删除"设计要支持未来扩展"，改为三条件演进约束与"现有能力 > 现有依赖 > 标准库 > 新依赖（需 Design Decision）> 自研"复用优先级。
+  - **`/plan` 改执行契约**：任务矩阵列改为 Task/Acceptance/DesignRef/Target/Action/Invariants/Verify/Risk/依赖；垂直切片重定义为"独立验证的行为闭环"（组件可选，测试必需），移除文件数分级/ETA 等项目管理列。
+  - **`/build` 与 backend-dev 施工纪律**：强制 `DISCOVER → PLAN PATCH → IMPLEMENT → VERIFY → DIFF REVIEW`；写码前定位入口/同类实现/公共组件/测试模式并与实现交接对账，新增"未搜索就新建工具类/未确认依赖就加库/为过测试放宽断言"等禁止项。
 
 ## v3.22.0 (2026-09-16) — 过程性产物文档层中文化（中英双语回退）
 
@@ -2027,4 +2046,4 @@ grep -c 双输出全库清零（含两个 review hook 零命中崩溃）、pytho
 
 ---
 
-更早历史：[`v3.9.0-v3.9.5`](../_archive/changelog-v3.9.0-v3.9.5.md)；[`v1-v3.8`](../_archive/changelog-v1-v3.8.md)。
+更早历史：v3.9.0-v3.9.5 与 v1-v3.8 迁移记录已随 `_archive/` 移除（v3.23.0 瘦身），如需追溯见 git 历史。

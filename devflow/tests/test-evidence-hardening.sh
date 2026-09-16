@@ -638,12 +638,12 @@ else
   ok "security gate catches unsecured ResponseEntity write method"
 fi
 
-mkdir -p "$TMP/unsafe-target"
-printf 'user-data\n' > "$TMP/unsafe-target/unrelated.txt"
-if SYNC_TARGETS="$TMP/unsafe-target" bash "$ROOT/scripts/sync-copies.sh" --apply >/dev/null 2>&1; then
-  bad "sync rejects a non-skill target before deletion"
+mkdir -p "$TMP/entity-copy/devflow"
+printf 'stale\n' > "$TMP/entity-copy/devflow/SKILL.md"
+if DEVFLOW_COPY_TARGETS="$TMP/entity-copy/devflow" bash "$ROOT/scripts/check-copies.sh" >/dev/null 2>&1; then
+  bad "check-copies rejects an entity copy"
 else
-  [ -f "$TMP/unsafe-target/unrelated.txt" ] && ok "sync rejects a non-skill target before deletion" || bad "sync preserves rejected target data"
+  [ "$(cat "$TMP/entity-copy/devflow/SKILL.md" 2>/dev/null)" = "stale" ] && ok "check-copies rejects an entity copy (read-only)" || bad "check-copies modified the entity copy"
 fi
 
 if bash "$ROOT/hooks/pre-commit-devflow.sh" --self-test >/dev/null 2>&1; then
@@ -790,46 +790,34 @@ else
   ok "P6-credential 形近版本绕过被拒 ${MSG59}"
 fi
 
-# ---------- v3.15.4: 第四轮审查修复回归（P0-1 apply 原子性 / P1 参数校验与同口径 / P2 硬化） ----------
+# ---------- v3.15.4/v3.23.0: 审查修复回归（P0-1 apply 原子性 / P1 参数校验与同口径 / check-copies 直连口径） ----------
 
-# T10: sync-copies --target 缺值 fail-closed（旧实现 shift 2 失败后位置参数不变 → 死循环；3s 看门狗防挂死）
-(bash "$ROOT/scripts/sync-copies.sh" --target >/dev/null 2>&1) &
-T10PID=$!
-sleep 3
-if kill -0 "$T10PID" 2>/dev/null; then
-  kill "$T10PID" 2>/dev/null; wait "$T10PID" 2>/dev/null
-  bad "sync-copies --target 缺值 fail-closed（3 秒未退出=死循环）"
+# T10 (v3.23.0): check-copies 检出"指向他处"的软链（直连口径，只读不改动）
+W10="$TMP/v323cp"; mkdir -p "$W10/skills" "$W10/other"
+ln -s "$W10/other" "$W10/skills/devflow"
+OUT10=$(DEVFLOW_COPY_TARGETS="$W10/skills/devflow" bash "$ROOT/scripts/check-copies.sh" 2>&1); rc10=$?
+if [ "$rc10" -eq 1 ] && printf '%s' "$OUT10" | grep -q '指向他处'; then
+  ok "check-copies 检出指向他处的软链（rc=1）"
 else
-  wait "$T10PID"; rc10=$?
-  [ "$rc10" -eq 2 ] && ok "sync-copies --target 缺值 fail-closed（exit 2）" || bad "sync-copies --target 缺值 fail-closed（exit=${rc10}）"
+  bad "check-copies 未检出指向他处的软链（rc=${rc10}）"
 fi
 
-# T11: sync-copies 空目标 fail-closed（bash>=4.4 零循环输出 ALL OK 假绿；bash 3.2 unbound 崩溃）
-OUT11=$(SYNC_TARGETS="" bash "$ROOT/scripts/sync-copies.sh" --check 2>&1); rc11=$?
-if [ "$rc11" -eq 2 ] && ! printf '%s' "$OUT11" | grep -q 'ALL OK'; then
-  ok "sync-copies 空目标 fail-closed（不再零执行假绿）"
+# T11 (v3.23.0): check-copies 空目标 fail-closed（不允许零执行"通过"假绿）
+OUT11=$(DEVFLOW_COPY_TARGETS="" bash "$ROOT/scripts/check-copies.sh" 2>&1); rc11=$?
+if [ "$rc11" -eq 2 ] && ! printf '%s' "$OUT11" | grep -q '通过'; then
+  ok "check-copies 空目标 fail-closed（不再零执行假绿）"
 else
-  bad "sync-copies 空目标 fail-closed（exit=${rc11}）"
+  bad "check-copies 空目标 fail-closed（exit=${rc11}）"
 fi
 
-# T12: sync-copies 排除目标 .git/.devflow——check 不误报 extra、apply 不删除（旧实现删副本 git 历史）
-W60="$TMP/v3154a"; mkdir -p "$W60/skills/devflow"
-cp "$ROOT/SKILL.md" "$W60/skills/devflow/SKILL.md"
-SYNC_TARGETS="$W60/skills/devflow" bash "$ROOT/scripts/sync-copies.sh" --apply >/dev/null 2>&1
-mkdir -p "$W60/skills/devflow/.git" "$W60/skills/devflow/.devflow"
-printf 'gitdata\n' > "$W60/skills/devflow/.git/HEAD"
-printf 'runtime\n' > "$W60/skills/devflow/.devflow/x.env"
-OUT60=$(SYNC_TARGETS="$W60/skills/devflow" bash "$ROOT/scripts/sync-copies.sh" --check 2>&1 || true)
-if printf '%s' "$OUT60" | grep -q 'ALL OK'; then
-  ok "sync-copies check 排除目标 .git/.devflow（不再误报 DIFF）"
+# T12 (v3.23.0): check-copies 悬空软链结构性错误 fail-closed（rc=2）
+W60="$TMP/v323dangling"; mkdir -p "$W60/skills"
+ln -s "$W60/nonexistent-target" "$W60/skills/devflow"
+OUT60=$(DEVFLOW_COPY_TARGETS="$W60/skills/devflow" bash "$ROOT/scripts/check-copies.sh" 2>&1); rc60=$?
+if [ "$rc60" -eq 2 ] && printf '%s' "$OUT60" | grep -q '悬空'; then
+  ok "check-copies 悬空软链结构性错误（rc=2）"
 else
-  bad "sync-copies check 对目标 .git/.devflow 误报 DIFF"
-fi
-SYNC_TARGETS="$W60/skills/devflow" bash "$ROOT/scripts/sync-copies.sh" --apply >/dev/null 2>&1
-if [ -f "$W60/skills/devflow/.git/HEAD" ] && [ -f "$W60/skills/devflow/.devflow/x.env" ]; then
-  ok "sync-copies apply 不删除目标 .git/.devflow（git 历史保全）"
-else
-  bad "sync-copies apply 误删目标 .git/.devflow"
+  bad "check-copies 悬空软链未 fail-closed（rc=${rc60}）"
 fi
 
 # T13: s8b/p10 拒绝路径穿越 feature 名（P1-5：../evil 写穿项目外 + grep -E 正则注入）
@@ -856,24 +844,23 @@ else
   bad "s8b patch 失败遗留 .rej/.orig 或未恢复"
 fi
 
-# T15: s8b VERIFY_FAILED 回滚源并重同步副本（P0-1：旧实现副本保留新内容=永久漂移）
+# T15 (v3.23.0): s8b VERIFY_FAILED 回滚源——副本为直连软链自动跟随（apply 原子性闭环）
 W63="$TMP/v3154d"; FK2="$W63/skill"; WD2="$W63/work"
-mkdir -p "$FK2/templates" "$FK2/tests" "$FK2/scripts" "$WD2/.devflow/t15feat/s8b/diff/templates" "$W63/skills/devflow"
+mkdir -p "$FK2/templates" "$FK2/tests" "$FK2/scripts" "$WD2/.devflow/t15feat/s8b/diff/templates" "$W63/skills"
 printf 'original\n' > "$FK2/templates/T.md"
 printf '# devflow\n' > "$FK2/SKILL.md"
 printf '#!/usr/bin/env bash\nexit 1\n' > "$FK2/tests/run-tests.sh"
-cp "$ROOT/scripts/sync-copies.sh" "$FK2/scripts/sync-copies.sh"
-cp "$FK2/SKILL.md" "$W63/skills/devflow/SKILL.md"
-mkdir -p "$W63/skills/devflow/templates"; cp "$FK2/templates/T.md" "$W63/skills/devflow/templates/T.md"
+cp "$ROOT/scripts/check-copies.sh" "$FK2/scripts/check-copies.sh"
+ln -s "$FK2" "$W63/skills/devflow"
 printf 'diff --git a/templates/T.md b/templates/T.md\n--- a/templates/T.md\n+++ b/templates/T.md\n@@ -1 +1,2 @@\n original\n+new line\n' > "$WD2/.devflow/t15feat/s8b/diff/templates/T.md.patch"
-(cd "$WD2" && SKILL_ROOT="$FK2" WORK_DIR=".devflow" SYNC_TARGETS="$W63/skills/devflow" bash "$ROOT/maintenance/s8b_feedback_gate.sh" t15feat --apply --authorize-apply --write >/dev/null 2>&1)
+(cd "$WD2" && SKILL_ROOT="$FK2" WORK_DIR=".devflow" DEVFLOW_COPY_TARGETS="$W63/skills/devflow" bash "$ROOT/maintenance/s8b_feedback_gate.sh" t15feat --apply --authorize-apply --write >/dev/null 2>&1)
 T15SRC=$(cat "$FK2/templates/T.md" 2>/dev/null)
 T15CPY=$(cat "$W63/skills/devflow/templates/T.md" 2>/dev/null)
 T15ST=$(sed -n 's/^STATUS=//p' "$WD2/.devflow/t15feat/s8b/s8b-apply-receipt.env" 2>/dev/null | head -1)
 if [ "$T15SRC" = "original" ] && [ "$T15CPY" = "original" ] && [ "$T15ST" = "VERIFY_FAILED" ]; then
-  ok "s8b VERIFY_FAILED 回滚源并重同步副本（apply 原子性闭环）"
+  ok "s8b VERIFY_FAILED 回滚源，副本直连自动跟随（apply 原子性闭环）"
 else
-  bad "s8b 回滚/副本重同步失效（src=${T15SRC} copy=${T15CPY} status=${T15ST}）"
+  bad "s8b 回滚/副本跟随失效（src=${T15SRC} copy=${T15CPY} status=${T15ST}）"
 fi
 
 # T16: p10 拒绝悬挂 STATUS=APPLIED 的 s8b 应用收据（P1-8：文档声称的硬门禁落地）
@@ -904,51 +891,6 @@ if bash "$ROOT/scripts/client-adapter.sh" validate pc-web "$W65/web" >/dev/null 
 else
   bad "pc-web validate 含合法 manifest 误拒"
 fi
-
-# T14 (v3.15.18): portable 分支 symlink 拒绝——目标树 symlink 经 cp/mkdir 写穿到 skill 目录外（PoC 实证）
-W61="$TMP/v31518sym"; mkdir -p "$W61/skills/devflow" "$W61/fb61"
-for t in bash shasum sha256sum awk find cp rm mkdir sed grep rmdir dirname basename sort head; do
-  ln -s "$(command -v "$t")" "$W61/fb61/$t" 2>/dev/null || true
-done
-cp "$ROOT/SKILL.md" "$W61/skills/devflow/SKILL.md"
-printf 'ORIGINAL\n' > "$W61/pwned.txt"
-ln -s "$W61/pwned.txt" "$W61/skills/devflow/README.md"
-OUT61=$(SYNC_TARGETS="$W61/skills/devflow" PATH="$W61/fb61" bash "$ROOT/scripts/sync-copies.sh" --apply 2>&1); rc61=$?
-if [ "$rc61" -ne 0 ] && printf '%s' "$OUT61" | grep -q 'symlink' \
-   && [ "$(cat "$W61/pwned.txt")" = "ORIGINAL" ]; then
-  ok "portable 同步拒绝目标 symlink（不写穿 skill 目录外）"
-else
-  bad "portable 同步拒绝目标 symlink（rc=${rc61}，外部文件遭写穿）"
-fi
-
-# T15 (v3.15.18): 无 rsync 且无 SHA 工具 fail-closed——空哈希相等假绿（PoC：篡改目标判 SYNCED ALL OK）
-W62="$TMP/v31518nosha"; mkdir -p "$W62/skills/devflow" "$W62/fb62"
-for t in bash awk find cp rm mkdir sed grep rmdir dirname basename sort head; do
-  ln -s "$(command -v "$t")" "$W62/fb62/$t" 2>/dev/null || true
-done
-cp -R "$ROOT/." "$W62/skills/devflow/"
-printf 'TAMPERED\n' > "$W62/skills/devflow/README.md"
-OUT62=$(SYNC_TARGETS="$W62/skills/devflow" PATH="$W62/fb62" bash "$ROOT/scripts/sync-copies.sh" --check 2>&1); rc62=$?
-if [ "$rc62" -eq 2 ] && ! printf '%s' "$OUT62" | grep -q 'ALL OK'; then
-  ok "无 SHA 工具 fail-closed（篡改目标不再空哈希假绿）"
-else
-  bad "无 SHA 工具 fail-closed（rc=${rc62}，空哈希假绿）"
-fi
-
-# T16 (v3.16.0 P1-1): sync-copies 对账 SHA 化——双变异：mtime-only 不误红；同大小+mtime 篡改检出
-W63="$TMP/v3160sync"; mkdir -p "$W63/skills/devflow"
-cp -R "$ROOT/." "$W63/skills/devflow/" 2>/dev/null
-rm -rf "$W63/skills/devflow/.devflow" "$W63/skills/devflow/.git" 2>/dev/null
-SYNC_TARGETS="$W63/skills/devflow" bash "$ROOT/scripts/sync-copies.sh" --check >/dev/null 2>&1 \
-  && ok "sync 完整树基线一致" || bad "sync 完整树基线误报"
-find "$W63/skills/devflow" -name '*.md' -exec touch -t 202001010000 {} + 2>/dev/null
-SYNC_TARGETS="$W63/skills/devflow" bash "$ROOT/scripts/sync-copies.sh" --check >/dev/null 2>&1 \
-  && ok "sync mtime-only 漂移不误红（SHA 对账）" || bad "sync mtime-only 漂移误红"
-_MTM=$(stat -f %m "$W63/skills/devflow/README.md" 2>/dev/null || stat -c %Y "$W63/skills/devflow/README.md")
-python3 -c "c=open('$W63/skills/devflow/README.md','rb').read(); open('$W63/skills/devflow/README.md','wb').write(c[:5]+b'X'+c[6:])" 2>/dev/null
-touch -t "$(date -r "${_MTM}" +%Y%m%d%H%M.%S)" "$W63/skills/devflow/README.md" 2>/dev/null
-SYNC_TARGETS="$W63/skills/devflow" bash "$ROOT/scripts/sync-copies.sh" --check >/dev/null 2>&1 \
-  && bad "sync 同大小+mtime 篡改被检出" || ok "sync 同大小+mtime 篡改被检出（SHA 对账）"
 
 # ---- v3.16.3（第 24 轮 N-P3-3）: 行为级负回归——v3.16.1/2 修复此前仅有工件钉 ----
 # T17: complete P6 缺 P6-final 收据必须拒绝（M1 变异行为钉）

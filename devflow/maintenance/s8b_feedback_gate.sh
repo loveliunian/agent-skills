@@ -646,8 +646,8 @@ step_apply() {
     echo "SKIPPED_COUNT=$skipped"
     echo "REPORT_PATH=$report"
     if command -v shasum >/dev/null 2>&1; then echo "REPORT_SHA256=$(shasum -a 256 "$report" | awk '{print $1}')"; else echo "REPORT_SHA256=$(sha256sum "$report" | awk '{print $1}')"; fi
-    echo "SYNC_REQUIRED=$([ "$DRY_RUN" != "1" ] && echo 1 || echo 0)"
-    echo "SYNC_COMMAND=bash \"$SKILL_ROOT/scripts/sync-copies.sh\" --apply"
+    echo "COPY_VERIFY_REQUIRED=$([ "$DRY_RUN" != "1" ] && echo 1 || echo 0)"
+    echo "COPY_CHECK_COMMAND=bash \"$SKILL_ROOT/scripts/check-copies.sh\""
     echo "CHECKED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   } > "$apply_receipt"
   ok "应用状态收据 → $apply_receipt"
@@ -740,29 +740,21 @@ step_verify() {
       FAIL=$((FAIL+1)); verify_failed=1
     fi
 
-    # v3.14.11: 事务顺序修正——先同步副本再对账，避免"必然未同步→必然回滚"死锁
+    # v3.23.0 瘦身：副本为直连软链（不再是 rsync 实体副本）——无需 apply，只做直连校验
     if [ "$verify_failed" = "0" ]; then
-      if bash "$SKILL_ROOT/scripts/sync-copies.sh" --apply >> "${OUTPUT_DIR}/s8b-verify-sync-apply.log" 2>&1; then
-        ok "副本已同步（sync-copies --apply）"
-        echo "- 副本同步: ✅" >> "$report"
+      if bash "$SKILL_ROOT/scripts/check-copies.sh" >> "${OUTPUT_DIR}/s8b-verify-copies.log" 2>&1; then
+        ok "副本直连校验通过（check-copies）"
+        echo "- 副本校验: ✅" >> "$report"
       else
-        err "副本同步失败（sync-copies --apply）"
-        echo "- 副本同步: ❌" >> "$report"
+        err "副本直连校验失败（check-copies）"
+        echo "- 副本校验: ❌" >> "$report"
         FAIL=$((FAIL+1)); verify_failed=1
       fi
-    fi
-    if [ "$verify_failed" = "0" ] && bash "$SKILL_ROOT/scripts/sync-copies.sh" --check >> "${OUTPUT_DIR}/s8b-verify-sync.log" 2>&1; then
-      ok "副本对账一致（sync-copies --check）"
-      echo "- 副本对账: ✅" >> "$report"
-    else
-      err "副本对账漂移（apply 后仍不一致）"
-      echo "- 副本对账: ❌" >> "$report"
-      FAIL=$((FAIL+1)); verify_failed=1
     fi
 
     if [ "$verify_failed" = "0" ]; then
       sed -i.bak 's/^STATUS=APPLIED$/STATUS=VERIFIED/' "${OUTPUT_DIR}/s8b-apply-receipt.env" 2>/dev/null && rm -f "${OUTPUT_DIR}/s8b-apply-receipt.env.bak"
-      ok "VERIFIED：应用、测试、Release Audit、副本同步与对账全部通过"
+      ok "VERIFIED：应用、测试、Release Audit、副本直连校验全部通过"
     fi
 
     # v3.14.6: 验证失败自动从备份恢复全部已应用文件，并把收据状态改写为 VERIFY_FAILED
@@ -773,14 +765,14 @@ step_verify() {
         mkdir -p "$(dirname "$tgt")"; cp "$bak" "$tgt" && restored=$((restored+1))
       done < "${OUTPUT_DIR}/s8b-applied-manifest.tsv" 2>/dev/null
       err "VERIFY_FAILED：已回滚 $restored 个文件；备份保留于 ${BACKUP_DIR:-<unknown>}"
-      # v3.15.4 (P0): 源回滚后必须重同步副本——sync --apply 部分成功或 check 漂移场景下，
-      # 副本保留新内容而源回滚为旧内容：apply 原子性被打破且副本永久漂移（下次 --check 必报 DIFF）
-      if bash "$SKILL_ROOT/scripts/sync-copies.sh" --apply >> "${OUTPUT_DIR}/s8b-verify-rollback-resync.log" 2>&1; then
-        warn "副本已随回滚重同步（sync-copies --apply）"
-        echo "- 副本回滚重同步: ✅" >> "$report"
+      # v3.15.4 (P0) → v3.23.0：源回滚后副本为直连软链、自动跟随内容；
+      # 此处只做直连校验并留存证据（不再需要 apply 重同步）
+      if bash "$SKILL_ROOT/scripts/check-copies.sh" >> "${OUTPUT_DIR}/s8b-verify-rollback-check.log" 2>&1; then
+        warn "副本随回滚自动一致（直连软链，check-copies 通过）"
+        echo "- 副本回滚校验: ✅" >> "$report"
       else
-        err "回滚后副本重同步失败——副本与源漂移，需手动执行 sync-copies --apply"
-        echo "- 副本回滚重同步: ❌（日志 ${OUTPUT_DIR}/s8b-verify-rollback-resync.log）" >> "$report"
+        err "回滚后副本直连校验失败——需跑仓库级 sync.sh 修复"
+        echo "- 副本回滚校验: ❌（日志 ${OUTPUT_DIR}/s8b-verify-rollback-check.log）" >> "$report"
         FAIL=$((FAIL+1))
       fi
       # v3.15.4: FAILED 状态同样改写——applied>0 且 failed>0 时 STATUS=FAILED，旧 sed 匹配不到（状态语义丢失）
