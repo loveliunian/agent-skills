@@ -333,21 +333,44 @@ EOF
 fi
 if [ "$KEY_FILES_SOURCE" = "legacy" ]; then
   warn "key files degraded to legacy fixed list（git 不可用或最近 ${GIT_RANGE} 个提交无变更）"
+  # v3.22.0: 事实源目录中英双语（实际存在才计数，下方按 -f 判定）
   KEY_FILES=(
+    "docs/详细设计/_commons.md"
     "docs/detailed-design/_commons.md"
+    "docs/详细设计/_权限矩阵.md"
     "docs/detailed-design/_权限矩阵.md"
+    "docs/详细设计/INDEX-表.md"
     "docs/detailed-design/INDEX-表.md"
+    "docs/详细设计/INDEX-接口.md"
     "docs/detailed-design/INDEX-接口.md"
   )
 fi
 
+# v3.22.0: legacy 固定列表含中英双份同逻辑文件，按 basename 去重——任一语言副本存在即视为同步
+_UNIQ_BASES=()
 for f in ${KEY_FILES[@]+"${KEY_FILES[@]}"}; do
-  if [ -f "$f" ]; then
-    SYNCED_FILES=$((SYNCED_FILES + 1))
-  else
-    MISSING_FILES=$((MISSING_FILES + 1))
+  _b=$(basename "$f")
+  if [ "${#_UNIQ_BASES[@]}" -eq 0 ]; then _UNIQ_BASES=("$_b"); else
+    case " ${_UNIQ_BASES[*]} " in *" $_b "*) ;; *) _UNIQ_BASES+=("$_b");; esac
   fi
 done
+if [ "$KEY_FILES_SOURCE" = "legacy" ]; then
+  for _b in "${_UNIQ_BASES[@]}"; do
+    if [ -f "docs/详细设计/$_b" ] || [ -f "docs/detailed-design/$_b" ]; then
+      SYNCED_FILES=$((SYNCED_FILES + 1))
+    else
+      MISSING_FILES=$((MISSING_FILES + 1))
+    fi
+  done
+else
+  for f in ${KEY_FILES[@]+"${KEY_FILES[@]}"}; do
+    if [ -f "$f" ]; then
+      SYNCED_FILES=$((SYNCED_FILES + 1))
+    else
+      MISSING_FILES=$((MISSING_FILES + 1))
+    fi
+  done
+fi
 
 if [ "${#KEY_FILES[@]}" -eq 0 ]; then
   warn "no key files to check（空变更范围）"

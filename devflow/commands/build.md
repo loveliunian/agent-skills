@@ -1,6 +1,6 @@
 ---
 name: build
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   Use when implementing backend APIs, frontend pages, or Flyway migrations for a new feature after /plan,
   mentions "/build", "build it", "编码实现", "实现这个功能", "写代码", "全栈开发", or "start implementation".
@@ -56,12 +56,12 @@ allowed-tools:
 
 ```bash
 test -f tasks/plan.md || { echo "BLOCKED: 任务清单缺失，请先 /plan"; exit 1; }
-test -f docs/detailed-design/<feature>-design.md || { echo "BLOCKED: 详设缺失，请先 /spec"; exit 1; }
+test -f docs/详细设计/<feature>-详细设计.md || { echo "BLOCKED: 详设缺失，请先 /spec"; exit 1; }
 bash "$SKILL_ROOT/scripts/s0_acceptance_gate.sh" <feature>
-bash "$SKILL_ROOT/scripts/s1_fact_sources_gate.sh" docs/detailed-design
-bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/detailed-design/<feature>-design.md docs/requirements/<feature>-acceptance-criteria.md
+bash "$SKILL_ROOT/scripts/s1_fact_sources_gate.sh" docs/详细设计
+bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/详细设计/<feature>-详细设计.md docs/需求/<feature>-验收点.md
 bash "$SKILL_ROOT/scripts/s3_migration_mapping_gate.sh" <A|B|C> docs/数据映射/<feature>-映射.md <source-count>
-bash "$SKILL_ROOT/scripts/s4_first_pass_snapshot.sh" freeze <feature> docs/requirements/<feature>-acceptance-criteria.md docs/detailed-design/<feature>-design.md
+bash "$SKILL_ROOT/scripts/s4_first_pass_snapshot.sh" freeze <feature> docs/需求/<feature>-验收点.md docs/详细设计/<feature>-详细设计.md
 ```
 
 加载`phases/03-规范实现.md`。任一命令非零立即阻断，不得只打印告警继续。
@@ -172,7 +172,7 @@ FEATURE="<feature>"
 test -d "backend/$SERVICE/src/main/java" || { echo "BLOCKED: 服务目录不存在"; exit 1; }
 
 # Gather：从实施证据表读取本次切片文件，不绑定包名
-EVIDENCE="docs/test/${FEATURE}-implementation-evidence.tsv"
+EVIDENCE="docs/测试/${FEATURE}-implementation-evidence.tsv"
 test -f "$EVIDENCE" || { echo "BLOCKED: 缺少实施证据表"; exit 1; }
 
 # Act：运行 P3 一键 gate

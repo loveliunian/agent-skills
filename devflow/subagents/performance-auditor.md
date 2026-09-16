@@ -1,7 +1,7 @@
 ---
 name: performance-auditor
 subagent_type: generalPurpose
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   Use when auditing performance, mentions "/performance", "performance audit", "性能审计",
   "slow query", "N+1", "优化", or "性能分析".
@@ -44,7 +44,7 @@ disable-model-invocation: false
 
 SERVICE=${1:-org-service}
 FEATURE=${2:-.}
-OUTPUT_FILE="docs/review/${FEATURE}-n-plus-one-report.md"
+OUTPUT_FILE="docs/评审/${FEATURE}-N加一报告.md"
 
 echo "=== N+1 检测开始 ==="
 echo "服务: $SERVICE"
@@ -121,7 +121,7 @@ echo "=== N+1 检测结束 ==="
 echo "=== 索引覆盖审计 ==="
 
 # 1. 获取详设中的所有表名
-TABLES=$(grep -oE "CREATE TABLE \[?\w+\]?" docs/detailed-design/*-design.md 2>/dev/null | \
+TABLES=$(grep -oE "CREATE TABLE \[?\w+\]?" docs/详细设计/*-详细设计.md 2>/dev/null | \
          sed 's/CREATE TABLE \[//g;s/\]//g' | sort -u)
 
 # 2. 检查每个表的索引

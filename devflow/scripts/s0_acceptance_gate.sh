@@ -6,7 +6,7 @@ source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
 # P0 验收点冻结 Gate (v3.9.1 · 含模板-产物对齐检查)
 # =============================================================================
 # 功能：
-#   1. (v3.8) 检查 docs/requirements/*-clarification.md 存在
+#   1. (v3.8/v3.22.0) 检查 docs/需求/*-需求澄清.md（中文优先，英文历史路径回退）
 #   2. (v3.8) 检查原子验收点格式 Mxx-Fyy-Azz
 #   3. (v3.8) 检查 P0 歧义数量 = 0
 #   4. (v3.8) 检查无 "待补充" 字样
@@ -22,6 +22,8 @@ export LC_ALL
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 SKILL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
 TEMPLATES_DIR="$SKILL_ROOT/templates"
+# v3.22.0: 文档层产物中文化（中文优先、英文回退）
+source "$SCRIPT_DIR/devflow_paths.sh"
 
 # ---------- 全局计数 ----------
 FAIL=0; PASS=0; WARN=0
@@ -52,12 +54,16 @@ if [ -n "$CRITERIA_PATH" ] || [ -n "$CLARIFICATION_PATH" ]; then
   [ -z "$CRITERIA_PATH" ] || [ -z "$CLARIFICATION_PATH" ] && { echo "--criteria and --matrix must be used together" >&2; exit 2; }
 else
   [ -z "$FEATURE" ] && { echo "Usage: $0 <feature> | --criteria <p> --matrix <p>"; exit 2; }
-# v3.14.1: 一次性推导；失败（多 state/无 state）即拒绝执行，杜绝 default 目录
-  CLARIFICATION_PATH="docs/requirements/${FEATURE}-clarification.md"
-  CRITERIA_PATH="docs/requirements/${FEATURE}-acceptance-criteria.md"
 fi
 EFF_FEATURE="$(devflow_feature "${FEATURE:-}")" || { echo "[FATAL] feature 推导失败，拒绝继续"; exit 2; }
 [ -n "$EFF_FEATURE" ] || { echo "[FATAL] feature 为空，拒绝继续"; exit 2; }
+# v3.22.0: 未显式传参时解析实际产物（中文优先 docs/需求，回退英文 docs/requirements）
+if [ -z "$CLARIFICATION_PATH" ] && [ -z "$CRITERIA_PATH" ]; then
+  CLARIFICATION_PATH="$(df_resolve_doc "$EFF_FEATURE" clarification .md requirements)"
+  CRITERIA_PATH="$(df_resolve_doc "$EFF_FEATURE" acceptance .md requirements)"
+  [ -n "$CLARIFICATION_PATH" ] || CLARIFICATION_PATH="$(df_default_doc "$EFF_FEATURE" clarification .md requirements)"
+  [ -n "$CRITERIA_PATH" ] || CRITERIA_PATH="$(df_default_doc "$EFF_FEATURE" acceptance .md requirements)"
+fi
 
 # ---------- §0 基础存在性 ----------
 echo ""
@@ -182,7 +188,12 @@ fi
 # ---------- §6 技术硬约束冻结 (v3.16.26) ----------
 echo ""
 echo "=== §6 技术硬约束冻结 ==="
-TC_PATH="${TECH_CONSTRAINTS_FILE:-docs/requirements/${EFF_FEATURE}-technology-constraints.md}"
+if [ -n "${TECH_CONSTRAINTS_FILE:-}" ]; then
+  TC_PATH="$TECH_CONSTRAINTS_FILE"
+else
+  TC_PATH="$(df_resolve_doc "$EFF_FEATURE" constraints .md requirements)"
+  [ -n "$TC_PATH" ] || TC_PATH="$(df_default_doc "$EFF_FEATURE" constraints .md requirements)"
+fi
 source "$SCRIPT_DIR/tech_constraints_lib.sh"
 if [ ! -f "$TC_PATH" ]; then
   p0 "technology constraints missing: $TC_PATH (P0 必须冻结硬约束；无约束也须写 constraint_set=NONE 契约块)"
@@ -209,7 +220,10 @@ echo "=== §7 权限码三方对账 (Lesson L-P0-001) ==="
 # (3) 可选第三方菜单 Seed 索引（seed ⊆ matrix）。
 # `|| true`：p0() 计数已入 FAIL，返回码仅防未来 set -e 误传播。
 source "$SCRIPT_DIR/perm_reconcile_lib.sh"
-perm_reconcile_three_way "docs/detailed-design/_权限矩阵.md" "$CLARIFICATION_PATH" "docs/detailed-design/_菜单Seed索引.md" || true
+# v3.22.0: 事实源目录双语（docs/详细设计 优先，回退 docs/detailed-design）；文件名是机器 grep 契约不翻译
+PERM_MATRIX="docs/详细设计/_权限矩阵.md"; [ -f "$PERM_MATRIX" ] || PERM_MATRIX="docs/detailed-design/_权限矩阵.md"
+MENU_SEED="docs/详细设计/_菜单Seed索引.md"; [ -f "$MENU_SEED" ] || MENU_SEED="docs/detailed-design/_菜单Seed索引.md"
+perm_reconcile_three_way "$PERM_MATRIX" "$CLARIFICATION_PATH" "$MENU_SEED" || true
 
 # ---------- §7b 排除条款对账 (v3.21.0 · 排除条款一等需求) ----------
 echo ""

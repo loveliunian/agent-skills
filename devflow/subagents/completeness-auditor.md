@@ -1,7 +1,7 @@
 ---
 name: completeness-auditor
 subagent_type: generalPurpose
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   Use when checking Phase completion gates before transitioning, mentions
   "/audit-completeness", "gate check", "完成度", or "P3 自检".
@@ -29,7 +29,7 @@ paths: []
 |---|---|---|
 | 触发命令 | `/audit-completeness` | `/review` |
 | 阶段切换 | 每次 Phase 切换前 | 仅 P3b 阶段 |
-| 输出文档 | `docs/retrospectives/<feature>-audit-<phase>.md` | `docs/review/<feature>-completeness-review.md` |
+| 输出文档 | `docs/复盘/<feature>-audit-<phase>.md` | `docs/评审/<feature>-完成度评审.md` |
 | 检查视角 | grep 逐项验证(定量) | 详设对账(对抗性) |
 | 上游 | devflow 主 Agent | code-reviewer 上位调用 |
 
@@ -75,7 +75,7 @@ paths: []
 
 ### 3. 输出自检报告
 
-写入 `docs/retrospectives/<feature>-audit-<phase>.md`：
+写入 `docs/复盘/<feature>-audit-<phase>.md`：
 
 ```markdown
 # 完成度自检报告 — <feature> / <phase>

@@ -1,7 +1,7 @@
 ---
 name: code-reviewer
 subagent_type: generalPurpose
-version: "3.21.1"
+version: "3.22.0"
 responsibility: "Adversarial Review 编排器。/review 时调度 feasibility-reviewer + completeness-reviewer + scope-reviewer 三个 fresh subagent 并行评审。"
 description: >-
   ：Adversarial Review 3 评审编排器。
@@ -22,7 +22,7 @@ paths:
   - "frontend/src/**"
   - "backend/**/db/migration/**/V*.sql"
   - "frontend/src/router/*.ts"
-  - "docs/review/**"
+  - "docs/评审/**"
 disable-model-invocation: false
 ---
 
@@ -37,21 +37,21 @@ disable-model-invocation: false
 ## 调度流程
 
 ```
-        ┌─ feasibility-reviewer  → docs/review/<feature>-feasibility-review.md
+        ┌─ feasibility-reviewer  → docs/评审/<feature>-可行性评审.md
        /
 主 Reviewer
        \
-        └─ completeness-reviewer → docs/review/<feature>-completeness-review.md
+        └─ completeness-reviewer → docs/评审/<feature>-完成度评审.md
 
        并行（独立 session）
        /
 主 Reviewer
        \
-        └─ scope-reviewer        → docs/review/<feature>-scope-review.md
+        └─ scope-reviewer        → docs/评审/<feature>-范围评审.md
 
        ↓ 全部完成后
 
-    综合 → docs/review/<feature>-code-review-report.md
+    综合 → docs/评审/<feature>-代码审查报告.md
 ```
 
 ## 并行调用模板（Cursor / Claude Code）
@@ -75,7 +75,7 @@ spawn_fresh(role="scope-reviewer", task="...")
 
 ## 输出合并
 
-主 Reviewer（你）收集 3 份 markdown，生成 `docs/review/<feature>-code-review-report.md`：
+主 Reviewer（你）收集 3 份 markdown，生成 `docs/评审/<feature>-代码审查报告.md`：
 
 ```markdown
 # Code Review 综合报告 — M-XX

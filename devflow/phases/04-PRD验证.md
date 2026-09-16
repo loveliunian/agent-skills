@@ -1,6 +1,6 @@
 ---
 name: prd-validation
-version: "3.21.1"
+version: "3.22.0"
 description: "Use when validating implementation against PRD requirements through multiple iterations. v2.0 关键变更：P0 阻断项必须全部修复才能进入 Phase 5。"
 ---
 
@@ -53,11 +53,11 @@ description: "Use when validating implementation against PRD requirements throug
 bash "$SKILL_ROOT/scripts/p4_validation_gate.sh" <feature>
 
 # P4b：冻结验收 ID 与代码/测试证据精确对比。
-bash "$SKILL_ROOT/scripts/p4_prd_vs_code.sh" <feature> --prd <PRD-path> --design docs/detailed-design/<feature>-design.md --criteria docs/requirements/<feature>-acceptance-criteria.md --evidence docs/test/<feature>-implementation-evidence.tsv --service <service>
+bash "$SKILL_ROOT/scripts/p4_prd_vs_code.sh" <feature> --prd <PRD-path> --design docs/详细设计/<feature>-详细设计.md --criteria docs/需求/<feature>-验收点.md --evidence docs/测试/<feature>-implementation-evidence.tsv --service <service>
 echo "退出码: $?"  # 0=PASS, 1=FAIL（P0>0）
 ```
 
-**输出报告**：`docs/test/<feature>-prd-vs-code-report.md`（含 11 项逐项结果 + P0 阻断清单）。
+**输出报告**：`docs/测试/<feature>-PRD实现对比.md`（含 11 项逐项结果 + P0 阻断清单）。
 
 **关系链**：
 
@@ -215,15 +215,15 @@ digraph validation {
 - [ ] **P0 修复证据清单**：每条 P0 含修复 PR/提交 hash + 重跑自检命令输出
 - [ ] 功能点覆盖率 ≥ 95%
 - [ ] 所有严重问题已修复
-- [ ] 验证报告已生成（含 `docs/test/<feature>-prd-vs-code-report.md`）
+- [ ] 验证报告已生成（含 `docs/测试/<feature>-PRD实现对比.md`）
 - [ ] **遗留问题已记录且有处理计划**（P1/P2 可遗留，但必须有 owner + ETA）
 - [ ] **P0 阻断项 Gate**（自动检查）：
   ```bash
   # 命令 1：检查 PRD-实现对比报告中的 P0 阻断项数
-  bash "$SKILL_ROOT/scripts/p4_prd_vs_code.sh" <feature> --prd <PRD-path> --design docs/detailed-design/<feature>-design.md --criteria docs/requirements/<feature>-acceptance-criteria.md --evidence docs/test/<feature>-implementation-evidence.tsv --service <service>
+  bash "$SKILL_ROOT/scripts/p4_prd_vs_code.sh" <feature> --prd <PRD-path> --design docs/详细设计/<feature>-详细设计.md --criteria docs/需求/<feature>-验收点.md --evidence docs/测试/<feature>-implementation-evidence.tsv --service <service>
 
   # 命令 2：检查验证报告中的 P0 阻断项数量
-  grep -c "| P0-" docs/test/<feature>-validation-report.md
+  grep -c "| P0-" docs/测试/<feature>-PRD验证报告.md
   # 输出必须 = 0
   ```
 

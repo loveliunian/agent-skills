@@ -132,33 +132,42 @@ step_collect() {
     echo "evidence:"
   } > "$yaml"
 
-  get_source() {
+  # v3.22.0: 返回该证据类型的【全部候选 basename】（英文历史名 + 中文新名），find -name 逐个匹配
+  get_source_names() {
     case "$1" in
-      E2E)           echo "docs/test/${FEATURE}-e2e-report.md" ;;
-      UNIT)          echo "docs/test/${FEATURE}-unit-coverage.html" ;;
-      PRD_VS_CODE)   echo "docs/test/${FEATURE}-prd-vs-code-report.md" ;;
-      CODE_REVIEW)   echo "docs/review/${FEATURE}-code-review-report.md" ;;
-      RETRO)         echo "docs/retrospectives/${FEATURE}-retro.md" ;;
-      P6_ACCURACY)   echo ".devflow/${FEATURE}/p6-accuracy.env" ;;
-      PRD_REVIEW)    echo "docs/requirements/${FEATURE}-prd-review.md" ;;
-      CLARIFICATION) echo "docs/requirements/${FEATURE}-clarification.md" ;;
-      DESIGN)        echo "docs/detailed-design/${FEATURE}-design.md" ;;
-      TECH_SELECTION)echo "docs/detailed-design/${FEATURE}-tech-selection.md" ;;
-      DEPLOY)        echo "docs/deploy/${FEATURE}-deploy-record.md" ;;
-      MONITOR)       echo "docs/deploy/${FEATURE}-monitor-config.md" ;;
-      INTEGRATION)   echo "docs/test/${FEATURE}-integration-report.md" ;;
-      PERF_AUDIT)    echo "docs/review/${FEATURE}-performance-audit-report.md" ;;
-      SEC_AUDIT)     echo "docs/review/${FEATURE}-security-audit-report.md" ;;
+      E2E)           printf '%s\n' "${FEATURE}-e2e-report.md" "${FEATURE}-端到端报告.md" ;;
+      UNIT)          printf '%s\n' "${FEATURE}-unit-coverage.html" ;;
+      PRD_VS_CODE)   printf '%s\n' "${FEATURE}-prd-vs-code-report.md" "${FEATURE}-PRD实现对比.md" ;;
+      CODE_REVIEW)   printf '%s\n' "${FEATURE}-code-review-report.md" "${FEATURE}-代码审查报告.md" ;;
+      RETRO)         printf '%s\n' "${FEATURE}-retro.md" "${FEATURE}-复盘.md" ;;
+      P6_ACCURACY)   printf '%s\n' "p6-accuracy.env" ;;
+      PRD_REVIEW)    printf '%s\n' "${FEATURE}-prd-review.md" "${FEATURE}-PRD评审.md" ;;
+      CLARIFICATION) printf '%s\n' "${FEATURE}-clarification.md" "${FEATURE}-需求澄清.md" ;;
+      DESIGN)        printf '%s\n' "${FEATURE}-design.md" "${FEATURE}-详细设计.md" ;;
+      TECH_SELECTION) printf '%s\n' "${FEATURE}-tech-selection.md" "${FEATURE}-技术选型.md" ;;
+      DEPLOY)        printf '%s\n' "${FEATURE}-deploy-record.md" "${FEATURE}-部署记录.md" ;;
+      MONITOR)       printf '%s\n' "${FEATURE}-monitor-config.md" "${FEATURE}-监控配置.md" ;;
+      INTEGRATION)   printf '%s\n' "${FEATURE}-integration-report.md" "${FEATURE}-集成测试报告.md" ;;
+      PERF_AUDIT)    printf '%s\n' "${FEATURE}-performance-audit-report.md" "${FEATURE}-性能审计报告.md" ;;
+      SEC_AUDIT)     printf '%s\n' "${FEATURE}-security-audit-report.md" "${FEATURE}-安全审计报告.md" ;;
       *)             echo "" ;;
     esac
   }
 
   for src_type in E2E UNIT PRD_VS_CODE CODE_REVIEW RETRO P6_ACCURACY PRD_REVIEW CLARIFICATION DESIGN TECH_SELECTION DEPLOY MONITOR INTEGRATION PERF_AUDIT SEC_AUDIT; do
-    local pattern
-    pattern=$(get_source "$src_type")
-    [ -z "$pattern" ] && continue
-    local found
-    found=$(find . -type f -name "$(basename "$pattern")" 2>/dev/null | grep -v '/.git/' | grep -E "${FEATURE}" | head -3)
+    local found=""
+    # v3.22.0: 中英双 basename 都探测（P6_ACCURACY 为 .devflow 机器文件，直接按固定相对路径）
+    if [ "$src_type" = "P6_ACCURACY" ]; then
+      [ -f ".devflow/${FEATURE}/p6-accuracy.env" ] && found="./.devflow/${FEATURE}/p6-accuracy.env"
+    else
+      local _bn
+      while IFS= read -r _bn; do
+        [ -z "$_bn" ] && continue
+        found="$found$(find . -type f -name "$_bn" 2>/dev/null | grep -v '/.git/' | grep -E "${FEATURE}" | head -3)"$'\n'
+      done < <(get_source_names "$src_type")
+      found=$(printf '%s' "$found" | sed '/^$/d' | sort -u | head -3)
+    fi
+    [ -z "$found" ] && continue
 
     if [ -n "$found" ]; then
       while IFS= read -r f; do

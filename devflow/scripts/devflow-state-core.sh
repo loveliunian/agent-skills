@@ -306,18 +306,19 @@ compute_artifact_hash() {
     client_dir=$(jq -r '.scope.frontend_dir // empty' "$state_file" 2>/dev/null || true)
   fi
 
+  # v3.22.0: 文档层中文化——docs 产物目录中英双语都纳入哈希（存在才计，下方 [ -d ] 判定）
   case "$stage" in
-    P0|P0b)    artifact_dirs=("docs/requirements") ;;
-    P1|P2)     artifact_dirs=("docs/detailed-design") ;;
+    P0|P0b)    artifact_dirs=("docs/需求" "docs/requirements") ;;
+    P1|P2)     artifact_dirs=("docs/详细设计" "docs/detailed-design") ;;
     P3)        artifact_dirs=("backend"); [ -n "$client_dir" ] && artifact_dirs+=("$client_dir") ;;
-    P3b|P3c|P3d) artifact_dirs=("docs/review") ;;
-    P4|P4b)    artifact_dirs=("docs/test") ;;
-    P5)        artifact_dirs=("docs/test-cases") ;;
-    P6*)       artifact_dirs=("docs/test"); [ -n "$client_dir" ] && artifact_dirs+=("$client_dir") ;;
+    P3b|P3c|P3d) artifact_dirs=("docs/评审" "docs/review") ;;
+    P4|P4b)    artifact_dirs=("docs/测试" "docs/test") ;;
+    P5)        artifact_dirs=("docs/测试用例" "docs/test-cases") ;;
+    P6*)       artifact_dirs=("docs/测试" "docs/test" "docs/测试报告" "docs/tests"); [ -n "$client_dir" ] && artifact_dirs+=("$client_dir") ;;
     P7)        artifact_dirs=("deploy") ;;
-    P8)        artifact_dirs=("docs/deploy") ;;
+    P8)        artifact_dirs=("docs/发布" "docs/deploy") ;;
     P9|GRAPH_HEALTH) artifact_dirs=("docs") ;;
-    P10)       artifact_dirs=("docs/retrospectives") ;;
+    P10)       artifact_dirs=("docs/复盘" "docs/retrospectives" "docs/知识沉淀" "docs/knowledge") ;;
     *)         artifact_dirs=(".") ;;
   esac
 
@@ -575,7 +576,15 @@ cmd_constraints_freeze() {
   command -v jq >/dev/null 2>&1 || { error "constraints-freeze 需要 jq"; return 1; }
   source "$SCRIPT_DIR/tech_constraints_lib.sh"
 
-  local tc_file="${TECH_CONSTRAINTS_FILE:-docs/requirements/${feature}-technology-constraints.md}"
+  # v3.22.0: 技术约束文件中英双语解析
+  local tc_file=""
+  if [ -n "${TECH_CONSTRAINTS_FILE:-}" ]; then
+    tc_file="$TECH_CONSTRAINTS_FILE"
+  else
+    source "$SCRIPT_DIR/devflow_paths.sh"
+    tc_file="$(df_resolve_doc "$feature" constraints .md requirements)"
+    [ -n "$tc_file" ] || tc_file="docs/需求/${feature}-技术约束.md"
+  fi
   [ -f "$tc_file" ] || { error "技术约束文件不存在: ${tc_file}（P0 必须产出；无约束也要写 constraint_set=NONE 契约块）"; return 1; }
   if ! tc_validate_constraints "$tc_file" >/dev/null 2>&1; then
     error "技术约束机器契约不合法（status 须全 FROZEN、confirmed 须 true）——拒绝冻结: $tc_file"

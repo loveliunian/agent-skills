@@ -6,13 +6,18 @@ FEATURE="${1:-}"
 [ -n "$FEATURE" ] || { echo "Usage: $0 <feature>"; exit 2; }
 # v3.15.4→v3.15.5: feature 名白名单升级为共享函数（devflow_feature.sh）——路径穿越（../../evil 写穿项目外）封堵
 source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
+# v3.22.0: 文档层中文化（中文优先、英文回退）
+source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
 devflow_feature_validate "$FEATURE" || exit 2
 
 # v3.15.5: STATE_DIR 前置——FEEDBACK 此前写死 .devflow/，隔离部署（STATE_DIR 自定义）下
 # 读错目录（误报 feedback missing）且收据与 state 读取口径分裂。
 STATE_DIR="${STATE_DIR:-.devflow}"
-RETRO="docs/retrospectives/${FEATURE}-retro.md"
-KNOWLEDGE="docs/knowledge/${FEATURE}-sharing.md"
+# v3.22.0: 复盘/知识分享 中文优先、英文回退
+RETRO="$(df_resolve_doc "$FEATURE" retro .md retro)"
+[ -n "$RETRO" ] || RETRO="docs/retrospectives/${FEATURE}-retro.md"
+KNOWLEDGE="$(df_resolve_doc "$FEATURE" sharing .md knowledge)"
+[ -n "$KNOWLEDGE" ] || KNOWLEDGE="docs/knowledge/${FEATURE}-sharing.md"
 FEEDBACK="${STATE_DIR}/${FEATURE}/feedback/feedback.md"
 PASS=0
 FAIL=0

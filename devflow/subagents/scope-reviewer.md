@@ -1,7 +1,7 @@
 ---
 name: scope-reviewer
 subagent_type: generalPurpose
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   Adversarial reviewer #3 of 3. Use when running /review,
   checks "scope & alignment" angle: 1) is implementation aligned with PRD
@@ -30,7 +30,7 @@ disable-model-invocation: false
 ## 职责（只关注 Scope & Alignment）
 
 ### 1. PRD 意图对齐
-- 对照 `docs/prd/M-XX.md` 的 user story / 验收标准
+- 对照 `docs/PRD/M-XX.md` 的 user story / 验收标准
 - 实现的 user flow 是否真满足 PRD？
 - 是否有 PRD 要求但代码缺失的功能？
 - 是否有代码实现了但 PRD 没要求（超出范围）？
@@ -54,7 +54,7 @@ disable-model-invocation: false
 
 ## 输出格式
 
-写到 `docs/review/<feature>-scope-review.md`：
+写到 `docs/评审/<feature>-范围评审.md`：
 
 ```markdown
 # Scope & Alignment Review — M-XX

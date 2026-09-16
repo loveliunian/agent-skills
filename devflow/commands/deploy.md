@@ -1,6 +1,6 @@
 ---
 name: deploy
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   Use when deploying to staging or production after P6 and Review Gates pass, mentions
   "/deploy", "部署", "发布", "go live", "上线", "staging", or "production release".
@@ -37,7 +37,7 @@ allowed-tools:
 
 ## 命名约定
 
-输出：`docs/deploy/<feature>-deploy-record.md`
+输出：`docs/发布/<feature>-部署记录.md`
 
 ## 执行步骤
 
@@ -45,7 +45,7 @@ allowed-tools:
 
 ```bash
 # P6 完成度自检必须 PASS
-test -f docs/retrospectives/<feature>-audit-P6.md || { echo "BLOCKED: P6 自检未完成"; exit 1; }
+test -f docs/复盘/<feature>-audit-P6.md || { echo "BLOCKED: P6 自检未完成"; exit 1; }
 # E2E 通过率 ≥95%
 # 单测覆盖率 ≥80%
 # 集成测试 全 PASS
@@ -103,7 +103,7 @@ curl -sS "http://localhost:$PORT/actuator/info" | grep -F "$(printf '%s' "$ARTIF
 
 ### 5. 写入部署记录
 
-输出到 `docs/deploy/<feature>-deploy-record.md`：
+输出到 `docs/发布/<feature>-部署记录.md`：
 
 ```markdown
 # <feature> 部署记录
@@ -168,14 +168,14 @@ Gate（强制）
 
 | 项 | 强制条件 |
 |----|----------|
-| 部署记录路径 | `docs/deploy/<feature>-deploy-record.md` 实际写入 |
+| 部署记录路径 | `docs/发布/<feature>-部署记录.md` 实际写入 |
 | curl /actuator/health | **必须 = 200 + status: UP**（**附真实命令输出**） |
 | docker-compose healthcheck | **必须 grep 命中** |
 | 不允许仅有"部署成功"文字 | 强制附命令 stdout |
 
 ## 输出
 
-- `docs/deploy/<feature>-deploy-record.md`
+- `docs/发布/<feature>-部署记录.md`
 
 ## 自检命令
 

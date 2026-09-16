@@ -1,6 +1,6 @@
 ---
 name: PRD评审-模板
-version: "3.21.1"
+version: "3.22.0"
 description: PRD 评审模板（P0b 阶段，多角色评审循环，DF/AW 深度契约 v3.14.0）
 ---
 
@@ -9,8 +9,8 @@ description: PRD 评审模板（P0b 阶段，多角色评审循环，DF/AW 深�
 > 本文档用于记录 PRD 评审结论，确保需求完整且可执行。
 >
 > **P0/P0b 职责边界**：
-> - **P0（需求澄清）**：Agent 与用户一对一澄清模糊点，产出 `*-clarification.md`
-> - **P0b（PRD评审）**：多 Agent 评审团正式评审，产出 `*-prd-review.md`
+> - **P0（需求澄清）**：Agent 与用户一对一澄清模糊点，产出 `*-需求澄清.md`
+> - **P0b（PRD评审）**：多 Agent 评审团正式评审，产出 `*-PRD评审.md`
 >
 > **评审通过条件**：所有角色评审结论 = ✅，遗留问题 = 0
 > **深度契约**：问题分深层发现（DF）与表层发现（SF）；歧义术语必须形成决议；对抗场景走查 ≥2 条。规范见 `concepts/review-depth-methodology.md`；Gate 按 DF/AW 标记机械校验（`artifact_gate.sh P0b`）。
@@ -20,7 +20,7 @@ description: PRD 评审模板（P0b 阶段，多角色评审循环，DF/AW 深�
 | 项 | 内容 |
 |---|------|
 | 功能名称 | {FeatureName} |
-| PRD 文档 | `docs/prd/{prd-file}.md` |
+| PRD 文档 | `docs/PRD/{prd-file}.md` |
 | 评审日期 | {YYYY-MM-DD} |
 | 评审地点 | {线上/线下} |
 | 主持人 | |

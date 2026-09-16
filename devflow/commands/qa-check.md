@@ -1,7 +1,7 @@
 ---
 name: qa-check
 description: 一键代码质量检测命令
-version: "3.21.1"
+version: "3.22.0"
 allowed-tools: [read, write, exec, glob, grep, task]
 alwaysApply: true
 ---
@@ -54,7 +54,7 @@ bash "$SKILL_ROOT/checks/run-all-checks.sh" --no-frontend
 退出码 0 = 全部 PASS，非 0 = 至少一项 FAIL。需要留档时由调用方重定向：
 
 ```bash
-bash "$SKILL_ROOT/checks/run-all-checks.sh" 2>&1 | tee docs/review/<feature>-qa-check.log
+bash "$SKILL_ROOT/checks/run-all-checks.sh" 2>&1 | tee docs/评审/<feature>-质量检查.log
 ```
 
 ## 报告解读

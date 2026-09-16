@@ -3,6 +3,8 @@
 # : 推导 feature，避免写入 default 目录
 source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
 source "$(cd "$(dirname "$0")" && pwd)/devflow_receipt.sh"
+# v3.22.0: 文档层中文化（中文优先、英文回退）
+source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
 # v3.14.1: 一次性推导；失败（多 state/无 state）即拒绝执行，杜绝 default 目录
 EFF_FEATURE="$(devflow_feature "${FEATURE:-}")" || { echo "[FATAL] feature 推导失败，拒绝继续"; exit 2; }
 [ -n "$EFF_FEATURE" ] || { echo "[FATAL] feature 为空，拒绝继续"; exit 2; }
@@ -148,7 +150,12 @@ rm -f "$CRITERIA_IDS_FILE" "$DESIGN_IDS_FILE"
 # ---------- §2b 技术硬约束引用 (v3.16.26 NEW) ----------
 echo ""
 echo "=== §2b 技术硬约束引用 ==="
-TC_PATH="${TECH_CONSTRAINTS_FILE:-docs/requirements/${EFF_FEATURE}-technology-constraints.md}"
+if [ -n "${TECH_CONSTRAINTS_FILE:-}" ]; then
+  TC_PATH="$TECH_CONSTRAINTS_FILE"
+else
+  TC_PATH="$(df_resolve_doc "$EFF_FEATURE" constraints .md requirements)"
+  [ -n "$TC_PATH" ] || TC_PATH="docs/需求/${EFF_FEATURE}-技术约束.md"
+fi
 source "$SCRIPT_DIR/tech_constraints_lib.sh"
 if [ ! -f "$TC_PATH" ]; then
   p0 "technology constraints missing: $TC_PATH — P2 详设必须逐条引用 constraint_id"

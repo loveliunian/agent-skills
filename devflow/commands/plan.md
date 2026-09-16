@@ -1,12 +1,12 @@
 ---
 name: plan
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   Use when decomposing a detailed design into actionable tasks, mentions
   "/plan", "任务分解", "任务清单", "分解任务", "break down", "task list", or "work items".
   Input: frozen acceptance criteria and detailed design. Output: vertical-slice tasks mapped to acceptance IDs and design anchors.
 paths:
-  - "docs/detailed-design/**"
+  - "docs/详细设计/**"
   - "tasks/**"
 disable-model-invocation: false
 allowed-tools:
@@ -19,7 +19,7 @@ allowed-tools:
 
 # /plan - 任务分解规划
 
-> **前置依赖**：`/spec` 已完成 → `docs/detailed-design/<feature>-design.md` 已冻结。
+> **前置依赖**：`/spec` 已完成 → `docs/详细设计/<feature>-详细设计.md` 已冻结。
 > **核心原则**：每个任务必须映射至少一个冻结验收ID和设计锚点；切片本身必须可独立验收。
 
 ## 使用方式
@@ -41,9 +41,9 @@ allowed-tools:
 ### 1. 读取详设
 
 ```bash
-test -f docs/detailed-design/<feature>-design.md || { echo "BLOCKED: 详设缺失"; exit 1; }
-test -f docs/requirements/<feature>-acceptance-criteria.md || { echo "BLOCKED: 验收基线缺失"; exit 1; }
-bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/detailed-design/<feature>-design.md docs/requirements/<feature>-acceptance-criteria.md
+test -f docs/详细设计/<feature>-详细设计.md || { echo "BLOCKED: 详设缺失"; exit 1; }
+test -f docs/需求/<feature>-验收点.md || { echo "BLOCKED: 验收基线缺失"; exit 1; }
+bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/详细设计/<feature>-详细设计.md docs/需求/<feature>-验收点.md
 ```
 
 ### 2. 解析详设章节
@@ -115,10 +115,10 @@ Gate
 
 ```bash
 # /plan 自检：详设交叉引用 + 无循环依赖 + 级别标注
-test -f docs/detailed-design/<feature>-design.md && echo "详设 OK"
+test -f docs/详细设计/<feature>-详细设计.md && echo "详设 OK"
 
 # 冻结验收ID集合必须与计划引用集合相等
-FROZEN=$(grep -oE 'M-?[0-9]{2}-F[0-9]{2}-A[0-9]{2}' docs/requirements/<feature>-acceptance-criteria.md | sort -u)
+FROZEN=$(grep -oE 'M-?[0-9]{2}-F[0-9]{2}-A[0-9]{2}' docs/需求/<feature>-验收点.md | sort -u)
 PLANNED=$(grep -oE 'M-?[0-9]{2}-F[0-9]{2}-A[0-9]{2}' tasks/plan.md | sort -u)
 test "$FROZEN" = "$PLANNED"
 
@@ -149,6 +149,6 @@ grep "^| T-" tasks/plan.md | awk -F'|' '
 
 ```bash
 # 运行真实 Gate，以退出码为准；禁止 echo 自报 PASS
-EXPECT_DATA=1 EXPECT_API=1 bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/detailed-design/<feature>-design.md docs/requirements/<feature>-acceptance-criteria.md
+EXPECT_DATA=1 EXPECT_API=1 bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/详细设计/<feature>-详细设计.md docs/需求/<feature>-验收点.md
 # 期望：exit 0 = 设计覆盖率 100%
 ```

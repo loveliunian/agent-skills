@@ -40,6 +40,8 @@ done
 case "$CHECK_MODE" in security|performance|full) ;; *) echo "[ERR] invalid mode: $CHECK_MODE"; exit 2 ;; esac
 # v3.15.5: feature 白名单共享校验（devflow_feature.sh）——封堵路径穿越（../evil 写穿项目外）与 grep -E 正则注入
 source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
+# v3.22.0: 文档层中文化（中文优先、英文回退）
+source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
 devflow_feature_validate "$FEATURE" || exit 2
 REPORT_DIR="${WORK_DIR}/${FEATURE}"
 REPORT_FILE="${REPORT_DIR}/p3-security-perf-report.md"
@@ -116,7 +118,10 @@ check_n_plus_one() {
 check_response_time() {
   echo ""; echo "=== §3 性能审计 — API 响应时间 ==="
   should_skip "response" || should_skip "perf" && { not_applicable_or_fail PERFORMANCE "响应时间检查被跳过"; return; }
-  local perf="docs/test/${FEATURE}-load-test-report.md"
+  # v3.22.0: 压测报告路径中英双语（docs/测试 优先，回退 docs/test）
+  local perf
+  perf="$(df_resolve_doc "$FEATURE" load_test .md test)"
+  [ -n "$perf" ] || perf="docs/test/${FEATURE}-load-test-report.md"
   echo "| P95 | 见 $perf |" >> "$REPORT_FILE"
   if [ -f "$perf" ]; then
     local p95

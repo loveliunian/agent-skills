@@ -15,7 +15,8 @@
 set -uo pipefail
 
 CONTROLLER_GLOB="${CONTROLLER_GLOB:-backend/*/src/main/java/**/*.java}"
-DOC_DIR="${DOC_DIR:-docs/detailed-design}"
+# v3.22.0: 默认目录中文化；历史英文目录已存在且未显式指定 DOC_DIR 时沿用
+if [ -n "${DOC_DIR:-}" ]; then :; elif [ -d "docs/detailed-design" ] && [ ! -d "docs/详细设计" ]; then DOC_DIR="docs/detailed-design"; else DOC_DIR="docs/详细设计"; fi
 OUTPUT_FILE="${OUTPUT_FILE:-${DOC_DIR}/_权限矩阵.md}"
 PLACEHOLDER_REGEX="xxx|xxx:yyy:zzz|具体权限码"
 
@@ -46,7 +47,8 @@ python3 << 'PYEOF'
 import os, re, sys, glob, collections
 
 controller_glob = os.environ.get('CONTROLLER_GLOB', 'backend/*/src/main/java/**/*.java')
-output_file     = os.environ.get('OUTPUT_FILE', 'docs/detailed-design/_权限矩阵.md')
+# v3.22.0: 默认输出目录中文化（DOC_DIR 已由外层 shell 按中英存在性选定）
+output_file     = os.environ.get('OUTPUT_FILE', os.environ.get('DOC_DIR', 'docs/详细设计') + '/_权限矩阵.md')
 placeholder_rx  = os.environ.get('PLACEHOLDER_REGEX', 'xxx|xxx:yyy:zzz|具体权限码')
 dry_run         = int(os.environ.get('DRY_RUN', '0'))
 diff_mode       = int(os.environ.get('DIFF_MODE', '0'))

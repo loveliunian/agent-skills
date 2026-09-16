@@ -1,6 +1,6 @@
 ---
 name: audit-completeness
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   Use when checking Phase completion before transitioning to the next phase, mentions
   "/audit", "/audit-completeness", "检查完成度", "阶段门控", "P3 自检", or "gate self-check".
@@ -113,10 +113,10 @@ claude "你是 completeness-auditor。运行 /audit-completeness P3 <feature> ..
 bash "$SKILL_ROOT/scripts/s0_acceptance_gate.sh" <feature>
 
 # P1
-bash "$SKILL_ROOT/scripts/s1_fact_sources_gate.sh" docs/detailed-design
+bash "$SKILL_ROOT/scripts/s1_fact_sources_gate.sh" docs/详细设计
 
 # P2
-bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/detailed-design/<feature>-design.md docs/requirements/<feature>-acceptance-criteria.md
+bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/详细设计/<feature>-详细设计.md docs/需求/<feature>-验收点.md
 
 # P2 迁移映射（A自动豁免；B/C必须映射）
 bash "$SKILL_ROOT/scripts/s3_migration_mapping_gate.sh" <A|B|C> docs/数据映射/<feature>-映射.md <source-count>
@@ -126,14 +126,14 @@ test -f .devflow/<feature>/first-pass-baseline.tsv
 bash "$SKILL_ROOT/scripts/s6_first_pass_accuracy.sh" <feature> 80
 
 # P5（A自动豁免）
-bash "$SKILL_ROOT/scripts/s5_migration_gate.sh" <A|B|C> docs/test/<feature>-migration-evidence.env
+bash "$SKILL_ROOT/scripts/s5_migration_gate.sh" <A|B|C> docs/测试/<feature>-migration-evidence.env
 
 # 图谱健康（P4b 后可选）——REPORT 环境变量传报告路径（feature 已嵌入路径）
 # v3.15.17: 移除误传的 <feature> 位置参数——s8 为二选一设计（feature→默认路径
 # .devflow/<feature>/graph-health-report.env；REPORT/--report→显式路径）。REPORT 已
 # 显式指定时传 feature 仅剩 scope 标签冗余 + 触发 .devflow/<feature>/ 空目录 mkdir
 # 副作用（REPORT_FILE 被 REPORT 覆盖，目录白建）。与编排方 s8b/方法论口径对齐。
-REPORT=docs/test/<feature>-graph-evidence.env bash "$SKILL_ROOT/maintenance/s8_graph_health_gate.sh"
+REPORT=docs/测试/<feature>-graph-evidence.env bash "$SKILL_ROOT/maintenance/s8_graph_health_gate.sh"
 ```
 
 P0-P2缺失时不得进入P3；P4 baseline必须在代码前冻结。P6准确率仅在首次Review/测试结果记录后运行。独立审计会话不可用时返回`BLOCKED`。
@@ -165,7 +165,7 @@ echo "command: artifact_gate.sh P9 <feature>"; echo "exit_code: $rc"
 | `<service>` | 从项目模块与部署清单解析的服务目录名 | `order-service` |
 | `<port>` | 从配置、环境变量或部署清单解析的实际端口 | `8080` |
 
-> **示例**：`/audit-completeness P3 <feature>` 在 `docs/retrospectives/<feature>-audit-P3.md` 写报告（kebab-case）。
+> **示例**：`/audit-completeness P3 <feature>` 在 `docs/复盘/<feature>-audit-P3.md` 写报告（kebab-case）。
 
 ### P3 完成度自检（权威入口）
 
@@ -188,7 +188,7 @@ bash "$SKILL_ROOT/scripts/build-watchdog.sh" gate <feature>
 
 ```bash
 # Review 报告存在性 + P0 阻断项数
-REPORT=docs/review/<feature>-code-review-report.md
+REPORT=docs/评审/<feature>-代码审查报告.md
 test -f "$REPORT" || { echo "[P0] Report not found: $REPORT"; exit 1; }
 # P0-7 修复: 先检查文件存在性，缺失报告应该 FAIL 而不是 0
 P0_COUNT=$(grep -cE "\| P0-" "$REPORT" 2>/dev/null || echo 0)
@@ -200,7 +200,7 @@ test "$P0_COUNT" -eq 0  # 必须 = 0
 
 ```bash
 # Security 报告 P0 阻断项数
-REPORT=docs/review/<feature>-security-audit-report.md
+REPORT=docs/评审/<feature>-安全审计报告.md
 test -f "$REPORT" || { echo "[P0] Report not found: $REPORT"; exit 1; }
 # P0-7 修复: 先检查文件存在性，缺失报告应该 FAIL 而不是 0
 P0_COUNT=$(grep -cE "\| P0-" "$REPORT" 2>/dev/null || echo 0)
@@ -212,7 +212,7 @@ test "$P0_COUNT" -eq 0
 
 ```bash
 # Performance 报告存在性
-REPORT=docs/review/<feature>-performance-audit-report.md
+REPORT=docs/评审/<feature>-性能审计报告.md
 test -f "$REPORT" || { echo "[P0] Report not found: $REPORT"; exit 1; }
 P95=$(grep -oE "P95[^|]*[0-9]+ms" "$REPORT" | head -1 | grep -oE "[0-9]+")
 THRESHOLD=500  # 阈值：P95 < 500ms
@@ -243,13 +243,13 @@ exit $rc
 
 ```bash
 # 详设 §6 功能点
-FUNC_POINTS=$(grep -cE "^### 6\.|^#### 6\." docs/detailed-design/<feature>-design.md 2>/dev/null | tr -d ' ')
+FUNC_POINTS=$(grep -cE "^### 6\.|^#### 6\." docs/详细设计/<feature>-详细设计.md 2>/dev/null | tr -d ' ')
 
 # 测试用例数（kebab-case 文档）
-TEST_CASES=$(find docs/test-cases -name "<feature>*.md" -type f -exec grep -cE "^[0-9]+\." {} + 2>/dev/null | awk '{s+=$1} END {print s+0}')
+TEST_CASES=$(find docs/测试用例 -name "<feature>*.md" -type f -exec grep -cE "^[0-9]+\." {} + 2>/dev/null | awk '{s+=$1} END {print s+0}')
 
 # 客户端旅程用例清单：PC Web、小程序、APP 使用同一证据契约
-CLIENT_CASES=$(grep -cE '^\|[[:space:]]*CLIENT-' "docs/test-cases/<feature>-client-journeys.md" 2>/dev/null || echo 0)
+CLIENT_CASES=$(grep -cE '^\|[[:space:]]*CLIENT-' "docs/测试用例/<feature>-客户端旅程.md" 2>/dev/null || echo 0)
 
 echo "详设功能点=$FUNC_POINTS, 业务用例=$TEST_CASES, 客户端旅程=$CLIENT_CASES"
 TOTAL=$((TEST_CASES + CLIENT_CASES))
@@ -263,7 +263,7 @@ CLIENT_ROOT="<client-root>"
 PLATFORM="<pc-web|mini-program|app|not-applicable>"
 bash "$SKILL_ROOT/scripts/client-adapter.sh" test "$PLATFORM" "$CLIENT_ROOT" --strict
 
-REPORT="docs/test/<feature>-client-journey-report.md"
+REPORT="docs/测试/<feature>-客户端旅程报告.md"
 test "$PLATFORM" = "not-applicable" || test -f "$REPORT" || {
   echo "BLOCKED: 缺少真实客户端旅程报告"; exit 1;
 }
@@ -284,14 +284,14 @@ grep -qE 'SKIP[=:][[:space:]]*100%|100%[[:space:]]*SKIP' "$REPORT" 2>/dev/null &
 # 推荐：一键执行
 bash "$SKILL_ROOT/scripts/p6_credential_gate.sh" <feature>
 # 手动分项
-REPORT=docs/tests/<feature>-测试报告.md
+REPORT=docs/测试报告/<feature>-测试报告.md
 test -f "$REPORT" || { echo "FAIL: 测试报告不存在"; exit 1; }
 if grep -vE "已作废|v[0-9] 修订|错误做法|反例引用" "$REPORT" \
    | grep -qE "尝试.*admin[0-9]+|尝试.*常见密码|尝试.*多个密码|盲猜|穷举.*密码"; then
   echo "BLOCKED: 测试报告含盲猜密码审计错误 — P0 阻断"
   exit 1
 fi
-CASES=$(find docs/test-cases docs/tests -name "<feature>*端到端测试用例*.md" -o -name "<feature>*test-cases*.md" 2>/dev/null | head -1)
+CASES=$(find docs/测试用例 docs/测试报告 -name "<feature>*端到端测试用例*.md" -o -name "<feature>*test-cases*.md" 2>/dev/null | head -1)
 if [ -n "$CASES" ] && [ -f "$CASES" ]; then
   HAS_USERNAME=$(grep -cE "\| 用户名" "$CASES")
   HAS_PASSWORD=$(grep -cE "\| 密码" "$CASES")
@@ -321,24 +321,24 @@ exit $rc
 # v3.15.1: 只调用权威 Gate，原样传播退出码（五个文件全 MISSING 却 exit 0 的旧循环已废除）
 bash "$SKILL_ROOT/scripts/artifact_gate.sh" P9 <feature>
 rc=$?
-# Gate 校验：docs/<feature>-docs-index.md 声明五类文档路径 + 各自 <KEY>_SHA256；
+# Gate 校验：docs/<feature>-文档索引.md 声明五类文档路径 + 各自 <KEY>_SHA256；
 #           每份文档 ≥10 行、≥2 标题、≥5 正文行、含类别语义章节（用户/开发/API/运维/发布）
 exit $rc
 ```
 
-> 命名约定：所有产物路径使用 kebab-case（如 `docs/test/<feature>-validation-report.md`），禁止中英混合文件名。
+> 命名约定：所有产物路径使用 kebab-case（如 `docs/测试/<feature>-PRD验证报告.md`），禁止中英混合文件名。
 
 ### P10 完成度自检（复盘内容）
 
 ```bash
 # 复盘必须含"上次遗漏了什么"段
-grep -c "上次遗漏\|本次新发现" docs/retrospectives/<feature>-retro.md
+grep -c "上次遗漏\|本次新发现" docs/复盘/<feature>-复盘.md
 # 必须 ≥ 1
 ```
 
 ## 输出
 
-完成度自检报告（写入 `docs/retrospectives/<feature>-audit-<phase>.md`）：
+完成度自检报告（写入 `docs/复盘/<feature>-audit-<phase>.md`）：
 
 ```markdown
 # 完成度自检报告 — <feature> / <phase>

@@ -1,6 +1,6 @@
 ---
 name: completeness-gate
-version: "3.21.1"
+version: "3.22.0"
 description: 完成度门控参考手册（机器可验证证据 + 历史教训专项检查）
 ---
 
@@ -74,7 +74,7 @@ find backend/<service>/src/main/java -name "*Controller.java" -type f \
 ：
 ```bash
 # P4 Gate — P0 阻断项数必须 = 0
-P0_COUNT=$(grep -c "| P0-" docs/test/<feature>-validation-report.md)
+P0_COUNT=$(grep -c "| P0-" docs/测试/<feature>-PRD验证报告.md)
 test "$P0_COUNT" -eq 0
 ```
 
@@ -102,16 +102,16 @@ grep "healthcheck:" deploy/docker-compose.prod.yml                              
 
 ### 2.5 文档"已完成"无实际路径
 
-：`docs/retrospectives/` `knowledge/` `review/` `test/` `test-cases/` 五个标准目录 M-03 全部缺失，但 P9-P10 仍标 ✅
+：`docs/复盘/` `knowledge/` `review/` `test/` `test-cases/` 五个标准目录 M-03 全部缺失，但 P9-P10 仍标 ✅
 
 ：
 ```bash
 # P9 Gate — 标准目录文件路径必须存在
-for f in docs/test/<feature>-validation-report.md \
-         docs/test-cases/<feature>-test-cases.md \
-         docs/retrospectives/<feature>-retro.md \
-         docs/knowledge/<feature>-sharing.md \
-         docs/review/<feature>-code-review-report.md; do
+for f in docs/测试/<feature>-PRD验证报告.md \
+         docs/测试用例/<feature>-测试用例.md \
+         docs/复盘/<feature>-复盘.md \
+         docs/知识沉淀/<feature>-知识分享.md \
+         docs/评审/<feature>-代码审查报告.md; do
   test -f "$f" && echo "$f OK" || echo "$f MISSING"
 done
 # 至少 5 个必须 OK
@@ -171,7 +171,7 @@ grep -nE "elementId.*versionId|mergeMemberBefore.*:.*:" \
 
 ```bash
 # 模块类型自动判断
-MODULE_TYPE=$(find docs/detailed-design/<feature>-design.md -exec grep -lE \
+MODULE_TYPE=$(find docs/详细设计/<feature>-详细设计.md -exec grep -lE \
   "gov:process|gov_element|gov_reference|gov_form" {} \; | wc -l | tr -d ' ')
 if [ "$MODULE_TYPE" -gt 0 ]; then
   echo "检测到治理类模块 → 跑 8 项专项"
@@ -252,5 +252,5 @@ N / 总数
 | "差不多就行" | 标准不达标 | 必须按详设冻结口径 grep |
 | "P0 阻断以后再说" | 阻断穿越 Phase 边界 | P0 必须 = 0 才能进 P5 |
 | "由开发 Agent 自评" | 自我感觉良好 | 独立 completeness-auditor 角色 |
-| "本次发现 N 个坑" 但不写入 retro | 经验丢失 | 必须写入 `retrospectives/<feature>-retro.md` |
+| "本次发现 N 个坑" 但不写入 retro | 经验丢失 | 必须写入 `retrospectives/<feature>-复盘.md` |
 | 监控/日志"基本就绪" | 缺失被掩盖 | 三件套 curl 必须返回 200 |

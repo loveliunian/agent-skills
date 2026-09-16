@@ -1,6 +1,6 @@
 ---
 name: docs
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   Use when updating project documentation after a feature is delivered, mentions
   "/docs", "更新文档", "文档", "文档更新", "api docs", "readme", "changelog", or "doc update".
@@ -38,7 +38,7 @@ allowed-tools:
 
 ## 命名约定
 
-`<feature>` = kebab-case 全小写 → 输出在 `docs/api/` `docs/ops/` `docs/retrospectives/` 等。
+`<feature>` = kebab-case 全小写 → 输出在 `docs/api/` `docs/ops/` `docs/复盘/` 等。
 
 | 文档 | 路径 |
 |------|------|
@@ -47,7 +47,7 @@ allowed-tools:
 | Runbook | `docs/runbook/<feature>-runbook.md`（可选） |
 | FAQ | `docs/faq/<feature>-faq.md`（可选） |
 | 数据字典 | `docs/data/<feature>-data-dictionary.md`（可选） |
-| 复盘 | `docs/retrospectives/<feature>-retro.md` |
+| 复盘 | `docs/复盘/<feature>-复盘.md` |
 
 ## 执行步骤
 
@@ -76,7 +76,7 @@ find docs/ -name "<feature>-*.md" -type f
 
 ### 4. 复盘 markdown
 
-`docs/retrospectives/<feature>-retro.md` 必须含：
+`docs/复盘/<feature>-复盘.md` 必须含：
 - "上次遗漏了什么"段
 - "本次新发现的坑"段
 - 修复策略
@@ -84,7 +84,7 @@ find docs/ -name "<feature>-*.md" -type f
 
 ### 5. 输出文档路径清单与 P9 索引
 
-写到 `docs/retrospectives/<feature>-audit-P9.md` 或直接 stdout：
+写到 `docs/复盘/<feature>-audit-P9.md` 或直接 stdout：
 
 ```markdown
 # <feature> 文档清单
@@ -93,19 +93,19 @@ find docs/ -name "<feature>-*.md" -type f
 
 1. `docs/api/<feature>-api.md` ✅ (文件大小: 12KB, 行数: 280)
 2. `docs/ops/<feature>-ops.md` ✅ (文件大小: 8KB, 行数: 195)
-3. `docs/retrospectives/<feature>-retro.md` ✅ (文件大小: 5KB, 行数: 120)
-4. `docs/test/<feature>-validation-report.md` ✅ (文件大小: 15KB, 行数: 360)
-5. `docs/review/<feature>-code-review-report.md` ✅ (文件大小: 18KB, 行数: 425)
-6. `docs/review/<feature>-security-audit-report.md` ✅ (文件大小: 10KB, 行数: 240)
-7. `docs/review/<feature>-performance-audit-report.md` ✅ (文件大小: 9KB, 行数: 210)
-8. `docs/deploy/<feature>-deploy-record.md` ✅ (文件大小: 6KB, 行数: 150)
-9. `docs/deploy/<feature>-monitor-config.md` ✅ (文件大小: 5KB, 行数: 120)
-10. `docs/test-cases/<feature>-test-cases.md` ✅ (文件大小: 25KB, 行数: 580)
+3. `docs/复盘/<feature>-复盘.md` ✅ (文件大小: 5KB, 行数: 120)
+4. `docs/测试/<feature>-PRD验证报告.md` ✅ (文件大小: 15KB, 行数: 360)
+5. `docs/评审/<feature>-代码审查报告.md` ✅ (文件大小: 18KB, 行数: 425)
+6. `docs/评审/<feature>-安全审计报告.md` ✅ (文件大小: 10KB, 行数: 240)
+7. `docs/评审/<feature>-性能审计报告.md` ✅ (文件大小: 9KB, 行数: 210)
+8. `docs/发布/<feature>-部署记录.md` ✅ (文件大小: 6KB, 行数: 150)
+9. `docs/发布/<feature>-监控配置.md` ✅ (文件大小: 5KB, 行数: 120)
+10. `docs/测试用例/<feature>-测试用例.md` ✅ (文件大小: 25KB, 行数: 580)
 
 **总计：10 份文档 ✅（≥ 5 份）**
 ```
 
-并创建 `docs/<feature>-docs-index.md`（使用 `templates/文档索引-模板.md`），填写并验证：
+并创建 `docs/<feature>-文档索引.md`（使用 `templates/文档索引-模板.md`），填写并验证：
 
 ```text
 USER_DOC=docs/...
@@ -136,7 +136,7 @@ Gate（强制）
 
 - `docs/api/<feature>-api.md`
 - `docs/ops/<feature>-ops.md`
-- `docs/retrospectives/<feature>-retro.md`
+- `docs/复盘/<feature>-复盘.md`
 - 其他辅助文档
 
 ## 自检命令
@@ -150,9 +150,9 @@ test "$COUNT" -ge 5  # 必须 ≥ 5
 # 关键文档存在性
 for f in docs/api/<feature>-api.md \
          docs/ops/<feature>-ops.md \
-         docs/retrospectives/<feature>-retro.md \
-         docs/test/<feature>-validation-report.md \
-         docs/review/<feature>-code-review-report.md; do
+         docs/复盘/<feature>-复盘.md \
+         docs/测试/<feature>-PRD验证报告.md \
+         docs/评审/<feature>-代码审查报告.md; do
   test -f "$f" && echo "$f OK" || echo "$f MISSING"
 done
 ```

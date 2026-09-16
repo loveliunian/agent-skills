@@ -31,7 +31,14 @@
 # 不加 set -u，避免 bash 5 在数组展开时的兼容问题
 set -o pipefail
 
-DOC_DIR="${DOC_DIR:-docs/detailed-design}"
+# v3.22.0: 默认事实源目录中文化；历史英文目录已存在且未显式指定 DOC_DIR 时沿用，避免重复初始化两套
+if [ -n "${DOC_DIR:-}" ]; then
+  :
+elif [ -d "docs/detailed-design" ] && [ ! -d "docs/详细设计" ]; then
+  DOC_DIR="docs/detailed-design"
+else
+  DOC_DIR="docs/详细设计"
+fi
 OUTPUT_DIR="$DOC_DIR"
 FORCE=0
 
@@ -168,9 +175,9 @@ gen_cross_platform() {
 ## 快速开始
 
 \`\`\`bash
-/devflow docs/prd/<feature>.md       # 完整开发流程
+/devflow docs/PRD/<feature>.md       # 完整开发流程
 /spec <feature>                      # PRD + 详设
-/build docs/detailed-design/<feature>-design.md  # 全栈编码
+/build docs/详细设计/<feature>-详细设计.md  # 全栈编码
 /review                              # Adversarial 3 评审
 /init-fact-sources                   # 初始化事实源
 \`\`\`
@@ -203,9 +210,9 @@ CROSS_EOF
 ## 快速开始
 
 \`\`\`bash
-/devflow docs/prd/<feature>.md       # 完整开发流程
+/devflow docs/PRD/<feature>.md       # 完整开发流程
 /spec <feature>                      # PRD + 详设
-/build docs/detailed-design/<feature>-design.md  # 全栈编码
+/build docs/详细设计/<feature>-详细设计.md  # 全栈编码
 /init-fact-sources                   # 初始化事实源
 \`\`\`
 

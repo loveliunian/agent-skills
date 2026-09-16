@@ -1,6 +1,6 @@
 ---
 name: devflow-routing
-version: "3.21.1"
+version: "3.22.0"
 description: devflow 命令、阶段、Gate 与人工资源注册表。
 ---
 
@@ -40,10 +40,10 @@ description: devflow 命令、阶段、Gate 与人工资源注册表。
 
 | 阶段 | 关键产物 | Gate |
 |---|---|---|
-| P0 | `docs/requirements/<feature>-acceptance-criteria.md` + `<feature>-technology-constraints.md` | `s0_acceptance_gate.sh` |
-| P0b | `docs/requirements/<feature>-prd-review.md` | `artifact_gate.sh P0b` |
+| P0 | `docs/需求/<feature>-验收点.md` + `<feature>-技术约束.md` | `s0_acceptance_gate.sh` |
+| P0b | `docs/需求/<feature>-PRD评审.md` | `artifact_gate.sh P0b` |
 | P1 | 技术选型与工程事实源 | `s1_fact_sources_gate.sh` |
-| P2 | `docs/detailed-design/<feature>-design.md` | `s2_design_coverage_gate.sh` |
+| P2 | `docs/详细设计/<feature>-详细设计.md` | `s2_design_coverage_gate.sh` |
 | P2a | 详设评审报告，5 角色（范围、架构、可行性、技术、DBA） | `p2a_design_review_gate.sh` |
 | P2b | 原型 Demo 证据 | `p2b_demo_gate.sh` |
 | P3 | 服务端、客户端、迁移、单测 | `build-watchdog.sh gate`（P3-build）+ `p3_completion_gate.sh` |

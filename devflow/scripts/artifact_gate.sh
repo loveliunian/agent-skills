@@ -11,14 +11,16 @@ PHASE="${1:-}"
 FEATURE="${2:-}"
 if [ -z "$PHASE" ] || [ -z "$FEATURE" ]; then
   echo "Usage: artifact_gate.sh <P0b|P7|P8|P9> <feature>"
-  echo "  P0b: docs/requirements/<f>-prd-review.md（评审报告，遗留问题=0，DF/AW 深度契约 v3.14.0）"
-  echo "  P7 : docs/deploy/<f>-deploy-record.md（部署记录，含日期）"
-  echo "  P8 : docs/deploy/<f>-monitor-config.md（监控配置，含监控三件套要素）"
+  echo "  P0b: docs/需求/<f>-PRD评审.md（评审报告，遗留问题=0，DF/AW 深度契约 v3.14.0；兼容英文历史路径）"
+  echo "  P7 : docs/发布/<f>-部署记录.md（部署记录，含日期；兼容英文历史路径）"
+  echo "  P8 : docs/发布/<f>-监控配置.md（监控配置，含监控三件套要素；兼容英文历史路径）"
   echo "  P9 : docs/ 下 ≥5 份用户/开发文档（排除流程产物目录）"
   exit 2
 fi
 # v3.15.5: feature 白名单共享校验（devflow_feature.sh）——封堵路径穿越（../evil 写穿项目外）与 grep -E 正则注入
 source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
+# v3.22.0: 文档层中文化（中文优先、英文回退）
+source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
 devflow_feature_validate "$FEATURE" || exit 2
 
 FAIL=0; PASS=0; WARN=0
@@ -54,16 +56,21 @@ verify_client_release() {
 case "$PHASE" in
   P0b)
     echo "=== P0b PRD 评审产物 Gate ==="
-    R="docs/requirements/${FEATURE}-prd-review.md"
+    # v3.22.0: 中文优先、英文回退
+    R="$(df_resolve_doc "$FEATURE" prd_review .md requirements)"
+    [ -n "$R" ] || R="docs/requirements/${FEATURE}-prd-review.md"
     EVIDENCE_PATH="$R"
     # v3.14.1: 领域专项清单（PRD 阶段）——平台非 not-applicable 或存在对接信号时强制
-    DC="docs/requirements/${FEATURE}-prd-domain-checklist.md"
+    DC="$(df_resolve_doc "$FEATURE" prd_domain_checklist .md requirements)"
+    [ -n "$DC" ] || DC="docs/requirements/${FEATURE}-prd-domain-checklist.md"
     DC_PLATFORM="pc-web"; DC_DEP=0
     DC_STATE="${STATE_DIR:-.devflow}/${FEATURE}.state.json"
     if [ -f "$DC_STATE" ] && command -v jq >/dev/null 2>&1; then
       DC_PLATFORM=$(jq -r '.scope.frontend // "pc-web"' "$DC_STATE" 2>/dev/null)
     fi
-    for dc_f in "docs/requirements/${FEATURE}"*.md "docs/detailed-design/${FEATURE}"*.md; do
+    P0B_SCAN_DIRS=()
+    for _d in "docs/需求" "docs/requirements" "docs/详细设计" "docs/detailed-design"; do [ -d "$_d" ] && P0B_SCAN_DIRS+=("$_d/${FEATURE}"*.md); done
+    for dc_f in "${P0B_SCAN_DIRS[@]}"; do
       [ -f "$dc_f" ] || continue
       if grep -qE '(外部系统|第三方|对接|接口文档|数据源|依赖).{0,48}(系统|平台|接口|API|数据)|API 文档' "$dc_f" 2>/dev/null; then DC_DEP=1; break; fi
     done
@@ -201,9 +208,12 @@ case "$PHASE" in
       # 双格式归一（perm: 前缀 + 反引号三段式）、缺矩阵 P0（声明式豁免）、seed ⊆ matrix。
       # `|| true`：p0() 计数已入 FAIL，返回码仅防 set -e 误传播。
       if source "$(cd "$(dirname "$0")" && pwd)/perm_reconcile_lib.sh"; then
-        perm_reconcile_three_way "docs/detailed-design/_权限矩阵.md" \
-          "docs/requirements/${FEATURE}-clarification.md" \
-          "docs/detailed-design/_菜单Seed索引.md" || true
+        # v3.22.0: 事实源/澄清文档路径中英双语
+        AG_MATRIX="docs/详细设计/_权限矩阵.md"; [ -f "$AG_MATRIX" ] || AG_MATRIX="docs/detailed-design/_权限矩阵.md"
+        AG_MENU="docs/详细设计/_菜单Seed索引.md"; [ -f "$AG_MENU" ] || AG_MENU="docs/detailed-design/_菜单Seed索引.md"
+        AG_CLAR="$(df_resolve_doc "$FEATURE" clarification .md requirements)"
+        [ -n "$AG_CLAR" ] || AG_CLAR="docs/requirements/${FEATURE}-clarification.md"
+        perm_reconcile_three_way "$AG_MATRIX" "$AG_CLAR" "$AG_MENU" || true
       fi
 
       if grep -q '边界条件枚举' "$R"; then
@@ -223,7 +233,9 @@ case "$PHASE" in
     ;;
   P7)
     echo "=== P7 部署记录产物 Gate ==="
-    R="docs/deploy/${FEATURE}-deploy-record.md"
+    # v3.22.0: 部署记录中文优先、英文回退
+    R="$(df_resolve_doc "$FEATURE" deploy_record .md deploy)"
+    [ -n "$R" ] || R="docs/deploy/${FEATURE}-deploy-record.md"
     EVIDENCE_PATH="$R"
     STATE_FILE="${STATE_DIR:-.devflow}/${FEATURE}.state.json"
     if [ ! -f "$R" ]; then
@@ -309,7 +321,9 @@ case "$PHASE" in
     ;;
   P8)
     echo "=== P8 监控配置产物 Gate ==="
-    R="docs/deploy/${FEATURE}-monitor-config.md"
+    # v3.22.0: 监控配置中文优先、英文回退
+    R="$(df_resolve_doc "$FEATURE" monitor_config .md deploy)"
+    [ -n "$R" ] || R="docs/deploy/${FEATURE}-monitor-config.md"
     EVIDENCE_PATH="$R"
     if [ ! -f "$R" ]; then
       p0 "missing: $R"
@@ -388,7 +402,9 @@ case "$PHASE" in
     ;;
   P9)
     echo "=== P9 文档更新产物 Gate ==="
-    R="docs/${FEATURE}-docs-index.md"
+    # v3.22.0: 文档索引中文优先、英文回退（均在 docs/ 根）
+    R="docs/${FEATURE}-文档索引.md"
+    [ -f "$R" ] || R="docs/${FEATURE}-docs-index.md"
     EVIDENCE_PATH="$R"
     if [ ! -f "$R" ]; then
       p0 "missing documentation index: $R"

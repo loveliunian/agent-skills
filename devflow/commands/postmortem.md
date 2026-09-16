@@ -1,12 +1,12 @@
 ---
 name: postmortem
-version: "3.21.1"
+version: "3.22.0"
 description: |
   触发条件：生产 P0/P1 故障、SLA 违约、安全事件、影响用户的 Bug。
-  强制产出 docs/postmortems/<incident>-pm.md（§1-§10 完整 + 5 Why + 改进项可追溯）。
+  强制产出 docs/事故复盘/<incident>-事故复盘.md（§1-§10 完整 + 5 Why + 改进项可追溯）。
   与 P10 区别：P10 是项目级复盘，P11 是事件级无指责根因分析。
 license: MIT
-paths: ["docs/postmortems/**", "docs/incidents/**", "docs/retrospectives/**"]
+paths: ["docs/事故复盘/**", "docs/incidents/**", "docs/复盘/**"]
 disable-model-invocation: false
 allowed-tools: [read, write, exec, glob, grep, task]
 metadata:
@@ -35,7 +35,7 @@ metadata:
 /postmortem                          # 交互式引导
 /postmortem <incident-slug>          # 指定事故名，自动生成报告骨架
 /postmortem --list                   # 列出所有 Postmortem
-/postmortem --index                  # 重新生成 docs/postmortems/INDEX.md
+/postmortem --index                  # 重新生成 docs/事故复盘/INDEX.md
 /postmortem --check <file>           # 校验单篇报告完整性（§1-§10 / 5 Why / 改进项）
 /postmortem --gate                   # 阶段门控检查（用于 /audit-completeness P11）
 ```
@@ -51,7 +51,7 @@ metadata:
    - 主写人 / 参与人
 
 2. **自动生成报告骨架**
-   - 写入 `docs/postmortems/<YYYY-MM-DD>-<slug>-pm.md`
+   - 写入 `docs/事故复盘/<YYYY-MM-DD>-<slug>-事故复盘.md`
    - §1-§10 全空模板
 
 3. **引导填写关键章节**
@@ -68,7 +68,7 @@ metadata:
 
 ```bash
 /postmortem order-db-pool-exhaustion
-# 生成 docs/postmortems/2026-08-12-order-db-pool-exhaustion-pm.md
+# 生成 docs/事故复盘/2026-08-12-order-db-pool-exhaustion-事故复盘.md
 ```
 
 自动填充：
@@ -95,9 +95,9 @@ metadata:
 ## 5. INDEX 自动生成
 
 ```bash
-# 自动扫描所有 docs/postmortems/*-pm.md
+# 自动扫描所有 docs/事故复盘/*-事故复盘.md
 # 输出：事故简称 / 日期 / 等级 / 状态 / 影响 / 责任人 / 链接
-bash "$SKILL_ROOT/scripts/generate-postmortem-index.sh" > docs/postmortems/INDEX.md
+bash "$SKILL_ROOT/scripts/generate-postmortem-index.sh" > docs/事故复盘/INDEX.md
 ```
 
 INDEX 示例：
@@ -114,7 +114,7 @@ INDEX 示例：
 
 | 检查项 | 通过条件 | 失败动作 |
 |--------|---------|---------|
-| 报告存在 | `docs/postmortems/<slug>-pm.md` 存在 | 阻塞 |
+| 报告存在 | `docs/事故复盘/<slug>-事故复盘.md` 存在 | 阻塞 |
 | § 完整 | 含 §1~§10 标题 | 阻塞 |
 | 5 Why ≥ 5 层 | §4 至少 5 个 "Why" 编号 | 阻塞 |
 | 改进项可追溯 | §5 表格至少有 P0 项且含责任人 | 阻塞 |

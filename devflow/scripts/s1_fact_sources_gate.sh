@@ -22,12 +22,34 @@ p1() { echo "[P1] $1"; }
 pass() { echo "[PASS] $1"; PASS=$((PASS + 1)); }
 warn() { echo "[WARN] $1"; WARN=$((WARN + 1)); }
 
-DOC_DIR="${1:-docs/detailed-design}"
+# v3.22.0: 文档层中文化——默认 docs/详细设计，存在历史英文目录则回退；显式传参仍优先
+source "$SCRIPT_DIR/devflow_paths.sh"
+if [ "$#" -ge 1 ] && [ -n "$1" ]; then
+  DOC_DIR="$1"
+elif [ -d "docs/详细设计" ]; then
+  DOC_DIR="docs/详细设计"
+else
+  DOC_DIR="docs/detailed-design"
+fi
 DOC_DIR="${DOC_DIR%/}"
+# 事实源双语：主目录缺失时到另一历史目录取证（文件名机器契约不翻译）
+ALT_DOC_DIR=""
+if [ "$DOC_DIR" = "docs/详细设计" ]; then ALT_DOC_DIR="docs/detailed-design"
+elif [ "$DOC_DIR" = "docs/detailed-design" ]; then ALT_DOC_DIR="docs/详细设计"; fi
 
 # v3.16.25: P1 必须验证 P0 技术硬约束与技术选型报告，不能只验证事实源。
-TECH_REPORT="${TECH_SELECTION_FILE:-$DOC_DIR/${EFF_FEATURE}-tech-selection.md}"
-TECH_CONSTRAINTS="${TECH_CONSTRAINTS_FILE:-docs/requirements/${EFF_FEATURE}-technology-constraints.md}"
+if [ -n "${TECH_SELECTION_FILE:-}" ]; then
+  TECH_REPORT="$TECH_SELECTION_FILE"
+else
+  TECH_REPORT="$(df_resolve_doc "$EFF_FEATURE" tech_selection .md design)"
+  [ -n "$TECH_REPORT" ] || TECH_REPORT="$DOC_DIR/${EFF_FEATURE}-技术选型.md"
+fi
+if [ -n "${TECH_CONSTRAINTS_FILE:-}" ]; then
+  TECH_CONSTRAINTS="$TECH_CONSTRAINTS_FILE"
+else
+  TECH_CONSTRAINTS="$(df_resolve_doc "$EFF_FEATURE" constraints .md requirements)"
+  [ -n "$TECH_CONSTRAINTS" ] || TECH_CONSTRAINTS="docs/需求/${EFF_FEATURE}-技术约束.md"
+fi
 
 # BSD bash 不支持 declare -A key 含 . — 用普通数组
 FACT_FILES="_commons.md _权限矩阵.md _环境与账号.md _菜单Seed索引.md INDEX-章节锚点.md INDEX-表.md INDEX-接口.md"
@@ -36,6 +58,8 @@ echo ""
 echo "=== §1 7 份事实源存在性 ==="
 for fname in $FACT_FILES; do
   f="$DOC_DIR/$fname"
+  # v3.22.0: 主目录缺失则查历史目录
+  if [ ! -f "$f" ] && [ -n "$ALT_DOC_DIR" ] && [ -f "$ALT_DOC_DIR/$fname" ]; then f="$ALT_DOC_DIR/$fname"; fi
   if [ -f "$f" ]; then
     LINES=$(wc -l < "$f" 2>/dev/null || echo 0)
     if [ "$LINES" -gt 5 ]; then
@@ -135,6 +159,7 @@ TMPL_FILES="_commons.md _权限矩阵.md _环境与账号.md _菜单Seed索引.m
 for tpl in $TMPL_FILES; do
   TPL="$TEMPLATES_DIR/$tpl"
   PROD="$DOC_DIR/$tpl"
+  if [ ! -f "$PROD" ] && [ -n "$ALT_DOC_DIR" ] && [ -f "$ALT_DOC_DIR/$tpl" ]; then PROD="$ALT_DOC_DIR/$tpl"; fi
 
   if [ ! -f "$TPL" ]; then
     warn "template missing: $TPL (skip alignment for $PROD)"
@@ -167,8 +192,9 @@ done
 # ---------- §3 菜单种子通配符 ----------
 echo ""
 echo "=== §3 _菜单Seed索引 通配符检查 ==="
-if [ -f "$DOC_DIR/_菜单Seed索引.md" ]; then
-  if grep -E '/\*' "$DOC_DIR/_菜单Seed索引.md" >/dev/null 2>&1; then
+MENU_SEED_F="$DOC_DIR/_菜单Seed索引.md"; [ -f "$MENU_SEED_F" ] || MENU_SEED_F="$ALT_DOC_DIR/_菜单Seed索引.md"
+if [ -f "$MENU_SEED_F" ]; then
+  if grep -E '/\*' "$MENU_SEED_F" >/dev/null 2>&1; then
     p0 "_菜单Seed索引.md 含通配符路径，可能误触发"
   else
     pass "菜单种子无通配符路径冲突"

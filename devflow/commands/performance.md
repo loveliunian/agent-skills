@@ -1,6 +1,6 @@
 ---
 name: performance
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   Use when auditing performance bottlenecks, slow queries, or scalability issues, mentions
   "/performance", "性能", "performance audit", "性能审计", "N+1", "slow query", "优化", or "load test".
@@ -37,7 +37,7 @@ allowed-tools:
 
 ## 命名约定
 
-输出：`docs/review/<feature>-performance-audit-report.md`
+输出：`docs/评审/<feature>-性能审计报告.md`
 
 ## 执行步骤
 
@@ -96,7 +96,7 @@ find backend/<service>/src/main/java -name "*.java" -type f \
 
 ### 5. 输出报告
 
-写入 `docs/review/<feature>-performance-audit-report.md`：
+写入 `docs/评审/<feature>-性能审计报告.md`：
 
 ```markdown
 # <feature> 性能审计报告
@@ -138,7 +138,7 @@ Gate（强制）
 
 | 项 | 强制条件 |
 |----|----------|
-| 报告路径 | `docs/review/<feature>-performance-audit-report.md` 实际写入 |
+| 报告路径 | `docs/评审/<feature>-性能审计报告.md` 实际写入 |
 | 关键 API P95 | < 详设阈值（待压测填充） |
 | N+1 风险 | P0 项必须 = 0 |
 | 索引覆盖 | 详设要求的索引必须全部建 |
@@ -146,19 +146,19 @@ Gate（强制）
 
 ## 输出
 
-- `docs/review/<feature>-performance-audit-report.md`
+- `docs/评审/<feature>-性能审计报告.md`
 
 ## 自检命令
 
 ```bash
 # P3d Gate: 性能审计（v3.9.4）
 bash "$SKILL_ROOT/scripts/p3_security_perf_gate.sh" <feature> --mode performance
-P0_COUNT=$(grep -c "^### PERF-\\|^| PERF-" docs/review/<feature>-performance-audit-report.md)
+P0_COUNT=$(grep -c "^### PERF-\\|^| PERF-" docs/评审/<feature>-性能审计报告.md)
 echo "性能 P0 项数: $P0_COUNT"
 test "$P0_COUNT" -eq 0  # 必须 = 0
 
 # Flyway 索引覆盖率
-DETAIL_TABLES=$(grep -c "^### 表\\|^#### 表\\|CREATE TABLE" docs/detailed-design/<feature>-design.md)
+DETAIL_TABLES=$(grep -c "^### 表\\|^#### 表\\|CREATE TABLE" docs/详细设计/<feature>-详细设计.md)
 FLYWAY_INDEXES=$(grep -rc "CREATE INDEX" backend/<service>/src/main/resources/db/migration/postgresql/ | awk -F: '{s+=$2} END {print s}')
 echo "索引数: $FLYWAY_INDEXES, 详设表数: $DETAIL_TABLES"
 ```

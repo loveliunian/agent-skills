@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # P2b Demo Gate · 版本随 SKILL.md
-# 检查 docs/demo/<feature>-demo-signoff.md 存在且含签字人+日期
+# 检查 docs/原型/<feature>-原型确认.md（兼容历史 docs/demo/<feature>-demo-signoff.md） 存在且含签字人+日期
 # 修复：①无参时输出 usage；②顶层 local 非法 + $local_count 未定义（set -u 下炸）；
 #            ③补收据双写（.devflow + docs 镜像）
 set -uo pipefail
@@ -8,18 +8,21 @@ set -uo pipefail
 FEATURE="${1:-}"
 if [ -z "$FEATURE" ]; then
   echo "用法: p2b_demo_gate.sh <feature>"
-  echo "  检查 docs/demo/<feature>-demo-signoff.md（3-5 个 KUF walkthrough，含签字人+日期）"
+  echo "  检查 docs/原型/<feature>-原型确认.md（兼容历史 docs/demo/<feature>-demo-signoff.md）（3-5 个 KUF walkthrough，含签字人+日期）"
   exit 2
 fi
 # v3.15.5: feature 白名单共享校验（devflow_feature.sh）——封堵路径穿越（../evil 写穿项目外）与 grep -E 正则注入
 source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
+# v3.22.0: 文档层中文化（中文优先、英文回退）
+source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
 devflow_feature_validate "$FEATURE" || exit 2
 
 FAIL=0; PASS=0; WARN=0
 pass() { echo "[PASS] $*"; PASS=$((PASS+1)); }
 fail() { echo "[FAIL] $*"; FAIL=$((FAIL+1)); }
 REPORT_DIR="${STATE_DIR:-.devflow}/${FEATURE}"; mkdir -p "$REPORT_DIR"
-signoff="docs/demo/${FEATURE}-demo-signoff.md"
+signoff="$(df_resolve_doc "$FEATURE" demo_signoff .md demo)"
+[ -n "$signoff" ] || signoff="docs/demo/${FEATURE}-demo-signoff.md"
 
 echo ""; echo "=== P2b Demo Gate ==="
 
@@ -97,13 +100,14 @@ else
   [ -z "$MISSING_WALK" ] && pass "每个 KUF 均有 walkthrough" \
     || fail "以下 KUF 缺少 walkthrough:$MISSING_WALK"
   PROTO_HITS=""
-  for pf in $(grep -oE 'docs/demo/[^[:space:])）]+' "$signoff" 2>/dev/null | sort -u); do
+  # v3.22.0: 原型引用路径中英目录都接受（docs/原型、docs/demo）
+  for pf in $(grep -oE 'docs/(原型|demo)/[^[:space:])）]+' "$signoff" 2>/dev/null | sort -u); do
     [ -f "$pf" ] && PROTO_HITS="$PROTO_HITS ✓$(basename "$pf")"
   done
   if [ -n "$PROTO_HITS" ]; then
     pass "原型文件实存:${PROTO_HITS}"
   else
-    fail "sign-off 引用的原型文件均不存在于 docs/demo/"
+    fail "sign-off 引用的原型文件均不存在于 docs/原型/（或历史 docs/demo/）"
   fi
   [ "${PO_SIGN:-0}" -ge 1 ] && pass "PO 结论确认" || fail "缺少 PO（产品负责人）明确结论"
   [ "${SIGNERS:-0}" -ge 1 ] && [ "${HAS_DATE:-0}" -ge 1 ] && pass "签字人与日期齐备" \

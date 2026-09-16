@@ -22,7 +22,11 @@ error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 # 主函数
 main() {
   local feature="$1"
-  local prd_review="docs/requirements/${feature}-prd-review.md"
+  # v3.22.0: PRD 评审产物中英双语
+  local prd_review=""
+  source "$(cd "$(dirname "$0")" && pwd)/../devflow_paths.sh"
+  prd_review="$(df_resolve_doc "$feature" prd_review .md requirements)"
+  [ -n "$prd_review" ] || prd_review="docs/requirements/${feature}-prd-review.md"
   local improvements_file
   improvements_file="${PROJECT_ROOT:-$PWD}/.devflow/template-improvements/prd-review-$(date +%Y%m).md"
 

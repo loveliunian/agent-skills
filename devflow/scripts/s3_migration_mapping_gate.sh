@@ -42,7 +42,7 @@ usage() {
 
 示例：
   $0 A
-  $0 B docs/migration/M-03-mapping.md 2
+  $0 B docs/数据映射/M-03-映射.md 2
 EOF
 }
 

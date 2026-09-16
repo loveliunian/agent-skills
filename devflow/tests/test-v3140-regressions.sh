@@ -271,7 +271,8 @@ else
 fi
 
 # ---------- R8: 领域专项清单强制（缺失给出明确拦截提示；生成并全答后该项消失） ----------
-DC="$W4/docs/review/p2a-domain-checklist.md"
+# v3.22.0: 生成器默认输出中文名 docs/评审/p2a-设计领域清单.md（英文历史名作为回退）
+DC="$W4/docs/评审/p2a-设计领域清单.md"
 P2A_OUT=$(cd "$W4" && bash "$ROOT/scripts/p2a_design_review_gate.sh" p2a 2>&1)
 if echo "$P2A_OUT" | grep -q "领域专项评审清单缺失"; then
   ok "p2a 缺领域清单时拦截并提示生成命令"

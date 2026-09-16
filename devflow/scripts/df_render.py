@@ -15,9 +15,9 @@ verification 模式（整文档）：渲染终验报告，绑定命令、退出�
 执行日志与（可选）Gate 实际执行退出码对账列。
 
 用法：
-  python3 df_render.py design --input design.json --doc docs/detailed-design/f-design.md
+  python3 df_render.py design --input design.json --doc docs/详细设计/f-详细设计.md
   python3 df_render.py design --input design.json --out standalone.md
-  python3 df_render.py verification --input verification.json --out docs/test/f-final-verification-report.md \
+  python3 df_render.py verification --input verification.json --out docs/测试/f-终验报告.md \
       [--exec-record .devflow/f/test-execution-results.env] [--workspace .]
 """
 import argparse

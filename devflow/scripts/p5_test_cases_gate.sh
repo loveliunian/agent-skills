@@ -11,7 +11,12 @@ source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
 devflow_feature_validate "$FEATURE" || exit 2
 
 if [ -z "$CASES" ]; then
-  CASES=$(find docs/test-cases -maxdepth 1 -type f \( -name "${FEATURE}*.md" -o -name "*${FEATURE}*测试用例*.md" \) 2>/dev/null | sort | head -1 || true)
+  # v3.22.0: 目录中英双语（docs/测试用例 优先，回退 docs/test-cases）
+  P5_CASE_DIRS=()
+  for _d in docs/测试用例 docs/test-cases; do [ -d "$_d" ] && P5_CASE_DIRS+=("$_d"); done
+  if [ "${#P5_CASE_DIRS[@]}" -gt 0 ]; then
+    CASES=$(find "${P5_CASE_DIRS[@]}" -maxdepth 1 -type f \( -name "${FEATURE}*.md" -o -name "*${FEATURE}*测试用例*.md" -o -name "${FEATURE}-测试用例.md" \) 2>/dev/null | sort | head -1 || true)
+  fi
 fi
 
 FAIL=0; PASS=0; WARN=0

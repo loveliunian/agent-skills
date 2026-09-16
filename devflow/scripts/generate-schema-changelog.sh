@@ -2,13 +2,14 @@
 # generate-schema-changelog.sh (v3.0 - skill-grade)
 # 用途：扫描 backend/*/src/main/resources/db/migration 下 4 方言脚本
 #       按服务 × 版本生成 schema 变更日志（含描述、按方言的可用性）
-# 输出：docs/detailed-design/_Schema变更日志.md
+# 输出：docs/详细设计/_Schema变更日志.md（兼容历史英文目录）
 # 风格：与 generate-er-index.sh / generate-permission-matrix.sh 保持一致
 
 set -uo pipefail
 
 # ---------- v3.0 参数化 ----------
-DOC_DIR="${DOC_DIR:-docs/detailed-design}"
+# v3.22.0: 默认目录中文化；历史英文目录已存在且未显式指定 DOC_DIR 时沿用
+if [ -n "${DOC_DIR:-}" ]; then :; elif [ -d "docs/detailed-design" ] && [ ! -d "docs/详细设计" ]; then DOC_DIR="docs/detailed-design"; else DOC_DIR="docs/详细设计"; fi
 OUTPUT_FILE="${OUTPUT_FILE:-${DOC_DIR}/_Schema变更日志.md}"
 
 # v3.0: keep caller cwd (caller run in project root)

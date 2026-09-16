@@ -1,6 +1,6 @@
 ---
 name: prd-review-committee
-version: "3.21.1"
+version: "3.22.0"
 description: P0b PRD 评审团 Agent 定义（5角色：业务/后端/前端交互/测试开发/安全合规，DF/AW 深度契约）
 allowed-tools: [read, write, exec, grep, glob, task]
 ---

@@ -2,7 +2,7 @@
 name: concepts
 description: Use when planning or reviewing work under devflow and its phase, command, or subagent invariants must be applied.
 metadata:
-  version: "3.21.1"
+  version: "3.22.0"
 ---
 
 # Concepts — True North（不可违背的铁律）
@@ -172,13 +172,13 @@ backend/<service>/src/main/resources/db/migration/
 
 ## 11. Engineering Fact Sources（工程事实源体系，铁律）
 
-**铁律**：所有跨模块约定必须沉淀到 `docs/detailed-design/_*.md` / `INDEX-*.md`，不允许在代码注释、wiki、对话中"口口相传"。
+**铁律**：所有跨模块约定必须沉淀到 `docs/详细设计/_*.md` / `INDEX-*.md`，不允许在代码注释、wiki、对话中"口口相传"。
 
 ### 11.1 必须维护的事实源（7 份手维护 + 5 份 auto）
 
 > 完整清单（文件/类型/维护方/触发时机表）、初始化命令、auto 索引差异审查、
 > 跨项目复用原则已移至 `references/concepts-detail.md` §Fact-Sources。
-> 核心不变量：跨模块约定只能沉淀在 `docs/detailed-design/_*.md` / `INDEX-*.md`；
+> 核心不变量：跨模块约定只能沉淀在 `docs/详细设计/_*.md` / `INDEX-*.md`；
 > 跳过事实源直接编码被 `s1_fact_sources_gate.sh` 阻断。
 
 ### 11.5 跨项目初始化

@@ -26,7 +26,16 @@ if [ -n "$FEATURE" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
-DESIGN="${DESIGN_FILE:-docs/detailed-design/${FEATURE}-design.md}"
+# v3.22.0: 文档层中文化（中文优先、英文回退）
+source "$SCRIPT_DIR/devflow_paths.sh"
+if [ -n "${DESIGN_FILE:-}" ]; then
+  DESIGN="$DESIGN_FILE"
+elif [ -n "$FEATURE" ]; then
+  DESIGN="$(df_resolve_doc "$FEATURE" design .md design)"
+  [ -n "$DESIGN" ] || DESIGN="docs/detailed-design/${FEATURE}-design.md"
+else
+  DESIGN="docs/detailed-design/${FEATURE}-design.md"
+fi
 STATE_DIR="${STATE_DIR:-.devflow}"
 API_REQUIRED="${API_REQUIRED:-1}"
 PERSISTENCE_REQUIRED="${PERSISTENCE_REQUIRED:-1}"
@@ -99,7 +108,12 @@ if bash "$SCRIPT_DIR/../checks/check-arch-pitfalls.sh" --all; then pass "archite
 # ---------- 技术选型↔依赖/config 对账 (v3.16.26 NEW) ----------
 # 每条 FROZEN 硬约束必须落到代码：MUST_USE 须出现在 pom.xml 或 resources 配置；
 # MUST_NOT_USE 的禁用产品禁止出现在 pom.xml / resources 配置中。
-TC_FILE="${TECH_CONSTRAINTS_FILE:-docs/requirements/${FEATURE}-technology-constraints.md}"
+if [ -n "${TECH_CONSTRAINTS_FILE:-}" ]; then
+  TC_FILE="$TECH_CONSTRAINTS_FILE"
+else
+  TC_FILE="$(df_resolve_doc "$FEATURE" constraints .md requirements)"
+  [ -n "$TC_FILE" ] || TC_FILE="docs/需求/${FEATURE}-技术约束.md"
+fi
 if [ -f "$TC_FILE" ]; then
   source "$SCRIPT_DIR/tech_constraints_lib.sh"
   if tc_check_dependencies "$TC_FILE" "backend/$SERVICE"; then

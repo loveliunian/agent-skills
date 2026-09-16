@@ -25,6 +25,8 @@ set -uo pipefail
 
 source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
 source "$(cd "$(dirname "$0")" && pwd)/devflow_receipt.sh"
+# v3.22.0: 文档层中文化（中文优先、英文回退）
+source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
 
 FAIL=0; PASS=0; WARN=0
 P6F_STARTED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -367,7 +369,8 @@ for kind in UNIT INTEGRATION CLIENT LOAD STAGING; do
         # v3.20.2(P0-2): 五类报告路径不得与终验报告本体碰撞（UNIT_REPORT_PATH=终验报告路径
         # 曾 PASS，报告随后被渲染器覆盖——收据里"单元报告"变成终验报告）
         for _internal in "$TEST_EV" "$FINAL_TSV" "$BASELINE_TSV" "$BASELINE_META" "$EXEC_RECORD" "$_internal_log" \
-            "docs/test/${EFF_FEATURE:-__unset__}-final-verification-report.md"; do
+            "docs/test/${EFF_FEATURE:-__unset__}-final-verification-report.md" \
+            "docs/测试/${EFF_FEATURE:-__unset__}-终验报告.md"; do
           _internal_resolved=$(_receipt_norm_file "$_internal" 2>/dev/null || true)
           [ -n "$_internal_resolved" ] && [ "$_resolved_rp" = "$_internal_resolved" ] && \
             p0 "${kind} 报告路径与内部终验证据冲突（禁止绑定 manifest/快照/执行记录/日志）: ${rp}"
@@ -480,9 +483,13 @@ fi
 # ---------- §3.6 渲染终验报告 (v3.19.0 NEW) ----------
 # 因果序：Gate 执行并校验通过 → 从已校验 JSON 渲染报告 → 报告与 JSON 进入收据证据树。
 # 渲染失败 = 失败关闭（拒绝产出绑定不完整的收据）。
-P6_REPORT="docs/test/${EFF_FEATURE}-final-verification-report.md"
+# v3.22.0: 终验报告改中文产物名；历史英文路径若存在（在途项目）继续沿用同一文件，避免双报告
+P6_REPORT="$(df_default_doc "$EFF_FEATURE" final_verification .md test)"
+if [ -f "docs/test/${EFF_FEATURE}-final-verification-report.md" ]; then
+  P6_REPORT="docs/test/${EFF_FEATURE}-final-verification-report.md"
+fi
 if [ "$FAIL" -eq 0 ]; then
-  mkdir -p docs/test || p0 "无法创建报告目录 docs/test"
+  mkdir -p "$(dirname "$P6_REPORT")" || p0 "无法创建报告目录 $(dirname "$P6_REPORT")"
   if python3 "$(cd "$(dirname "$0")" && pwd)/df_render.py" verification \
       --input "$VERIFY_JSON" --out "$P6_REPORT" \
       --exec-record "$EXEC_RECORD" --workspace . && [ -f "$P6_REPORT" ]; then

@@ -1,8 +1,8 @@
 ---
 name: spec
-version: "3.21.1"
+version: "3.22.0"
 description: Use when a user asks to clarify a PRD, produce field-level detailed design, design a database or legacy mapping, or complete /spec without implementing code.
-paths: [docs/prd/**, docs/requirements/**, docs/detailed-design/**]
+paths: [docs/PRD/**, docs/需求/**, docs/详细设计/**]
 disable-model-invocation: false
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
@@ -48,15 +48,15 @@ Load these in order before taking any action:
 
 Load `phases/00-需求澄清.md`. Create:
 
-- `docs/requirements/<feature>-clarification.md`（需求澄清，模糊点=0）
-- `docs/requirements/<feature>-acceptance-criteria.md`（**原子验收点清单，FROZEN**）
-- `docs/requirements/<feature>-technology-constraints.md`（使用 `templates/技术约束-模板.md`，状态 FROZEN）
+- `docs/需求/<feature>-需求澄清.md`（需求澄清，模糊点=0）
+- `docs/需求/<feature>-验收点.md`（**原子验收点清单，FROZEN**）
+- `docs/需求/<feature>-技术约束.md`（使用 `templates/技术约束-模板.md`，状态 FROZEN）
 
-> **P0 强制产出**：`*-acceptance-criteria.md` 必须包含全部功能点拆分的原子验收点，ID 格式 `M-xx-Fyy-Azz`。
+> **P0 强制产出**：`*-验收点.md` 必须包含全部功能点拆分的原子验收点，ID 格式 `M-xx-Fyy-Azz`。
 >
 > **追溯链**：P0 冻结验收点 → P2 详设需求追溯（acceptance-traceability）→ P5 测试用例 → P6 测试报告。
 
-- `docs/requirements/<feature>-prd-review.md`
+- `docs/需求/<feature>-PRD评审.md`
 
 Each acceptance row uses `M-xx-Fyy-Azz`, one behavior per row, and status `FROZEN`.
 
@@ -71,7 +71,7 @@ Each acceptance row uses `M-xx-Fyy-Azz`, one behavior per row, and status `FROZE
 bash "$SKILL_ROOT/scripts/s0_acceptance_gate.sh" <feature>
 
 # 模式2：显式路径模式
-bash "$SKILL_ROOT/scripts/s0_acceptance_gate.sh" --criteria docs/requirements/<feature>-acceptance-criteria.md --matrix docs/requirements/<feature>-clarification.md
+bash "$SKILL_ROOT/scripts/s0_acceptance_gate.sh" --criteria docs/需求/<feature>-验收点.md --matrix docs/需求/<feature>-需求澄清.md
 ```
 
 **Checks (all must pass):**
@@ -118,7 +118,7 @@ P1 必须读取 P0 技术约束契约，并逐条生成 `constraint_id` 绑定�
 ### P1 Gate Check
 
 ```bash
-bash "$SKILL_ROOT/scripts/s1_fact_sources_gate.sh" docs/detailed-design
+bash "$SKILL_ROOT/scripts/s1_fact_sources_gate.sh" docs/详细设计
 ```
 
 **Checks (all must exist and be non-empty):**
@@ -159,7 +159,7 @@ If the project has no approved `docs/templates/详细设计-模板.md`, initiali
 docs/
 ├── 系统详细设计.md          # 总文档：全局架构、跨域决策、全局模型
 └── detailed-design/
-    └── M-01-xxx-design.md  # 分文档：模块内设计
+    └── M-01-xxx-详细设计.md  # 分文档：模块内设计
 ```
 
 **总文档内容：**
@@ -189,7 +189,7 @@ Chapter numbers are not authoritative; semantic anchors are.
 ### P2 Gate Check
 
 ```bash
-EXPECT_DATA=1 EXPECT_API=1 bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/detailed-design/<feature>-design.md docs/requirements/<feature>-acceptance-criteria.md
+EXPECT_DATA=1 EXPECT_API=1 bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/详细设计/<feature>-详细设计.md docs/需求/<feature>-验收点.md
 bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category config
 bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category api
 ```

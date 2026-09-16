@@ -49,11 +49,16 @@ done
 [ -z "$FEATURE" ] && { echo "Usage: $0 <feature> [--skip=P2]"; exit 2; }
 # v3.15.5: feature 白名单共享校验（devflow_feature.sh）——封堵路径穿越（../evil 写穿项目外）与 grep -E 正则注入
 source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
+# v3.22.0: 文档层中文化（中文优先、英文回退）
+source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
 devflow_feature_validate "$FEATURE" || exit 2
 
-DESIGN_PATH="docs/detailed-design/${FEATURE}-design.md"
-REVIEW_PATH="docs/review/${FEATURE}-design-review-report.md"
-CRITERIA_PATH="docs/requirements/${FEATURE}-acceptance-criteria.md"
+DESIGN_PATH="$(df_resolve_doc "$FEATURE" design .md design)"
+[ -n "$DESIGN_PATH" ] || DESIGN_PATH="docs/detailed-design/${FEATURE}-design.md"
+REVIEW_PATH="$(df_resolve_doc "$FEATURE" design_review_report .md review)"
+[ -n "$REVIEW_PATH" ] || REVIEW_PATH="docs/review/${FEATURE}-design-review-report.md"
+CRITERIA_PATH="$(df_resolve_doc "$FEATURE" acceptance .md requirements)"
+[ -n "$CRITERIA_PATH" ] || CRITERIA_PATH="docs/requirements/${FEATURE}-acceptance-criteria.md"
 
 # ---------- §0 基础存在性 ----------
 echo ""
@@ -182,14 +187,18 @@ fi
 # ---------- §3f 领域专项评审清单（v3.14.1：按平台/外部依赖生成针对性问题） ----------
 echo ""
 echo "=== §3f 领域专项评审清单 ==="
-DC="docs/review/${FEATURE}-domain-checklist.md"
+DC="$(df_resolve_doc "$FEATURE" design_domain_checklist .md review)"
+[ -n "$DC" ] || DC="docs/review/${FEATURE}-domain-checklist.md"
 DC_PLATFORM="pc-web"
 DC_STATE="${STATE_DIR:-.devflow}/${FEATURE}.state.json"
 if [ -f "$DC_STATE" ] && command -v jq >/dev/null 2>&1; then
   DC_PLATFORM=$(jq -r '.scope.frontend // "pc-web"' "$DC_STATE" 2>/dev/null)
 fi
 DC_DEP=0
-for f in "docs/requirements/${FEATURE}"*.md "docs/detailed-design/${FEATURE}"*.md; do
+# v3.22.0: 扫描目录双语（中文存在优先，历史英文一并扫）
+DC_SCAN_DIRS=()
+for _d in "docs/需求" "docs/requirements" "docs/详细设计" "docs/detailed-design"; do [ -d "$_d" ] && DC_SCAN_DIRS+=("$_d"); done
+for f in $(for _d in "${DC_SCAN_DIRS[@]}"; do printf '%s/%s*.md\n' "$_d" "$FEATURE"; done); do
   [ -f "$f" ] || continue
   if grep -qE '(外部系统|第三方|对接|接口文档|数据源|依赖).{0,48}(系统|平台|接口|API|数据)|API 文档' "$f" 2>/dev/null; then
     DC_DEP=1; break

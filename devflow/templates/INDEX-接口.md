@@ -1,6 +1,6 @@
 ---
 name: INDEX-接口
-version: "3.21.1"
+version: "3.22.0"
 description: 接口索引模板（详设 §6 + Controller 注解 + 与 auto 生成版并存）
 ---
 
@@ -58,5 +58,5 @@ description: 接口索引模板（详设 §6 + Controller 注解 + 与 auto 生�
 
 ```bash
 bash "$SKILL_ROOT/scripts/generate-interface-index.sh" [DOC_DIR]
-# 默认 DOC_DIR=docs/detailed-design
+# 默认 DOC_DIR=docs/详细设计
 ```

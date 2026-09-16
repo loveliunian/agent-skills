@@ -1,6 +1,6 @@
 ---
 name: monitor
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   Use when configuring application monitoring after P6 testing, mentions
   "/monitor", "监控", "监控配置", "prometheus", "metrics", "actuator", or "observability setup".
@@ -39,7 +39,7 @@ allowed-tools:
 
 ## 命名约定
 
-输出：`docs/deploy/<feature>-monitor-config.md`
+输出：`docs/发布/<feature>-监控配置.md`
 
 ## 执行步骤
 
@@ -97,7 +97,7 @@ grep -rn "MeterRegistry\|Counter\\.builder\|Gauge\\.builder\\|Timer\\.builder" \
 
 ### 6. 写入监控配置记录
 
-输出到 `docs/deploy/<feature>-monitor-config.md`：
+输出到 `docs/发布/<feature>-监控配置.md`：
 
 ```markdown
 # <feature> 监控配置
@@ -175,7 +175,7 @@ Gate（强制，v3.15.1 起证据实质化）
 
 | 项 | 强制条件 |
 |----|----------|
-| 监控记录路径 | `docs/deploy/<feature>-monitor-config.md` 实际写入 |
+| 监控记录路径 | `docs/发布/<feature>-监控配置.md` 实际写入 |
 | METRICS_ENDPOINT | 必须 = 200 且含 ≥5 条真实采样行（仅 HELP/TYPE 头不算） |
 | LOG_QUERY + LOG_QUERY_EVIDENCE | 查询声明 + 含真实查询结果（≥2 行）的证据文件 |
 | ALERT_RULE | 指向含 `alert:` 与 `expr:` 的规则文件 |
@@ -186,7 +186,7 @@ Gate（强制，v3.15.1 起证据实质化）
 
 ## 输出
 
-- `docs/deploy/<feature>-monitor-config.md`
+- `docs/发布/<feature>-监控配置.md`
 
 ## 自检命令
 

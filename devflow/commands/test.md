@@ -1,8 +1,8 @@
 ---
 name: test
-version: "3.21.1"
+version: "3.22.0"
 description: Use when a user asks to generate or run unit, integration, browser, load, business, or legacy-migration tests.
-paths: [scripts/**, docs/test/**, docs/test-cases/**, frontend/**, miniprogram/**, app/**]
+paths: [scripts/**, docs/测试/**, docs/测试用例/**, frontend/**, miniprogram/**, app/**]
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
 
@@ -26,22 +26,22 @@ Load `phases/05-测试用例.md`.
 bash "$SKILL_ROOT/scripts/p6_credential_gate.sh" <feature>
 
 # P5 测试用例是主收据；迁移仅是 B/C 辅助证据，不能覆盖 P5 主收据
-bash "$SKILL_ROOT/scripts/p5_test_cases_gate.sh" <feature> docs/test-cases/<feature>-test-cases.md
+bash "$SKILL_ROOT/scripts/p5_test_cases_gate.sh" <feature> docs/测试用例/<feature>-测试用例.md
 
 # Migration evidence; A is exempt
 # P5-migration 收据
-bash "$SKILL_ROOT/scripts/s5_migration_gate.sh" <feature> <A|B|C> docs/test/<feature>-migration-evidence.env
+bash "$SKILL_ROOT/scripts/s5_migration_gate.sh" <feature> <A|B|C> docs/测试/<feature>-migration-evidence.env
 
 # P6 首轮结果必须包含每个冻结 ID 一次。第一个文件
 # is a per-ID TSV (`acceptance_id<TAB>status`); the review report is required.
-bash "$SKILL_ROOT/scripts/s4_first_pass_snapshot.sh" record <feature> docs/test/<feature>-first-pass-results.tsv docs/review/<feature>-first-pass-review-report.md
+bash "$SKILL_ROOT/scripts/s4_first_pass_snapshot.sh" record <feature> docs/测试/<feature>-first-pass-results.tsv docs/评审/<feature>-首轮准确率评审.md
 bash "$SKILL_ROOT/scripts/s6_first_pass_accuracy.sh" <feature> 80
 
 # P6 部署前终验（P6-final，v3.16.0 起 P6 强制组成——首轮准确率仅是指标，终验 FAIL=0 才能部署）：
 # v3.19.0 因果序（P0 修复）：只有 s6 Gate 能产生真实执行记录，所以顺序是——
 #   ① 组装 test-evidence.env + verification.json（契约 schemas/verification.schema.json）
 #   ② 跑一次 Gate：执行五类命令 → 校验 verification.json（含冻结前端范围/命令逐字对账）
-#      → 通过后自动渲染 docs/test/<feature>-final-verification-report.md 并连同
+#      → 通过后自动渲染 docs/测试/<feature>-终验报告.md 并连同
 #      verification.json 一起绑定进 P6-final 收据证据树
 #   verification.json 缺失 = Gate 直接 FAIL（不再只是告警）
 bash "$SKILL_ROOT/scripts/s6_final_verification_gate.sh" <feature>
@@ -50,7 +50,7 @@ bash "$SKILL_ROOT/scripts/s6_final_verification_gate.sh" <feature>
 # --baseline 与 --exec-record 必填（无执行记录的渲染曾产出假「可以部署」结论，已禁止）：
 python3 "$SKILL_ROOT/scripts/df_pipeline.py" verification \
   --input .devflow/<feature>/verification.json \
-  --out docs/test/<feature>-final-verification-report-preview.md \
+  --out docs/测试/<feature>-终验报告-预览.md \
   --baseline .devflow/<feature>/first-pass-baseline.tsv \
   --exec-record .devflow/<feature>/test-execution-results.env
 ```
@@ -75,7 +75,7 @@ Any missing runtime, browser, database, graph, or staging evidence remains `运�
 
 ## Output
 
-- `docs/test/<feature>-test-report.md`
-- `docs/test/<feature>-migration-evidence.env` for B/C
+- `docs/测试/<feature>-测试报告.md`
+- `docs/测试/<feature>-migration-evidence.env` for B/C
 - `.devflow/<feature>/first-pass-results.tsv`
 - P4/P5/P6 reports required by their phase files

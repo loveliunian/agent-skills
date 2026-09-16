@@ -1,6 +1,6 @@
 ---
 name: review
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   Use when reviewing code changes for correctness, security, and style, mentions
   "/review", "code review", "代码审查", "review this", "cr", or "check the code".
@@ -38,7 +38,7 @@ allowed-tools:
 
 ## 命名约定
 
-输出：`docs/review/<feature>-code-review-report.md`
+输出：`docs/评审/<feature>-代码审查报告.md`
 
 ## 执行步骤
 
@@ -53,8 +53,8 @@ allowed-tools:
 ### 2. 加载详设与代码
 
 ```bash
-test -f docs/detailed-design/<feature>-design.md || echo "详设缺失"
-test -f docs/retrospectives/<feature>-audit-P3.md || echo "P3 自检未完成"
+test -f docs/详细设计/<feature>-详细设计.md || echo "详设缺失"
+test -f docs/复盘/<feature>-audit-P3.md || echo "P3 自检未完成"
 ```
 
 ### 3. 五轴 Review
@@ -69,7 +69,7 @@ test -f docs/retrospectives/<feature>-audit-P3.md || echo "P3 自检未完成"
 
 ### 4. 详设交叉对照
 
-按语义锚点对照 `docs/detailed-design/<feature>-design.md`：
+按语义锚点对照 `docs/详细设计/<feature>-详细设计.md`：
 
 - 原子验收ID ↔ 代码/测试证据
 - 数据模型 ↔ Entity/DDL/四方言
@@ -80,11 +80,11 @@ test -f docs/retrospectives/<feature>-audit-P3.md || echo "P3 自检未完成"
 ### 5. 项目专项检查
 
 通用 Review 不内置某个项目或模块的类名、端口和业务字段。项目专项检查必须通过
-`docs/review/<feature>-domain-checklist.md` 或项目提供的显式 hook 注入，并记录文件/行号证据。
+`docs/评审/<feature>-设计领域清单.md` 或项目提供的显式 hook 注入，并记录文件/行号证据。
 
 ### 6. 输出报告
 
-写入 `docs/review/<feature>-code-review-report.md`：
+写入 `docs/评审/<feature>-代码审查报告.md`：
 
 ```markdown
 # <feature> Code Review 报告
@@ -131,14 +131,14 @@ Gate（强制）
 
 | 项 | 强制条件 |
 |----|----------|
-| 报告路径 | `docs/review/<feature>-code-review-report.md` 实际写入 |
+| 报告路径 | `docs/评审/<feature>-代码审查报告.md` 实际写入 |
 | P0 项 | **OPEN = 0；历史项必须逐条 `STATUS=CLOSED` 才能进 P4** |
 | P1/P2 项 | 显式列 owner + ETA（不阻塞推进但不充耳不闻） |
 | 独立性 | 必须独立 session（不得与开发同 session） |
 
 ## 输出
 
-- `docs/review/<feature>-code-review-report.md`
+- `docs/评审/<feature>-代码审查报告.md`
 
 ## 自检命令
 

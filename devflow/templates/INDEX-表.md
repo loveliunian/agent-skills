@@ -1,6 +1,6 @@
 ---
 name: INDEX-表
-version: "3.21.1"
+version: "3.22.0"
 description: 表索引模板（详设期望逻辑表 + 与 auto 生成版并存）
 ---
 
@@ -58,7 +58,7 @@ find backend -name '*.sql' -type f -exec grep -hE '^[[:space:]]*CREATE[[:space:]
 
 ```bash
 bash "$SKILL_ROOT/scripts/generate-table-index.sh" [DOC_DIR]
-# 默认 DOC_DIR=docs/detailed-design
+# 默认 DOC_DIR=docs/详细设计
 ```
 
 > **再生成**：每次详设更新或 DDL 变更后跑一次。

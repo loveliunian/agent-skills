@@ -1,8 +1,8 @@
 ---
 name: prd-vs-code
-version: "3.21.1"
+version: "3.22.0"
 description: Use when a user asks to compare frozen PRD acceptance points with implementation evidence or run the P4b completeness Gate.
-paths: ["docs/prd/**", "docs/detailed-design/**", "docs/test/**", "backend/**", "frontend/**"]
+paths: ["docs/PRD/**", "docs/详细设计/**", "docs/测试/**", "backend/**", "frontend/**"]
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
 
@@ -18,7 +18,7 @@ Required artifacts:
 
 - Frozen acceptance criteria with unique `M-xx-Fyy-Azz` IDs.
 - Design with the same IDs marked `COMPLETE`.
-- `docs/test/<feature>-implementation-evidence.tsv`:
+- `docs/测试/<feature>-implementation-evidence.tsv`:
 
 ```text
 acceptance_id<TAB>code_paths<TAB>test_paths<TAB>status
@@ -30,9 +30,9 @@ Comma-separate multiple paths. Every path must exist. Every frozen ID appears ex
 ## Execute
 
 ```bash
-bash "$SKILL_ROOT/scripts/p4_prd_vs_code.sh" <feature> --prd <PRD-path> --design docs/detailed-design/<feature>-design.md --criteria docs/requirements/<feature>-acceptance-criteria.md --evidence docs/test/<feature>-implementation-evidence.tsv --service <service>
+bash "$SKILL_ROOT/scripts/p4_prd_vs_code.sh" <feature> --prd <PRD-path> --design docs/详细设计/<feature>-详细设计.md --criteria docs/需求/<feature>-验收点.md --evidence docs/测试/<feature>-implementation-evidence.tsv --service <service>
 ```
 
-Exit 0 is required before P5. The report records full stdout and command exit code in `docs/test/<feature>-prd-vs-code-report.md`.
+Exit 0 is required before P5. The report records full stdout and command exit code in `docs/测试/<feature>-PRD实现对比.md`.
 
 Counts, keyword samples, unrelated repository pages/tests, or empty design sets never prove coverage.

@@ -2,13 +2,14 @@
 # generate-er-index.sh (v3.0 - skill-grade)
 # 用途：扫描 backend/*/src/main/resources/db/migration 下的 Flyway 4 方言脚本
 #       提取所有 CREATE TABLE 与 FOREIGN KEY 引用，按服务 × 模块分组输出 ER 索引。
-# 输出：docs/detailed-design/_ER图索引.md
+# 输出：docs/详细设计/_ER图索引.md（兼容历史英文目录）
 # 风格：与 generate-permission-matrix.sh / p4_prd_vs_code.sh 保持一致
 
 set -uo pipefail
 
 # ---------- v3.0 参数化 ----------
-DOC_DIR="${DOC_DIR:-docs/detailed-design}"
+# v3.22.0: 默认目录中文化；历史英文目录已存在且未显式指定 DOC_DIR 时沿用
+if [ -n "${DOC_DIR:-}" ]; then :; elif [ -d "docs/detailed-design" ] && [ ! -d "docs/详细设计" ]; then DOC_DIR="docs/detailed-design"; else DOC_DIR="docs/详细设计"; fi
 OUTPUT_FILE="${OUTPUT_FILE:-${DOC_DIR}/_ER图索引.md}"
 
 # v3.0: keep caller cwd (caller run in project root)

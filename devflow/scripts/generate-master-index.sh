@@ -20,7 +20,8 @@
 set -o pipefail
 
 OUTPUT_FILE="${OUTPUT_FILE:-MASTER.md}"
-DOC_DIR="${DOC_DIR:-docs/detailed-design}"
+# v3.22.0: 默认目录中文化；历史英文目录已存在且未显式指定 DOC_DIR 时沿用
+if [ -n "${DOC_DIR:-}" ]; then :; elif [ -d "docs/detailed-design" ] && [ ! -d "docs/详细设计" ]; then DOC_DIR="docs/detailed-design"; else DOC_DIR="docs/详细设计"; fi
 
 GREEN='\033[32m'; YELLOW='\033[33m'; NC='\033[0m'
 ok()   { echo -e "${GREEN}[OK]${NC} $*"; }

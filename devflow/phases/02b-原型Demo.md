@@ -1,6 +1,6 @@
 ---
 name: phase-2b-demo-gate
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   Demo gate——先原型确认再写正式代码。
   在 P2 详细设计后、P3 编码前插入"原型验证"门。
@@ -12,9 +12,9 @@ s-phase: (无对应)
 rationale: "原型验证是独立动作,P2/P3 之间不涵盖。保留 P 编号。"
 ---
 paths:
-  - "docs/demo/**"
-  - "docs/requirements/**"
-  - "docs/detailed-design/**"
+  - "docs/原型/**"
+  - "docs/需求/**"
+  - "docs/详细设计/**"
 allowed-tools:
   - read
   - write
@@ -51,7 +51,7 @@ disable-model-invocation: false
 | 原型类型 | 适用场景 | 工具 |
 |----------|----------|------|
 | **HTML 静态 mockup** | 纯前端功能 / 业务流程 | `frontend/mockup/` + 简单 Vue 组件 |
-| **API 草图 + 流程图** | 纯后端 / 复杂业务逻辑 | `docs/demo/<feature>-api-flow.md` + Mermaid |
+| **API 草图 + 流程图** | 纯后端 / 复杂业务逻辑 | `docs/原型/<feature>-接口流程.md` + Mermaid |
 | **端到端 walkthrough** | 全栈功能 | 视频 / 录屏 / 多文件 walkthrough |
 
 ### 2.2 关键用户流程（KUF）3-5 个
@@ -70,14 +70,14 @@ disable-model-invocation: false
 3. 系统展示 ................
 4. 用户确认 / 取消 / 修改
 
-**截图 / 草图**：[docs/demo/<feature>/kuf-1-mockup.png]
+**截图 / 草图**：[docs/原型/<feature>/kuf-1-mockup.png]
 **预期产出**：<业务结果>
 **反向确认**：<如果做错了会怎样?>
 ```
 
 ### 2.3 用户签字确认
 
-`docs/demo/<feature>-demo-signoff.md`：
+`docs/原型/<feature>-原型确认.md`：
 
 ```markdown
 # Demo Sign-Off — M-XX
@@ -131,10 +131,10 @@ bash "$SKILL_ROOT/scripts/p2b_demo_gate.sh" <feature>
 
 ```bash
 # 1. 创建原型目录
-mkdir -p docs/demo/M-XX
+mkdir -p docs/原型/M-XX
 
 # 2. 写 KUF（基于 02 详设 §7 关键流程）
-# 在 docs/demo/M-XX/kuf-1.md ... kuf-5.md
+# 在 docs/原型/M-XX/kuf-1.md ... kuf-5.md
 ```
 
 **Agent 职责**：

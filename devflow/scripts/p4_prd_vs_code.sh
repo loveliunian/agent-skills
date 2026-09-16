@@ -58,11 +58,20 @@ esac
 [ -n "$FEATURE" ] || { echo "Usage: $0 <feature> [--prd path --design path --criteria path --evidence path --service name]"; exit 2; }
 # v3.15.5: feature 白名单共享校验（devflow_feature.sh）——封堵路径穿越（../evil 写穿项目外）与 grep -E 正则注入
 source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
+# v3.22.0: 文档层中文化（中文优先、英文回退）
+source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
 devflow_feature_validate "$FEATURE" || exit 2
-[ -n "$PRD" ]      || PRD="docs/prd/$FEATURE.md"
+if [ -z "$PRD" ]; then
+  PRD="docs/PRD/$FEATURE.md"; [ -f "$PRD" ] || PRD="docs/prd/$FEATURE.md"
+fi
+[ -n "$DESIGN" ]   || DESIGN="$(df_resolve_doc "$FEATURE" design .md design)"
 [ -n "$DESIGN" ]   || DESIGN="docs/detailed-design/$FEATURE-design.md"
+[ -n "$CRITERIA" ] || CRITERIA="$(df_resolve_doc "$FEATURE" acceptance .md requirements)"
 [ -n "$CRITERIA" ] || CRITERIA="docs/requirements/$FEATURE-acceptance-criteria.md"
-[ -n "$EVIDENCE" ] || EVIDENCE="docs/test/$FEATURE-implementation-evidence.tsv"
+# implementation-evidence.tsv 为机器解析 TSV（表头契约），保留英文名，仅目录双语
+if [ -z "$EVIDENCE" ]; then
+  EVIDENCE="docs/测试/$FEATURE-implementation-evidence.tsv"; [ -f "$EVIDENCE" ] || EVIDENCE="docs/test/$FEATURE-implementation-evidence.tsv"
+fi
 
 # v3.15.5: STATE_DIR 同口径——此前写死 .devflow/，隔离部署（STATE_DIR 自定义）下
 # 会读宿主项目 state（跨工作区污染）或错过冻结 manifest。
@@ -102,7 +111,8 @@ FAIL=0; PASS=0; WARN=0
 p0() { echo "[P0] $1"; FAIL=$((FAIL + 1)); }
 p1() { echo "[P1] $1"; }
 pass() { echo "[PASS] $1"; PASS=$((PASS + 1)); }
-WARN_DETAILS="docs/test/${FEATURE}-prd-vs-code-warnings.md"
+# v3.22.0: 告警详情改中文产物名（本 gate 自写证据，无外部消费者按旧名读取）
+WARN_DETAILS="$(df_default_doc "$FEATURE" prd_vs_code_warnings .md test)"
 mkdir -p "$(dirname "$WARN_DETAILS")" 2>/dev/null || true
 {
   echo "# ${FEATURE} PRD-vs-Code WARN 详情"
@@ -631,7 +641,12 @@ fi
 echo ""
 echo "=== §10 技术选型 ↔ 代码依赖对账 ==="
 
-TC_FILE="${TECH_CONSTRAINTS_FILE:-docs/requirements/${FEATURE}-technology-constraints.md}"
+if [ -n "${TECH_CONSTRAINTS_FILE:-}" ]; then
+  TC_FILE="$TECH_CONSTRAINTS_FILE"
+else
+  TC_FILE="$(df_resolve_doc "$FEATURE" constraints .md requirements)"
+  [ -n "$TC_FILE" ] || TC_FILE="docs/需求/${FEATURE}-技术约束.md"
+fi
 if [ -f "$TC_FILE" ]; then
   source "$SCRIPT_DIR/tech_constraints_lib.sh"
   DEP_ROOT="backend"

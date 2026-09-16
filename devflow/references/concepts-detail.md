@@ -70,7 +70,7 @@ bash "$SKILL_ROOT/scripts/generate-interface-index.sh" --diff
 |---|------|-----------|
 | **skill 层** | SKILL.md / phases/* / commands/* / subagents/* | 否 |
 | **项目层** | scripts/*.sh（项目内副本） | 是 |
-| **数据层** | docs/detailed-design/_*.md / INDEX-*.md | 是 |
+| **数据层** | docs/详细设计/_*.md / INDEX-*.md | 是 |
 
 ### 12.2 参数化路径
 
@@ -98,7 +98,7 @@ cp <skill-root>/scripts/*.sh scripts/
 bash "$SKILL_ROOT/scripts/init-fact-sources.sh"
 
 # 3. 验证
-bash "$SKILL_ROOT/scripts/s1_fact_sources_gate.sh" docs/detailed-design
+bash "$SKILL_ROOT/scripts/s1_fact_sources_gate.sh" docs/详细设计
 ```
 
 ---

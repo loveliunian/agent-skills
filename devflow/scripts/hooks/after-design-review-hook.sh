@@ -18,7 +18,12 @@ warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 # 主函数
 main() {
   local feature="$1"
-  local design_review="docs/detailed-design/${feature}-design-review.md"
+  # v3.22.0: 设计评审产物路径中英双语（注意主产物在评审目录，历史路径在详设目录）
+  local design_review=""
+  source "$(cd "$(dirname "$0")" && pwd)/../devflow_paths.sh"
+  design_review="$(df_resolve_doc "$feature" design_review_report .md review)"
+  [ -n "$design_review" ] || design_review="docs/detailed-design/${feature}-design-review.md"
+  [ -f "$design_review" ] || design_review="docs/详细设计/${feature}-设计评审.md"
   local improvements_file
   improvements_file="${PROJECT_ROOT:-$PWD}/.devflow/template-improvements/design-$(date +%Y%m).md"
 

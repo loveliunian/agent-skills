@@ -11,13 +11,13 @@ Gate 仍是阶段权威（如 P6 的 s6_final_verification_gate.sh 会实际执�
 用法：
   # P2：design.json → 校验 → 拼接详设确定性层 →（可选）跑 P2 Gate
   python3 df_pipeline.py design --input .devflow/f/design.json \
-      --doc docs/detailed-design/f-design.md \
-      --criteria docs/requirements/f-acceptance-criteria.md \
-      --gate bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/detailed-design/f-design.md docs/requirements/f-acceptance-criteria.md
+      --doc docs/详细设计/f-详细设计.md \
+      --criteria docs/需求/f-验收点.md \
+      --gate bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/详细设计/f-详细设计.md docs/需求/f-验收点.md
 
   # P6：verification.json → 校验（对账 baseline + Gate 执行记录）→ 渲染终验报告
   python3 df_pipeline.py verification --input .devflow/f/verification.json \
-      --out docs/test/f-final-verification-report.md \
+      --out docs/测试/f-终验报告.md \
       --baseline .devflow/f/first-pass-baseline.tsv \
       --exec-record .devflow/f/test-execution-results.env
 """

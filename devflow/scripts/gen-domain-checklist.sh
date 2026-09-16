@@ -45,17 +45,25 @@ esac
 # 外部数据依赖检测：需求/详设中出现对接信号即触发 external-data 剧本
 DEP_HIT=0
 # v3.14.3: 检测范围收窄到本 feature 的文档（其他 feature 的对接描述不得误触发）
-for f in "docs/requirements/${FEATURE}"*.md "docs/detailed-design/${FEATURE}"*.md; do
+# v3.22.0: 扫描目录中英双语
+GENDC_SCAN=()
+for _d in "docs/需求" "docs/requirements" "docs/详细设计" "docs/detailed-design"; do
+  [ -d "$_d" ] && GENDC_SCAN+=("$_d/${FEATURE}"*.md)
+done
+for f in "${GENDC_SCAN[@]}"; do
   [ -f "$f" ] || continue
   if grep -qE '(外部系统|第三方|对接|接口文档|数据源|依赖).{0,48}(系统|平台|接口|API|数据)|API 文档' "$f" 2>/dev/null; then
     DEP_HIT=1; break
   fi
 done
 
-if [ "$STAGE" = "prd" ]; then
-  OUT="${OUT_OVERRIDE:-docs/requirements/${FEATURE}-prd-domain-checklist.md}"
+# v3.22.0: 输出默认中文名；--out 仍可覆盖
+if [ -n "${OUT_OVERRIDE:-}" ]; then
+  OUT="$OUT_OVERRIDE"
+elif [ "$STAGE" = "prd" ]; then
+  OUT="docs/需求/${FEATURE}-PRD领域清单.md"
 else
-  OUT="${OUT_OVERRIDE:-docs/review/${FEATURE}-domain-checklist.md}"
+  OUT="docs/评审/${FEATURE}-设计领域清单.md"
 fi
 mkdir -p "$(dirname "$OUT")"
 

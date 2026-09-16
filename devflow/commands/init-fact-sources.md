@@ -1,7 +1,7 @@
 ---
 name: init-fact-sources
 description: "Use when initializing or validating a project's engineering fact sources before detailed design or implementation."
-version: "3.21.1"
+version: "3.22.0"
 license: MIT
 paths: ["docs/**", "scripts/*", "backend/**"]
 compatibility:
@@ -88,7 +88,7 @@ DOC_DIR=docs/design bash "$SKILL_ROOT/scripts/init-fact-sources.sh"
   初始化事实源
 =============================================
 Skill templates : /path/to/skill/templates
-项目文档目录    : docs/detailed-design
+项目文档目录    : docs/详细设计
 强制覆盖        : 0
 
   [OK]   _commons.md
@@ -100,11 +100,11 @@ Skill templates : /path/to/skill/templates
 模板复制完成：5 新建，0 跳过
 
 >>> 权限矩阵
-[OK] 已写入 docs/detailed-design/_权限矩阵.md
+[OK] 已写入 docs/详细设计/_权限矩阵.md
 >>> ER图索引
-[OK] 完成。输出：docs/detailed-design/_ER图索引.md
+[OK] 完成。输出：docs/详细设计/_ER图索引.md
 >>> Schema变更日志
-[OK] 完成。输出：docs/detailed-design/_Schema变更日志.md
+[OK] 完成。输出：docs/详细设计/_Schema变更日志.md
 
 =============================================
   初始化完成

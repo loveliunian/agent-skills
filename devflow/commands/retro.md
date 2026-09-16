@@ -1,13 +1,13 @@
 ---
 name: retro
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   Use when conducting a retrospective or lessons-learned session after a feature ships, mentions
   "/retro", "复盘", "回顾", "retrospective", "知识沉淀", "lessons learned", or "post-mortem".
-  Output: docs/retrospectives/<feature>-retro.md. Must include a "上次遗漏了什么" section.
+  Output: docs/复盘/<feature>-复盘.md. Must include a "上次遗漏了什么" section.
 paths:
-  - "docs/retrospectives/**"
-  - "docs/prd/**"
+  - "docs/复盘/**"
+  - "docs/PRD/**"
 disable-model-invocation: false
 allowed-tools:
   - read
@@ -40,8 +40,8 @@ allowed-tools:
 
 | 文档 | 路径 |
 |------|------|
-| 复盘报告 | `docs/retrospectives/<feature>-retro.md` |
-| 知识分享 | `docs/knowledge/<feature>-sharing.md` |
+| 复盘报告 | `docs/复盘/<feature>-复盘.md` |
+| 知识分享 | `docs/知识沉淀/<feature>-知识分享.md` |
 
 ## 执行步骤
 
@@ -50,12 +50,12 @@ allowed-tools:
 ```bash
 # 列出所有阶段产出
 find docs/ -name "<feature>-*.md" -type f
-ls -la docs/retrospectives/<feature>-audit-P*.md
+ls -la docs/复盘/<feature>-audit-P*.md
 ```
 
 ### 2. 起草复盘 markdown
 
-`docs/retrospectives/<feature>-retro.md` 必须含：
+`docs/复盘/<feature>-复盘.md` 必须含：
 
 ```markdown
 # <feature> 复盘总结
@@ -145,7 +145,7 @@ ls -la docs/retrospectives/<feature>-audit-P*.md
 
 ### 3. 起草知识分享 markdown
 
-`docs/knowledge/<feature>-sharing.md` 必须含 ≥3 条本次新发现的坑。
+`docs/知识沉淀/<feature>-知识分享.md` 必须含 ≥3 条本次新发现的坑。
 
 ### 4. 项目反馈队列（P10 硬闭环）
 
@@ -173,10 +173,10 @@ Gate（强制）
 
 | 项 | 强制条件 |
 |----|----------|
-| 复盘路径 | `docs/retrospectives/<feature>-retro.md` 实际写入 |
+| 复盘路径 | `docs/复盘/<feature>-复盘.md` 实际写入 |
 | "上次遗漏了什么"段 | **必须存在**（grep 命中） |
 | "本次新发现"段 | **必须存在**（grep 命中） |
-| 知识分享 markdown | `docs/knowledge/<feature>-sharing.md` 实际写入 |
+| 知识分享 markdown | `docs/知识沉淀/<feature>-知识分享.md` 实际写入 |
 | 知识分享条数 | **≥ 3 条** |
 | 全流程数据表 | 必须覆盖 P0-P10（含 P2a/P2b/P4b 行） |
 | 项目反馈队列 | `.devflow/<feature>/feedback/feedback.md` 含 ID、`SCOPE=project`、`STATUS=PROPOSED/ACCEPTED` |
@@ -185,20 +185,20 @@ Gate（强制）
 
 ## 输出
 
-- `docs/retrospectives/<feature>-retro.md`
-- `docs/knowledge/<feature>-sharing.md`
+- `docs/复盘/<feature>-复盘.md`
+- `docs/知识沉淀/<feature>-知识分享.md`
 - `.devflow/<feature>/feedback/feedback.md`
 
 ## 自检命令
 
 ```bash
 # P10 自检：复盘含关键段
-RETRO=docs/retrospectives/<feature>-retro.md
+RETRO=docs/复盘/<feature>-复盘.md
 grep -q "上次遗漏" "$RETRO" && echo "上次遗漏段 OK" || echo "MISSING"
 grep -q "本次新发现" "$RETRO" && echo "本次新发现段 OK" || echo "MISSING"
 
 # 知识分享条数 ≥ 3
-KNOW=docs/knowledge/<feature>-sharing.md
+KNOW=docs/知识沉淀/<feature>-知识分享.md
 COUNT=$(grep -c "^### [0-9]" "$KNOW")
 echo "知识分享条数: $COUNT"
 test "$COUNT" -ge 3  # 必须 ≥ 3

@@ -1,7 +1,7 @@
 ---
 name: completeness-reviewer
 subagent_type: generalPurpose
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   Adversarial reviewer #2 of 3. Use when running /review,
   checks "completeness" angle: 1) does implementation match detailed design
@@ -32,7 +32,7 @@ disable-model-invocation: false
 ## 职责（只关注 Completeness）
 
 ### 1. 详设 vs 代码全量对账
-- 对照 `docs/detailed-design/M-XX-design.md` §3 数据模型 → 检查所有表是否 DDL 落地
+- 对照 `docs/详细设计/M-XX-详细设计.md` §3 数据模型 → 检查所有表是否 DDL 落地
 - 对照 §6 接口设计 → 检查所有 `@RequestMapping` 是否实现
 - 对照 §7 关键流程 → 检查所有分支（成功 / 失败 / 异常）是否有代码
 
@@ -56,7 +56,7 @@ disable-model-invocation: false
 
 ## 输出格式
 
-写到 `docs/review/<feature>-completeness-review.md`：
+写到 `docs/评审/<feature>-完成度评审.md`：
 
 ```markdown
 # Completeness Review — M-XX

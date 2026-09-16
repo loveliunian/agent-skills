@@ -1,6 +1,6 @@
 ---
 name: PRD验证报告-模板
-version: "3.21.1"
+version: "3.22.0"
 description: PRD 验证报告模板（P4 阶段，PRD 逐条 vs 实现证据）
 ---
 
@@ -14,7 +14,7 @@ description: PRD 验证报告模板（P4 阶段，PRD 逐条 vs 实现证据）
 | 项 | 内容 |
 |---|------|
 | 功能 | {FeatureName} |
-| PRD 文档 | `docs/prd/{prd-file}.md` |
+| PRD 文档 | `docs/PRD/{prd-file}.md` |
 | 验证日期 | {YYYY-MM-DD} |
 | 验证人 | |
 
@@ -22,7 +22,7 @@ description: PRD 验证报告模板（P4 阶段，PRD 逐条 vs 实现证据）
 P0_BLOCKERS={0}
 VALIDATION_EVIDENCE={raw-validation-evidence-path}
 P4_CMD={direct-trusted-validation-command}
-P4_RESULTS_PATH=docs/test/{feature}-p4-results.tsv
+P4_RESULTS_PATH=docs/测试/{feature}-p4-results.tsv
 
 > `P4_CMD` 必须直接调用受信验证运行器或仓内 `./scripts/` 可执行文件，不能使用 shell 包装或输出重定向；它必须生成 `ID<TAB>STATUS` 结果表，所有冻结验收 ID 恰好一次且全部为 `PASS`。
 

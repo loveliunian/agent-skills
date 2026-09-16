@@ -163,12 +163,25 @@ PY
   orphans)
     # 检查"上次中断留下未关联的产物"
     echo "[ORPHANS] 检查 $FEATURE 残留产物："
-    EXPECTED_DOCS=(
-      "docs/requirements/$FEATURE-clarification.md"
-      "docs/requirements/$FEATURE-acceptance-criteria.md"
-      "docs/detailed-design/$FEATURE-design.md"
-      "docs/detailed-design/$FEATURE-tech-selection.md"
-    )
+    # v3.22.0: 中英双名，任一存在即视为该产物在（展示解析到的实际路径）
+    source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
+    EXPECTED_DOCS=()
+    for _pair in "clarification:requirements" "acceptance:requirements" "design:design" "tech_selection:design"; do
+      _skey="${_pair%%:*}"; _dkey="${_pair##*:}"
+      _found="$(df_resolve_doc "$FEATURE" "$_skey" .md "$_dkey")"
+      [ -n "$_found" ] || _found="$(df_default_doc "$FEATURE" "$_skey" .md "$_dkey")"
+      # 中文默认不存在时回落到英文历史名做缺失提示
+      if [ ! -f "$_found" ]; then
+        case "$_skey" in
+          clarification) _en="docs/requirements/$FEATURE-clarification.md" ;;
+          acceptance) _en="docs/requirements/$FEATURE-acceptance-criteria.md" ;;
+          design) _en="docs/detailed-design/$FEATURE-design.md" ;;
+          tech_selection) _en="docs/detailed-design/$FEATURE-tech-selection.md" ;;
+        esac
+        [ -f "$_en" ] && _found="$_en"
+      fi
+      EXPECTED_DOCS+=("$_found")
+    done
     FOUND_ORPHANS=0
     for doc in "${EXPECTED_DOCS[@]}"; do
       if [ -f "$doc" ]; then

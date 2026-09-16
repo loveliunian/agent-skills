@@ -1,6 +1,6 @@
 ---
 name: security
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   Use when auditing security vulnerabilities, permission gaps, or data exposure risks, mentions
   "/security", "security audit", "安全审计", "权限审计", "auth", "authorization", or "vulnerability scan".
@@ -37,7 +37,7 @@ allowed-tools:
 
 ## 命名约定
 
-输出：`docs/review/<feature>-security-audit-report.md`
+输出：`docs/评审/<feature>-安全审计报告.md`
 
 ## 执行步骤
 
@@ -98,7 +98,7 @@ find backend/<service>/src/main/java -name "*.java" -type f | grep "/client/" \
 
 ### 5. 输出报告
 
-写入 `docs/review/<feature>-security-audit-report.md`：
+写入 `docs/评审/<feature>-安全审计报告.md`：
 
 ```markdown
 # <feature> 安全审计报告
@@ -140,14 +140,14 @@ Gate（强制）
 
 | 项 | 强制条件 |
 |----|----------|
-| 报告路径 | `docs/review/<feature>-security-audit-report.md` 实际写入 |
+| 报告路径 | `docs/评审/<feature>-安全审计报告.md` 实际写入 |
 | 权限矩阵完整 | 每个写操作覆盖 = 100% |
 | P0 项 | **必须 = 0** |
 | 独立性 | 必须独立 session（不得与开发同 session） |
 
 ## 输出
 
-- `docs/review/<feature>-security-audit-report.md`
+- `docs/评审/<feature>-安全审计报告.md`
 
 ## 自检命令
 
@@ -158,7 +158,7 @@ bash "$SKILL_ROOT/scripts/p3_security_perf_gate.sh" <feature> --mode security
 
 ```bash
 # P3c 自检：P0 项必须 = 0
-P0_COUNT=$(grep -c "^### SEC-\\|^| SEC-" docs/review/<feature>-security-audit-report.md)
+P0_COUNT=$(grep -c "^### SEC-\\|^| SEC-" docs/评审/<feature>-安全审计报告.md)
 echo "安全 P0 项数: $P0_COUNT"
 test "$P0_COUNT" -eq 0  # 必须 = 0
 

@@ -54,10 +54,10 @@ P4 首轮快照 Gate 命令
       status ∈ {PASS,FAIL,SKIP}；每行一个验收点 ID
 
 示例：
-  $0 freeze m-03 docs/requirements/M-03-acceptance-criteria.md docs/detailed-design/M-03-design.md
+  $0 freeze m-03 docs/需求/M-03-验收点.md docs/详细设计/M-03-详细设计.md
   $0 check m-03
   $0 verify m-03
-  $0 record m-03 docs/test/m-03-test-report.md docs/review/m-03-review-report.md
+  $0 record m-03 docs/测试报告/m-03-测试报告.md docs/评审/m-03-评审报告.md
 EOF
   # v3.15.8: 原 exit 0——无参/未知命令调用被上层当 gate PASS（fail-open）
   exit 2

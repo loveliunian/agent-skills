@@ -11,7 +11,12 @@
 
 set -e
 
-POSTMORTEM_DIR="${POSTMORTEM_DIR:-docs/postmortems}"
+# v3.22.0: 默认目录中文化；历史英文目录已存在且未显式指定时沿用
+if [ -n "${POSTMORTEM_DIR:-}" ]; then :; elif [ -d "docs/postmortems" ] && [ ! -d "docs/事故复盘" ]; then POSTMORTEM_DIR="docs/postmortems"; else POSTMORTEM_DIR="docs/事故复盘"; fi
+# 扫描时中英两目录都纳入（若都存在）
+POSTMORTEM_ALT=""
+if [ "$POSTMORTEM_DIR" = "docs/事故复盘" ] && [ -d "docs/postmortems" ]; then POSTMORTEM_ALT="docs/postmortems"
+elif [ "$POSTMORTEM_DIR" = "docs/postmortems" ] && [ -d "docs/事故复盘" ]; then POSTMORTEM_ALT="docs/事故复盘"; fi
 OUTPUT_FILE="${1:-$POSTMORTEM_DIR/INDEX.md}"
 
 if [ ! -d "$POSTMORTEM_DIR" ]; then
@@ -21,21 +26,26 @@ fi
 
 mkdir -p "$(dirname "$OUTPUT_FILE")"
 
-python3 - "$POSTMORTEM_DIR" "$OUTPUT_FILE" <<'PYEOF'
+python3 - "$POSTMORTEM_DIR" "$POSTMORTEM_ALT" "$OUTPUT_FILE" <<'PYEOF'
 import os, sys, re, glob
 from datetime import datetime
 
 postmortem_dir = sys.argv[1]
-output_file = sys.argv[2]
+postmortem_alt = sys.argv[2]
+output_file = sys.argv[3]
 
 reports = []
-for f in sorted(glob.glob(f'{postmortem_dir}/*-pm.md')):
+_scan_dirs = [postmortem_dir] + ([postmortem_alt] if postmortem_alt else [])
+_pm_files = []
+for _d in _scan_dirs:
+    _pm_files += glob.glob(f'{_d}/*-pm.md') + glob.glob(f'{_d}/*-事故复盘.md')
+for f in sorted(set(_pm_files)):
     if os.path.basename(f) == 'INDEX.md':
         continue
     content = open(f, encoding='utf-8').read()
     fname = os.path.basename(f)
-    # 文件名格式: YYYY-MM-DD-slug-pm.md
-    m = re.match(r'(\d{4}-\d{2}-\d{2})-(.+)-pm\.md', fname)
+    # 文件名格式: YYYY-MM-DD-slug-pm.md 或 YYYY-MM-DD-slug-事故复盘.md
+    m = re.match(r'(\d{4}-\d{2}-\d{2})-(.+?)(?:-pm|-事故复盘)\.md$', fname)
     if not m:
         continue
     date, slug = m.group(1), m.group(2)

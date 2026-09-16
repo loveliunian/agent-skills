@@ -53,9 +53,14 @@ if [ -z "$SERVICE" ]; then
   fi
 fi
 
-REPORT_PATH="docs/review/${FEATURE}-code-review-report.md"
-DESIGN_PATH="docs/detailed-design/${FEATURE}-design.md"
-CRITERIA_PATH="docs/requirements/${FEATURE}-acceptance-criteria.md"
+# v3.22.0: 文档层中文化（中文优先、英文回退）
+source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
+REPORT_PATH="$(df_resolve_doc "$FEATURE" code_review_report .md review)"
+[ -n "$REPORT_PATH" ] || REPORT_PATH="docs/review/${FEATURE}-code-review-report.md"
+DESIGN_PATH="$(df_resolve_doc "$FEATURE" design .md design)"
+[ -n "$DESIGN_PATH" ] || DESIGN_PATH="docs/detailed-design/${FEATURE}-design.md"
+CRITERIA_PATH="$(df_resolve_doc "$FEATURE" acceptance .md requirements)"
+[ -n "$CRITERIA_PATH" ] || CRITERIA_PATH="docs/requirements/${FEATURE}-acceptance-criteria.md"
 # v3.16.11（P1-4）: SERVICE 白名单 = backend 真实服务目录名集合——封堵
 # 路径穿越（PoC：传入 ../clean → 扫描 backend/../clean/src/main/java，
 # 真实服务的 TODO 被绕过，P3B_EXIT=0）。SERVICE 必须是 backend/*/src/main/java
@@ -229,8 +234,8 @@ GATE_VER=$(sed -n 's/^version: "\([0-9.]*\)"/\1/p; s/^  version: "\([0-9.]*\)"/\
 [ -n "$GATE_VER" ] || { echo "[FATAL] 版本源读取失败，拒绝产出收据"; exit 2; }
 # v3.16.0（P0-3）: 统一收据契约——收据绑定原始证据（EVIDENCE_TREE_SHA256），
 # 证据删除/篡改后 audit-receipts 重验即阻断（旧契约仅路径无哈希，PoC：删报告仍 AUDIT PASS）
-EV_REPORT="docs/review/${FEATURE}-code-review-report.md"
-EV_DESIGN="docs/detailed-design/${FEATURE}-design.md"
+EV_REPORT="$REPORT_PATH"
+EV_DESIGN="$DESIGN_PATH"
 # v3.16.11（P1-4 附）: criteria 纳入证据树——验收标准是 P3b 覆盖检查的对账源
 #（此前只绑 report+design，删 criteria 后收据重验无感知）
 EV_CRITERIA="docs/requirements/${FEATURE}-acceptance-criteria.md"

@@ -9,16 +9,22 @@ REPORT="${2:-}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 source "$SCRIPT_DIR/devflow_feature.sh"
 source "$SCRIPT_DIR/devflow_receipt.sh"
+# v3.22.0: 文档层中文化（中文优先、英文回退）
+source "$SCRIPT_DIR/devflow_paths.sh"
 devflow_feature_validate "$FEATURE" || exit 2
 
 WORKSPACE="${WORKSPACE:-$PWD}"
 cd "$WORKSPACE" || { echo "[P0] workspace unavailable: $WORKSPACE"; exit 2; }
-REPORT="${REPORT:-docs/test/${FEATURE}-validation-report.md}"
+if [ -z "$REPORT" ]; then
+  REPORT="$(df_resolve_doc "$FEATURE" validation_report .md test)"
+  [ -n "$REPORT" ] || REPORT="docs/test/${FEATURE}-validation-report.md"
+fi
 STATE_DIR="${STATE_DIR:-.devflow}"
 RECEIPT_DIR="$STATE_DIR/${FEATURE}/gates/P4"
 EXEC_DIR="$STATE_DIR/${FEATURE}/test-executions"
 EXEC_LOG="$EXEC_DIR/p4-validation.log"
-CRITERIA="docs/requirements/${FEATURE}-acceptance-criteria.md"
+CRITERIA="$(df_resolve_doc "$FEATURE" acceptance .md requirements)"
+[ -n "$CRITERIA" ] || CRITERIA="docs/requirements/${FEATURE}-acceptance-criteria.md"
 
 PASS=0; FAIL=0
 P4_STARTED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")

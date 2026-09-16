@@ -73,8 +73,10 @@ fi
 # ---------- §3 acceptance-criteria 是否独立 ----------
 echo ""
 echo "--- §3 acceptance-criteria 独立性 ---"
-CLAR=$(find "$PROJECT_ROOT/docs/requirements" -name "*-clarification.md" 2>/dev/null | head -1)
-CRIT=$(find "$PROJECT_ROOT/docs/requirements" -name "*-acceptance-criteria.md" 2>/dev/null | head -1)
+# v3.22.0: 中英目录/文件名双语
+CLAR_DIRS=(); for _d in "$PROJECT_ROOT/docs/需求" "$PROJECT_ROOT/docs/requirements"; do [ -d "$_d" ] && CLAR_DIRS+=("$_d"); done
+CLAR=""; [ "${#CLAR_DIRS[@]}" -gt 0 ] && CLAR=$(find "${CLAR_DIRS[@]}" \( -name "*-clarification.md" -o -name "*-需求澄清.md" \) 2>/dev/null | head -1)
+CRIT=""; [ "${#CLAR_DIRS[@]}" -gt 0 ] && CRIT=$(find "${CLAR_DIRS[@]}" \( -name "*-acceptance-criteria.md" -o -name "*-验收点.md" \) 2>/dev/null | head -1)
 if [ -n "$CLAR" ] && [ -n "$CRIT" ]; then
   if [ "$CLAR" != "$CRIT" ]; then
     echo "[PASS] acceptance-criteria.md 与 clarification.md 独立存在"
@@ -94,7 +96,9 @@ fi
 # ---------- §4 详设格式 ----------
 echo ""
 echo "--- §4 详设格式合规 ---"
-DESIGN=$(find "$PROJECT_ROOT/docs/detailed-design" -name "*-design.md" 2>/dev/null | head -1)
+# v3.22.0: 详设中英双语
+DESIGN_DIRS=(); for _d in "$PROJECT_ROOT/docs/详细设计" "$PROJECT_ROOT/docs/detailed-design"; do [ -d "$_d" ] && DESIGN_DIRS+=("$_d"); done
+DESIGN=""; [ "${#DESIGN_DIRS[@]}" -gt 0 ] && DESIGN=$(find "${DESIGN_DIRS[@]}" \( -name "*-design.md" -o -name "*-详细设计.md" \) 2>/dev/null | head -1)
 if [ -n "$DESIGN" ]; then
   HAS_7COL=$(grep -cE '字段名.*类型.*约束.*默认值.*口径说明' "$DESIGN" 2>/dev/null || true)
   HAS_6COL_REQ=$(grep -cE '字段.*类型.*必填.*校验规则.*数据来源.*脱敏' "$DESIGN" 2>/dev/null || true)

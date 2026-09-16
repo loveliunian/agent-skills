@@ -1,7 +1,7 @@
 ---
 name: sql-dev
 subagent_type: shell
-version: "3.21.1"
+version: "3.22.0"
 responsibility: "实现一个垂直切片的四方言 Flyway 与菜单/权限 seed。"
 allowed-tools: [read, write, exec, grep, glob]
 ---

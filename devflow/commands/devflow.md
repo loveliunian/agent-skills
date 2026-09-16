@@ -1,6 +1,6 @@
 ---
 name: devflow-command
-version: "3.21.1"
+version: "3.22.0"
 description: Use when running the complete devflow lifecycle or resuming a checkpoint.
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
@@ -50,7 +50,7 @@ P11 是独立事故复盘，不属于正常交付完成条件。
 |---|---|
 | P0 | `s0_acceptance_gate.sh <feature>`；通过后立即 `devflow-state.sh constraints-freeze <feature>`（冻结技术约束 SHA，P1 强制校验） |
 | P0b | `artifact_gate.sh P0b <feature>` |
-| P1 | `s1_fact_sources_gate.sh docs/detailed-design`（校验技术选型机读绑定 + 约束文件 SHA 与 state 一致） |
+| P1 | `s1_fact_sources_gate.sh docs/详细设计`（校验技术选型机读绑定 + 约束文件 SHA 与 state 一致） |
 | P2 | `df_pipeline.py design`（design.json 校验 + 详设确定性层渲染，失败关闭）→ `s2_design_coverage_gate.sh <design> <criteria> [--mode=monolith|total|sub]`（详设必须逐条引用 constraint_id；design.json 存在时 §2c 强制对账）；B/C 再跑 `s3_migration_mapping_gate.sh` |
 | P2a | `p2a_design_review_gate.sh <feature>`（前置：编排器以 review-receipt.sh begin/complete 两阶段为 AUTHOR+5 角色写独立收据——begin 必须先于报告产出） |
 | P2b | `p2b_demo_gate.sh <feature>` |

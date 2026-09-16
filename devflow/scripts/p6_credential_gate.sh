@@ -33,12 +33,15 @@ gate_pass() { echo "  [PASS] $1"; PASS_COUNT=$((PASS_COUNT+1)); }
 gate_warn() { echo "  [WARN] $1"; WARN_COUNT=$((WARN_COUNT+1)); }
 
 # 1. 测试报告不含盲猜模式（排除"已作废声明"元行）
+# v3.22.0: 目录中英双语（docs/测试报告 优先，回退 docs/tests）
 REPORT=""
-if [ -d docs/tests ]; then
-  REPORT=$(find docs/tests -name "${FEATURE}-*测试报告*.md" -o -name "${FEATURE}-*-report.md" 2>/dev/null | head -1 || true)
+P6_REPORT_DIRS=()
+for _d in docs/测试报告 docs/tests; do [ -d "$_d" ] && P6_REPORT_DIRS+=("$_d"); done
+if [ "${#P6_REPORT_DIRS[@]}" -gt 0 ]; then
+  REPORT=$(find "${P6_REPORT_DIRS[@]}" \( -name "${FEATURE}-*测试报告*.md" -o -name "${FEATURE}-*-report.md" \) 2>/dev/null | head -1 || true)
 fi
 if [ -z "$REPORT" ]; then
-  echo "  [FAIL] 测试报告不存在（docs/tests/${FEATURE}-*测试报告*.md）— P6 无凭证证据，拒绝放行"
+  echo "  [FAIL] 测试报告不存在（docs/测试报告/${FEATURE}-*测试报告*.md）— P6 无凭证证据，拒绝放行"
   exit 1
 else
   # v3.14.11-fix(jmmp2): 否定声明（如"无盲猜密码"）曾命中正向关键词被误判阳性——排除否定语境行
@@ -53,15 +56,16 @@ else
 fi
 
 # 2. 测试用例文档"前置条件"必须含凭证三要素
+# v3.22.0: 目录中英四目录双语
 CASE_DIRS=""
-for d in docs/test-cases docs/tests; do
+for d in docs/测试用例 docs/test-cases docs/测试报告 docs/tests; do
   if [ -d "$d" ]; then CASE_DIRS="$CASE_DIRS $d"; fi
 done
 CASES=""
 if [ -n "$CASE_DIRS" ]; then
   CASES=$(find $CASE_DIRS \
-    -name "*${FEATURE}*端到端测试用例*.md" -o \
-    -name "*${FEATURE}*test-cases*.md" 2>/dev/null | head -1 || true)
+    \( -name "*${FEATURE}*端到端测试用例*.md" -o \
+    -name "*${FEATURE}*test-cases*.md" \) 2>/dev/null | head -1 || true)
 fi
 if [ -n "$CASES" ] && [ -f "$CASES" ]; then
   HAS_USER=$(grep -cE "\| 用户名" "$CASES" || true)

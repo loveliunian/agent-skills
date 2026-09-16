@@ -1,6 +1,6 @@
 ---
 name: prd-review
-version: "3.21.1"
+version: "3.22.0"
 description: "Use when reviewing PRD documents to ensure requirements are complete, feasible, and aligned with business goals."
 number-scheme: legacy-P-retained
 devflow-phase: P0b
@@ -163,6 +163,6 @@ bash "$SKILL_ROOT/scripts/artifact_gate.sh" P0b <feature>
 | 探针执行记录 | P1/P2/P4/P5 章节存在 |
 | 歧义术语决议表 | 存在且无未决议行（或显式"无歧义"声明） |
 | 边界条件枚举 | 章节存在 |
-| 遗留问题 = 0 | `grep -cE '遗留\|未解决\|待修复' docs/requirements/<f>-prd-review.md = 0` |
-| 无占位符 | `grep -cE 'TODO\|TBD' docs/requirements/<f>-prd-review.md = 0` |
+| 遗留问题 = 0 | `grep -cE '遗留\|未解决\|待修复' docs/需求/<f>-PRD评审.md = 0` |
+| 无占位符 | `grep -cE 'TODO\|TBD' docs/需求/<f>-PRD评审.md = 0` |
 | 浅层信号 | "已阅/LGTM/无明显问题"式结论无核查清单 → FAIL |

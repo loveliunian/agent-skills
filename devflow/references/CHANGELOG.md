@@ -1,12 +1,21 @@
 ---
 name: changelog
-version: "3.21.1"
+version: "3.22.0"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.21.1 Migration Guide
+# Changelog — devflow v1 → v3.22.0 Migration Guide
+
+## v3.22.0 (2026-09-16) — 过程性产物文档层中文化（中英双语回退）
+
+- **范围（仅人类文档层）**：`docs/` 下过程性文档默认改中文名——目录 `docs/需求`、`docs/PRD`、`docs/详细设计`、`docs/评审`、`docs/原型`、`docs/测试`、`docs/测试用例`、`docs/测试报告`、`docs/发布`、`docs/复盘`、`docs/知识沉淀`、`docs/事故复盘`、`docs/小需求变更`；文件后缀如 `<feature>-需求澄清.md`、`-验收点.md`、`-技术约束.md`、`-详细设计.md`、`-设计评审报告.md`、`-代码审查报告.md`、`-PRD验证报告.md`、`-终验报告.md`、`-部署记录.md`、`-监控配置.md`、`-文档索引.md`、`-复盘.md`。
+- **中英双语回退（零迁移）**：新增 `scripts/devflow_paths.sh` 单一映射库（中文默认写、解析中文优先英文回退）；所有 Gate、索引生成器、hook、maintenance/s8、s8b 证据表经此解析。历史英文布局项目继续通过，无需改动。
+- **哈希兼容**：`compute_artifact_hash` 同时纳入中英 docs 目录（存在才计），改名不引发 ARTIFACT_HASH 漂移。
+- **事实源**：`_commons.md`、`_权限矩阵.md`、`_环境与账号.md`、`_菜单Seed索引.md`、`INDEX-*.md` 文件名是机器 grep 契约保持英文/原名，仅随目录迁移；`init-fact-sources.sh` 与 `generate-*` 默认写 `docs/详细设计/`，已存在英文目录且无中文目录时沿用英文目录。
+- **不翻译的机器契约**：`.devflow/` 下 `receipt.txt`、`*.state.json`、`design.json`、`verification.json`、`*.tsv`、`*.env`、`skip-log.txt`、`feedback/`、`review-sessions/`、`gates/<PHASE>/`，stage 名（P0–P10 等）、ASCII feature 标识，以及 `-implementation-evidence.tsv`、`-p4-results.tsv`、`-unit-coverage.html`、`-migration-evidence.env` 等被表头/键解析的文件。
+- **文档与测试**：phases/commands/subagents/concepts/templates 共 60+ 文档约定路径同步中文（机器键名不动）；新增 `tests/test-chinese-paths.sh`（中文布局通过 / 英文布局兼容 / 中文优先三态），并注册完整套件。
 
 ## v3.21.1 (2026-09-16) — P4 执行证据与发布树修复
 

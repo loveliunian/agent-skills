@@ -18,6 +18,7 @@ SUITES=(
   "test-client-platforms.sh:客户端平台"
   "test-phase-gates.sh:阶段门控"
   "test-v3140-regressions.sh:v3.14.0 回归"
+  "test-chinese-paths.sh:中文产物路径"
   "test-maintainability.sh:可维护性"
   "test-small-change.sh:小改动"
   "test-release-hardening.sh:发布硬化"

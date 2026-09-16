@@ -1,6 +1,6 @@
 ---
 name: test-engineer
-version: "3.21.1"
+version: "3.22.0"
 subagent_type: generalPurpose
 description: >-
   Use when executing P4 PRD validation, P5 test case generation, or P6 test execution, mentions
@@ -15,10 +15,10 @@ allowed-tools:
   - glob
   - task
 paths:
-  - "docs/detailed-design/**"
-  - "docs/prd/**"
-  - "docs/test-cases/**"
-  - "docs/tests/**"
+  - "docs/详细设计/**"
+  - "docs/PRD/**"
+  - "docs/测试用例/**"
+  - "docs/测试报告/**"
   - "frontend/e2e/**/*.spec.ts"
 disable-model-invocation: false
 ---
@@ -46,11 +46,11 @@ disable-model-invocation: false
 
 ```bash
 # 对照 PRD 逐项验证
-test -f docs/prd/<feature>.md && echo "PRD OK"
+test -f docs/PRD/<feature>.md && echo "PRD OK"
 
 # 用例覆盖度（详设功能点 vs 测试用例数）
-FUNC_POINTS=$(grep -cE "^### 6\.|^#### 6\." docs/detailed-design/<feature>-design.md)
-TEST_CASES=$(find docs/test-cases -name "*.md" -type f -exec grep -cE "^[0-9]+\." {} + | awk '{s+=$1} END {print s+0}')
+FUNC_POINTS=$(grep -cE "^### 6\.|^#### 6\." docs/详细设计/<feature>-详细设计.md)
+TEST_CASES=$(find docs/测试用例 -name "*.md" -type f -exec grep -cE "^[0-9]+\." {} + | awk '{s+=$1} END {print s+0}')
 echo "功能点=$FUNC_POINTS, 测试用例=$TEST_CASES"
 test "$TEST_CASES" -ge "$FUNC_POINTS" && echo "覆盖 OK"
 ```
@@ -59,7 +59,7 @@ test "$TEST_CASES" -ge "$FUNC_POINTS" && echo "覆盖 OK"
 
 委托 `test-case-agent`：
 ```bash
-spawn_fresh(role="test-case-agent", task="基于 docs/detailed-design/<feature>-design.md 生成测试用例，输出到 docs/test-cases/<feature>.md")
+spawn_fresh(role="test-case-agent", task="基于 docs/详细设计/<feature>-详细设计.md 生成测试用例，输出到 docs/测试用例/<feature>.md")
 ```
 
 ### P6: 测试执行
@@ -116,14 +116,14 @@ Gate（凭证可追溯性 — 新增）
 
 ```bash
 # 凭证可追溯性自检（嵌入 E2E Gate ：排除"已作废"等元行）
-REPORT=docs/tests/<feature>-测试报告.md
+REPORT=docs/测试报告/<feature>-测试报告.md
 if grep -vE "已作废|v[0-9] 修订|错误做法|反例引用" "$REPORT" \
    | grep -qE "尝试.*admin[0-9]+|尝试.*常见密码|盲猜|穷举.*密码"; then
   echo "BLOCKED: 盲猜密码审计错误"
   exit 1
 fi
 
-CASES=$(find docs/test-cases docs/tests -name "<feature>*端到端测试用例*.md" -o -name "<feature>*test-cases*.md" 2>/dev/null | head -1)
+CASES=$(find docs/测试用例 docs/测试报告 -name "<feature>*端到端测试用例*.md" -o -name "<feature>*test-cases*.md" 2>/dev/null | head -1)
 if [ -f "$CASES" ]; then
   HAS_USERNAME=$(grep -cE "\| 用户名" "$CASES")
   HAS_PASSWORD=$(grep -cE "\| 密码" "$CASES")
@@ -151,10 +151,10 @@ done
 
 ```bash
 # /test 自检
-test -f docs/test/<feature>-validation-report.md && echo "P4 OK"
-test -f docs/test-cases/<feature>.md && echo "P5 OK"
-test -f docs/test/<feature>-e2e-report.md && echo "P6e OK"
-test -f docs/test/<feature>-integration-report.md && echo "P6b OK"
+test -f docs/测试/<feature>-PRD验证报告.md && echo "P4 OK"
+test -f docs/测试用例/<feature>.md && echo "P5 OK"
+test -f docs/测试/<feature>-端到端报告.md && echo "P6e OK"
+test -f docs/测试/<feature>-集成测试报告.md && echo "P6b OK"
 
 # E2E 通过率
 PASS=$(grep -oE 'data-status="passed"' frontend/playwright-report/index.html 2>/dev/null | wc -l | tr -d ' ')
@@ -169,7 +169,7 @@ test "$PASS" -gt 0 && test "$TOTAL" -gt 0 && echo "E2E 已执行"
 
 ```bash
 # Gather：找测试报告
-REPORT=$(find docs/tests docs/test -name "*测试报告*.md" 2>/dev/null | head -1)
+REPORT=$(find docs/测试报告 docs/测试 -name "*测试报告*.md" 2>/dev/null | head -1)
 if [ -n "$REPORT" ]; then
   echo "测试报告=$REPORT"
   

@@ -1,6 +1,6 @@
 ---
 name: prd-vs-code-phase
-version: "3.21.1"
+version: "3.22.0"
 description: Use when running the P4b exact acceptance evidence Gate.
 ---
 
@@ -27,7 +27,7 @@ Prove that every frozen acceptance ID has concrete code and test evidence. Count
 ## Gate
 
 ```bash
-bash "$SKILL_ROOT/scripts/p4_prd_vs_code.sh" <feature> --prd <PRD-path> --design docs/detailed-design/<feature>-design.md --criteria docs/requirements/<feature>-acceptance-criteria.md --evidence docs/test/<feature>-implementation-evidence.tsv --service <service>
+bash "$SKILL_ROOT/scripts/p4_prd_vs_code.sh" <feature> --prd <PRD-path> --design docs/详细设计/<feature>-详细设计.md --criteria docs/需求/<feature>-验收点.md --evidence docs/测试/<feature>-implementation-evidence.tsv --service <service>
 ```
 
 Exit 0 is required before P5. Any missing ID/path, non-PASS evidence, permission gap, TODO/FIXME, design Gate failure, or four-dialect table-set difference is P0.

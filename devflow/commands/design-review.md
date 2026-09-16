@@ -1,15 +1,15 @@
 ---
 name: design-review
-version: "3.21.1"
+version: "3.22.0"
 description: Use when reviewing a detailed design through the independent five-role P2a committee.
-paths: [docs/detailed-design/**, docs/review/**]
+paths: [docs/详细设计/**, docs/评审/**]
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
 
 # /design-review — P2 详细设计评审
 
 > **目的**：详细设计完成后，由多 Agent 进行评审，确保设计质量。
-> **产出**：`docs/review/<feature>-design-review-report.md`
+> **产出**：`docs/评审/<feature>-设计评审报告.md`
 > **通过条件**：所有评审角色通过 + 遗留问题 = 0
 
 ## Usage
@@ -84,8 +84,8 @@ Gate 通过 `verify` 校验收据的输入/输出 SHA、时间窗与评审者独
 
 | 文件 | 说明 |
 |------|------|
-| `docs/review/<feature>-design-review-report.md` | 评审报告（基于 `templates/详细设计评审报告-模板.md`） |
-| 修改后的 `docs/detailed-design/<feature>-design.md` | 按评审意见修改 |
+| `docs/评审/<feature>-设计评审报告.md` | 评审报告（基于 `templates/详细设计评审报告-模板.md`） |
+| 修改后的 `docs/详细设计/<feature>-详细设计.md` | 按评审意见修改 |
 
 ## Gate 检查
 
@@ -110,7 +110,7 @@ bash "$SKILL_ROOT/scripts/p2a_design_review_gate.sh" <feature>
 
 | # | 检查项 | 通过条件 |
 |---|--------|----------|
-| 1 | 评审报告存在 | `wc -l docs/review/<feature>-design-review-report.md > 0` |
+| 1 | 评审报告存在 | `wc -l docs/评审/<feature>-设计评审报告.md > 0` |
 | 2 | 5 角色均评审（含 DBA） | 每个角色都有评审记录 |
 | 3 | 全部通过 | 所有角色结论 = ✅（≥5 个批准标记） |
 | 4 | 遗留问题 = 0 | v3.14.1 起 p2a 硬阻断：出现"遗留/待修复/TBD/FIXME"即 FAIL |
@@ -131,7 +131,7 @@ bash "$SKILL_ROOT/scripts/p2a_design_review_gate.sh" <feature>
 | 评审对象 | PRD 文档 | 详细设计文档 |
 | 角色 | 业务/技术/测试/安全 | 架构/后端/前端/测试开发/DBA |
 | 重点 | 需求完整性 | 设计可实现性/可测性 |
-| 产出 | `docs/requirements/<feature>-prd-review.md` | `docs/review/<feature>-design-review-report.md` |
+| 产出 | `docs/需求/<feature>-PRD评审.md` | `docs/评审/<feature>-设计评审报告.md` |
 | Gate | 多角色通过 | 多角色通过 + acceptance-traceability 追溯 |
 
 ## 反模式

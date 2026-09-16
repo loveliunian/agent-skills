@@ -1,6 +1,6 @@
 ---
 name: architecture-scorecard
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   架构评分卡权威定义。v3.9 起从 concepts/SKILL.md 抽出。
   包含两个互补框架:
@@ -9,8 +9,8 @@ description: >-
   Use when scoring architecture decisions, generating PR scorecards,
   or when /audit-pitfalls references "L-GEVITY" / "S.U.P.E.R".
 paths:
-  - "docs/review/**/l-gevity-scorecard.md"
-  - "docs/review/**/super-scorecard.md"
+  - "docs/评审/**/l-gevity-scorecard.md"
+  - "docs/评审/**/super-scorecard.md"
 ---
 
 ## 13. L-GEVITY Architecture Discipline（架构纪律，铁律）
@@ -59,7 +59,7 @@ paths:
 
 ### 13.5 4 维评分卡
 
-每个 PR 必须有 `docs/review/l-gevity-scorecard.md`：
+每个 PR 必须有 `docs/评审/l-gevity-scorecard.md`：
 
 ```markdown
 # L-GEVITY Scorecard — M-XX

@@ -1,7 +1,7 @@
 ---
 name: arch-review
 description: 代码架构审查命令
-version: "3.21.1"
+version: "3.22.0"
 allowed-tools: [read, write, exec, glob, grep, task]
 alwaysApply: true
 ---
@@ -66,13 +66,13 @@ paths: ["backend/**", "frontend/**"]
 │     └── 上帝类检测                                          │
 │         ↓                                                   │
 │  6. 架构报告输出                                            │
-│     └── docs/review/<feature>-architecture-report.md        │
+│     └── docs/评审/<feature>-架构评审报告.md        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ## 报告输出
 
-报告将写入：`docs/review/<feature>-architecture-report.md`
+报告将写入：`docs/评审/<feature>-架构评审报告.md`
 
 ### 报告结构
 
@@ -113,7 +113,7 @@ paths: ["backend/**", "frontend/**"]
 ## 输出文件
 
 ```
-docs/review/<feature>-architecture-report.md
+docs/评审/<feature>-架构评审报告.md
 ```
 
 ---

@@ -1,11 +1,11 @@
 ---
 name: test-case-agent
 subagent_type: generalPurpose
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   Use when generating test cases from a detailed design, mentions
   "测试用例", "test cases", "test case generation", or "用例".
-  Outputs functional + boundary + error test cases in docs/test-cases/<feature>.md.
+  Outputs functional + boundary + error test cases in docs/测试用例/<feature>.md.
   Playwright E2E cases must use ADMIN_PASSWORD from helpers.ts (never hardcoded), and the doc must include a credential traceability table.
   以全新上下文 spawn（语义调用见 references/agent-runtime-adapter.md 的 spawn_fresh）。
 allowed-tools:
@@ -15,8 +15,8 @@ allowed-tools:
   - grep
   - glob
 paths:
-  - "docs/detailed-design/**"
-  - "docs/test-cases/**"
+  - "docs/详细设计/**"
+  - "docs/测试用例/**"
   - "frontend/e2e/**/*.spec.ts"
 disable-model-invocation: false
 ---
@@ -68,7 +68,7 @@ PRD功能点 → 业务流程 → 测试场景
 
 ### 4. 输出文档
 
-保存到 `docs/test-cases/<feature>-test-cases.md`
+保存到 `docs/测试用例/<feature>-测试用例.md`
 
 ## 测试用例分类
 

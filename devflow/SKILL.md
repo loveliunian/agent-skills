@@ -4,14 +4,14 @@ description: "Use when a user provides a PRD or asks to run /devflow for phase-g
 license: MIT
 metadata:
   author: xingyunliushui
-  version: "3.21.1"
+  version: "3.22.0"
   compatibility: [cursor, claude-code, codex, trae]
   updated: "2026-09-15"
   tags: [prd, detailed-design, development, migration, phase-gate, checkpoint-recovery]
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
 
-# devflow — PRD to production（v3.21.1）
+# devflow — PRD to production（v3.22.0）
 
 本文件是唯一权威入口。历史迁移只查 `references/CHANGELOG.md`；命令、阶段、角色和模板按需加载，不在入口重复。
 
@@ -51,6 +51,12 @@ allowed-tools: [read, write, exec, glob, grep, task]
 “小需求/小改动、局部 UI、配置、修复、字段/默认值/校验”等先加载 `commands/small-change.md`；`SMALL-CHANGE` 默认只到 `MERGE_READY`，明确要求上线才绑定 P7+P8 收据并声明 `RELEASED`。
 
 全流程编排、参数、Gate 调用、跳过与恢复见 `commands/devflow.md`。自然语言触发与反例见 `concepts/natural-language-triggers.md`。
+
+### 过程性产物命名（v3.22.0 起）
+
+- 给人看的过程性文档默认用**中文名**：目录如 `docs/需求`、`docs/详细设计`、`docs/评审`、`docs/测试`、`docs/测试用例`、`docs/发布`、`docs/复盘`；文件如 `<feature>-需求澄清.md`、`<feature>-验收点.md`、`<feature>-详细设计.md`、`<feature>-终验报告.md`、`<feature>-部署记录.md`。完整中英映射见 `scripts/devflow_paths.sh`。
+- 所有 Gate **中文优先、英文回退**：历史英文路径（`docs/requirements/`、`<feature>-design.md` 等）继续被接受，在途项目无需迁移。
+- 机器契约层**不翻译、不可改名**：`.devflow/` 下的 `receipt.txt`、`*.state.json`、`design.json`、`verification.json`、`*.tsv`、`*.env`、`skip-log.txt`、`feedback/`、`review-sessions/`、`gates/<PHASE>/`，以及 stage 名（P0–P10）与 ASCII feature 标识；证据型 `*-implementation-evidence.tsv`、`*-p4-results.tsv`、`*-unit-coverage.html`、`*-migration-evidence.env` 等同样保留英文。
 
 ## P0-P10 单轨
 

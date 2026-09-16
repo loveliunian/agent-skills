@@ -23,7 +23,7 @@
 ### L-P0-001: 权限码双口径应在 P0b 拦截，不应等到 P2a
 
 **问题描述**：
-PRD 中定义的权限码与 `docs/detailed-design/_权限矩阵.md` 事实源不一致，在 P2a 五角色评审（前端专家）才发现。
+PRD 中定义的权限码与 `docs/详细设计/_权限矩阵.md` 事实源不一致，在 P2a 五角色评审（前端专家）才发现。
 
 **影响范围**：
 - P0 需求澄清未覆盖权限码对账
@@ -185,7 +185,7 @@ P3b 必须使用独立 Agent 或独立开发者审查（禁止自评）。
 ### L-P3-003: P3c/P3d 安全+性能审计不可省略
 
 **问题描述**：
-P3cd 合并执行（MODE=full），产出合并报告 `.devflow/detailed-design-v2/p3-security-perf-report.md`，但未分别产出独立的 `*-security-audit-report.md` 和 `*-performance-audit-report.md`。
+P3cd 合并执行（MODE=full），产出合并报告 `.devflow/detailed-design-v2/p3-security-perf-report.md`，但未分别产出独立的 `*-安全审计报告.md` 和 `*-性能审计报告.md`。
 
 **影响范围**：
 - 无法独立追溯安全审计过程

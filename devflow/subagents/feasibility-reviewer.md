@@ -1,7 +1,7 @@
 ---
 name: feasibility-reviewer
 subagent_type: generalPurpose
-version: "3.21.1"
+version: "3.22.0"
 description: >-
   Adversarial reviewer #1 of 3. Use when running /review,
   checks "feasibility" angle: 1) does the implementation actually do what it
@@ -47,7 +47,7 @@ disable-model-invocation: false
 
 ## 输出格式
 
-写到 `docs/review/<feature>-feasibility-review.md`：
+写到 `docs/评审/<feature>-可行性评审.md`：
 
 ```markdown
 # Feasibility Review — M-XX
