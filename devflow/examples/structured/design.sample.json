@@ -80,7 +80,7 @@
       "path": "/api/v1/pay/orders",
       "permission": "pay:order:create",
       "request": {
-        "anchor": "§3.1.1",
+        "anchor": "§3.2.1",
         "fields": [
           {
             "name": "amount",
@@ -93,7 +93,7 @@
         ]
       },
       "response": {
-        "anchor": "§3.1.2",
+        "anchor": "§3.2.1",
         "fields": [
           {
             "name": "orderId",
@@ -158,6 +158,79 @@
       "summary": "退款金额上限"
     }
   ],
+  "business_operations": [
+    {
+      "id": "BOP-1",
+      "name": "创建支付订单",
+      "trigger": "用户在下单页提交订单",
+      "actor": "持 pay:order:create 权限的用户",
+      "input": "金额 amount（页面输入）",
+      "preconditions": ["金额 > 0 且 ≤ 单笔上限（R2 同源口径）", "operator 具备 pay:order:create"],
+      "stateless": false,
+      "source_state": "无（新单）",
+      "target_state": "待支付",
+      "steps": [
+        "校验字段约束，失败返回 FIELD_VALIDATION_FAILED",
+        "获取幂等锁（order_no 粒度，60 秒）",
+        "TX：生成 order_no（冲突重试）→ INSERT pay_order(status=待支付, version=0)",
+        "TX 提交后返回 id、order_no"
+      ],
+      "concurrency": "order_no 唯一约束 + 幂等锁；重复提交返回原单（R1）",
+      "result": "成功返回 orderId/orderNo；重复提交返回原单",
+      "failure": "校验失败返回 400；唯一冲突按限定次数重试后仍失败返回 409",
+      "related_objects": ["pay_refund（后续退款引用 order_no）"],
+      "side_effects": ["支付网关预下单（INT-1，失败置待支付异常并告警）"],
+      "test_scenarios": ["正常下单", "60 秒内重复提交返回原单", "金额越界拒绝"],
+      "acceptance_refs": ["M01-F01-A01", "M01-F01-A02"],
+      "anchor": "§6.1"
+    },
+    {
+      "id": "BOP-2",
+      "name": "创建退款单",
+      "trigger": "用户在退款页对已支付订单发起退款",
+      "actor": "持 pay:refund:create 权限的用户",
+      "input": "orderId（页面输入）",
+      "preconditions": ["订单存在且已支付", "剩余可退金额 > 0"],
+      "stateless": false,
+      "source_state": "已支付",
+      "target_state": "退款受理中（异步受理模式）",
+      "steps": [
+        "校验订单存在与可退金额（R2）",
+        "TX：INSERT pay_refund(version=0)",
+        "TX 提交，异步任务推进退款终态"
+      ],
+      "concurrency": "退款单号唯一约束；同一订单并发退款以剩余可退金额校验拦截",
+      "result": "202 受理（同步响应无业务字段，见 zero_results）",
+      "failure": "订单不存在 404；超上限返回退款上限错误（R2）",
+      "related_objects": ["pay_order（扣减剩余可退金额）"],
+      "side_effects": ["异步退款任务"],
+      "test_scenarios": ["正常退款受理", "超出剩余可退金额拒绝", "并发退款只成功一笔"],
+      "acceptance_refs": ["M01-F02-A01"],
+      "anchor": "§6.2"
+    }
+  ],
+  "baseline": {
+    "repo_root": ".",
+    "db_evidence": {"source": "migration_ddl"},
+    "entries": [
+      {
+        "id": "BL-1",
+        "target": "backend/pay-service/src/main/java/com/demo/pay/OrderController.java",
+        "decision": "MODIFY",
+        "existing_contract": "OrderController#create 已存在，响应结构不变，新增幂等键头",
+        "related_acceptance": ["M01-F01-A01"],
+        "verify": "OrderControllerTest#create_idempotent"
+      },
+      {
+        "id": "BL-2",
+        "target": "backend/pay-service/src/main/java/com/demo/pay/RefundService.java",
+        "decision": "ADD",
+        "target_module": "pay-service 退款模块（同类模式参照 OrderService）",
+        "related_acceptance": ["M01-F02-A01"],
+        "verify": "RefundServiceTest 全绿"
+      }
+    ]
+  },
   "client": {
     "scope": "pc-web",
     "journeys": [

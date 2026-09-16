@@ -24,6 +24,7 @@ SUITES=(
   "test-small-change.sh:小改动"
   "test-release-hardening.sh:发布硬化"
   "test-structured-artifacts.sh:结构化产物"
+  "test-design-contract-hardening.sh:详设契约硬化（v3.24.0）"
   "test-evidence-hardening.sh:证据硬化-核心"
   "test-evidence-hardening-rounds.sh:证据硬化-行为钉轮次"
   "test-report-regressions.sh:报告回归"

@@ -188,15 +188,37 @@ if [ ! -f "$DESIGN_JSON" ]; then
 elif ! command -v python3 >/dev/null 2>&1; then
   p0 "design.json 存在但 python3 不可用——结构化产物校验无法执行（失败关闭）: $DESIGN_JSON"
 else
-  # v3.17.1: --doc 文档对账仅 monolith（1 文档 = 1 JSON）；总分模式 JSON 为 feature 级
-  V_ARGS=(--kind design --input "$DESIGN_JSON")
-  [ "$MODE" = "monolith" ] && V_ARGS+=(--doc "$DESIGN")
+  # v3.24.0(A05)：--doc 全模式对账——旧逻辑仅 monolith 传 --doc，sub 文档删掉
+  # 接口详细定义标题、JSON detail_anchor 指向不存在 §99.9.9 仍 exit=0（分文档
+  # 跳过正文锚点对账）。总分模式 JSON 为 feature 级，但对账目标是对应的分/总文档。
+  # --workspace .：仓库标志存在时启用基线/配置全仓反查（A02）。
+  V_ARGS=(--kind design --input "$DESIGN_JSON" --workspace . --doc "$DESIGN")
   [ -n "$CRITERIA" ] && V_ARGS+=(--criteria "$CRITERIA")
   if _python3 "$SKILL_ROOT/scripts/df_validate.py" "${V_ARGS[@]}"; then
-    pass "design.json 校验通过（schema + 跨字段 + criteria 全等 + 概览↔详细定义/DDR↔字段闭环）"
+    pass "design.json 校验通过（schema + 跨字段 + criteria 全等 + 正文锚点/字段对账）"
   else
     p0 "design.json 校验失败——修复后重跑 df_pipeline.py design 再过 Gate（渲染器遇缺字段会静默降级，必须在渲染前拦截）"
   fi
+fi
+
+# ---------- §2d 冻结客户端范围对账（v3.24.0 A06） ----------
+echo ""
+echo "=== §2d 冻结客户端范围对账 ==="
+S2_STATE_FILE="${STATE_DIR:-.devflow}/${EFF_FEATURE}.state.json"
+if [ -f "$S2_STATE_FILE" ] && [ -f "$DESIGN_JSON" ] && command -v jq >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+  FROZEN_FE=$(jq -r '.scope.frontend // empty' "$S2_STATE_FILE" 2>/dev/null)
+  DECL_FE=$(_python3 -c 'import json,sys
+try: print(json.load(open(sys.argv[1])).get("client",{}).get("scope",""))
+except Exception: print("")' "$DESIGN_JSON" 2>/dev/null || true)
+  if [ -n "$FROZEN_FE" ] && [ -n "$DECL_FE" ]; then
+    if [ "$FROZEN_FE" = "$DECL_FE" ]; then
+      pass "client scope reconciles with frozen state (${DECL_FE})"
+    else
+      p0 "client scope drift: state 冻结 frontend=${FROZEN_FE}，design.json 声明 ${DECL_FE}（P1/P2 必须消费同一冻结范围；范围变化须回 P0 重冻结——实测冻结 app 声明 not-applicable 曾静默通过）"
+    fi
+  fi
+else
+  warn "skip client-scope reconciliation: state 或 design.json 缺失"
 fi
 
 # ---------- §3 覆盖率 ----------
@@ -212,8 +234,19 @@ fi
 # ---------- §4 五列数据模型（v3.9.8：七列删'老系统来源/迁移转换规则'两列） ----------
 echo ""
 echo "=== §4 五列数据模型 ==="
+# v3.24.0(A06)：design.json 声明 tables 为空（zero_results，由 df_validate 把关声明
+# 合法性）的纯计算/纯任务需求，五列表头不再强制——合法无数据设计曾被误拒（实测
+# 纯计算 JSON 校验 exit=0、s2 FAIL=3）。无 design.json 时维持强制。
+DJ_TABLES_EMPTY=0
+if [ -f "$DESIGN_JSON" ] && command -v python3 >/dev/null 2>&1; then
+  DJ_TABLES_EMPTY=$(_python3 -c 'import json,sys
+try: print(1 if not json.load(open(sys.argv[1])).get("tables") else 0)
+except Exception: print(0)' "$DESIGN_JSON" 2>/dev/null || echo 0)
+fi
 FIVE_COL='字段名.*类型.*约束.*默认值.*口径说明'
-if grep -qE "$FIVE_COL" "$DESIGN" 2>/dev/null; then
+if [ "$DJ_TABLES_EMPTY" = "1" ]; then
+  pass "five-column data model exempted: design.json 声明 tables 为空（zero_results 已由 §2c 校验）"
+elif grep -qE "$FIVE_COL" "$DESIGN" 2>/dev/null; then
   # 兼容提示：若仍带旧七列表头则告警（存量产物需升级）
   if grep -qE '字段名.*类型.*约束.*默认值.*口径说明.*老系统来源' "$DESIGN" 2>/dev/null; then
     warn "数据模型表仍含旧列'老系统来源/迁移转换规则'（v3.9.8 已删除，迁移信息移至 docs/数据映射/）"
@@ -227,17 +260,28 @@ fi
 # ---------- §5 六列接口字段 ----------
 echo ""
 echo "=== §5 六列接口字段 ==="
+# v3.24.0(A06)：同 §4——design.json 声明 apis 为空时不强制六列表头。
+DJ_APIS_EMPTY=0
+if [ -f "$DESIGN_JSON" ] && command -v python3 >/dev/null 2>&1; then
+  DJ_APIS_EMPTY=$(_python3 -c 'import json,sys
+try: print(1 if not json.load(open(sys.argv[1])).get("apis") else 0)
+except Exception: print(0)' "$DESIGN_JSON" 2>/dev/null || echo 0)
+fi
 REQ='字段.*类型.*必填.*校验规则.*数据来源.*脱敏'
 RES='字段.*类型.*恒出性.*取值规则.*数据来源.*脱敏'
-if grep -qE "$REQ" "$DESIGN" 2>/dev/null; then
-  pass "request six-column found"
+if [ "$DJ_APIS_EMPTY" = "1" ]; then
+  pass "request/response six-column exempted: design.json 声明 apis 为空（zero_results 已由 §2c 校验）"
 else
-  p0 "request six-column missing"
-fi
-if grep -qE "$RES" "$DESIGN" 2>/dev/null; then
-  pass "response six-column found"
-else
-  p0 "response six-column missing"
+  if grep -qE "$REQ" "$DESIGN" 2>/dev/null; then
+    pass "request six-column found"
+  else
+    p0 "request six-column missing"
+  fi
+  if grep -qE "$RES" "$DESIGN" 2>/dev/null; then
+    pass "response six-column found"
+  else
+    p0 "response six-column missing"
+  fi
 fi
 
 # ---------- §6 WHEN + R 编号 ----------
@@ -248,6 +292,14 @@ WHEN_COUNT=$(grep -cE '^WHEN[[:space:]]+' "$DESIGN" 2>/dev/null || true)
 RULE_COUNT=$(grep -cE '(^R[0-9]+\.)|^\| *R[0-9]+ *\|' "$DESIGN" 2>/dev/null || true)
 [ "$WHEN_COUNT" -gt 0 ] && pass "WHEN clauses: $WHEN_COUNT" || p0 "WHEN clauses missing"
 [ "$RULE_COUNT" -gt 0 ] && pass "numbered rules R1.-R$((RULE_COUNT)).: $RULE_COUNT" || p0 "R 编号规则缺失"
+# v3.24.0(A01)：模板要求每个关键流程 WHEN 伪代码与时序图成对——旧 Gate 只查全文
+# WHEN>0，流程缩成一行 `WHEN 查询` 也能过。每个 WHEN 至少对应一张时序图。
+SEQ_COUNT=$(grep -c 'sequenceDiagram' "$DESIGN" 2>/dev/null || true)
+if [ "$WHEN_COUNT" -gt 0 ] && [ "$SEQ_COUNT" -ge "$WHEN_COUNT" ]; then
+  pass "WHEN/sequenceDiagram paired (${WHEN_COUNT}/${SEQ_COUNT})"
+else
+  p0 "关键流程缺时序图：WHEN=${WHEN_COUNT} sequenceDiagram=${SEQ_COUNT}（每个关键流程必须 WHEN 伪代码 + Mermaid 时序图成对）"
+fi
 
 # ---------- §7 占位符 ----------
 echo ""
@@ -261,6 +313,19 @@ for pattern in 'TODO' 'TBD' '待补充' 'REPLACE_WITH' '占位' '暂定'; do
     PLACEHOLDERS=$((PLACEHOLDERS + COUNT))
   fi
 done
+# v3.24.0(A16)：未替换模板变量检查——正文（剥离围栏后）残留的 {xxx}/{业务方填写}
+# 式花括号变量即未完成（实测「操作前置条件：{业务方填写}」曾通过 P2）。围栏内
+# 代码/JSON 示例的 braces 不算；${var} shell 变量不算。
+S2_STRIP_FILE=$(mktemp -t s2-strip.XXXXXX)
+awk '/^(```|~~~)/{f=!f;next} !f' "$DESIGN" > "$S2_STRIP_FILE" 2>/dev/null || true
+BRACE_VARS=$(grep -oE '\{[^{}[:space:]]{1,24}\}' "$S2_STRIP_FILE" 2>/dev/null | grep -v '^\${' | sort | uniq -c | sort -rn | head -5 || true)
+if [ -n "$BRACE_VARS" ]; then
+  p0 "unreplaced template variables in body: $(printf '%s' "$BRACE_VARS" | tr '\n' ' ')"
+  PLACEHOLDERS=$((PLACEHOLDERS + 1))
+else
+  pass "no unreplaced brace variables outside fenced blocks"
+fi
+rm -f "$S2_STRIP_FILE"
 [ "$PLACEHOLDERS" -eq 0 ] && pass "no placeholders"
 
 # ---------- §8 (v3.9.1 NEW) 模板-产物对齐检查 ----------

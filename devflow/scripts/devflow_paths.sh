@@ -38,6 +38,7 @@ df_zh_dir() {
     faq)            echo "docs/常见问题" ;;
     data)           echo "docs/数据字典" ;;
     guides)         echo "docs/使用指南" ;;
+    tasks)          echo "任务" ;;
     *)              echo "" ;;
   esac
 }
@@ -66,6 +67,7 @@ df_en_dir() {
     faq)            echo "docs/faq" ;;
     data)           echo "docs/data" ;;
     guides)         echo "docs/guides" ;;
+    tasks)          echo "tasks" ;;
     *)              echo "" ;;
   esac
 }
@@ -116,6 +118,9 @@ df_zh_suffix() {
     sharing)                echo "知识分享" ;;
     postmortem)             echo "事故复盘" ;;
     small_change)           echo "小需求变更" ;;
+    plan)                   echo "执行契约" ;;
+    todo)                   echo "待办" ;;
+    master_index)           echo "主索引" ;;
     *)                      echo "" ;;
   esac
 }
@@ -166,6 +171,9 @@ df_en_suffix() {
     sharing)                echo "knowledge-sharing" ;;
     postmortem)             echo "pm" ;;
     small_change)           echo "small-change" ;;
+    plan)                   echo "plan" ;;
+    todo)                   echo "todo" ;;
+    master_index)           echo "MASTER" ;;
     *)                      echo "" ;;
   esac
 }
@@ -233,4 +241,25 @@ df_stage_hash_dirs() {
     P10)    printf '%s\n%s\n%s\n%s\n' "docs/复盘" "docs/retrospectives" "docs/知识沉淀" "docs/knowledge" ;;
     *)      ;;
   esac
+}
+
+# ── v3.23.1: 无 feature 前缀的流程产物（任务执行契约/待办）──────────────
+# 用法：df_resolve_task <plan|todo> —— 中文优先、英文回退、缺失返回中文默认
+df_resolve_task() {
+  case "$1" in
+    plan) local zh="任务/执行契约.md" en="tasks/plan.md" ;;
+    todo) local zh="任务/待办.md"   en="tasks/todo.md" ;;
+    *) echo ""; return 0 ;;
+  esac
+  [ -f "$zh" ] && { printf '%s\n' "$zh"; return 0; }
+  [ -f "$en" ] && { printf '%s\n' "$en"; return 0; }
+  printf '%s\n' "$zh"
+}
+
+# ── v3.23.1: 项目主索引（项目根，无 feature 前缀）────────────────────────
+# 用法：df_resolve_master_index —— 中文 主索引.md 优先，历史 MASTER.md 回退
+df_resolve_master_index() {
+  [ -f "主索引.md" ] && { printf '%s\n' "主索引.md"; return 0; }
+  [ -f "MASTER.md" ] && { printf '%s\n' "MASTER.md"; return 0; }
+  printf '%s\n' "主索引.md"
 }

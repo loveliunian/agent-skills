@@ -2,3 +2,16 @@
 **/tests/logs/
 flow-test-contract/runtime/
 **/__pycache__/
+
+# 秘密与凭据（任何情况下不得入库；例外需显式加白并评审）
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+**/secrets.*
+
+# devflow 运行期状态（用户项目内产生，不入库）
+.devflow/

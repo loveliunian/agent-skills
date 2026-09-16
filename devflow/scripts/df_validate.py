@@ -466,6 +466,8 @@ def check_doc_anchors(data, errors, doc_path):
         (data.get("operations", []), "operations", "操作"),
         (data.get("integrations", []), "integrations", "集成"),
         (data.get("configs", []), "configs", "配置键"),
+        # v3.24.0(A01)：业务操作锚点同样必须落盘为真实章节
+        (data.get("business_operations", []), "business_operations", "业务操作"),
     ]
     for items, label, zh in checks:
         for i, it in enumerate(items):
@@ -475,6 +477,341 @@ def check_doc_anchors(data, errors, doc_path):
                     f"{label}[{i}](§{a}): §锚点在文档中不存在"
                     f"（{zh}「{it.get('name', '')}」须在详设中有对应章节标题）"
                 )
+
+
+def _doc_sections(doc):
+    """v3.24.0(A03)：按标题切分文档——{锚点编号: 剥离围栏的小节正文} 与 {锚点编号: 原文}。
+
+    小节边界 = 下一个任意编号标题（父/兄弟/子均截断——锚点小节以编号标题为界，
+    每个编号标题开启自己的小节）；未编号标题视为小节内内容；剥离围栏版供表格
+    对账（防围栏内伪表格污染），原文版供实质内容检查（围栏内伪代码/时序图同
+    样是实质内容）。"""
+    sections = {}
+    sections_raw = {}
+    current_key = None
+    current_lines = []
+    current_raw = []
+    in_fence = False
+    fence_marker = ""
+
+    def _flush():
+        if current_key is not None:
+            sections[current_key] = "\n".join(current_lines)
+            sections_raw[current_key] = "\n".join(current_raw)
+
+    for ln in doc.read_text(encoding="utf-8", errors="replace").splitlines():
+        stripped = ln.strip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            if not in_fence:
+                in_fence, fence_marker = True, stripped[:3]
+            elif stripped.startswith(fence_marker):
+                in_fence = False
+            if current_key is not None:
+                current_raw.append(ln)
+            continue
+        if in_fence:
+            if current_key is not None:
+                current_raw.append(ln)
+            continue
+        m = _API_DETAIL_HEADING_RE.match(stripped)
+        if m:
+            _flush()
+            current_key = _norm_anchor(m.group(1))
+            current_lines = []
+            current_raw = []
+            continue
+        if current_key is not None:
+            current_lines.append(ln)
+            current_raw.append(ln)
+    _flush()
+    return sections, sections_raw
+
+
+def _section_table_rows(text):
+    """v3.24.0(A03)：提取小节内所有 Markdown 表格数据行（跳过分隔行）→ [[单元格…]]。"""
+    rows = []
+    for ln in (text or "").splitlines():
+        s = ln.strip()
+        if not s.startswith("|"):
+            continue
+        cells = [c.strip() for c in s.strip("|").split("|")]
+        if all(re.fullmatch(r":?-{2,}:?", c) for c in cells if c):
+            continue
+        if cells and not any(c for c in cells):
+            continue
+        rows.append(cells)
+    return rows
+
+
+def _norm_type(v):
+    return re.sub(r"[^a-z0-9]", "", str(v or "").lower())
+
+
+def check_doc_content_agreement(data, errors, doc_path):
+    """v3.24.0(A03)：JSON ↔ 正文事实对账——同字段清单/类型不得双正本互相冲突。
+
+    (a) 表结构：table.fields 的每个字段名必须出现在该表锚点小节表格首列；
+        小节含表格时，JSON 类型与正文第二列类型归一化后必须一致；
+    (b) 接口：request/response 字段必须出现在 detail_anchor 小节表格首列且类型一致
+        （小节无表格时不比字段——由 (c) 实质内容检查兜底，兼容骨架态）；
+    (c) 实质内容：所有被引用锚点的小节不得是空壳（只剩标题/注释——曾以
+        仅标题正文通过 df_validate --doc）。"""
+    doc = Path(doc_path)
+    if not doc.exists():
+        return
+    sections, sections_raw = _doc_sections(doc)
+
+    def _substantive(text):
+        for ln in (text or "").splitlines():
+            s = ln.strip()
+            if not s or s.startswith("#") or s.startswith("<!--") or s.startswith(">"):
+                continue
+            if len(re.sub(r"\s", "", s)) >= 8:
+                return True
+        return False
+
+    anchored = []
+    for t in data.get("tables", []):
+        anchored.append((_norm_anchor(t.get("anchor")), f"tables「{t.get('name')}」"))
+    for a in data.get("apis", []):
+        anchored.append((_norm_anchor(a.get("detail_anchor")), f"apis「{a.get('name')}」详细定义"))
+        anchored.append((_norm_anchor(a.get("anchor")), f"apis「{a.get('name')}」概览"))
+    for p in data.get("pages", []):
+        anchored.append((_norm_anchor(p.get("anchor")), f"pages「{p.get('name')}」"))
+    for r in data.get("rules", []):
+        anchored.append((_norm_anchor(r.get("anchor")), f"rules「{r.get('id')}」"))
+    for o in data.get("business_operations", []):
+        anchored.append((_norm_anchor(o.get("anchor")), f"business_operations「{o.get('name')}」"))
+    for key, label in anchored:
+        if key and key in sections and not _substantive(sections_raw.get(key, "")):
+            errors.append(
+                f"{label}(§{key}): 小节为空壳（仅标题无实质内容）"
+                f"——正文与 JSON 不得一实一空"
+            )
+
+    for ti, t in enumerate(data.get("tables", [])):
+        key = _norm_anchor(t.get("anchor"))
+        sec = sections.get(key)
+        if sec is None:
+            continue  # 锚点缺失已由 check_doc_anchors 报告
+        rows = _section_table_rows(sec)
+        if not rows:
+            continue
+        index = {}
+        for r in rows:
+            if r and r[0]:
+                index.setdefault(r[0], []).append(r)
+        for f in t.get("fields", []):
+            name = f.get("name")
+            if name and name not in index:
+                errors.append(
+                    f"tables[{ti}]({t.get('name')}) 字段 {name!r} 未出现在 §{key} 表格首列"
+                    f"（JSON 与正文字段清单冲突——同字段双正本必须一致）"
+                )
+            elif name in index and len(index[name]) == 1 and len(index[name][0]) >= 2:
+                if _norm_type(f.get("type")) and _norm_type(index[name][0][1]) \
+                   and _norm_type(f.get("type")) != _norm_type(index[name][0][1]):
+                    errors.append(
+                        f"tables[{ti}]({t.get('name')}) 字段 {name!r}: JSON 类型 {f.get('type')!r}"
+                        f" 与正文 §{key} 表格类型 {index[name][0][1]!r} 冲突"
+                    )
+
+    for ai, a in enumerate(data.get("apis", [])):
+        key = _norm_anchor(a.get("detail_anchor"))
+        sec = sections.get(key)
+        if sec is None:
+            continue
+        rows = _section_table_rows(sec)
+        if not rows:
+            continue
+        index = {}
+        for r in rows:
+            if r and r[0]:
+                index.setdefault(r[0], []).append(r)
+        for side in ("request", "response"):
+            for f in (a.get(side) or {}).get("fields", []):
+                name = f.get("name")
+                if not name:
+                    continue
+                base = name.split("[].")[0]
+                if name not in index and base not in index:
+                    errors.append(
+                        f"apis[{ai}]({a.get('name')}) {side} 字段 {name!r}"
+                        f" 未出现在详细定义小节 §{key} 的表格首列（JSON 与正文契约冲突）"
+                    )
+                else:
+                    # 同名字段在请求/响应两张表都出现时无法可靠归属——仅唯一出现时比对类型
+                    row = (index.get(name) or index.get(base) or [None])[0]
+                    if row is not None and len(index.get(name) or index.get(base)) == 1 and len(row) >= 2:
+                        if _norm_type(f.get("type")) and _norm_type(row[1]) \
+                           and _norm_type(f.get("type")) != _norm_type(row[1]):
+                            errors.append(
+                                f"apis[{ai}]({a.get('name')}) {side} 字段 {name!r}: "
+                                f"JSON 类型 {f.get('type')!r} 与正文表格类型 {row[1]!r} 冲突"
+                            )
+
+
+def check_prd_sources(data, errors, criteria_path=None, workspace=""):
+    """v3.24.0(A04)：验收行 prd_anchor 的来源文件必须真实存在。
+
+    实证反例：PRD 路径替换为 does-not-exist.md#L99999 仍可通过 P2——锚点只查
+    "非空含 #"，从未核验来源。解析基址依次尝试：criteria 目录、workspace、cwd。"""
+    bases = []
+    if criteria_path:
+        bases.append(Path(criteria_path).resolve().parent)
+    ws = (workspace or "").strip()
+    if ws:
+        bases.append(Path(ws).resolve())
+    bases.append(Path(".").resolve())
+    for i, a in enumerate(data.get("acceptance", [])):
+        pa = (a.get("prd_anchor") or "").strip()
+        if not pa or "#" not in pa:
+            continue  # 形状由 schema 管
+        path_part = pa.split("#", 1)[0].strip()
+        if not path_part or re.match(r"^[a-z]+://", path_part):
+            continue
+        if not any((b / path_part).is_file() for b in bases):
+            errors.append(
+                f"acceptance[{i}]({a.get('id')}).prd_anchor: 来源文件不存在: {path_part}"
+                f"（PRD 引用必须指向真实文档——找不到时核对路径或回 P0 修正锚点）"
+            )
+
+
+def check_nested_anchors(data, errors, doc_path):
+    """v3.24.0(A04)：嵌套引用闭环——apis[].request/response.anchor 必须在文档中
+    真实存在；client.journeys[].page 必须落在 pages[].anchor 且在文档中存在。"""
+    if not doc_path:
+        return
+    doc = Path(doc_path)
+    if not doc.exists():
+        return
+    headings = _doc_detail_headings(doc)
+    for i, a in enumerate(data.get("apis", [])):
+        where = f"apis[{i}]({a.get('name')})"
+        for side in ("request", "response"):
+            grp = a.get(side) or {}
+            anc = _norm_anchor(grp.get("anchor"))
+            if anc and anc not in headings:
+                errors.append(
+                    f"{where}.{side}.anchor: §锚点 {grp.get('anchor')!r} 在文档中不存在（嵌套引用断链）"
+                )
+    client = data.get("client") or {}
+    page_anchors = {p.get("anchor") for p in data.get("pages", [])}
+    for j, jrn in enumerate(client.get("journeys") or []):
+        jp = (jrn.get("page") or "").strip()
+        if not jp:
+            continue
+        if page_anchors and jp not in page_anchors:
+            errors.append(
+                f"client.journeys[{j}].page: {jp!r} 不在 pages[].anchor 中（旅程页面引用断链）"
+            )
+        anc = _norm_anchor(jp)
+        if anc and anc not in headings:
+            errors.append(
+                f"client.journeys[{j}].page: §锚点 {jp!r} 在文档中不存在（嵌套引用断链）"
+            )
+
+
+def check_business_operations(data, errors):
+    """v3.24.0(A01)：业务操作契约对账——冻结需求的每项操作必须有落点。
+
+    (a) acceptance_refs 悬空引用拦截；
+    (b) 并集必须覆盖全部验收点（缺恢复/彻底删除等操作即覆盖缺口）；
+    (c) 有状态操作必须同时声明 source/target_state；stateless=true 不得再带状态；
+    (d) 空集合必须 zero_results 显式声明。"""
+    ops = data.get("business_operations", [])
+    ids = [a.get("id") for a in data.get("acceptance", [])]
+    id_set = set(ids)
+    op_ids = [o.get("id") for o in ops]
+    dup = sorted({x for x in op_ids if op_ids.count(x) > 1})
+    if dup:
+        errors.append(f"business_operations[].id 存在重复: {dup}")
+    covered = set()
+    for i, o in enumerate(ops):
+        where = f"business_operations[{i}]({o.get('id')}:{o.get('name')})"
+        for r in o.get("acceptance_refs", []):
+            if r not in id_set:
+                errors.append(f"{where}.acceptance_refs: 验收点 {r!r} 不在 acceptance[] 中（悬空引用）")
+            else:
+                covered.add(r)
+        if o.get("stateless"):
+            if o.get("source_state") or o.get("target_state"):
+                errors.append(f"{where}: stateless=true 但仍声明 source/target_state（自相矛盾）")
+        elif not o.get("source_state") or not o.get("target_state"):
+            errors.append(
+                f"{where}: 有状态操作必须同时声明 source_state 与 target_state"
+                f"（无状态场景用 stateless=true 显式声明，不强制虚构状态机）"
+            )
+    missing = [i for i in ids if i not in covered]
+    if ops and missing:
+        errors.append(
+            f"business_operations 覆盖缺口: 验收点 {missing[:5]}"
+            f"（共 {len(missing)} 个）未被任何业务操作覆盖——冻结需求的每项操作必须有落点，"
+            f"如删除→回收站→恢复→彻底删除须各自成操作"
+        )
+    if not ops and not _zero_declared(data, "business_operations"):
+        errors.append(
+            "business_operations 为空但 zero_results 未声明"
+            "（业务操作契约是详设完整性分母——设计零操作须显式声明并给理由）"
+        )
+
+
+def _workspace_effective(workspace):
+    """工作区反查生效判定（与 configs 消费点反查同口径）：显式非 . 传入，或 cwd
+    具备工程标志。防止对 df_pipeline 例行 --workspace . 的非仓库目录误报。"""
+    ws = str(workspace or "").strip()
+    if ws and ws != ".":
+        return ws
+    for marker in ("pom.xml", "package.json", "go.mod", "Cargo.toml", "Makefile", "pyproject.toml", "build.gradle"):
+        if Path(marker).is_file():
+            return ws or "."
+    return ""
+
+
+def check_baseline(data, errors, workspace=""):
+    """v3.24.0(A02)：真实代码基线反查——REUSE/MODIFY/DELETE 目标必须存在于仓库。
+
+    实证反例：夹具无 FooController 源码却声明 MODIFY FooController#list 并通过 P2。
+    ADD 不要求新文件已存在，但必须声明 target_module（所属模块与同类模式）。
+    工作区反查仅在 --workspace 生效（显式传入或 cwd 有工程标志）时执行。"""
+    base = data.get("baseline", {})
+    entries = base.get("entries", [])
+    ws = _workspace_effective(workspace)
+    if not entries:
+        if not _zero_declared(data, "baseline.entries"):
+            errors.append(
+                "baseline.entries 为空但 zero_results 未声明"
+                "（实现交接的基线是机器契约——绿地项目也须登记 ADD 条目）"
+            )
+        return
+    for i, e in enumerate(entries):
+        where = f"baseline.entries[{i}]({e.get('id')})"
+        decision = e.get("decision")
+        target = (e.get("target") or "").strip()
+        path_part = target.split("#", 1)[0].strip()
+        if not (e.get("verify") or "").strip():
+            errors.append(f"{where}: 缺 verify（每个基线条目必须有验证方式）")
+        if decision in ("REUSE", "MODIFY", "DELETE"):
+            if not (e.get("existing_contract") or "").strip():
+                errors.append(
+                    f"{where}: {decision} 条目缺 existing_contract（现有契约/符号说明）"
+                )
+            if ws and path_part and not (Path(ws) / path_part).is_file():
+                errors.append(
+                    f"{where}: {decision} 目标文件不存在: {path_part}"
+                    f"（基线必须来自真实代码——先调查后设计，虚构目标直接拦截）"
+                )
+        elif decision == "ADD":
+            if not (e.get("target_module") or "").strip():
+                errors.append(
+                    f"{where}: ADD 条目缺 target_module（新增文件不要求已存在，但须声明所属模块与同类模式）"
+                )
+    dbe = base.get("db_evidence") or {}
+    if dbe.get("source") == "live_schema" and not (dbe.get("note") or "").strip():
+        errors.append(
+            "baseline.db_evidence.source=live_schema 但缺 note"
+            "（运行库 schema 证据须记录来源库与时点；缺运行证据时用 migration_ddl，不得推断已部署）"
+        )
 
 
 def check_design(data, errors, criteria_path=None, doc_path=None, workspace=""):
@@ -603,6 +940,11 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace=""):
         empty_collections.append("configs")
     if not data.get("operations"):
         empty_collections.append("operations")
+    # v3.24.0(A01/A02)：业务操作与代码基线也是必须显式声名的可空集合
+    if not data.get("business_operations"):
+        empty_collections.append("business_operations")
+    if not (data.get("baseline") or {}).get("entries"):
+        empty_collections.append("baseline.entries")
     if not client.get("journeys") and scope != "not-applicable":
         empty_collections.append("client.journeys")
     declared_paths = [z.get("path") for z in data.get("zero_results", [])]
@@ -627,6 +969,12 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace=""):
     check_compensation_chain(data, errors)
     check_integrations_configs(data, errors, workspace=workspace)
 
+    # 7c. 业务操作契约对账（v3.24.0 A01）
+    check_business_operations(data, errors)
+
+    # 7d. 真实代码基线反查（v3.24.0 A02）
+    check_baseline(data, errors, workspace=workspace)
+
     # 8. DDR ↔ 字段一一对应
     check_ddr_closure(data, errors)
 
@@ -637,6 +985,12 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace=""):
     # pages/tables/apis/rules 声明的每个 § 锚点都必须在文档中以标题真实存在。
     if doc_path:
         check_doc_anchors(data, errors, doc_path)
+        # v3.24.0(A03/A04)：嵌套锚点闭环 + JSON↔正文事实对账（字段/类型冲突、空壳小节）
+        check_nested_anchors(data, errors, doc_path)
+        check_doc_content_agreement(data, errors, doc_path)
+
+    # 9c. PRD 来源存在性（v3.24.0 A04）
+    check_prd_sources(data, errors, criteria_path=criteria_path, workspace=workspace)
 
     # 10. 占位话术
     check_placeholders(data, errors)

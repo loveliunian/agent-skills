@@ -1,6 +1,6 @@
 ---
 name: architecture-scorecard
-version: "3.23.0"
+version: "3.24.0"
 description: >-
   架构评分卡权威定义。v3.9 起从 concepts/core.md 抽出。
   包含两个互补框架:

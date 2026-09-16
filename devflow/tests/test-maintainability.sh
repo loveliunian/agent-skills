@@ -17,7 +17,8 @@ CURRENT_VER=$(sed -n 's/^  version: "\(.*\)"/\1/p' "$ROOT/SKILL.md" | head -1)
 
 README_LINES=$(wc -l < "$ROOT/README.md" | tr -d ' ')
 ORCHESTRATOR_LINES=$(wc -l < "$ROOT/commands/devflow.md" | tr -d ' ')
-[ "$README_LINES" -le 80 ] && ok "README is a concise index" || bad "README is a concise index (lines=$README_LINES)"
+# v3.23.1: 增加「30 秒上手」（含安装指引）后上限由 80 放宽到 100，仍保持索引页定位。
+[ "$README_LINES" -le 100 ] && ok "README is a concise index" || bad "README is a concise index (lines=$README_LINES)"
 [ "$ORCHESTRATOR_LINES" -le 350 ] && ok "orchestrator is progressively disclosed" || bad "orchestrator is progressively disclosed (lines=$ORCHESTRATOR_LINES)"
 grep -q "devflow v${CURRENT_VER}" "$ROOT/README.md" && ok "README uses current version" || bad "README uses current version"
 

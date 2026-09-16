@@ -1,0 +1,27 @@
+name: 功能建议
+description: 新能力、流程改进或文档增强建议
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 要解决的问题
+      description: 描述当前痛点与使用场景（不要直接给实现方案）。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议方案
+      description: 可选；涉及 Gate/契约变化的请说明兼容策略。
+    validations:
+      required: false
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: 影响面
+      options:
+        - label: 流程语义（P0-P10 / Gate）
+        - label: 脚本或模板
+        - label: 文档与安装

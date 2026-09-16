@@ -1,5 +1,52 @@
 # demo-pay 详细设计
 
+## §6 关键流程
+
+<!-- anchor: business-operations -->
+
+<!-- df:begin:biz-ops -->
+（由 design.json 自动生成业务操作契约索引）
+<!-- df:end:biz-ops -->
+
+### 6.1 创建支付订单
+
+```text
+WHEN 创建支付订单 (command, operator):
+  1. 校验字段约束
+  2. 获取幂等锁（order_no 粒度）
+  3. TX：生成 order_no → INSERT pay_order
+  4. 返回 id、order_no
+```
+
+```mermaid
+sequenceDiagram
+    participant 前端
+    participant Service
+    participant DB
+    前端->>Service: POST /api/v1/pay/orders
+    Service->>DB: INSERT pay_order
+    Service-->>前端: 200 OK
+```
+
+### 6.2 创建退款单
+
+```text
+WHEN 创建退款单 (orderId, operator):
+  1. 校验订单存在与可退金额
+  2. TX：INSERT pay_refund
+  3. 异步受理返回 202
+```
+
+```mermaid
+sequenceDiagram
+    participant 前端
+    participant Service
+    participant DB
+    前端->>Service: POST /api/v1/pay/refunds
+    Service->>DB: INSERT pay_refund
+    Service-->>前端: 202 Accepted
+```
+
 ## §2 数据模型
 
 ### 2.1 支付订单表（pay_order）

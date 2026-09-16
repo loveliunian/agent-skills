@@ -128,10 +128,13 @@ done
 REVIEWER_IDS=""
 SESSION_IDS=""
 for role in "${ROLES[@]}"; do
-  row=$(awk -F'|' -v role="$role" 'NF >= 6 {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); if ($2 == role) {print; exit}}' "$REVIEW_PATH" 2>/dev/null || true)
-  reviewer=$(printf '%s\n' "$row" | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $3); print $3}')
-  session=$(printf '%s\n' "$row" | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $4); print $4}')
-  conclusion=$(printf '%s\n' "$row" | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $5); print $5}')
+  # v3.24.0(A08)：与 §1b 同款修复——gsub 直接作用于 $2 会以 OFS(空格)重建 $0，
+  # print 输出空格分隔行，下游按 -F'|' 重拆恒得空字段（真实评审表被误拒实证）。
+  # 改用局部变量 role_cell 修剪比对，print 输出原始行。
+  row=$(awk -F'|' -v role="$role" 'NF >= 6 {role_cell=$2; gsub(/^[[:space:]]+|[[:space:]]+$/, "", role_cell); if (role_cell == role) {print; exit}}' "$REVIEW_PATH" 2>/dev/null || true)
+  reviewer=$(printf '%s\n' "$row" | awk -F'|' '{reviewer_cell=$3; gsub(/^[[:space:]]+|[[:space:]]+$/, "", reviewer_cell); print reviewer_cell}')
+  session=$(printf '%s\n' "$row" | awk -F'|' '{session_cell=$4; gsub(/^[[:space:]]+|[[:space:]]+$/, "", session_cell); print session_cell}')
+  conclusion=$(printf '%s\n' "$row" | awk -F'|' '{concl_cell=$5; gsub(/^[[:space:]]+|[[:space:]]+$/, "", concl_cell); print concl_cell}')
   [ -n "$reviewer" ] && [ -n "$session" ] && [ -n "$conclusion" ] || p0 "${role} independence row incomplete"
   [ "$reviewer" != "$AUTHOR_ID" ] || p0 "${role} reviewer equals AUTHOR_ID"
   printf '%s\n' "$conclusion" | grep -qE '✅|通过' || p0 "${role} has no explicit PASS conclusion"
@@ -151,10 +154,10 @@ echo ""
 echo "=== §2b 详设设计质量四要素 ==="
 # 用户的四项要求显性落进详设：组件复用 / 公共抽取 / 规范遵循 / 设计决策(DDR)
 DQ_CHECKS=(
-  "组件复用|成熟组件|复用组件|不重复造轮|拿来主义:组件复用（有成熟组件禁止自研，§12.1）"
-  "公共组件|公共服务|公共抽取|抽取登记:公共抽取（≥2 消费方的能力必须抽取登记，§12.2）"
-  "规范遵循|阿里巴巴|开发手册|命名规范|开发规范|注释规范:规范遵循（默认阿里 Java 开发手册，§13）"
-  "设计决策记录|设计决策|设计依据|备选方案:设计决策 DDR（非平凡决策必须写理由，如 varchar20 vs 30，§2.3）"
+  "组件复用|成熟组件|复用组件|不重复造轮|拿来主义:组件复用（有成熟组件禁止自研）"
+  "公共组件|公共服务|公共抽取|抽取登记:公共抽取（≥2 消费方的能力必须抽取登记）"
+  "规范遵循|阿里巴巴|开发手册|命名规范|开发规范|注释规范:规范遵循（默认阿里 Java 开发手册）"
+  "设计决策记录|设计决策|设计依据|备选方案:设计决策 DDR（非平凡决策必须写理由）"
 )
 for entry in "${DQ_CHECKS[@]}"; do
   pattern="${entry%%:*}"
@@ -245,12 +248,19 @@ for _spec in "data-model:数据模型" "api-contracts:接口" "business-rules:�
     STRUCT_MISSING=$((STRUCT_MISSING+1))
   fi
 done
-for sec_pat in '§12\.1|### *12\.1|## *12\.1' '§12\.2|### *12\.2|## *12\.2' '§13|## *13[^.]|### *13\.' '§2\.3|### *2\.3|## *2\.3'; do
-  label="${sec_pat%%|*}"; label="${label//\\/}"
-  if grep -qE "${sec_pat#*|}" "$DESIGN_PATH" 2>/dev/null; then
-    pass "design section anchor present: ${label}"
+# v3.24.0(A05)：四要素定位改语义锚点（正本）——单体/总文档/分文档编号各不相同
+# （分文档 §11/§12/§13、总文档 §9.3/§9.4/§9.5），固定 §12.1/§12.2/§13/§2.3 编号
+# 只适配单体模板，其余模式全部误报。锚点回落：语义锚点 → 同义 H2 标题。
+for _spec in "component-reuse:组件复用|复用清单:组件复用" \
+             "common-extraction:公共抽取|公共组件|抽取登记:公共抽取" \
+             "standards-compliance:规范遵循|规范基线:规范遵循" \
+             "design-decisions:设计决策|DDR:设计决策 DDR"; do
+  _a="${_spec%%:*}"; _rest="${_spec#*:}"; _h2="${_rest%%:*}"; _t="${_rest#*:}"
+  if grep -q "anchor: $_a" "$DESIGN_PATH" 2>/dev/null \
+     || grep -qE "^## .*(${_h2})" "$DESIGN_PATH" 2>/dev/null; then
+    pass "design semantic anchor present: $_a"
   else
-    p0 "design missing structural anchor: ${label}（内容必须在模板规定的编号章节内，不得漂移到别处）"
+    p0 "design missing semantic anchor: ${_a}（${_t}；补 <!-- anchor: ${_a} --> 或含「${_t}」的 H2 章节——编号在不同模板模式下不一致，语义锚点是唯一机器契约）"
     STRUCT_MISSING=$((STRUCT_MISSING+1))
   fi
 done
@@ -263,6 +273,12 @@ AW_MIN="${DEEP_AW_MIN:-3}"
 # 剥离 ``` 围栏代码块，避免模板示例干扰计数
 STRIP_FILE=$(mktemp -t p2a-depth.XXXXXX)
 awk '/^```/{infence=!infence; next} !infence' "$REVIEW_PATH" > "$STRIP_FILE"
+
+# v3.24.0(A09)：设计文档标题编号集合（剥离围栏）——AW/探针证据引用的 §x.y
+# 必须解析到真实对象（虚构锚点曾以“结果：§99.99”混过深度子检查）。
+DESIGN_HEADINGS_FILE=$(mktemp -t p2a-dhead.XXXXXX)
+awk '/^```/{infence=!infence; next} !infence && /^#{1,6} /' "$DESIGN_PATH" 2>/dev/null \
+  | grep -oE '§?[0-9]+(\.[0-9]+)+' | sed 's/^§//' | sort -u > "$DESIGN_HEADINGS_FILE" || true
 
 DF_TOTAL=$(grep -cE '^#### DF-[0-9]+' "$STRIP_FILE" || true)
 pass "DF findings counted without padding (actual: $DF_TOTAL)"
@@ -300,6 +316,8 @@ else
 fi
 
 # 每个角色必须有实际 DF，或有 ZERO-DF 核查证据；不再强制凑固定数量。
+# v3.24.0(A09)：ZERO-DF 必须有非空核查记录——仅写空标题（无核查范围/证据/验证方式）
+# 曾可混过深度子检查；零发现结论的证据含量与 DF 同级要求。
 for role in "架构师" "后端专家" "前端专家" "测试开发" "DBA"; do
   role_cnt=$(grep -cE "^- 归属评委：${role}[[:space:]]*$" "$STRIP_FILE" || true)
   zero_cnt=$(grep -cE "^#### ZERO-DF.*${role}" "$STRIP_FILE" || true)
@@ -307,6 +325,24 @@ for role in "架构师" "后端专家" "前端专家" "测试开发" "DBA"; do
     pass "review evidence by ${role}: DF=$role_cnt ZERO-DF=$zero_cnt"
   else
     p0 "${role} has neither DF nor ZERO-DF evidence"
+  fi
+  if [ "$role_cnt" -eq 0 ] && [ "$zero_cnt" -gt 0 ]; then
+    # 该角色零发现：其 ZERO-DF 块必须含核查实质（核查范围/证据/验证方式任二字段非空，
+    # 或块内实质内容 ≥3 行）——awk 局部变量防 $0 重建，块边界为下一个 #### 标题。
+    zero_hollow=$(LC_ALL=C awk -v role="$role" '
+      function blank(r){ gsub(/[[:space:]:：、，。/-]/,"",r); return (r=="") }
+      BEGIN{inblk=0; bad=0; fields=0; lines=0}
+      /^#### ZERO-DF/ && $0 ~ role {inblk=1; fields=0; lines=0; next}
+      /^#### / && inblk { if (fields<2 && lines<3) bad++; inblk=0; next }
+      inblk {
+        if (!blank($0)) {
+          lines++
+          if ($0 ~ /核查范围|核查清单|证据|验证方式|已核查|核对/) { if(!blank($0)) fields++ }
+        }
+      }
+      END{ if (inblk && fields<2 && lines<3) bad++; print bad }
+    ' "$STRIP_FILE")
+    [ "$zero_hollow" -eq 0 ] || p0 "${role} 的 ZERO-DF 块缺核查实质（${zero_hollow} 个空块）——零发现必须附核查范围、证据锚点与验证方式，仅写标题不算证据"
   fi
 done
 
@@ -329,18 +365,40 @@ else
   p0 "adversarial walkthroughs < ${AW_MIN} (actual: $AW_COUNT) — 端到端走查是最有效的深挖探针"
 fi
 
-AW_BAD=$(LC_ALL=C awk 'BEGIN{bad=0}
-  /- AW-[0-9]+/ {
-    if ($0 !~ /结果/) { bad++; next }
-    if ($0 ~ /\{/) { bad++; next }
-    if ($0 !~ /DF-[0-9]/ && $0 !~ /[0-9]\.[0-9]/) { bad++ }
-  }
-  END { print bad }
-' "$STRIP_FILE")
+# v3.24.0(A09)：AW 三段契约——场景/走查路径/结果逐段非空，且「结果」中的
+# §锚点必须存在于设计文档标题、DF 引用必须存在于本报告；只写"结果：§99.99"
+# 式虚构锚点不再放行。
+AW_BAD=0
+while IFS= read -r awline; do
+  [ -n "$awline" ] || continue
+  aw_seg_bad=0
+  for seg in "场景：" "走查路径：" "结果："; do
+    _rest="${awline#*"$seg"}"
+    [ "$_rest" = "$awline" ] && { aw_seg_bad=1; continue; }   # 缺该段标签
+    _cell="${_rest%%｜*}"
+    _cell="$(printf '%s' "$_cell" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    [ -n "$_cell" ] || aw_seg_bad=1
+  done
+  # 「结果」段引用解析：§锚点 → 设计标题集合；DF-xx → 本报告 DF 编号
+  _result="${awline#*结果：}"; _result="${_result%%｜*}"
+  _aw_refs=$(printf '%s' "$_result" | grep -oE '§[0-9]+(\.[0-9]+)+' | sed 's/^§//' | sort -u)
+  _aw_dfs=$(printf '%s' "$_result" | grep -oE 'DF-[0-9]+' | sort -u)
+  _aw_ref_bad=0
+  if [ -z "$_aw_refs" ] && [ -z "$_aw_dfs" ]; then
+    _aw_ref_bad=1   # 结果既无锚点也无 DF 引用
+  fi
+  for _a in $_aw_refs; do
+    grep -qxF "$_a" "$DESIGN_HEADINGS_FILE" || _aw_ref_bad=1
+  done
+  for _d in $_aw_dfs; do
+    grep -qE "^#### ${_d}([^0-9]|$)" "$STRIP_FILE" || _aw_ref_bad=1
+  done
+  [ "$aw_seg_bad" -eq 0 ] && [ "$_aw_ref_bad" -eq 0 ] || AW_BAD=$((AW_BAD+1))
+done < <(grep -E '^- AW-[0-9]+' "$STRIP_FILE" 2>/dev/null || true)
 if [ "$AW_BAD" -eq 0 ]; then
-  pass "every AW ends with a valid 结果 (DF 引用或 §锚点证据)"
+  pass "every AW has 场景/走查路径/结果 and 结果 resolves to real §anchor/DF"
 else
-  p0 "AW entries missing valid 结果: $AW_BAD — 每条走查必须以 发现 DF-xx 或 §锚点证据 收尾"
+  p0 "AW entries with empty segments or unresolvable 结果 references: $AW_BAD — 每条走查的三段非空，且「结果」的 §锚点必须存在于详设、DF 引用必须存在于本报告"
 fi
 
 # ---------- §3d 探针执行记录 + 浅层信号（v3.14.0） ----------
@@ -354,7 +412,20 @@ fi
 for probe in "P1" "P2" "P3" "P4" "P5" "P6"; do
   probe_row=$(grep -E "^\\|[[:space:]]*${probe}[[:space:]]" "$REVIEW_PATH" 2>/dev/null | head -1 || true)
   if printf '%s' "$probe_row" | grep -qE '已执行|不适用' && printf '%s' "$probe_row" | grep -qE '证据|§[0-9]+\.[0-9]+'; then
-    pass "${probe} execution/evidence recorded"
+    # v3.24.0(A09)：证据列的 §锚点必须解析到设计文档真实标题——
+    # "已执行｜证据" 六行空壳曾原样通过探针子检查。
+    probe_refs=$(printf '%s' "$probe_row" | grep -oE '§[0-9]+(\.[0-9]+)+' | sed 's/^§//' | sort -u)
+    probe_ref_bad=0
+    if [ -n "$probe_refs" ]; then
+      for _pa in $probe_refs; do
+        grep -qxF "$_pa" "$DESIGN_HEADINGS_FILE" || probe_ref_bad=1
+      done
+    fi
+    if [ "$probe_ref_bad" -eq 0 ]; then
+      pass "${probe} execution/evidence recorded"
+    else
+      p0 "${probe} evidence anchors do not resolve in design（§锚点必须指向详设真实标题）"
+    fi
   else
     p0 "${probe} execution row missing status or evidence"
   fi
@@ -371,7 +442,7 @@ SF_COUNT=$(grep -cE '(^|[^A-Za-z])SF-[0-9]+' "$STRIP_FILE" || true)
 if [ "$SF_COUNT" -gt "$DF_TOTAL" ] && [ "$DF_TOTAL" -gt 0 ]; then
   warn "SF($SF_COUNT) > DF($DF_TOTAL) — 表层 nitpick 超过深层发现，凑数嫌疑"
 fi
-rm -f "$STRIP_FILE"
+rm -f "$STRIP_FILE" "$DESIGN_HEADINGS_FILE"
 
 # ---------- §4 遗留问题 = 0 ----------
 echo ""

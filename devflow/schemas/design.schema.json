@@ -16,6 +16,8 @@
     "client",
     "migrations",
     "decisions",
+    "business_operations",
+    "baseline",
     "zero_results"
   ],
   "additionalProperties": false,
@@ -203,6 +205,51 @@
           "anchor": {
             "type": "string",
             "description": "详设内引用位置 §锚点"
+          }
+        }
+      }
+    },
+    "business_operations": {
+      "type": "array",
+      "description": "业务操作契约（v3.24.0/A01）：以业务命名的操作全集（如「恢复要素」「彻底删除」），非固定 CRUD 枚举。冻结验收集合的每个验收点必须被 ≥1 个操作的 acceptance_refs 覆盖（校验器双向对账：悬空引用、覆盖缺口均拦截）；无状态操作用 stateless=true 显式声明，不强制虚构状态机。为空须 zero_results 声明",
+      "items": {
+        "$ref": "#/definitions/business_operation_def"
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "description": "真实代码基线（v3.24.0/A02）：P2 第 1 步代码调查的机器契约。REUSE/MODIFY/DELETE 目标必须在仓库中真实存在（提供 --workspace 时反查）；ADD 须声明所属模块；数据库证据区分 migration/DDL 静态事实与目标库实际 schema，缺运行证据不得推断已部署",
+      "required": [
+        "repo_root",
+        "entries"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "repo_root": {
+          "type": "string",
+          "minLength": 1,
+          "description": "基线调查的仓库根（如 . ）"
+        },
+        "db_evidence": {
+          "type": "object",
+          "description": "数据库证据口径：migration_ddl=迁移脚本静态事实；live_schema=目标库实际 schema（须记 note 说明来源库与时点）；none=本设计不涉及数据库",
+          "additionalProperties": false,
+          "properties": {
+            "source": {
+              "enum": ["migration_ddl", "live_schema", "none"]
+            },
+            "note": {
+              "type": "string",
+              "description": "source=live_schema 时必填（来源库、时点、取数方式；跨字段校验）"
+            }
+          }
+        },
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "description": "基线条目（绿地项目全部为 ADD + 计划路径；存量项目必须给真实路径）",
+          "items": {
+            "$ref": "#/definitions/baseline_entry"
           }
         }
       }
@@ -871,6 +918,181 @@
         "summary": {
           "type": "string",
           "minLength": 1
+        }
+      }
+    },
+    "business_operation_def": {
+      "type": "object",
+      "description": "一项业务操作契约：触发者、触发、输入、前置校验、状态迁移、执行顺序、事务/并发、结果、失败、关联对象、副作用与测试场景（建议结构见报告 A01：覆盖 触发者/输入/前置校验/源状态/执行顺序/事务并发/目标状态/结果/失败/相关对象/副作用/测试场景）",
+      "required": [
+        "id",
+        "name",
+        "trigger",
+        "actor",
+        "anchor",
+        "steps",
+        "result",
+        "failure",
+        "test_scenarios",
+        "acceptance_refs"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^BOP-[0-9]+$",
+          "description": "操作编号，全文档唯一"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "业务命名（如「恢复要素」「彻底删除」），禁止仅用 CRUD 动词命名"
+        },
+        "trigger": {
+          "type": "string",
+          "minLength": 1,
+          "description": "触发条件/入口（用户操作、事件、定时）"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "description": "触发者（角色/系统/任务）"
+        },
+        "input": {
+          "type": "string",
+          "description": "输入与来源"
+        },
+        "preconditions": {
+          "type": "array",
+          "description": "前置校验清单（数据来源、顺序、失败结果）",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "stateless": {
+          "type": "boolean",
+          "description": "true=无状态操作（显式声明，不强制虚构状态机）；缺省视为有状态，须同时给 source_state/target_state"
+        },
+        "source_state": {
+          "type": "string",
+          "description": "源状态（有状态操作必填，跨字段校验）"
+        },
+        "target_state": {
+          "type": "string",
+          "description": "目标状态（有状态操作必填，跨字段校验）"
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "description": "执行顺序（含事务边界）",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "concurrency": {
+          "type": "string",
+          "description": "事务/并发保证（锁/版本/幂等/重复请求）"
+        },
+        "result": {
+          "type": "string",
+          "minLength": 1,
+          "description": "用户可见结果（成功/拒绝/冲突/部分成功/异步受理）"
+        },
+        "failure": {
+          "type": "string",
+          "minLength": 1,
+          "description": "失败路径与返回（每步失败的行为）"
+        },
+        "related_objects": {
+          "type": "array",
+          "description": "关联对象及其处置（如历史版本、已发布快照、回收记录）",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "side_effects": {
+          "type": "array",
+          "description": "副作用（消息、缓存、审计、外部通知）",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "test_scenarios": {
+          "type": "array",
+          "minItems": 1,
+          "description": "测试场景（正常/边界/异常/并发），供 P2a AW 与 P5 用例消费",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "acceptance_refs": {
+          "type": "array",
+          "minItems": 1,
+          "description": "覆盖的验收点 ID（必须在 acceptance[] 中；并集须覆盖全部冻结验收点）",
+          "items": {
+            "type": "string",
+            "pattern": "^M-?[0-9]{2}-F[0-9]{2}-A[0-9]{2}$"
+          }
+        },
+        "anchor": {
+          "type": "string",
+          "minLength": 1,
+          "description": "§锚点（该操作设计所在章节，如 WHEN 伪代码）"
+        }
+      }
+    },
+    "baseline_entry": {
+      "type": "object",
+      "description": "一条代码基线：稳定 ID + 真实路径/符号 + REUSE/MODIFY/ADD/DELETE 决策 + 现有契约 + 验证方式",
+      "required": [
+        "id",
+        "target",
+        "decision",
+        "verify"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^BL-[0-9]+$",
+          "description": "基线条目编号，全文档唯一"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "description": "文件路径或 文件#符号（如 backend/.../FooController.java#list）；REUSE/MODIFY/DELETE 必须真实存在（--workspace 反查）"
+        },
+        "decision": {
+          "enum": ["REUSE", "MODIFY", "ADD", "DELETE"]
+        },
+        "target_module": {
+          "type": "string",
+          "description": "ADD 必填：所属模块与同类模式参照（新增文件不要求已存在，但须锚定归属）"
+        },
+        "existing_contract": {
+          "type": "string",
+          "description": "REUSE/MODIFY 必填：现有契约（签名/行为/表结构，跨字段校验）"
+        },
+        "related_acceptance": {
+          "type": "array",
+          "description": "关联验收点 ID",
+          "items": {
+            "type": "string",
+            "pattern": "^M-?[0-9]{2}-F[0-9]{2}-A[0-9]{2}$"
+          }
+        },
+        "verify": {
+          "type": "string",
+          "minLength": 1,
+          "description": "验证方式（测试符号/命令/对照检查）"
+        },
+        "note": {
+          "type": "string"
         }
       }
     }

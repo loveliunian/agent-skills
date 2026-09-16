@@ -16,7 +16,7 @@
 # 用法：
 #   bash "$SKILL_ROOT/scripts/super-scorecard.sh"                           # 扫整个项目
 #   bash "$SKILL_ROOT/scripts/super-scorecard.sh" backend/order-service     # 单个服务
-#   bash "$SKILL_ROOT/scripts/super-scorecard.sh" backend/order-service docs/super.md  # 单服务 + 输出
+#   bash "$SKILL_ROOT/scripts/super-scorecard.sh" backend/order-service docs/评分卡.md  # 单服务 + 输出
 #   bash "$SKILL_ROOT/scripts/super-scorecard.sh"                            # 扫整个项目（输出 stdout）
 # ============================================================
 

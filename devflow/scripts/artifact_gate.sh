@@ -103,8 +103,9 @@ case "$PHASE" in
       if [ "${OPEN:-0}" -eq 0 ]; then pass "no open issues declared"; else p0 "open issues found: ${OPEN} 行（遗留问题必须=0）"; fi
 
       # ---------- v3.14.0 评审深度契约（规范见 concepts/review-depth-methodology.md） ----------
-      DF_MIN_TOTAL="${DEEP_DF_MIN:-5}"
-      DF_MIN_ROLE="${DEEP_DF_PER_ROLE:-1}"
+      # v3.24.0(A14)：与共用深度方法论统一——DF 按实际发现，允许 ZERO-DF；
+      # 不再默认要求 DF 总数 ≥5 / 每角色 ≥1（凑数反模式）。每角色必须有 DF 或
+      # 含核查实质的 ZERO-DF 证据；AW 下限保留。
       AW_MIN="${DEEP_AW_MIN:-2}"
 
       STRIP=$(mktemp -t p0b-depth.XXXXXX)
@@ -112,11 +113,7 @@ case "$PHASE" in
 
       echo "--- 深度契约：DF 深层发现 ---"
       DF_TOTAL=$(grep -cE '^#### DF-[0-9]+' "$STRIP" || true)
-      if [ "$DF_TOTAL" -ge "$DF_MIN_TOTAL" ]; then
-        pass "DF deep findings >= ${DF_MIN_TOTAL} (actual: $DF_TOTAL)"
-      else
-        p0 "DF deep findings < ${DF_MIN_TOTAL} (actual: $DF_TOTAL) — 一句话问题不计入，须按五字段契约输出"
-      fi
+      pass "DF deep findings counted by actual findings (actual: $DF_TOTAL)"
 
       DF_BAD=$(LC_ALL=C awk 'BEGIN{bad=0}
         # locale-proof 空字段判定：剥标签与 ASCII 杂质后，剩余仅为全角冒号(\357\274\232)或全角空格(\343\200\200)视为空
@@ -150,15 +147,28 @@ case "$PHASE" in
         p0 "incomplete DF blocks: $DF_BAD — 五字段缺一判无效"
       fi
 
+      echo "--- 深度契约：各角色 DF 或 ZERO-DF 证据（v3.24.0 按实际发现） ---"
       ROLE_LINES=$(grep -E '^- 归属评委' "$STRIP" | sed -E 's/^- 归属评委//' || true)
       for role_entry in "业务|产品:业务专家" "技术|后端|研发:技术负责人" "前端|交互|UX|UI:前端交互" "测试|QA:测试开发" "安全|合规:安全合规"; do
         role_pat="${role_entry%%:*}"
         role_label="${role_entry#*:}"
         role_cnt=$(printf '%s\n' "$ROLE_LINES" | grep -cE "$role_pat" || true)
-        if [ "$role_cnt" -ge "$DF_MIN_ROLE" ]; then
-          pass "DF by ${role_label}: $role_cnt (>= ${DF_MIN_ROLE})"
+        zero_cnt=$(grep -cE "^#### ZERO-DF.*${role_label}" "$STRIP" || true)
+        if [ "$role_cnt" -ge 1 ] || [ "$zero_cnt" -ge 1 ]; then
+          pass "review evidence by ${role_label}: DF=$role_cnt ZERO-DF=$zero_cnt"
         else
-          p0 "DF by ${role_label}: $role_cnt (< ${DF_MIN_ROLE}) — 该角色评审深度不足或未参与"
+          p0 "DF/ZERO-DF evidence by ${role_label}: 0 — 该角色评审深度不足或未参与（按实际发现，零发现须附 ZERO-DF 核查记录）"
+        fi
+        if [ "$role_cnt" -eq 0 ] && [ "$zero_cnt" -gt 0 ]; then
+          zero_hollow=$(LC_ALL=C awk -v role="$role_label" '
+            function blank(r){ gsub(/[[:space:]:：、，。/-]/,"",r); return (r=="") }
+            BEGIN{inblk=0; bad=0; fields=0; lines=0}
+            /^#### ZERO-DF/ && $0 ~ role {inblk=1; fields=0; lines=0; next}
+            /^#### / && inblk { if (fields<2 && lines<3) bad++; inblk=0; next }
+            inblk { if (!blank($0)) { lines++; if ($0 ~ /核查范围|核查清单|证据|验证方式|已核查|核对/) fields++ } }
+            END{ if (inblk && fields<2 && lines<3) bad++; print bad }
+          ' "$STRIP")
+          [ "$zero_hollow" -eq 0 ] || p0 "${role_label} 的 ZERO-DF 块缺核查实质（${zero_hollow} 个空块）——零发现必须附核查范围、证据锚点与验证方式"
         fi
       done
 

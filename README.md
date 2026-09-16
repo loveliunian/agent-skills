@@ -6,7 +6,7 @@
 
 | Skill | 版本 | 说明 |
 |-------|------|------|
-| [devflow](./devflow/) | 3.22.0 | PRD 到生产的阶段门禁交付流程：需求澄清、技术选型、详细设计、规范实现、测试、部署、监控、文档、复盘，支持 checkpoint 恢复。适用于 Java/Spring/Flyway 后端、PC Web、微信小程序和移动端。 |
+| [devflow](./devflow/) | 3.23.1 | PRD 到生产的阶段门禁交付流程：需求澄清、技术选型、详细设计、规范实现、测试、部署、监控、文档、复盘，支持 checkpoint 恢复。核心流程与技术栈解耦（Runtime Profile），内置 Java/Spring/Flyway 参考 Profile；客户端覆盖 PC Web、微信小程序和移动端。 |
 | [flow-test-contract](./flow-test-contract/) | 1.7.5 | 契约化流程迁移测试：双端对拍、覆盖账本、发布门禁与断点复跑。 |
 
 ## 同步（唯一入口）
@@ -23,11 +23,28 @@ bash ~/dev/agent-skills/sync.sh --local    # 只做本地同步，不提交推�
 
 ## 安装
 
+推荐软链安装（`git pull` 即更新）：
+
 ```bash
-# Claude Code / Codex 等，将 skill 复制到对应 skills 目录即可
-git clone https://github.com/loveliunian/agent-skills.git
-cp -r agent-skills/devflow ~/.claude/skills/devflow   # 或 ~/.codex/skills/devflow
+git clone https://github.com/loveliunian/agent-skills.git "$HOME/.local/share/agent-skills"
+
+# Claude Code
+mkdir -p "$HOME/.claude/skills"
+ln -sfn "$HOME/.local/share/agent-skills/devflow" "$HOME/.claude/skills/devflow"
+
+# Codex（当前官方 user scope；旧的 ~/.codex/skills 已过时）
+mkdir -p "$HOME/.agents/skills"
+ln -sfn "$HOME/.local/share/agent-skills/devflow" "$HOME/.agents/skills/devflow"
 ```
+
+或使用 devflow 自带安装器（同样为软链、幂等、不覆盖实体目录）：
+
+```bash
+bash "$HOME/.local/share/agent-skills/devflow/scripts/install.sh" --platform all
+bash "$HOME/.local/share/agent-skills/devflow/scripts/doctor.sh"
+```
+
+也可以在仓库内直接同步到本机所有工具目录：`bash sync.sh --local`。
 
 ## License
 

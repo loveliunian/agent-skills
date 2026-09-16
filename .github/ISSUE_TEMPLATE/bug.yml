@@ -1,0 +1,47 @@
+name: Bug 报告
+description: devflow 行为异常、Gate 误判、脚本报错或文档错误
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请先确认使用最新版本，并提供可复现命令与真实退出码。请勿粘贴任何真实凭据或生产数据。
+  - type: input
+    id: version
+    attributes:
+      label: devflow 版本
+      description: 见 devflow/SKILL.md frontmatter 或 `bash devflow/scripts/check-skill-version.sh`
+      placeholder: "3.23.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: host
+    attributes:
+      label: 宿主 Agent
+      options:
+        - Claude Code
+        - Codex
+        - Cursor
+        - Trae
+        - 其他
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为（含命令、退出码、日志片段）
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 最小复现步骤
+    validations:
+      required: false

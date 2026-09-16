@@ -61,7 +61,7 @@ else
   ok "无 state 时 s1 fail-closed 且无 default 目录"
 fi
 
-# ---------- R4: p2a DF/AW 阈值生效 ----------
+# ---------- R4: p2a DF 五字段契约生效（v3.24.0/A15 重写：旧"9<10 阈值"已随按实际发现口径移除） ----------
 W4="$TMP/p2a"; mkdir -p "$W4/docs/detailed-design" "$W4/docs/requirements" "$W4/docs/review"
 WORKSPACE="$W4" bash "$ROOT/scripts/devflow-state.sh" init p2a --frontend=mini-program >/dev/null 2>&1
 printf '# d\n| M-01-F01-A01 | COMPLETE |\n' > "$W4/docs/detailed-design/p2a-design.md"
@@ -70,13 +70,19 @@ printf '# c\n| M-01-F01-A01 | 待验证 |\n' > "$W4/docs/requirements/p2a-accept
 echo "本功能需与 CRM 系统对接获取客户数据。" >> "$W4/docs/detailed-design/p2a-design.md"
 { echo "# 报告"
   for r in 架构师 后端专家 前端专家 测试开发 DBA; do echo "- 归属评委：$r"; done
-  for i in $(seq 1 9); do echo "#### DF-$i 深层发现"; done   # 故意 9 < 10
+  for i in $(seq 1 9); do echo "#### DF-$i 深层发现"; done   # 故意只有标题、五字段全缺
   for i in 1 2 3; do echo "- AW-$i 场景：x｜走查路径：y｜结果：z"; done
 } > "$W4/docs/review/p2a-design-review-report.md"
-if (cd "$W4" && bash "$ROOT/scripts/p2a_design_review_gate.sh" p2a >/dev/null 2>&1); then
-  bad "p2a DF 阈值（<10 应阻断）"
+R4_OUT=$(cd "$W4" && bash "$ROOT/scripts/p2a_design_review_gate.sh" p2a 2>&1 || true)
+if printf '%s' "$R4_OUT" | grep -q "incomplete DF blocks"; then
+  ok "p2a 五字段缺失 DF 被判无效（incomplete DF blocks）"
 else
-  ok "p2a DF 阈值（9<10 被阻断）"
+  bad "p2a 空 DF 块未被五字段契约拦截"
+fi
+if printf '%s' "$R4_OUT" | grep -qE "AW entries with empty segments or unresolvable"; then
+  ok "p2a AW 三段/引用解析契约生效（结果无锚点/DF 引用被拒）"
+else
+  bad "p2a AW 结果引用未校验"
 fi
 
 # ---------- R5: artifact_gate P8 告警输出含 FAIL 时交叉拦截 ----------

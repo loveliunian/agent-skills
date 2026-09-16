@@ -1,0 +1,45 @@
+name: devflow-ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shell syntax
+        shell: bash
+        run: |
+          find devflow flow-test-contract -type f -name '*.sh' -print0 |
+            xargs -0 -n1 bash -n
+
+      - name: Compile Python sources
+        run: python3 -m compileall -q devflow/scripts
+
+      - name: Version consistency
+        run: bash devflow/scripts/check-skill-version.sh
+
+      - name: Run devflow tests
+        shell: bash
+        run: bash devflow/tests/run-tests.sh
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release audit
+        run: bash devflow/scripts/release-audit.sh
+
+      - name: Secret scan
+        run: bash devflow/scripts/secret-scan.sh

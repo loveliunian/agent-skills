@@ -1,12 +1,59 @@
 ---
 name: changelog
-version: "3.23.0"
+version: "3.24.0"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.23.0 Migration Guide
+# Changelog — devflow v1 → v3.24.0 Migration Guide
+
+## v3.24.0 (2026-09-17) — 详设体系体检报告修复（业务行为契约 + 机器证据闭环）
+
+> 来源：`devflow 详设体系体检报告`（16 项发现，A01-A16）。按报告第 5 节修复顺序实施：
+> 先修可执行性故障，再补业务行为与实现证据契约，然后统一事实源与适用性，最后收敛流程口径与回归。
+
+### 修复顺序 1 · 可执行性故障
+
+- **A08 P2a 角色表解析**：§2 对 awk `$2` 直接 gsub 会以 OFS 重建 `$0`，下游按 `|` 重拆恒得空字段——正常评审表被误拒（实测 FAIL=11）。§1b/§2 统一改局部变量（role_cell 等）输出原始行。
+- **A07 渲染块注册表**：`df_render.py` 声明 10 块、实际写 12 块（resource-operations/integrations-configs 未列入）——按声明搭骨架触发 `ValueError` 崩溃。块注册表改为渲染块集合唯一正本（现 13 块，新增 biz-ops）；新增 `--init-doc` 初始化入口；三份详设模板内嵌全量锚点块，复制模板即可直接走管线。
+- **A05 总分模式正文对账**：s2 仅 monolith 传 `--doc`——sub 分文档删掉接口详细定义标题仍 exit=0。现全模式对账；p2a 四要素定位从固定 §12.1/§12.2/§13/§2.3 编号改语义锚点（component-reuse/common-extraction/standards-compliance/design-decisions，三模板已补锚点）。
+- **A10 收据协议对齐**：`phases/02a`/`design-review-committee`/`agent-runtime-adapter` 与真实运行协议统一——共享 REVIEW_SESSION_ID（AUTHOR+五角色同 session）、`--attestation` 平台证明必填（REVIEW_ATTESTATION_PUBKEY 环境）、begin 于 spawn 返回 agent_id 后/产出前、complete 于聚合报告冻结后统一执行、复审每轮新 session；不得用模型自签替代平台证明。
+- **A16 占位与引用**：s2 新增围栏外 `{xxx}` 花括号变量检查（实测「{业务方填写}」曾通过 P2）；`design-review.md` 悬空引用 `concepts/design-review-process.md` 改指 `review-depth-methodology.md`；完整版模板 §7.2/§7.4 的 §5.x.x 接口引用修正为 §3.2.x。
+
+### 修复顺序 2 · 业务行为与实现证据契约
+
+- **A01 业务操作契约**：design.json 新增必填 `business_operations[]`——操作以业务命名（非 CRUD 枚举），逐项覆盖触发者/输入/前置校验/源目标状态（无状态显式 stateless）/执行顺序/事务并发/结果/失败/关联对象/副作用/测试场景；`acceptance_refs` 并集必须等于冻结验收集合（缺"恢复""彻底删除"等即覆盖缺口拦截）；渲染 `biz-ops` 块；s2 要求 WHEN 伪代码与 sequenceDiagram 成对。
+- **A02 真实代码基线**：design.json 新增必填 `baseline.entries[]`——REUSE/MODIFY/DELETE 目标在仓库内反查存在（虚构 `MODIFY FooController#list` 直接拦截）、ADD 须声明 target_module、每条带验证方式；`baseline.db_evidence` 区分迁移 DDL 静态事实与目标库实际 schema（live_schema 须记来源与时点）。
+- **A03 JSON↔正文对账**：df_validate 新增正文事实对账——JSON 字段必须出现在锚点小节表格首列、类型归一化后一致（同字段双正本冲突拦截）；锚点小节不得是空壳（实测仅标题正文曾通过 --doc 校验）。
+- **A09 深度评审实质化**：ZERO-DF 必须含核查实质（空标题拦截）；AW 三段（场景/走查路径/结果）非空且结果的 §锚点解析到详设真实标题、DF 引用存在于报告；探针证据锚点同样解析（虚构 §99.99 不再放行）。
+
+### 修复顺序 3 · 事实源与适用性统一
+
+- **A04 引用闭环**：`prd_anchor` 来源文件必须真实存在（does-not-exist.md#L99999 拦截）；嵌套锚点（apis[].request/response.anchor、client.journeys[].page）逐一闭环。
+- **A06 适用性**：s2 §4/§5 表头检查按 design.json 空集合声明豁免（合法纯计算设计不再被误拒）；§2d 新增冻结 frontend 与 design.json client.scope 对账（state 冻结 app 声明 not-applicable 拦截）。
+
+### 修复顺序 4 · 流程口径与回归
+
+- **A12 设计完成统一口径**：设计完成 = P2 内容校验 + P2a 实施可行性评审；`--design-only` 在 P2a 后停止；`/plan` 与 `/build` 消费同一份 P2a 批准收据（缺失 BLOCKED）。
+- **A13 评审模板口径**：通过条件改"所有 DF CLOSED（OPEN=0）"（废除"P2 问题少于 10 条"）；P5 决策 Why 链主责改 DBA+架构师（业务专家不在 canonical roster）；AW 走查路径按「触发→输入→处理→依赖→结果」实例化为 Web/MQ/任务/批处理形态。
+- **A14 P0b 深度口径**：DF 按实际发现（废除总数 ≥5/每角色 ≥1 凑数），每角色须有 DF 或含核查实质的 ZERO-DF 证据，与 review-depth-methodology 统一。
+- **A11 模板示例冲突**：分文档 §5.3.1/§5.3.2 补全请求/响应双六列表；两模板删除时序改为"关联存在→回滚拒绝"分支先于写入（与伪代码一致）；完整版删除流程补并发口径说明（锁/复合约束二选一，"放进事务"不是并发安全证明）；审计失败回滚改为按审计策略显式决策。
+- **A15 回归钉**：新增 `tests/test-design-contract-hardening.sh`（30 断言）——每条负向断言从合法样本变异单一因素：块注册表/管线正向、业务操作覆盖缺口、虚构基线、类型冲突、空壳正文、PRD 源缺失、嵌套断链、角色表解析、纯计算豁免、frontend 漂移、花括号占位；废除 v3140 回归中过时的"9<10 DF 阈值"断言，改钉五字段/引用解析契约。
+
+## v3.23.1 (2026-09-16) — 开源硬化（深度审阅报告修复）
+
+> 来源：`devflow 开源仓库深度审阅与改进报告`。本轮只做协议边界与分发硬化，不动 P0-P10 流程语义。
+
+- **消除第二 Skill 入口歧义**：`concepts/SKILL.md` 重命名为 `concepts/core.md`（`name: devflow-concepts-core`，不再是一个可被扫描发现的合法 Skill）；全部活跃引用同步更新。官方规范中"含 SKILL.md 的目录即 Skill"，避免辅助目录被误识别。
+- **SKILL.md 输入/输出契约**：正文顶部新增 Receipt 契约——输入（PRD/交付模式/可选参数）与每阶段输出（`phase` / `status: PASS|BLOCKED|SKIPPED` / `artifacts[]` / `verification[]` / `blockers[]` / `next_phase`），Gate 失败不得推进、外部副作用先授权。
+- **Codex 隐式触发关闭**：`agents/openai.yaml` 设 `policy.allow_implicit_invocation: false`——devflow 可写码、迁移、部署，Codex 侧必须显式调用；Claude Code / Cursor / Trae 按 description 触发不受影响。外部副作用仍由发布授权收据（原则 14）硬门禁。
+- **触发文档口径修正**：`concepts/natural-language-triggers.md` 的"500 词限制"改为官方口径（主文件 < 500 行、完整指令约 < 5000 tokens），并注明本 skill 的 ≤500 词自律门禁。
+- **安装体验**：新增 `scripts/install.sh`（软链安装器，覆盖 claude/codex/cursor/trae/trae-cn，幂等、不覆盖实体目录）与 `scripts/doctor.sh`（核心/可选依赖体检 + 副本直连校验）；`README.md` 增加 30 秒上手，并将 Codex 路径更正为 `$HOME/.agents/skills`（旧 `~/.codex/skills` 已过时）。
+- **仓库级开源硬化**（skill 目录外）：根 `README.md` 安装指引修正；`.gitignore` 增加 secrets 忽略面；新增 `.github/workflows/devflow-ci.yml`（Linux/macOS 跑语法检查 + Python 编译 + 完整测试）、`SECURITY.md`、`CONTRIBUTING.md`、`THIRD_PARTY_NOTICES.md`（P3C Apache-2.0）与 Issue/PR 模板。
+- **未采纳/延后**：历史 manifest 与 `CHANGELOG` 不瘦身（hash-chain 依赖历史 manifest 逐字节不可变）；demo GIF、多 Skill 拆分属 P2 展示与长期演进，另行排期。
+
+- **剩余产物中文化收尾（任务契约/主索引/评分卡）**：`/plan` 输出改 `任务/执行契约.md` + `任务/待办.md`（历史 `tasks/plan.md`、`tasks/todo.md` 继续被 `/build`、自检命令识别，双语回退进 `devflow_paths.sh` 的 `df_resolve_task`）；`generate-master-index.sh` 默认输出改项目根 `主索引.md`（历史 MASTER.md 存在且无中文版时沿用，标题行随输出文件名）；`super-scorecard` 示例、`init-fact-sources` usage 的 `docs/design` 示例同步改中文；`test-chinese-paths.sh` 补任务/主索引三态断言并修复子 shell 计数失真（17 断言全量计入）。
 
 ## v3.23.0 (2026-09-16) — 通用化修复（Agent Skills 兼容 + Runtime Profile + 发布授权 + Secret scan）
 

@@ -109,6 +109,7 @@ CREATE TABLE foo (id BIGINT PRIMARY KEY, page INT);
 | page | INT | 非空 | 1 | 页码；最大值由接口校验 |
 ## §3 接口设计
 <!-- anchor: api-contracts -->
+本模块对外提供分页查询接口，概览与详细定义一一对应。
 #### 3.2.1 分页列表
 | 方法 | 路径 | 接口 |
 |---|---|---|
@@ -134,6 +135,16 @@ CREATE TABLE foo (id BIGINT PRIMARY KEY, page INT);
 WHEN 查询 foo (page): [R1][R2]
   1. 校验 page
   2. 返回分页结果
+
+```mermaid
+sequenceDiagram
+    participant 前端
+    participant Service
+    participant DB
+    前端->>Service: GET /api/foo/list
+    Service->>DB: SELECT
+    Service-->>前端: 200 OK
+```
 ## §7 前端页面
 foo-list.vue；列表可达。
 ## §8 数据库迁移
@@ -199,6 +210,8 @@ cat > "$TMP/.devflow/foo/design.json" <<EOF
   ],
   "client": {"scope": "not-applicable", "not_applicable_reason": "fixture 纯服务端，无前端"},
   "migrations": {"applicable": true, "dialects": ["h2", "postgresql", "oracle", "kingbase"]},
+  "business_operations": [{"id": "BOP-1", "name": "分页查询 foo", "trigger": "用户请求列表", "actor": "foo:view 持有者", "stateless": true, "steps": ["校验 page>=1（R1）", "查询并返回分页结果"], "result": "返回分页数据", "failure": "参数越界返回 400", "test_scenarios": ["正常查询", "page<1 拒绝"], "acceptance_refs": ["M-01-F01-A01"], "anchor": "§6"}],
+  "baseline": {"repo_root": ".", "db_evidence": {"source": "migration_ddl"}, "entries": [{"id": "BL-1", "target": "backend/x/src/main/java/foo/FooController.java", "decision": "MODIFY", "existing_contract": "FooController#list 现有分页查询，响应结构不变", "related_acceptance": ["M-01-F01-A01"], "verify": "FooControllerTest"}]},
   "decisions": [
     {"id": "DDR-1", "topic": "主键类型", "alternatives": "BIGINT / INT", "chosen": "BIGINT", "reason": "长期增长量化：行数预估超 INT 上限 21 亿"},
     {"id": "DDR-2", "topic": "页码类型", "alternatives": "INT / BIGINT", "chosen": "INT", "reason": "业务上限明确，页码不会超 21 亿"}

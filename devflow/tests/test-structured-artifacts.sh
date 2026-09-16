@@ -41,6 +41,8 @@ cat > criteria.md <<'EOF'
 | M01-F01-A02 | x |
 | M01-F02-A01 | x |
 EOF
+# v3.24.0(A04)：prd_anchor 来源文件必须真实存在——样例锚点指向 docs/requirements/ 下
+mkdir -p docs/requirements && cp criteria.md docs/requirements/demo-pay-acceptance-criteria.md
 check_rc 0 "sample design validates" python3 "$V" --kind design --input design.json --criteria criteria.md
 check_rc 0 "sample design pipeline renders into skeleton" python3 "$P" design --input design.json --doc doc.md --criteria criteria.md
 grep -q "覆盖率：3/3 = 100%，全部验收点都完成了设计" doc.md && ok "human-readable coverage line rendered" || bad "human-readable coverage line rendered"
@@ -250,14 +252,17 @@ json.dump(d, open("d-dup-zero.json", "w"), ensure_ascii=False)
 PYEOF
 check_rc 1 "duplicate zero-result path rejected" python3 "$V" --kind design --input d-dup-zero.json --doc doc.md
 # M2: 纯后端 feature（pages/tables/apis 合法为空 + 声明）
+# v3.24.0(A01/A02)：须含 business_operations 覆盖冻结验收点 + baseline 契约
 cat > d-backend.json <<'EOF'
 {
   "feature": "backend-only",
   "generated_at": "2026-09-12T00:00:00Z",
   "template": {"id": "详细设计-完整版-模板", "version": "1", "mode": "monolith"},
-  "acceptance": [{"id": "M-01-F01-A01", "prd_anchor": "docs/prd/x.md#L1", "page": "—", "api": "—", "data": "—", "rule": "R1", "test_case": "TC-B-001", "status": "COMPLETE"}],
+  "acceptance": [{"id": "M-01-F01-A01", "prd_anchor": "criteria.md#M-01-F01-A01", "page": "—", "api": "—", "data": "—", "rule": "R1", "test_case": "TC-B-001", "status": "COMPLETE"}],
   "tables": [], "apis": [], "pages": [],
-  "rules": [{"id": "R1", "anchor": "§5", "summary": "校验"}],
+  "rules": [{"id": "R1", "anchor": "§5.1", "summary": "校验"}],
+  "business_operations": [{"id": "BOP-1", "name": "执行每日汇总", "trigger": "每日 02:00 定时触发", "actor": "调度系统", "stateless": true, "steps": ["读取上游输入", "计算并写出结果"], "result": "任务完成并写审计", "failure": "失败按退避重试并告警", "test_scenarios": ["正常汇总", "输入缺失跳过并告警"], "acceptance_refs": ["M-01-F01-A01"], "anchor": "§6.1"}],
+  "baseline": {"repo_root": ".", "db_evidence": {"source": "none"}, "entries": [{"id": "BL-1", "target": "backend/job/SummaryJob.java", "decision": "ADD", "target_module": "job 模块（同类模式参照现有 ExportJob）", "verify": "SummaryJobTest"}]},
   "client": {"scope": "not-applicable", "not_applicable_reason": "纯后端"},
   "migrations": {"applicable": true, "dialects": ["h2", "postgresql", "oracle", "kingbase"]},
   "decisions": [{"id": "DDR-1", "topic": "全局命名", "reason": "统一规范", "unreferenced_reason": "无表字段"}],

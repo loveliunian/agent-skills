@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# check-copies.sh · 已安装副本的"直连本 skill"校验（只读，fail-closed）
-# v3.23.0 瘦身：副本形态约定改为"直连软链"——各工具 skills 目录中的 devflow
-#   必须是解析到本 skill（仓库工作树）的符号链接，由仓库级同步入口维护；
-#   旧的 rsync 实体副本分发（sync-copies.sh）已删除，实体副本视为漂移。
+# check-copies.sh · 已安装副本的"直连本 skill"校验（只读，fail-closed；v3.23.1）
+# 副本形态约定："直连软链"——各工具 skills 目录中的 devflow 必须是解析到本 skill
+# （仓库工作树）的符号链接，由仓库级同步入口或 scripts/install.sh 维护；
+# 旧的 rsync 实体副本分发（sync-copies.sh）已删除，实体副本视为漂移。
 # 用法:
 #   bash scripts/check-copies.sh                                  # 校验默认候选目标
 #   DEVFLOW_COPY_TARGETS="/p1:/p2" bash scripts/check-copies.sh    # 覆盖目标（冒号或换行分隔；

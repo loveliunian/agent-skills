@@ -1,12 +1,13 @@
 ---
 name: plan
-version: "3.23.0"
+version: "3.24.0"
 description: >-
   Use when decomposing a detailed design into actionable tasks, mentions
   "/plan", "任务分解", "任务清单", "分解任务", "break down", "task list", or "work items".
   Input: frozen acceptance criteria and detailed design. Output: execution-contract tasks (target + action + invariants + verify) mapped to acceptance IDs and semantic anchors.
 paths:
   - "docs/详细设计/**"
+  - "任务/**"
   - "tasks/**"
 disable-model-invocation: false
 allowed-tools:
@@ -46,6 +47,10 @@ allowed-tools:
 test -f docs/详细设计/<feature>-详细设计.md || { echo "BLOCKED: 详设缺失"; exit 1; }
 test -f docs/需求/<feature>-验收点.md || { echo "BLOCKED: 验收基线缺失"; exit 1; }
 bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/详细设计/<feature>-详细设计.md docs/需求/<feature>-验收点.md
+# v3.24.0(A12)：设计完成 = P2 + P2a——/plan 与 /build 消费同一份设计批准收据，
+# 不接受"P2 过了但未评审"的分歧口径（design-only 同样须过 P2a）。
+test -f ".devflow/<feature>/gates/P2a/receipt.txt" && grep -q '^EXIT_CODE=0$' ".devflow/<feature>/gates/P2a/receipt.txt" \
+  || { echo "BLOCKED: P2a 设计评审未通过——先运行 p2a_design_review_gate.sh <feature>"; exit 1; }
 ```
 
 ### 2. 从「实现交接」节生成执行契约
@@ -74,7 +79,8 @@ bugfix、缓存、定时任务、纯算法、纯 UI、配置变更等都不需�
 
 ### 4. 输出任务清单
 
-写入 `tasks/plan.md` 与 `tasks/todo.md`：
+写入 `任务/执行契约.md` 与 `任务/待办.md`（v3.24.0 起默认中文名；历史 `tasks/plan.md`、`tasks/todo.md`
+继续被 `/build` 与自检命令识别，无需迁移）：
 
 ```markdown
 # <feature> 执行契约
@@ -109,8 +115,8 @@ bugfix、缓存、定时任务、纯算法、纯 UI、配置变更等都不需�
 
 ## 输出
 
-- `tasks/plan.md`（执行契约矩阵 + 切片）
-- `tasks/todo.md`（按依赖排序的执行清单）
+- `任务/执行契约.md`（执行契约矩阵 + 切片；兼容历史 `tasks/plan.md`）
+- `任务/待办.md`（按依赖排序的执行清单；兼容历史 `tasks/todo.md`）
 
 ## 角色约束
 
@@ -123,20 +129,23 @@ bugfix、缓存、定时任务、纯算法、纯 UI、配置变更等都不需�
 # /plan 自检：详设交叉引用 + 无循环依赖 + Action 合法性
 test -f docs/详细设计/<feature>-详细设计.md && echo "详设 OK"
 
+# 任务产物中英双语解析（中文默认 任务/执行契约.md，历史 tasks/plan.md 回退）
+PLAN_F="任务/执行契约.md"; [ -f "$PLAN_F" ] || PLAN_F="tasks/plan.md"
+
 # 冻结验收ID集合必须与计划引用集合相等
 FROZEN=$(grep -oE 'M-?[0-9]{2}-F[0-9]{2}-A[0-9]{2}' docs/需求/<feature>-验收点.md | sort -u)
-PLANNED=$(grep -oE 'M-?[0-9]{2}-F[0-9]{2}-A[0-9]{2}' tasks/plan.md | sort -u)
+PLANNED=$(grep -oE 'M-?[0-9]{2}-F[0-9]{2}-A[0-9]{2}' "$PLAN_F" | sort -u)
 test "$FROZEN" = "$PLANNED"
 
 # Action 合法性 + MODIFY 行不变量非空
-grep "^| T-" tasks/plan.md | awk -F'|' '
+grep "^| T-" "$PLAN_F" | awk -F'|' '
   { action=$6; inv=$7; gsub(/^[ \t]+|[ \t]+$/, "", action); gsub(/^[ \t]+|[ \t]+$/, "", inv);
     if (action !~ /^(ADD|MODIFY|DELETE)$/) { print "BAD ACTION: " $0; bad=1 }
     if (action=="MODIFY" && inv=="") { print "EMPTY INVARIANTS: " $0; bad=1 }
   } END { exit bad }' && echo "ACTION OK"
 
 # 无循环依赖（依赖关系 DAG 检测，可用 make / tsort；依赖列=第 10 列）
-grep "^| T-" tasks/plan.md | awk -F'|' '
+grep "^| T-" "$PLAN_F" | awk -F'|' '
   {
     task=$2; deps=$10
     gsub(/^[ \t]+|[ \t]+$/, "", task)
@@ -154,7 +163,7 @@ grep "^| T-" tasks/plan.md | awk -F'|' '
 
 - `/plan` 完成后才能进入 `/build`
 - `/build` 必须按本执行契约施工，不允许临时添加未在 `plan.md` 中出现的 Target（如出现需先回 `/plan` 更新）
-- 建议在 `/audit-completeness P2` PASS 后再跑 `/plan`
+- 前置口径（v3.24.0/A12）：设计完成 = P2 内容校验 + P2a 实施可行性评审通过（同一批准收据）；P2b 按原型适用性及授权执行
 
 ---
 

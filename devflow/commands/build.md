@@ -1,6 +1,6 @@
 ---
 name: build
-version: "3.23.0"
+version: "3.24.0"
 description: >-
   Use when implementing backend APIs, frontend pages, or migrations for a new feature after /plan,
   mentions "/build", "build it", "编码实现", "实现这个功能", "写代码", "全栈开发", or "start implementation".
@@ -57,11 +57,15 @@ allowed-tools:
 ### 1. 加载任务清单
 
 ```bash
-test -f tasks/plan.md || { echo "BLOCKED: 任务清单缺失，请先 /plan"; exit 1; }
+PLAN_F="任务/执行契约.md"; [ -f "$PLAN_F" ] || PLAN_F="tasks/plan.md"
+test -f "$PLAN_F" || { echo "BLOCKED: 任务清单缺失（任务/执行契约.md），请先 /plan"; exit 1; }
 test -f docs/详细设计/<feature>-详细设计.md || { echo "BLOCKED: 详设缺失，请先 /spec"; exit 1; }
 bash "$SKILL_ROOT/scripts/s0_acceptance_gate.sh" <feature>
 bash "$SKILL_ROOT/scripts/s1_fact_sources_gate.sh" docs/详细设计
 bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/详细设计/<feature>-详细设计.md docs/需求/<feature>-验收点.md
+# v3.24.0(A12)：与 /plan 消费同一份设计批准收据——P2a 未通过不得开工
+test -f ".devflow/<feature>/gates/P2a/receipt.txt" && grep -q '^EXIT_CODE=0$' ".devflow/<feature>/gates/P2a/receipt.txt" \
+  || { echo "BLOCKED: P2a 设计评审未通过——设计完成 = P2 + P2a（同一批准收据）"; exit 1; }
 bash "$SKILL_ROOT/scripts/s3_migration_mapping_gate.sh" <A|B|C> docs/数据映射/<feature>-映射.md <source-count>
 bash "$SKILL_ROOT/scripts/s4_first_pass_snapshot.sh" freeze <feature> docs/需求/<feature>-验收点.md docs/详细设计/<feature>-详细设计.md
 ```

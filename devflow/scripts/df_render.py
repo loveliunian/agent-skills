@@ -29,10 +29,16 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
+# v3.24.0(A07)：块注册表 = 渲染器实际产出的全部块（唯一正本）。
+# 旧表只声明 10 块，而 render_design_blocks 实际产出 12 块（resource-operations、
+# integrations-configs 未列入声明）——按提示词声明的 10 块搭骨架会触发
+# ValueError 拼接崩溃。现在缺块检查直接以渲染块集合为准，新增块自动纳入强制。
+# v3.24.0(A01)：新增 biz-ops（业务操作契约索引），共 13 块。
 _DESIGN_BLOCKS = [
     "summary", "trace-matrix", "table-index", "api-index",
-    "permission-matrix", "rule-index", "client-scope", "zero-results",
-    "ddr-index", "ddr-matrix",
+    "permission-matrix", "rule-index", "biz-ops", "client-scope",
+    "zero-results", "ddr-index", "ddr-matrix", "resource-operations",
+    "integrations-configs",
 ]
 
 
@@ -132,6 +138,27 @@ def render_design_blocks(data):
         ["规则", "§锚点", "摘要"], [[r.get("id"), r.get("anchor"), r.get("summary")] for r in rules],
     )
 
+    # v3.24.0(A01)：业务操作契约索引——以业务命名（非固定 CRUD 枚举），
+    # 与冻结验收集合双向对账（df_validate 校验 acceptance 覆盖闭环）。
+    biz_ops = data.get("business_operations", [])
+    if biz_ops:
+        blocks["biz-ops"] = (
+            _table(
+                ["操作", "触发者/触发", "源状态→目标状态", "事务/并发", "结果/失败", "验收点", "§锚点"],
+                [[o.get("name"),
+                  f"{o.get('actor', '—')}｜{o.get('trigger', '—')}",
+                  "无状态（已声明）" if o.get("stateless") else f"{o.get('source_state', '?')} → {o.get('target_state', '?')}",
+                  o.get("concurrency", "—"),
+                  f"{o.get('result', '—')}｜失败：{o.get('failure', '—')}",
+                  "、".join(o.get("acceptance_refs", [])) or "—",
+                  o.get("anchor", "—")] for o in biz_ops],
+            )
+            + "\n\n> 业务操作以业务命名，覆盖触发者、前置校验、状态迁移、事务/并发、结果与失败；"
+              "冻结验收集合的每个验收点都必须被至少一个操作覆盖，无状态操作须显式声明。"
+        )
+    else:
+        blocks["biz-ops"] = "本设计无业务操作契约（须在 zero_results 声明 business_operations 为空及理由）。"
+
     blocks["ddr-index"] = _table(
         ["编号", "决策点", "备选方案", "选定", "理由"],
         [[d.get("id"), d.get("topic"), d.get("alternatives", "—"), d.get("chosen", "—"), d.get("reason")]
@@ -210,21 +237,27 @@ def render_design_blocks(data):
 
 
 def _splice(doc_path, blocks):
-    """整体重写骨架中的 df:begin/end 块；缺块或重复块即失败关闭。"""
+    """整体重写骨架中的 df:begin/end 块；缺块或重复块即失败关闭。
+
+    v3.24.0(A07)：缺块检查以本次渲染的 blocks 键集合为正本（= _DESIGN_BLOCKS），
+    不再依赖可能过期的平行清单。"""
     text = Path(doc_path).read_text(encoding="utf-8")
-    missing = [k for k in _DESIGN_BLOCKS if f"<!-- df:begin:{k} -->" not in text]
+    required = [k for k in _DESIGN_BLOCKS if k in blocks] or list(_DESIGN_BLOCKS)
+    missing = [k for k in required if f"<!-- df:begin:{k} -->" not in text]
     if missing:
         print(f"  ✗ 骨架缺少确定性层锚点块: {missing}", file=sys.stderr)
         print("    须在文档中加入：<!-- df:begin:KEY -->\\n<!-- df:end:KEY -->（KEY ∈ "
-              + ", ".join(_DESIGN_BLOCKS) + "）", file=sys.stderr)
+              + ", ".join(required) + "）", file=sys.stderr)
+        print("    或用 `df_render.py design --init-doc <path>` 由注册表直接生成含全量块的骨架",
+              file=sys.stderr)
         sys.exit(1)
-    duplicated = [k for k in _DESIGN_BLOCKS if text.count(f"<!-- df:begin:{k} -->") > 1]
+    duplicated = [k for k in required if text.count(f"<!-- df:begin:{k} -->") > 1]
     if duplicated:
         print(f"  ✗ 骨架存在重复锚点块: {duplicated}（每 KEY 恰好一对 begin/end，拒绝歧义拼接）",
               file=sys.stderr)
         sys.exit(1)
     # v3.17.2(L4): begin 无成对 end 时显式报错（曾落入 split ValueError traceback）
-    orphan_end = [k for k in _DESIGN_BLOCKS
+    orphan_end = [k for k in required
                   if text.count(f"<!-- df:begin:{k} -->") != text.count(f"<!-- df:end:{k} -->")]
     if orphan_end:
         print(f"  ✗ 锚点块 begin/end 不成对: {orphan_end}", file=sys.stderr)
@@ -235,6 +268,28 @@ def _splice(doc_path, blocks):
         _, post = rest.split(end, 1)
         text = pre + begin + "\n" + content + "\n" + end + post
     Path(doc_path).write_text(text, encoding="utf-8")
+
+
+def _init_doc(doc_path):
+    """v3.24.0(A07)：初始化入口——按块注册表生成含全量锚点块的骨架。
+
+    模板、schema 与块注册表来自同一契约：此入口保证「声明的块 = 渲染器要写的块」。
+    文档已存在时拒绝（防覆盖在途产物），并列出缺失块供手工补齐。"""
+    p = Path(doc_path)
+    if p.exists():
+        text = p.read_text(encoding="utf-8")
+        missing = [k for k in _DESIGN_BLOCKS if f"<!-- df:begin:{k} -->" not in text]
+        print(f"  ✗ 文档已存在，拒绝初始化: {doc_path}", file=sys.stderr)
+        if missing:
+            print(f"    该文档缺少锚点块: {missing}", file=sys.stderr)
+        sys.exit(1)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    parts = ["# 设计文档骨架（由 df_render 块注册表生成，13 个确定性层锚点块）", ""]
+    for k in _DESIGN_BLOCKS:
+        parts.append(f"<!-- df:begin:{k} -->\n<!-- df:end:{k} -->")
+    p.write_text("\n".join(parts) + "\n", encoding="utf-8")
+    print(f"骨架已初始化: {doc_path}（{_DESIGN_BLOCKS.__len__()} 个锚点块；"
+          f"语义层内容按模板补写后经 df_pipeline.py 渲染）")
 
 
 # ---------- verification 终验报告 ----------
@@ -338,6 +393,8 @@ def main():
     ap.add_argument("kind", choices=["design", "verification"])
     ap.add_argument("--input", required=True)
     ap.add_argument("--doc", default=None, help="design: 拼接目标文档（须含 df:begin/end 锚点块）")
+    ap.add_argument("--init-doc", dest="init_doc", default=None, metavar="PATH",
+                    help="design: 按块注册表初始化骨架（文档须不存在；存在时列出缺失块后退出 1）")
     ap.add_argument("--out", default=None, help="输出路径（design 未给 --doc 时为独立输出；verification 必填）")
     ap.add_argument("--exec-record", default=None, help="verification: Gate 执行记录（填充实际退出码列）")
     ap.add_argument("--workspace", default=".", help="相对路径解析根")
@@ -346,6 +403,9 @@ def main():
     data = json.loads(Path(args.input).read_text(encoding="utf-8"))
 
     if args.kind == "design":
+        if args.init_doc:
+            _init_doc(args.init_doc)
+            sys.exit(0)
         blocks = render_design_blocks(data)
         if args.doc:
             _splice(args.doc, blocks)

@@ -14,9 +14,9 @@ trap 'rm -rf "$TMP"' EXIT
 
 # ---------- 1. 路径库单元行为（纯函数，三态，独立工作区） ----------
 WU="$TMP/unit"; mkdir -p "$WU"
-(
-  cd "$WU" || exit 1
-  source "$S/devflow_paths.sh"
+_SAVED_PWD="$PWD"
+cd "$WU" || exit 1
+source "$S/devflow_paths.sh"
   out="$(df_default_doc foo clarification .md requirements)"
   [ "$out" = "docs/需求/foo-需求澄清.md" ] && ok "默认写路径为中文: $out" || bad "默认写路径错误: $out"
   mkdir -p docs/requirements
@@ -25,9 +25,9 @@ WU="$TMP/unit"; mkdir -p "$WU"
   [ "$out" = "docs/requirements/foo-clarification.md" ] && ok "仅英文存在时回退英文" || bad "英文回退失败: $out"
   mkdir -p docs/需求
   echo y > docs/需求/foo-需求澄清.md
-  out="$(df_resolve_doc foo clarification .md requirements)"
-  [ "$out" = "docs/需求/foo-需求澄清.md" ] && ok "中英并存时中文优先" || bad "中文优先失败: $out"
-)
+out="$(df_resolve_doc foo clarification .md requirements)"
+[ "$out" = "docs/需求/foo-需求澄清.md" ] && ok "中英并存时中文优先" || bad "中文优先失败: $out"
+cd "$_SAVED_PWD" || exit 1
 
 # 构造一套合格澄清/验收点文档的辅助函数（$1=目录 $2=feature，内容对齐 test-phase-gates 已验证夹具）
 make_s0_docs() {
@@ -161,5 +161,21 @@ WI2="$TMP/fs2"; mkdir -p "$WI2/docs/detailed-design"
 if [ -f "$WI2/docs/detailed-design/_权限矩阵.md" ] && [ ! -d "$WI2/docs/详细设计" ]; then
   ok "已有英文事实源目录时沿用，不重复建中文目录"
 else bad "英文旧项目事实源目录沿用逻辑失败"; fi
+
+# ---------- 7. tasks/ 与项目主索引：中文默认、英文回退、中文优先 ----------
+_SAVED_PWD="$PWD"
+mkdir -p "$TMP/tk"; cd "$TMP/tk" || exit 1
+source "$S/devflow_paths.sh"
+out="$(df_resolve_task plan)"; [ "$out" = "任务/执行契约.md" ] && ok "任务产物默认中文: $out" || bad "任务默认错误: $out"
+mkdir -p tasks; echo x > tasks/plan.md
+out="$(df_resolve_task plan)"; [ "$out" = "tasks/plan.md" ] && ok "仅英文任务产物时回退英文" || bad "任务英文回退失败: $out"
+mkdir -p 任务; echo y > 任务/执行契约.md
+out="$(df_resolve_task plan)"; [ "$out" = "任务/执行契约.md" ] && ok "任务产物中英并存时中文优先" || bad "任务中文优先失败: $out"
+out="$(df_resolve_master_index)"; [ "$out" = "主索引.md" ] && ok "主索引默认中文" || bad "主索引默认错误: $out"
+echo m > MASTER.md
+out="$(df_resolve_master_index)"; [ "$out" = "MASTER.md" ] && ok "历史 MASTER.md 存在且无中文版时沿用" || bad "主索引英文沿用失败: $out"
+echo z > 主索引.md
+out="$(df_resolve_master_index)"; [ "$out" = "主索引.md" ] && ok "主索引中文优先" || bad "主索引中文优先失败: $out"
+cd "$_SAVED_PWD" || exit 1
 
 finish "CHINESE_PATHS"

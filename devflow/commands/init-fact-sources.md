@@ -1,7 +1,7 @@
 ---
 name: init-fact-sources
 description: "Use when initializing or validating a project's engineering fact sources before detailed design or implementation."
-version: "3.23.0"
+version: "3.24.0"
 license: MIT
 paths: ["docs/**", "scripts/*", "backend/**"]
 compatibility: Devflow agent skill; requires a repository workspace and command execution.
@@ -48,14 +48,14 @@ DOC_DIR=docs/design bash "$SKILL_ROOT/scripts/init-fact-sources.sh"
 - `${DOC_DIR}/_Schema变更日志.md` ← `scripts/generate-schema-changelog.sh`
 - `${DOC_DIR}/INDEX-表-auto.md` ← `scripts/generate-table-index.sh`（人工版 INDEX-表.md 不被覆盖）
 - `${DOC_DIR}/INDEX-接口-auto.md` ← `scripts/generate-interface-index.sh`（同上）
-- `${DOC_DIR}/MASTER.md` ← `scripts/generate-master-index.sh`
+- `主索引.md`（项目根）← `scripts/generate-master-index.sh`（兼容历史 MASTER.md）
 
 **项目入口**：
 - `CLAUDE.md` — Claude Code 项目入口
 - `AGENTS.md` — Codex/Cursor 等通用入口
 
 > 重新跑会跳过已存在文件；`--force` 强制覆盖。
-> v3.1 起的脚本默认会生成全部 12+ 文件（含 MASTER.md + CLAUDE.md + AGENTS.md）。
+> v3.1 起的脚本默认会生成全部 12+ 文件（含 主索引.md + CLAUDE.md + AGENTS.md；3.24.0 前主索引名为 MASTER.md，历史文件存在时沿用不重命名）。
 
 ## 使用场景
 

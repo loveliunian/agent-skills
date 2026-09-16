@@ -1,6 +1,6 @@
 ---
 name: design-review-committee
-version: "3.23.0"
+version: "3.24.0"
 description: 详设 P2a 五角色独立评审委员会；角色、探针和收据必须与 Gate 一致
 allowed-tools: [read, write, exec, grep, glob, task]
 ---
@@ -24,8 +24,9 @@ BPM、领域、安全或迁移专家属于按适用性追加的专项 reviewer�
 ## 独立性契约（收据化）
 
 > 编排器以 `spawn_fresh(role, inherited_context=false)` 启动各角色（平台适配见 `references/agent-runtime-adapter.md`），
-> 并在 spawn 前调用 `scripts/review-receipt.sh begin`（报告文件尚不存在时）、各角色评审落盘后调用 `complete`（AUTHOR + 5 角色，两阶段缺一不可）。
-> Gate（p2a_design_review_gate.sh）verify 收据：输入/输出 SHA、时间窗、评审者≠作者。
+> 并在 spawn 返回 agent_id 之后、报告产出之前调用 `scripts/review-receipt.sh begin`（报告文件尚不存在时）、
+> 聚合报告冻结后统一调用 `complete`（AUTHOR + 5 角色，两阶段缺一不可；均须携带平台签发的 --attestation）。
+> Gate（p2a_design_review_gate.sh）verify 收据：输入/输出 SHA、时间窗、评审者≠作者、attestation 签名。
 > 报告中自报的 AUTHOR_ID/REVIEW_SESSION_ID 仅作展示，不作为独立性证据。
 
 评审报告必须记录：
@@ -35,7 +36,11 @@ AUTHOR_ID=<设计作者>
 REVIEW_RUN_ID=<本轮评审唯一 ID>
 ```
 
-并为五个角色分别记录唯一 `REVIEWER_ID` 和唯一 `REVIEW_SESSION_ID`。任一 reviewer 与作者相同、角色重复、session 重复或字段为空，Gate 必须阻断。
+并为五个角色分别记录唯一 `REVIEWER_ID`。**REVIEW_SESSION_ID 是本轮评审（review run）的
+共享 ID**：AUTHOR+五角色与报告头使用同一个值（Gate 按单 session 校验六条收据）；角色间
+的独立性由各自唯一的 agent_id 与平台会话保证，不靠 session 区分。任一 reviewer 与作者
+相同、角色重复、agent_id 重复或字段为空，Gate 必须阻断。修复复审使用新的 REVIEW_RUN_ID/
+session 重新走两阶段全流程。
 
 ## 探针与发现契约
 
@@ -62,4 +67,4 @@ REVIEW_RUN_ID=<本轮评审唯一 ID>
 
 ## 对抗场景走查
 
-正式 P2a 至少执行 3 条 AW，每条必须沿“数据→API→客户端→状态机”走查并以 `结果:` 收尾。简单 CRUD 仍需覆盖重复提交、越权或下游失败中的适用场景。
+正式 P2a 至少执行 3 条 AW，每条按「触发→输入→处理→依赖→结果」实例化为 Web / MQ / 定时任务 / 批处理等实际形态走查，三段（场景/走查路径/结果）非空，结果引用必须解析到详设真实章节（§x.y）或本报告 DF 编号。简单 CRUD 仍需覆盖重复提交、越权或下游失败中的适用场景。

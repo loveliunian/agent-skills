@@ -2,7 +2,7 @@
 # ============================================================
 # generate-master-index.sh (v3.1 - skill-grade)
 # ------------------------------------------------------------
-# 用途：扫描项目 docs/ + phases/ + INDEX-* 文件，自动生成 MASTER.md
+# 用途：扫描项目 docs/ + phases/ + INDEX-* 文件，自动生成 主索引.md（v3.23.1 前为 MASTER.md）
 #       作为"项目进度单一索引"，借鉴 spec_driven_develop 的 MASTER.md 思路
 #
 # 输出段落：
@@ -13,13 +13,14 @@
 #   5. 跨文档引用图
 #
 # 用法：
-#   bash "$SKILL_ROOT/scripts/generate-master-index.sh"                        # 默认写 MASTER.md
-#   OUTPUT_FILE=docs/MASTER.md bash "$SKILL_ROOT/scripts/generate-master-index.sh"
+#   bash "$SKILL_ROOT/scripts/generate-master-index.sh"                        # 默认写 主索引.md（历史 MASTER.md 存在且无中文版时沿用）
+#   OUTPUT_FILE=docs/主索引.md bash "$SKILL_ROOT/scripts/generate-master-index.sh"
 # ============================================================
 
 set -o pipefail
 
-OUTPUT_FILE="${OUTPUT_FILE:-MASTER.md}"
+# v3.23.1: 主索引中文化——默认 主索引.md；历史 MASTER.md 存在且无中文版时沿用
+if [ -n "${OUTPUT_FILE:-}" ]; then :; elif [ -f "MASTER.md" ] && [ ! -f "主索引.md" ]; then OUTPUT_FILE="MASTER.md"; else OUTPUT_FILE="主索引.md"; fi
 # v3.22.0: 默认目录中文化；历史英文目录已存在且未显式指定 DOC_DIR 时沿用
 if [ -n "${DOC_DIR:-}" ]; then :; elif [ -d "docs/detailed-design" ] && [ ! -d "docs/详细设计" ]; then DOC_DIR="docs/detailed-design"; else DOC_DIR="docs/详细设计"; fi
 
@@ -28,7 +29,7 @@ ok()   { echo -e "${GREEN}[OK]${NC} $*"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 
 echo "============================================="
-echo "  生成 MASTER.md"
+echo "  生成 ${OUTPUT_FILE}"
 echo "============================================="
 echo "OUTPUT:  $OUTPUT_FILE"
 echo "DOC_DIR: $DOC_DIR"
@@ -103,7 +104,7 @@ for root, dirs, files in os.walk('.'):
 
 # 5) 生成 markdown
 out = []
-out.append('# MASTER.md — 项目单一索引')
+out.append(f'# {os.path.basename(output)} — 项目单一索引')
 out.append('')
 out.append('> **自动生成**（`scripts/generate-master-index.sh`）')
 out.append('> **作用**：新人 5 秒看到项目全貌')
@@ -203,7 +204,7 @@ out.append('## 7. 再生成命令')
 out.append('')
 out.append('```bash')
 out.append('bash "$SKILL_ROOT/scripts/generate-master-index.sh"')
-out.append('OUTPUT_FILE=docs/MASTER.md bash "$SKILL_ROOT/scripts/generate-master-index.sh"')
+out.append('OUTPUT_FILE=docs/主索引.md bash "$SKILL_ROOT/scripts/generate-master-index.sh"')
 out.append('```')
 
 content = '\n'.join(out)

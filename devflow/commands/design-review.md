@@ -1,6 +1,6 @@
 ---
 name: design-review
-version: "3.23.0"
+version: "3.24.0"
 description: Use when reviewing a detailed design through the independent five-role P2a committee.
 paths: [docs/详细设计/**, docs/评审/**]
 allowed-tools: [read, write, exec, glob, grep, task]
@@ -23,7 +23,7 @@ allowed-tools: [read, write, exec, glob, grep, task]
 | Phase | Skill File | Gate Script |
 |-------|-----------|-------------|
 | P2 评审 | `phases/02a-详细设计评审.md` | `scripts/p2a_design_review_gate.sh` |
-| 概念定义 | `concepts/design-review-process.md` | — |
+| 深度规范 | `concepts/review-depth-methodology.md` | — |
 
 ## 独立评审收据（强制，v3.16.26）
 

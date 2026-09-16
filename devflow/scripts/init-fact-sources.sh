@@ -5,7 +5,7 @@
 # 用途：在任意项目的 docs/<DOC_DIR>/ 下生成：
 #   - 7 份事实源（手维护 + auto）
 #   - 5 个 auto 索引
-#   - MASTER.md 项目单一索引
+#   - 主索引.md 项目单一索引（v3.23.1 前为 MASTER.md；历史文件存在则沿用）
 #   - CLAUDE.md / AGENTS.md 跨平台入口
 #
 # 输出（默认）：
@@ -18,14 +18,14 @@
 #   ${DOC_DIR}/INDEX-接口.md                     # 模板（人工可覆盖）
 #   ${DOC_DIR}/_ER图索引.md                      # 自动生成（Flyway）
 #   ${DOC_DIR}/_Schema变更日志.md                # 自动生成（Flyway）
-#   MASTER.md                                    # 项目单一索引
+#   主索引.md                                    # 项目单一索引（兼容历史 MASTER.md）
 #   CLAUDE.md / AGENTS.md                        # 跨平台入口
 #
 # 用法：
 #   bash "$SKILL_ROOT/scripts/init-fact-sources.sh"                      # 默认
 #   bash "$SKILL_ROOT/scripts/init-fact-sources.sh" --force              # 强制覆盖
 #   SKILL_DIR=/path/to/skill bash "$SKILL_ROOT/scripts/init-fact-sources.sh"
-#   DOC_DIR=docs/design bash "$SKILL_ROOT/scripts/init-fact-sources.sh"
+#   DOC_DIR=docs/详细设计 bash "$SKILL_ROOT/scripts/init-fact-sources.sh"
 # ============================================================
 
 # 不加 set -u，避免 bash 5 在数组展开时的兼容问题

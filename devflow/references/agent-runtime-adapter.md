@@ -28,19 +28,33 @@
 阻塞等待一组子 Agent 全部完成，收集各自的结构化输出（报告路径 + 关键结论）。
 任一子 Agent 失败不静默吞掉：编排器必须把失败事实写进评审记录。
 
-### record_receipt(role, agent_id, session_id, output) —— v3.20.3 两阶段
+### record_receipt(role, agent_id, session_id, output) —— v3.20.3 两阶段 · v3.24.0 时序对齐
 
 为子 Agent 的产出写独立收据（当前实现：`scripts/review-receipt.sh`），两阶段缺一不可：
 
-- `begin`：spawn 该角色**之前**调用，此时评审报告文件必须尚不存在（否则拒绝）——
-  登记 `role / agent_id / input_artifact_sha / started_at` 并锁定 session 台账的 role→agent 映射；
-- `complete`：该角色产物落盘后调用，绑定 `output_report_sha / completed_at`；
-  评审期间输入产物被改写 → 拒绝。
+- `begin`：**spawn 返回 agent_id 之后、该角色产出落盘之前**调用（评审报告文件必须尚不存在，
+  否则拒绝）——登记 `role / agent_id / input_artifact_sha / started_at` 并锁定 session 台账的
+  role→agent 映射。agent_id 由 spawn_fresh 返回值提供；平台在 spawn 前无法预知 ID 时，
+  以"输出文件尚不存在 + started_at"作为防伪锚点，不要求 begin 先于 spawn 系统调用本身；
+- `complete`：**全部角色完成、聚合报告冻结后**统一调用（六条收据绑定同一冻结报告的 SHA）；
+  评审期间输入产物被改写 → 拒绝。先 complete 再合并会让先前收据的 output SHA 失效。
+
+**平台证明（attestation，必填）**：begin/complete 均须携带 `--attestation <file>`——由平台
+生命周期事件签发（schema `devflow-review-attestation-v1`，含 feature/session/role/agent_id/
+event/input_sha/output_sha/issued_at/nonce 与签名），验证方须设置 `REVIEW_ATTESTATION_PUBKEY`。
+不得用模型自签替代平台证明；缺公钥环境时收据命令以明确错误失败（fail-closed）。
+
+**复审生命周期**：每轮评审（初审/修复复审）使用新的 session_id，重新走
+begin → 独立评审 → 冻结聚合 → complete；不复用旧 session，不向旧 session 追加收据。
+
+**session 语义**：session_id 标识一轮评审（review run），AUTHOR+五角色共享同一值；
+各角色会话由平台 agent 会话区分（agent_id 唯一）。
 
 字段全集：`agent_id / session_id / role / input_artifact_sha / output_report_sha /
 started_at / completed_at / status(begin|complete)`。
 Gate 只信收据，不信报告里自报的 ID 字符串；`verify` 校验角色集合恰等于 AUTHOR+5、
-两阶段齐备、时间窗单调、评审者≠作者。旧单阶段 `create` 已移除（报告后整批补写的伪造通道）。
+两阶段齐备、时间窗单调、评审者≠作者、attestation 签名有效。旧单阶段 `create` 已移除
+（报告后整批补写的伪造通道）。
 
 ## 当前落地点
 
