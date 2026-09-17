@@ -1,12 +1,45 @@
 ---
 name: changelog
-version: "3.26.6"
+version: "3.26.8"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.26.6 Migration Guide
+# Changelog — devflow v1 → v3.26.8 Migration Guide
+
+## v3.26.8 (2026-09-17) — 探针语义修复第二轮：条件隔断对象继承 + 组合合法性
+
+用户侧复查实测反例（rc=0 误放行），两处 P1 语义缺口：
+
+- **rule_operation_closure 状态条件隔断**：「要素在草稿状态时需先停用才可删除；
+  未停用返回…」的业务对象"要素"先于条件词（在草稿状态时），局部 before-context
+  取不到；错误码分支"未停用返回"更无对象可继承 → 退化为仅按"停用"匹配，「停用字典」
+  被误认为可达。修复：句子级主语提取（按分隔符切段取段首中文主语、条件/引导标记
+  处截断、前后动词与虚词清洗、纯动词段丢弃），局部无对象的操作继承句子级主语。
+- **content_sufficiency 组合合法性**：旧版只校验数量——{DRAFT, UNKNOWN} 与
+  {DRAFT, PUBLISHED} 同为 2 个，非法集合被当作完整矩阵放行。修复：逐组合校验取值
+  必须来自该字段枚举域（枚举提取为空时保守跳过），数量完整性检查保留。
+
+回归：test-dev-hardening 扩至 42 用例（新增 3 条反例钉：条件隔断负例/正向、
+非法组合必 FAIL）；既有 39 用例无回归（含"需要X"句式与纯动词分类列不泄漏的
+对象继承边界）。
+
+## v3.26.7 (2026-09-17) — 探针语义修复：业务对象绑定 + 组合枚举数
+
+用户侧复查实测反例（rc=0 误放行），两处 P1 语义缺口：
+
+- **rule_operation_closure 业务对象绑定**：「要素需先停用」曾被无关的「停用字典」
+  端点满足（同动词跨对象误认可达）。修复：从规则句提取业务对象（捕获前缀 +
+  上下文双来源，剥离引导/时间/虚词与动词，保守优先），`reachable()` 要求端点名/
+  路径绑定同一对象；诊断信息给出对象名（"无同业务对象端点（对象：要素）"）。
+- **content_sufficiency 组合枚举数**：`seen_enums_keys_for` 旧正则要求值单元格后
+  还有一列——常规 `| status | DRAFT | 草稿 |` 三列表无法提取 → 枚举数恒 0 →
+  "两个状态仅声明一个合法组合"仍 PASS。修复：与 `_status_enums` 同口径的单元格
+  解析（字段列精确匹配 + 值列大写枚举记号，下限 3 字符防噪声）。
+
+回归：test-dev-hardening 扩至 39 用例（新增 3 条反例钉：停用字典不满足、三列表
+1<2 必 FAIL、2/2 正常通过）；既有 36 用例无回归。
 
 ## v3.26.6 (2026-09-17) — v3.26.5 二次复查：收敛边界 + 结构崩溃
 

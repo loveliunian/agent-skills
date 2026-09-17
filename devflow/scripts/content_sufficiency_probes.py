@@ -113,6 +113,27 @@ def probe_state_matrix(design: str, design_json: str | None) -> int:
             combos = sm.get("valid_combos", [])
             fields = sm.get("fields", [])
             if fields and combos:
+                seen_map = {f: seen_enums_keys_for(f, dtext) for f in fields}
+                # v3.26.8: 合法性校验——声明组合的取值必须来自该字段枚举域。
+                # 旧版只数数量：{DRAFT, UNKNOWN} 与 {DRAFT, PUBLISHED} 同为 2 个，
+                # 非法集合被当作完整矩阵放行（实测反例 rc=0）。
+                invalid: list[str] = []
+                for c in combos:
+                    if not isinstance(c, dict):
+                        continue
+                    for f, v in c.items():
+                        allowed = seen_map.get(f) or []
+                        if not allowed:
+                            continue  # 枚举提取为空时无法判定合法性（保守跳过）
+                        vals = v if isinstance(v, (list, tuple)) else [v]
+                        for vv in vals:
+                            if vv not in allowed:
+                                invalid.append(f"{f}={vv}")
+                if invalid:
+                    print(f"[FAIL] state-matrix: 非法组合 {len(set(invalid))} 处（取值不在枚举域）："
+                          f"{('、'.join(sorted(set(invalid))[:6]))}"
+                          "（组合矩阵必须是枚举域笛卡尔积的合法子集，L-P2-007）")
+                    return 1
                 # v3.26.6: 结构健壮性——valid_combos 条目含列表等不可哈希值（如
                 # {"status": ["A","B"]}）时旧版 set 推导 TypeError 崩溃（traceback
                 # 直达 Gate 输出）。无法解析即降级 WARN 跳过（与"缺输入降级"原则一致）。
@@ -126,7 +147,7 @@ def probe_state_matrix(design: str, design_json: str | None) -> int:
                 if declared is not None:
                     total = 1
                     for f in fields:
-                        vs = seen_enums_keys_for(f, dtext)
+                        vs = seen_map.get(f) or []
                         total *= max(len(vs), 1)
                     if len(declared) < total:
                         print(f"[FAIL] state-matrix: 组合矩阵不全——声明合法组合 {len(declared)} < 笛卡尔积 {total}"
@@ -139,8 +160,25 @@ def probe_state_matrix(design: str, design_json: str | None) -> int:
     return 0
 
 def seen_enums_keys_for(field: str, dtext: str) -> list[str]:
-    m = re.search(rf"^\|\s*{re.escape(field)}\s*\|[^\n]*?\|\s*([A-Z_ /]+)\s*\|", dtext, re.I | re.M)
-    return re.split(r"[/、]+", m.group(1)) if m else []
+    """v3.26.7: 与 _status_enums 同口径的单元格解析（旧正则要求值单元格后还有一列
+    ——常规 | status | DRAFT | 草稿 | 三列表无法命中 → 枚举数恒 0 → 组合矩阵声明
+    不全仍 PASS（实测反例 rc=0）。现按字段列精确匹配、值列取大写枚举记号。）
+    枚举记号下限 3 字符与 _status_enums 保持一致（防描述列 ID/PK 类噪声）。"""
+    out: list[str] = []
+    for ln in dtext.splitlines():
+        if not ln.startswith("|") or "---" in ln:
+            continue
+        cells = [c.strip() for c in ln.split("|")]
+        if len(cells) < 4:  # '', field, value, '' 最少四段
+            continue
+        if cells[1].lower() != field.lower():
+            continue
+        for cell in cells[2:4]:
+            for v in re.findall(r"\b[A-Z][A-Z_]{2,23}\b", cell):
+                if v not in ("NULL", "NOT", "PK", "UNIQUE", "CURRENT", "TIMESTAMP",
+                             "UPDATE", "DELETE", "INSERT", "SELECT") and v not in out:
+                    out.append(v)
+    return out
 
 # ------------------------------------------------------------------ cross-doc
 # 作业语义键白名单前缀：仅这些 gov_* 视为调度 jobKey（表名 gov_element 等不算）

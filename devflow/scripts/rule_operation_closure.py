@@ -7,10 +7,11 @@
 #
 # 检查原理（领域无关、保守触发，避免名词性提及误报）：
 #   1. 从业务规则表（| Rn | 分类 | 规则描述 | 错误处理 |）与"错误码→行为"文本中，
-#      仅按明确的"前置依赖句式"提取操作词（先X/需X/X才可/未X返回/X后才…）；
+#      仅按明确的"前置依赖句式"提取操作词（先X/需X/X才可/未X返回/X后才…），
+#      并绑定规则句中的业务对象（v3.26.7：「要素需先停用」不得被「停用字典」满足）；
 #   2. 在接口章收集操作清单（METHOD + 路径 + 操作名，含 design.json apis[].name）；
-#   3. 每个前置操作必须命中操作名或路径片段（内置常见 REST 动作映射），
-#      或规则行显式声明"复用 §x.y / 无独立端点（…）"豁免；缺失即 FAIL。
+#   3. 每个前置操作必须命中操作名或路径片段（内置常见 REST 动作映射）且满足
+#      业务对象绑定，或规则行显式声明"复用 §x.y / 无独立端点（…）"豁免；缺失即 FAIL。
 #
 # 用法: rule_operation_closure.py --design <design.md> [--design-json <design.json>]
 # 退出码: 0=PASS  1=FAIL（打印缺失操作与规则行号）
@@ -72,21 +73,100 @@ def extract_rules(text: str):
     return out
 
 
+# 业务对象提取辅助（v3.26.7）：尾随引导/时间/虚词与动词需剥离，只留对象名词。
+# 保守优先——剥完不足 2 字即放弃绑定（宁漏绑不误绑）。
+_FILLER_TAIL = "需要先时后前中"
+_FILLER_HEAD = "其该此本对被将把"
+_VERB_WORDS = ("删除", "修改", "编辑", "发布", "提交", "执行", "操作", "停用", "启用",
+               "恢复", "导出", "导入", "上传", "下载", "审批", "撤销", "回滚", "重放",
+               "作废", "补录", "重试", "确认", "校验", "检查", "鉴权", "调整", "变更",
+               "迁移", "同步")
+
+
+def _clean_object(raw: str) -> str:
+    obj = raw
+    while obj and obj[-1] in _FILLER_TAIL:
+        obj = obj[:-1]
+    changed = True
+    while changed and obj:
+        changed = False
+        for v in _VERB_WORDS:
+            if obj.endswith(v) and len(obj) > len(v):
+                obj = obj[: -len(v)]
+                changed = True
+                break
+    changed = True
+    while changed and obj:  # v3.26.8: 前导动词剥离（"删除要素"→"要素"）
+        changed = False
+        for v in _VERB_WORDS:
+            if obj.startswith(v) and len(obj) > len(v):
+                obj = obj[len(v):]
+                changed = True
+                break
+    while len(obj) > 1 and obj and obj[0] in _FILLER_HEAD:
+        obj = obj[1:]
+    if len(obj) < 2 or obj in STOP_WORDS:
+        return ""
+    return obj
+
+
+# 条件/引导标记：主语提取在遇到它们时截断（"要素在草稿状态时需先停用" → 主语"要素"）。
+# 注意不含"要"——"要素"本身以"要"开头；"需要"由"需"覆盖。
+_SUBJECT_BREAK = "在当需先才未时后前"
+
+
+def _line_subjects(line: str) -> set[str]:
+    """v3.26.8: 句子级业务对象提取——按分隔符切段后取段首中文主语，
+    在条件/引导标记处截断并清洗。修复"对象仅从命中局部句式取值"导致的
+    状态条件隔断（"要素在草稿状态时需先停用"的"要素"先于条件词，局部
+    before-context 取不到；错误码分支"未停用返回"更无对象可继承）。"""
+    subs: set[str] = set()
+    for seg in re.split(r"[|；;。，,]", line):
+        m = re.match(r"[\s（）()\[\]]*([\u4e00-\u9fa5]{1,6})", seg)
+        if not m:
+            continue
+        run = m.group(1)
+        idx = len(run)
+        for i, ch in enumerate(run):
+            if ch in _SUBJECT_BREAK:
+                idx = i
+                break
+        obj = _clean_object(run[:idx])
+        # v3.26.8: 纯动词段丢弃——表格"分类"列（| R6 | 删除 | …）与动词性段首
+        # （"导出/删除"）不得当作业务对象被继承（2 字动词与词表等长，清洗剥不掉）。
+        if obj and obj not in _VERB_WORDS:
+            subs.add(obj)
+    return subs
+
+
 def extract_operations(rule_line: str):
-    """返回 {op: strong}——strong=「未X返回错误码」式硬前置（必须有字段级契约）。"""
-    ops: dict[str, bool] = {}
+    """返回 {op: {"strong": bool, "objects": set[str]}}。
+    strong=「未X返回错误码」式硬前置（必须有字段级契约）；
+    objects=规则句中与该操作绑定的业务对象（v3.26.7 局部捕获前缀 + v3.26.8 句子级
+    主语继承，防"要素停用"被"停用字典"满足）。"""
+    ops: dict[str, dict] = {}
+    line_objects = _line_subjects(rule_line)
+
+    def _add(op: str, strong: bool, objects: set[str]) -> None:
+        ent = ops.setdefault(op, {"strong": False, "objects": None})
+        ent["strong"] = ent["strong"] or strong
+        if ent["objects"] is None:
+            ent["objects"] = set()
+        ent["objects"] |= {o for o in objects if o}
+
     for idx, pat in enumerate(DEP_PATTERNS):
         for m in pat.finditer(rule_line):
-            w = m.group(1)
-            w = w[:-1] if w.endswith("先") else w  # "未停用先返回"→停用
-            # v3.26.5: 过度捕获收敛——模式 3 的 CN 贪婪会吞入宾语+引导词
-            #（"要素需先停用"整句），该假操作永远无法命中端点名 → 契约齐全的项目被
-            # 误 FAIL（实测复现）。含引导词的捕获收敛到最后一个动词短语。
-            if "需" in w or "先" in w:
-                for kw in ("需要先", "需先", "需要", "需", "先"):
-                    if kw in w:
-                        w = w.split(kw)[-1]
-                        break
+            raw = m.group(1)
+            w = raw[:-1] if raw.endswith("先") else raw  # "未停用先返回"→停用
+            objects: set[str] = set()
+            # 对象来源 ①：捕获内部前缀（模式 3「要素需先停用」整句）
+            for kw in ("需要先", "需先", "需要", "需", "先"):
+                if kw in w:
+                    obj = _clean_object(w.split(kw)[0])
+                    if obj:
+                        objects.add(obj)
+                    w = w.split(kw)[-1]
+                    break
             # v3.26.6: 条件句式收敛——"X通过/完成才可Y"类条件不是操作，剥离状态后缀；
             # 校验类条件规范化为 skip 词"校验"（reachable 内置放行，防假 FAIL）。
             for suf in ("通过", "完成", "成功", "失败", "有效", "正常"):
@@ -101,7 +181,13 @@ def extract_operations(rule_line: str):
             if w in STOP_WORDS or len(w) < 2:
                 continue
             strong = idx == 1  # 模式 2：未X返回/拒绝
-            ops[w] = ops.get(w, False) or strong
+            objects.discard(w)
+            _add(w, strong, objects)
+    # v3.26.8: 局部无对象的操作继承句子级主语（错误码分支"未停用返回"的"停用"
+    # 继承首句"要素在草稿状态时…"的主语"要素"）
+    for op, ent in ops.items():
+        if not ent["objects"] and line_objects:
+            ent["objects"] = {o for o in line_objects if o != op}
     return ops
 
 
@@ -134,20 +220,33 @@ def collect_api_surface(text: str, design_json: dict | None) -> tuple[str, list[
 
 
 def reachable(op: str, api_text: str, ops: list[tuple[str, str, str]],
-              design_json: dict | None, strong: bool) -> tuple[bool, str]:
-    """返回 (可达, 级别)。strong=True 时必须命中详定义/design.json，仅概览行不够。"""
+              design_json: dict | None, strong: bool,
+              objects: set[str] | None = None) -> tuple[bool, str]:
+    """返回 (可达, 级别)。strong=True 时必须命中详定义/design.json，仅概览行不够。
+    v3.26.7: objects 非空时端点必须绑定同一业务对象（防"要素停用"被"停用字典"满足）。"""
     if op in ("校验", "检查"):
         return True, ""
+    objects = objects or set()
+
+    def obj_ok(name: str, path: str) -> bool:
+        if not objects:
+            return True
+        return any(o in name or o in path for o in objects)
+
     hints = REST_HINTS.get(op, [])
     in_overview = False
     for method, path, name in ops:
         low = (path + " " + name).lower()
-        if op in name or any(h in low for h in hints):
+        if (op in name or any(h in low for h in hints)) and obj_ok(name, path):
             in_overview = True
             break
-    if op in ("停用", "启用") and any(("启停" in name) for _, _, name in ops):
+    if op in ("停用", "启用") and any(
+        "启停" in name and obj_ok(name, path) for _, path, name in ops
+    ):
         in_overview = True
     if not in_overview:
+        if objects:
+            return False, f"无同业务对象端点（对象：{'、'.join(sorted(objects))}）"
         return False, "无端点"
     if not strong:
         return True, ""
@@ -158,8 +257,9 @@ def reachable(op: str, api_text: str, ops: list[tuple[str, str, str]],
     if design_json:
         for a in design_json.get("apis", []):
             name = str(a.get("name", ""))
+            path = str(a.get("path", ""))
             hit = (op in name) or (op in ("停用", "启用") and "启停" in name)
-            if not hit:
+            if not hit or not obj_ok(name, path):
                 continue
             cross = [d for d in OTHER_DOMAIN if d in name]
             if cross:  # 端点属他域；规则上下文（错误码/路径）须显式同域才算
@@ -187,10 +287,10 @@ def main() -> int:
     for line_no, rid, line in extract_rules(text):
         if EXEMPT.search(line):
             continue
-        for op, strong in extract_operations(line).items():
-            ok, why = reachable(op, api_text, api_ops, dj, strong)
+        for op, meta in extract_operations(line).items():
+            ok, why = reachable(op, api_text, api_ops, dj, meta["strong"], meta["objects"])
             if not ok:
-                tag = "强前置" if strong else "前置"
+                tag = "强前置" if meta["strong"] else "前置"
                 missing.append(f"L{line_no} {rid}: {tag}操作「{op}」{why}（规则：{line[:90]}）")
 
     if missing:

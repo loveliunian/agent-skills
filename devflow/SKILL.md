@@ -12,13 +12,13 @@ license: MIT
 compatibility: Requires a repository workspace and command execution; stack-specific build, test, and migration commands are resolved from a frozen runtime profile.
 metadata:
   author: xingyunliushui
-  version: "3.26.6"
+  version: "3.26.8"
   updated: "2026-09-17"
   tags: "prd,detailed-design,development,migration,phase-gate,checkpoint-recovery,agent-skills"
 allowed-tools: read write exec glob grep task
 ---
 
-# devflow — PRD to production（v3.26.6）
+# devflow — PRD to production（v3.26.8）
 
 本文件是唯一权威入口。历史迁移只查 `references/CHANGELOG.md`；命令、阶段、角色和模板按需加载，不在入口重复。
 
@@ -55,6 +55,7 @@ allowed-tools: read write exec glob grep task
 12. 用户/PRD 明确指定的技术组件、版本、许可证或部署方式必须在 P0 冻结为硬约束；P1 只能在约束内评分，偏离必须 `BLOCKED` 并经用户批准后重冻。
 13. P3 前必须解析 Runtime Profile；核心流程不得假设 Maven/Spring/Flyway/JaCoCo/Vue，只有 profile 声明的能力才能作为验证依据；能力缺失即 `BLOCKED`。
 14. 部署、迁移、推送、发布等外部副作用必须有显式人工授权收据（`authorizations/release.json`）；无授权时最高只能声明 `READY_TO_RELEASE`，不得声明 `RELEASED`。
+15. 面向读者文档必须遵循 `concepts/中文文风规范.md`；人工自检、抽查，不设自动文风硬校验或Gate阻断。
 
 完整铁律与工程边界见 `concepts/core.md`；细节原则见 `concepts/principles-detailed.md`；经验教训库见 `concepts/lessons-learned.md`（33 条可复现教训 + 启动检查清单）。
 

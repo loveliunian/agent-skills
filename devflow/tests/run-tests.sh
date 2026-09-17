@@ -36,7 +36,7 @@ SUITES=(
   "test-report-regressions.sh:报告回归"
   "test-p6-hardening.sh:P6 硬化"
   "test-version-hardening.sh:历史版本硬化（v3.20.3/v3.21.1/v3.21.2）"
-  "test-dev-hardening.sh:开发面硬化（v3.26.3-v3.26.6）"
+  "test-dev-hardening.sh:开发面硬化（v3.26.3-v3.26.8）"
   "test-release.sh:发布审计"
 )
 

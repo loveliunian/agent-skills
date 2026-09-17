@@ -447,4 +447,42 @@ else
   bad "state-matrix 组合结构崩溃未修（rc=${rc}）"
 fi
 
+# 反例：业务对象绑定（v3.26.7）——"要素需先停用"不得被"停用字典"满足
+printf '## §3 业务规则\n| 编号 | 分类 | 规则描述 | 错误处理 |\n|---|---|---|---|\n| R6 | 删除 | 要素需先停用才可删除 | 未停用返回 E |\n' > "$W12/obj.md"
+printf '{"apis":[{"method":"PATCH","path":"/api/dict/toggle","name":"停用字典"}]}' > "$W12/obj.json"
+python3 "$ROOT/scripts/rule_operation_closure.py" --design "$W12/obj.md" --design-json "$W12/obj.json" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 1 ] \
+  && ok "rule closure 无关同动词端点不满足（业务对象绑定）" \
+  || bad "rule closure 未绑定业务对象（停用字典被误认可达，rc=${rc}）"
+
+# 反例：组合矩阵枚举数（v3.26.7）——常规三列表两个状态、仅一个合法组合必须 FAIL
+printf '## §2.3 状态枚举\n| 字段 | 值 | 说明 |\n|---|---|---|\n| status | DRAFT | 草稿 |\n| status | PUBLISHED | 已发布 |\n\n## §3 规则\n| R1 | DRAFT 可提交 |\n\n## §4 转移\nDRAFT 到 PUBLISHED。\n' > "$W12/enum.md"
+printf '{"state_machines": {"fields": ["status"], "valid_combos": [{"status": "DRAFT"}]}}' > "$W12/enum-bad.json"
+python3 "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/enum.md" --design-json "$W12/enum-bad.json" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 1 ] \
+  && ok "state-matrix 三列表枚举数提取正确（1 < 2 必 FAIL）" \
+  || bad "state-matrix 枚举数仍错（rc=${rc}）"
+printf '{"state_machines": {"fields": ["status"], "valid_combos": [{"status": "DRAFT"}, {"status": "PUBLISHED"}]}}' > "$W12/enum-ok.json"
+python3 "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/enum.md" --design-json "$W12/enum-ok.json" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 0 ] && ok "state-matrix 组合齐全（2/2）正常通过" || bad "state-matrix 组合齐全被误拒（rc=${rc}）"
+
+# 反例：状态条件隔断下的对象继承（v3.26.8）——"要素在草稿状态时需先停用"的主语
+# 须传到错误码分支"未停用返回"，"停用字典"不得满足
+printf '## §3 业务规则\n| 编号 | 分类 | 规则描述 | 错误处理 |\n|---|---|---|---|\n| R6 | 删除 | 要素在草稿状态时需先停用才可删除 | 未停用返回 ELEMENT_NOT_DISABLED |\n' > "$W12/cond.md"
+printf '{"apis":[{"method":"PATCH","path":"/api/dict/toggle","name":"停用字典"}]}' > "$W12/cond-bad.json"
+python3 "$ROOT/scripts/rule_operation_closure.py" --design "$W12/cond.md" --design-json "$W12/cond-bad.json" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 1 ] \
+  && ok "rule closure 状态条件隔断下对象继承（停用字典不满足）" \
+  || bad "rule closure 条件隔断下对象丢失（rc=${rc}）"
+printf '{"apis":[{"method":"PATCH","path":"/api/elements/toggle","name":"启停要素（停用/启用）"}]}' > "$W12/cond-ok.json"
+python3 "$ROOT/scripts/rule_operation_closure.py" --design "$W12/cond.md" --design-json "$W12/cond-ok.json" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 0 ] && ok "rule closure 同对象端点仍通过（条件句正向）" || bad "rule closure 条件句误拒（rc=${rc}）"
+
+# 反例：组合合法性（v3.26.8）——{DRAFT, UNKNOWN} 数量相同但取值非法必须 FAIL
+printf '{"state_machines": {"fields": ["status"], "valid_combos": [{"status": "DRAFT"}, {"status": "UNKNOWN"}]}}' > "$W12/enum-illegal.json"
+python3 "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/enum.md" --design-json "$W12/enum-illegal.json" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 1 ] \
+  && ok "state-matrix 非法组合（取值不在枚举域）必 FAIL" \
+  || bad "state-matrix 非法组合同数量放行（rc=${rc}）"
+
 finish "test-dev-hardening"

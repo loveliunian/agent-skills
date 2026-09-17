@@ -462,6 +462,18 @@
       "manifest_sha256": "921ba97b560126ae75025e4e4d84be606c0001ea2cf791d5af01c172ee077acc",
       "tree_hash": "298f8afc96d76b2de476cfb743f84d8fe49669278341b2e3faf05affb8c35eba",
       "chain_hash": "673b0f86e76da98e41985e46cab743aac929eeef792565ad419b6c007a110fdd"
+    },
+    {
+      "version": "3.26.7",
+      "manifest_sha256": "e6ced970b058a9e7d0e90f88e5e27796bba4c3c79ae6187f9ea52d5d66f57c40",
+      "tree_hash": "67b64438394f88399ebe47d5b065f7514cf61f59960aa8a0970cbab7563c4af0",
+      "chain_hash": "86b7399ffb3bf0a0812aca9c314a8e7e8b9eb110b8645fd16d2c8f9b8a05664f"
+    },
+    {
+      "version": "3.26.8",
+      "manifest_sha256": "db14c1c81152ab9428f15e640e96536793526cd108a2dc8b87cfed022a4df5ac",
+      "tree_hash": "31c1007d479702bd0ec19978791a04275ecd3e7162470dbfc1a8197b7e8455bf",
+      "chain_hash": "c7859236bae64d5d587e28da57dcddb282507b8d4ee9e7be7e8afb3cb779bf76"
     }
   ]
 }

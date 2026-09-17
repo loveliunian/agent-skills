@@ -1,6 +1,6 @@
 ---
 name: windows-compatibility
-version: "3.26.6"
+version: "3.26.8"
 description: 跨平台兼容性事实清单（v3.15.x 实测口径）。
 paths: []
 disable-model-invocation: false

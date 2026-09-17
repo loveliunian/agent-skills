@@ -1,6 +1,6 @@
 ---
 name: design-review
-version: "3.26.6"
+version: "3.26.8"
 description: Use when reviewing a detailed design through the independent five-role P2a committee.
 paths: [docs/详细设计/**, docs/评审/**]
 allowed-tools: [read, write, exec, glob, grep, task]

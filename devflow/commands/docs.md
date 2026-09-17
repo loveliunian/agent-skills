@@ -1,6 +1,6 @@
 ---
 name: docs
-version: "3.26.6"
+version: "3.26.8"
 description: >-
   Use when updating project documentation after a feature is delivered, mentions
   "/docs", "更新文档", "文档", "文档更新", "api docs", "readme", "changelog", or "doc update".
@@ -20,7 +20,7 @@ allowed-tools:
 
 # /docs - 文档更新（P9）
 
-> **核心约束**：**禁止"文档已完成"文字**，必须列 5+ 份实际产出文件路径。
+> **核心约束**：**禁止"文档已完成"文字**，必须列 5+ 份实际产出文件路径。写作前必须遵循 `concepts/中文文风规范.md`；交付前由撰写者自检、评审时人工抽查，不设置自动文风硬校验或 Gate 阻断。
 
 ## 使用方式
 
