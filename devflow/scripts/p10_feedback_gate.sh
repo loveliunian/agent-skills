@@ -66,6 +66,24 @@ if [ -f "$S8B_APPLY_RECEIPT" ]; then
   fi
 fi
 
+# v3.26.3: L-MON-003 入检——P10 复盘前必须跑孤岛产物检测，报告留痕
+# （.devflow/<feature>/orphans-report.txt）；关键产物缺失（✗ 行）即 FAIL。
+ORPHANS_REPORT="$STATE_DIR/${FEATURE}/orphans-report.txt"
+if bash "$(cd "$(dirname "$0")" && pwd)/checkpoint-state.sh" orphans "$FEATURE" > "$ORPHANS_REPORT" 2>&1; then
+  # v3.26.3: grep -c 无命中时输出 0 且退出 1——不可用 "|| echo 0" 兜底（会追加第二行
+  # 非数字，-gt 比较即 "integer expression expected"）；空值兜底用 ${x:-0}。
+  ORPHAN_MISSING=$(grep -c '✗' "$ORPHANS_REPORT" 2>/dev/null)
+  ORPHAN_MISSING=${ORPHAN_MISSING:-0}
+  case "$ORPHAN_MISSING" in ''|*[!0-9]*) ORPHAN_MISSING=0 ;; esac
+  if [ "${ORPHAN_MISSING}" -gt 0 ]; then
+    fail "orphans 检测发现 ${ORPHAN_MISSING} 处关键产物缺失（报告: ${ORPHANS_REPORT}）"
+  else
+    pass "orphans 检测通过（报告: ${ORPHANS_REPORT}）"
+  fi
+else
+  fail "orphans 检测执行失败（checkpoint-state.sh orphans ${FEATURE}）"
+fi
+
 RECEIPT_DIR="$STATE_DIR/${FEATURE}/gates/P10"
 mkdir -p "$RECEIPT_DIR"
 EXIT_CODE=$([ "$FAIL" -eq 0 ] && echo 0 || echo 1)

@@ -239,7 +239,7 @@ check_sql_injection() {
 check_sensitive_data() {
   echo ""; echo "=== §5 安全审计 — 敏感数据暴露 ==="
   should_skip "security" && { SKIP=$((SKIP+1)); return; }
-  # v3.26.1: dto_dir 修复——旧默认 "${SERVICE:-backend}/src/main/java" 在多模块布局下
+  # v3.26.2: dto_dir 修复——旧默认 "${SERVICE:-backend}/src/main/java" 在多模块布局下
   # 等于 backend/src/main/java（不存在）→ 扫 0 文件却报 PASS（假绿）。现与 §1/§4 同口径，
   # 在服务根（或 backend 全树）下递归找 DTO/VO。
   local dto_dir="${SERVICE:-backend}"
@@ -247,6 +247,28 @@ check_sensitive_data() {
   count=$( (find "$dto_dir" -type f \( -name "*DTO.java" -o -name "*VO.java" \) -exec grep -lE "password|secret|token|key" {} + 2>/dev/null || true) | wc -l | tr -d ' ' )
   echo "| 含敏感字段的 DTO 数 | $count |" >> "$REPORT_FILE"
   [ "$count" -eq 0 ] && ok "敏感数据暴露检测 PASS" || warn "发现 $count 个 DTO 含敏感字段"
+}
+
+check_token_comparison() {
+  echo ""; echo "=== §6 安全审计 — 令牌/密钥比较方式（L-STACK-004） ==="
+  should_skip "security" && { SKIP=$((SKIP+1)); return; }
+  # v3.26.3: L-STACK-004 入检——String.equals 短路比较令牌/密钥存在时序侧信道；
+  # 常量时间比较（MessageDigest.isEqual / hmac.compare_digest）才安全。静态启发式
+  # 仅按变量名判定，可能有误报 → WARN 级（P3b 复核），不直接 P0。
+  local svc_dir="${SERVICE:-backend}"
+  local hits
+  hits=$( (find "$svc_dir" -name "*.java" -type f 2>/dev/null | grep -v '/test/' \
+    | xargs grep -inE '(token|secret|password|passwd|apikey|api_key|credential|sign)[A-Za-z_]*\.equals\(' 2>/dev/null || true) )
+  if [ -n "$hits" ]; then
+    local n
+    n=$(printf '%s\n' "$hits" | grep -c . || true)
+    echo "| 敏感凭据 equals 比较处数 | $n |" >> "$REPORT_FILE"
+    warn "发现 $n 处敏感凭据疑似 String.equals 比较（时序侧信道，须改 MessageDigest.isEqual 常量时间比较，P3b 逐条复核）"
+    printf '%s\n' "$hits" | head -8 | sed 's/^/    /'
+  else
+    echo "| 敏感凭据 equals 比较处数 | 0 |" >> "$REPORT_FILE"
+    ok "令牌/密钥比较方式检测 PASS"
+  fi
 }
 
 main() {
@@ -321,14 +343,14 @@ PYEOF
   case "$CHECK_MODE" in
     security)
       enforce_phase_json security "$SECURITY_JSON" || true
-      check_security; check_sql_injection; check_sensitive_data ;;
+      check_security; check_sql_injection; check_sensitive_data; check_token_comparison ;;
     performance)
       enforce_phase_json performance "$PERFORMANCE_JSON" || true
       check_n_plus_one; check_response_time ;;
     full)
       enforce_phase_json security "$SECURITY_JSON" || true
       enforce_phase_json performance "$PERFORMANCE_JSON" || true
-      check_security; check_n_plus_one; check_response_time; check_sql_injection; check_sensitive_data ;;
+      check_security; check_n_plus_one; check_response_time; check_sql_injection; check_sensitive_data; check_token_comparison ;;
   esac
   echo ""; echo "RESULT: PASS=$PASS FAIL=$FAIL WARN=$WARN SKIP=$SKIP"
   echo "报告: $REPORT_FILE"

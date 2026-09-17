@@ -1,6 +1,6 @@
 ---
 name: deploy
-version: "3.26.1"
+version: "3.26.6"
 description: >-
   Use when deploying to staging or production after P6 and Review Gates pass, mentions
   "/deploy", "部署", "发布", "go live", "上线", "staging", or "production release".
@@ -131,7 +131,8 @@ DEPLOYMENT_ID=<deployment-id>
 ARTIFACT_SHA256=<64-hex-sha256>
 ARTIFACT_PATH=<relative-artifact-path>
 ENVIRONMENT=<staging-or-production>
-HEALTH_HTTP_STATUS=200
+DEV_PRIVILEGED=false
+HEALTH_HTTP_STATUS=<2xx-status-declared（默认 200；Gate 实测须与声明一致）>
 HEALTH_URL=http://localhost:<port>/actuator/health
 BUILD_INFO_URL=http://localhost:<port>/actuator/info
 RELEASE_EVIDENCE_PATH=<path-to-release-run-output>

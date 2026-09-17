@@ -219,7 +219,7 @@ printf 'status=fallback\nsource_fallback_evidence=docs/test/fb2.md\n' > "$G1/rep
 
 # ---------- ③ manifest hash-chain ----------
 MC="$TMP/man"; cp -R "$ROOT" "$MC" 2>/dev/null
-rm -rf "$MC/.backups" "$MC/_archive" "$MC/.git" "$MC/tests/logs"
+rm -rf "$MC/.backups" "$MC/_archive" "$MC/.git" "$MC/tests/logs" "$MC/scripts/__pycache__"
 # 源树已发布 3.20.3 manifest——沙箱演练"新版本首发"须先移除当前版本 manifest 与台账（generate 拒绝同版本重写是正确行为）
 rm -f "$MC/references/manifest/${SKILL_VER}.json" "$MC/references/manifest/CHAIN.json"
 (cd "$MC" && bash scripts/gen-skill-manifest.sh chain-init >/dev/null 2>&1) || bad "chain-init 引导失败"

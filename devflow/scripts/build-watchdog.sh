@@ -208,9 +208,17 @@ case "$MODE" in
     [ -z "$FEATURE" ] && { echo "Usage: $0 gate <feature>"; exit 2; }
     mkdir -p "$STATE_DIR/$FEATURE/gates/P3-build"
     RECEIPT="$STATE_DIR/$FEATURE/gates/P3-build/receipt.txt"
+    # v3.26.3: L-MON-001 入检——watchdog 输出留痕（.devflow/<feature>/build-watchdog.log），
+    # "写完即编译"的持续验证可追溯（教训：事后无法补救——执行日志已丢失）。
+    WATCH_LOG="$STATE_DIR/$FEATURE/build-watchdog.log"
     GATE_VER=$(sed -n 's/^version: "\([0-9.]*\)"/\1/p; s/^  version: "\([0-9.]*\)"/\1/p' "$(cd "$SCRIPT_DIR/.." && pwd)/SKILL.md" 2>/dev/null | head -1)
     [ -n "$GATE_VER" ] || { echo "[FATAL] 版本源读取失败，拒绝产出收据"; exit 2; }
-    if run_all_checks; then
+    run_all_checks 2>&1 | tee "$WATCH_LOG"
+    WATCH_RC=${PIPESTATUS[0]}
+    {
+      echo "[gate] feature=$FEATURE version=$GATE_VER at=$(date -u +%Y-%m-%dT%H:%M:%SZ) exit=$WATCH_RC"
+    } >> "$WATCH_LOG"
+    if [ "$WATCH_RC" -eq 0 ]; then
       cat > "$RECEIPT" <<EOF
 VERSION=p3-build@$GATE_VER
 SKILL_TREE=$(bash "$SCRIPT_DIR/gate-skill-tree.sh" 2>/dev/null || echo unknown)

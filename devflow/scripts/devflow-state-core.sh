@@ -114,11 +114,13 @@ generate_from_template() {
   mkdir -p "$(dirname "$output_path")"
   
   # 替换多种占位符模式
+  # v3.26.2: FEATURE 采用词边界替换——旧 s/FEATURE/x/g 曾会误伤 FEATURED/FEATURE_TABLE
+  # 等英文词（潜在数据损坏）；[[:<:]]/[[:>:]] 在 BSD sed（macOS）与 GNU sed（Linux/Git
+  # Bash）均受支持。占位符 {FeatureName} 保持原样。
   local temp_file
   temp_file=$(mktemp)
   sed -e "s/{FeatureName}/${feature}/g" \
-      -e "s/FEATURE/${feature}/g" \
-      -e "s/{FeatureName}/${feature}/g" \
+      -e "s/[[:<:]]FEATURE[[:>:]]/${feature}/g" \
       "$template_path" > "$temp_file"
   
   mv "$temp_file" "$output_path"

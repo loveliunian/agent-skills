@@ -264,7 +264,29 @@ case "$PHASE" in
         p0 "missing artifact path or artifact SHA-256"
       fi
       grep -qE '^ENVIRONMENT=.+$' "$R" && pass "environment declared" || p0 "missing ENVIRONMENT"
-      grep -qx 'HEALTH_HTTP_STATUS=200' "$R" && pass "declared health endpoint returned 200" || p0 "missing HEALTH_HTTP_STATUS=200"
+      # v3.26.3: L-STACK-002 入检——部署清单必须显式声明认证通道状态。生产环境
+      # dev-privileged=true = 认证绕过上生产（教训中的 P1-006 事故模式）；
+      # 声明缺失即 P0（fail-closed），staging 允许 true 但必须显式声明。
+      ENV_VALUE=$(sed -n 's/^ENVIRONMENT=//p' "$R" | head -1)
+      DEV_PRIV=$(sed -n 's/^DEV_PRIVILEGED=//p' "$R" | head -1)
+      case "$DEV_PRIV" in
+        false) pass "DEV_PRIVILEGED=false declared (auth enforced)" ;;
+        true)
+          if [ "$ENV_VALUE" = "production" ]; then
+            p0 "DEV_PRIVILEGED=true 上生产 = 认证绕过（L-STACK-002）——须实现真实认证通道并置 false"
+          else
+            warn "DEV_PRIVILEGED=true（staging）——生产部署前必须置 false 并实现真实认证"
+          fi ;;
+        *) p0 "missing DEV_PRIVILEGED（部署清单必须显式声明认证通道状态，L-STACK-002）" ;;
+      esac
+      # v3.26.2: 健康状态改为"声明=校验基准"——部署记录声明 HEALTH_HTTP_STATUS（须为
+      # 2xx），实时探测结果必须与声明一致。旧版硬编码 200（204 No Content 等合法 2xx
+      # 健康端点被误判失败）；非 2xx 声明仍拒绝（健康=成功语义不变）。
+      HEALTH_HTTP_STATUS=$(sed -n 's/^HEALTH_HTTP_STATUS=//p' "$R" | head -1)
+      case "$HEALTH_HTTP_STATUS" in
+        2[0-9][0-9]) pass "declared health status is 2xx: ${HEALTH_HTTP_STATUS}" ;;
+        *) p0 "missing or invalid HEALTH_HTTP_STATUS（须为 2xx 三位数字）: ${HEALTH_HTTP_STATUS:-<empty>}" ; HEALTH_HTTP_STATUS="" ;;
+      esac
       # v3.14.6: 实时健康探测——部署记录必须给出 HEALTH_URL 且当前返回 200（防只写文档不验证）
       HEALTH_URL=$(sed -n 's/^HEALTH_URL=//p' "$R" | head -1)
       # v3.14.6: SSRF 防护——拒绝 link-local / 云 metadata / 非 http(s) 目标
@@ -280,10 +302,12 @@ case "$PHASE" in
         p0 "missing HEALTH_URL（实时探测地址）"
       else
         # v3.14.11: 实时探测为强制项——运行未验证不得写成完成
+        # v3.26.2: 实测状态必须等于声明的 HEALTH_HTTP_STATUS（2xx）
         LIVE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 "$HEALTH_URL" 2>/dev/null)
         LIVE=${LIVE:-000}
-        [ "$LIVE" = "200" ] && pass "live HEALTH_URL returned 200: ${HEALTH_URL}" \
-          || p0 "live HEALTH_URL ${HEALTH_URL} returned ${LIVE} (expected 200) — 运行未验证不得写成完成"
+        [ "$LIVE" = "$HEALTH_HTTP_STATUS" ] \
+          && pass "live HEALTH_URL returned ${LIVE} (declared): ${HEALTH_URL}" \
+          || p0 "live HEALTH_URL ${HEALTH_URL} returned ${LIVE} (expected ${HEALTH_HTTP_STATUS:-declared}) — 运行未验证不得写成完成"
         # v3.15.1: BUILD_INFO_URL 强制（不再 WARN 放行）——任意静态 HTTP 200 不构成运行证据；
         # 运行实例必须回显与本制品绑定的标识（ARTIFACT_SHA256 前 12 位 hex 或 DEPLOYMENT_ID 原值），
         # 证明"正在运行的实例就是该制品"，而非任意可达服务。

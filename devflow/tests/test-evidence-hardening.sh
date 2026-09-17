@@ -112,6 +112,11 @@ cat > "$TMP/docs/retrospectives/foo-retro.md" <<'EOF'
 无。
 EOF
 printf '# Foo 知识分享\n\n- lesson\n- lesson\n- lesson\n' > "$TMP/docs/knowledge/foo-sharing.md"
+mkdir -p "$TMP/docs/需求" "$TMP/docs/详细设计"
+printf 'clarification\n' > "$TMP/docs/需求/foo-需求澄清.md"
+printf 'acceptance\n' > "$TMP/docs/需求/foo-验收点.md"
+printf 'design\n' > "$TMP/docs/详细设计/foo-详细设计.md"
+printf 'tech-selection\n' > "$TMP/docs/详细设计/foo-技术选型.md"
 cat > "$TMP/.devflow/foo/feedback/feedback.md" <<'EOF'
 FEEDBACK_ID=FB-001
 ROOT_CAUSE=详设未覆盖边界场景
@@ -281,7 +286,7 @@ else
 fi
 
 # ---------- v3.15.1: manifest 不可变 + 明细全量校验 ----------
-MC="$TMP/man"; rm -rf "$MC"; cp -R "$ROOT" "$MC"
+MC="$TMP/man"; rm -rf "$MC"; cp -R "$ROOT" "$MC"; rm -rf "$MC/tests/logs" "$MC/.git" "$MC/.backups" "$MC/_archive" "$MC/scripts/__pycache__"
 if [ ! -f "$MC/references/manifest/${SKILL_VER}.json" ]; then
   (cd "$MC" && bash scripts/gen-skill-manifest.sh generate >/dev/null 2>&1) || bad "manifest generate（副本首建）成功"
 fi
@@ -375,6 +380,7 @@ DEPLOYMENT_ID=deploy-001
 ARTIFACT_PATH=artifacts/foo.bin
 ARTIFACT_SHA256=$P7_ART_SHA
 ENVIRONMENT=staging
+DEV_PRIVILEGED=false
 HEALTH_HTTP_STATUS=200
 HEALTH_URL=http://127.0.0.1:$HPORT/
 BUILD_INFO_URL=http://127.0.0.1:$HPORT/buildinfo.json
@@ -407,6 +413,7 @@ DEPLOYMENT_ID=deploy-001
 ARTIFACT_PATH=artifacts/foo.bin
 ARTIFACT_SHA256=$P7_ART_SHA
 ENVIRONMENT=staging
+DEV_PRIVILEGED=false
 HEALTH_HTTP_STATUS=200
 HEALTH_URL=http://127.0.0.1:$HPORT/
 BUILD_INFO_URL=http://127.0.0.1:$HPORT/buildinfo.json
@@ -866,6 +873,11 @@ fi
 # T16: p10 拒绝悬挂 STATUS=APPLIED 的 s8b 应用收据（P1-8：文档声称的硬门禁落地）
 W64="$TMP/v3154e"
 mkdir -p "$W64/docs/retrospectives" "$W64/docs/knowledge" "$W64/.devflow/t16feat/feedback" "$W64/.devflow/t16feat/s8b"
+mkdir -p "$W64/docs/需求" "$W64/docs/详细设计"
+printf 'clarification\n' > "$W64/docs/需求/t16feat-需求澄清.md"
+printf 'acceptance\n' > "$W64/docs/需求/t16feat-验收点.md"
+printf 'design\n' > "$W64/docs/详细设计/t16feat-详细设计.md"
+printf 'tech-selection\n' > "$W64/docs/详细设计/t16feat-技术选型.md"
 printf '## 上次遗漏了什么\nx\n\n## 本次新发现\ny\n' > "$W64/docs/retrospectives/t16feat-retro.md"
 printf -- '- a\n- b\n- c\n' > "$W64/docs/knowledge/t16feat-sharing.md"
 printf 'FEEDBACK_ID=FB-20260827-001\nSCOPE=project\nSTATUS=PROPOSED\nROOT_CAUSE=x\nTARGET_FILES=a.md\nDECISION=fix\n' > "$W64/.devflow/t16feat/feedback/feedback.md"

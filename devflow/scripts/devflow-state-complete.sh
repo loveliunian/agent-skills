@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
 # ============================================================
-# devflow-state.sh 
+# devflow-state-complete.sh · 状态机「完成/对账」函数库
 # ------------------------------------------------------------
-# 用途：devflow 工作流状态管理（checkpoint / resume / status）
-# 用法：
-#   bash "$SKILL_ROOT/scripts/devflow-state.sh" init <feature>          # 初始化工作流
-#   bash "$SKILL_ROOT/scripts/devflow-state.sh" checkpoint <feature> [note] # 保存检查点
-#   bash "$SKILL_ROOT/scripts/devflow-state.sh" resume <feature>        # 从检查点恢复
-#   bash "$SKILL_ROOT/scripts/devflow-state.sh" status <feature>       # 查看状态
-#   bash "$SKILL_ROOT/scripts/devflow-state.sh" complete <feature> <phase>  # 标记阶段完成
-#   bash "$SKILL_ROOT/scripts/devflow-state.sh" complete-s <feature> <P0..P10> # 标记方法论阶段完成
-#   bash "$SKILL_ROOT/scripts/devflow-state.sh" list                    # 列出所有工作流
+# 用途：阶段完成校验（complete）、状态↔收据对账（reconcile）、验收点/快照/准确率/
+#       图谱/阻塞项更新。入口分发在本文件尾部；init/checkpoint/resume/status/list/
+#       repair/migrate-tree 等生命周期命令见 devflow-state-core.sh。
+# 用法（经 devflow-state.sh 分发）：
+#   bash "$SKILL_ROOT/scripts/devflow-state.sh" complete <feature> <phase>   # 校验收据并标记完成
+#   bash "$SKILL_ROOT/scripts/devflow-state.sh" reconcile <feature> [--apply] # 状态↔收据对账
+#   bash "$SKILL_ROOT/scripts/devflow-state.sh" acceptance|snapshot|accuracy|graph|block ...
 # ============================================================
 
 set -eo pipefail
@@ -645,6 +643,10 @@ cmd_acceptance() {
     complete)
       [ -z "$value" ] && { error "complete 需要指定数量"; return 1; }
       printf '%s' "$value" | grep -qE '^[0-9]+$' || { error "complete 数量必须为正整数: $value"; return 1; }
+      # v3.26.2: 上界校验——complete 不得超过验收点总数（防统计口径失真）
+      local _total
+      _total=$(jq -r '.acceptance_criteria.count // 0' "$state_file")
+      [ "$value" -le "$_total" ] || { error "complete 数量 ${value} 超过验收点总数 ${_total}"; return 1; }
       jq --argjson complete "$value" --arg now "$now" \
          '.acceptance_criteria.complete = $complete | .updated_at = $now' \
          "$state_file" > "$state_file.tmp" && mv "$state_file.tmp" "$state_file"
@@ -653,6 +655,10 @@ cmd_acceptance() {
     inc)
       local current
       current=$(jq -r '.acceptance_criteria.complete' "$state_file")
+      # v3.26.2: 上界校验——inc 不得超过验收点总数
+      local _total
+      _total=$(jq -r '.acceptance_criteria.count // 0' "$state_file")
+      [ "$((current + 1))" -le "$_total" ] || { error "inc 后完成数 $((current + 1)) 超过验收点总数 ${_total}"; return 1; }
       jq --argjson next $((current + 1)) --arg now "$now" \
          '.acceptance_criteria.complete = $next | .updated_at = $now' \
          "$state_file" > "$state_file.tmp" && mv "$state_file.tmp" "$state_file"
@@ -708,6 +714,9 @@ cmd_accuracy() {
     local now
     now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     printf '%s' "$accuracy" | grep -qE '^[0-9]+(\.[0-9]+)?$' || { error "accuracy 必须为数字: $accuracy"; return 1; }
+    # v3.26.2: 范围校验——准确率是百分比指标，须落在 [0,100]
+    awk -v a="$accuracy" 'BEGIN{exit !(a+0 >= 0 && a+0 <= 100)}' \
+      || { error "accuracy 必须在 0-100 之间: $accuracy"; return 1; }
     jq --argjson accuracy "$accuracy" --arg now "$now" \
        '.first_pass_snapshot.accuracy = $accuracy | .updated_at = $now' \
        "$state_file" > "$state_file.tmp" && mv "$state_file.tmp" "$state_file"

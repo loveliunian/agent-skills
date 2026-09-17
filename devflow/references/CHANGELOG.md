@@ -1,12 +1,145 @@
 ---
 name: changelog
-version: "3.26.1"
+version: "3.26.6"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.26.1 Migration Guide
+# Changelog — devflow v1 → v3.26.6 Migration Guide
+
+## v3.26.6 (2026-09-17) — v3.26.5 二次复查：收敛边界 + 结构崩溃
+
+对 v3.26.5 的修复做边界复查（"再次检查"），再修 2 处探针边界缺口（均实测复现）：
+
+- **rule_operation_closure「需要X才可Y」拆分缺口**：拆分词表缺 `需要` → 捕获
+  「需要二次鉴权」收敛为 junk「要二次鉴权」→ 契约齐全仍误 FAIL。修复：拆分顺序
+  补 `需要`（先长词后短词）；并新增条件句式收敛——「X通过/完成才可Y」剥离状态后缀，
+  校验类条件规范化为内置放行词（"要素校验通过才可发布"不再捕获 junk）。
+- **content_sufficiency_probes 组合结构崩溃**：`valid_combos` 条目含列表等不可哈希
+  值（如 `{"status": ["A","B"]}`）时 set 推导抛 `TypeError`，traceback 直达 Gate 输出
+  → 项目收到误导性"内容充分性缺口"。修复：try/except 降级 WARN 跳过组合穷举
+  （与探针"缺输入降级"原则一致，rc=0 不误导）。
+
+回归：test-dev-hardening 扩至 36 用例（新增 2 条边界钉：需要X收敛、组合结构降级）；
+旧用例（需先X收敛、RR6、输出矛盾、双向负例）全部保持。
+
+## v3.26.5 (2026-09-17) — v3.26.4 探针复查修复：误报阻断 + 输出矛盾
+
+对 v3.26.4 并入的内容充分性探针做发布后复查，修复 2 个真问题 + 3 处瑕疵；
+全部修复附回归钉（test-dev-hardening 扩至 34 用例，正/负双向验证）。
+
+**P0 误报阻断修复**：
+
+- `rule_operation_closure.py` 过度捕获——「要素需先停用才可删除」类规则行会把整句
+  `要素需先停用` 当成前置操作（模式 CN 贪婪吞入宾语+引导词），该假操作永远无法命中
+  端点名 → **契约齐全的项目被误 FAIL 卡在 P2**（实测复现）。修复：含引导词的捕获
+  收敛到最后一个动词短语 + 前导虚词剥离；负向用例（真缺契约）保持 FAIL。
+- `content_sufficiency_probes.py` 输出矛盾——非 strict 模式同一输入同时打印
+  `[WARN] 死状态 N 个` 与 `[PASS] 无死状态`。修复：WARN 与组合检查结果分开表述；
+  Gate 路径（恒 `--strict`）行为不变，`--strict` 死状态仍 P0。
+
+**瑕疵清理**：
+
+- `rule_operation_closure.py` 规则标签双写（单元格已是 `R6` 输出 `RR6`）；
+- 死代码：`in_detail_section()`（从未调用）、`rule_text_ctx`、`LEGACY_MECH`、`domain`、
+  冗余 `import re as _re`；
+- `s2_design_coverage_gate.sh` §6c 头注释与实调用对齐（"死状态默认 WARN" → Gate 恒
+  `--strict` P0 / 独立运行默认 WARN）。
+
+## v3.26.4 (2026-09-17) — P2 内容充分性三防线（s2 §6c）
+
+来源：治理服务 P2a 第三轮独立复核 DF-57~70——14 条发现中 11 条为机械门禁盲区；
+新增 `scripts/content_sufficiency_probes.py` 并接线 s2 Gate §6c，三探针：
+
+- **field-drift**（重写丢东西）：PRD 必填字段措辞 0 命中 WARN + 旧设计（archive）
+  机制承接核对——机制语义词丢失即 FAIL（方法/常量/Redis 键/SQL 记号作同域佐证），
+  重写版必须逐项承接或在 §13 DDR 登记"移交/废弃"决策。
+- **state-matrix**（状态机交叉）：声明的状态值无转移语义、状态组合未定义（strict=P0）。
+- **cross-doc**（跨文档契约）：jobKey/内部端点/权限码双边不一致（有 peer/矩阵输入才判）。
+
+要点：发现目录按设计真身 realpath 解析（symlink/同目录旧副本不污染对端判定）；
+legacy 仅取设计文档自身引用的 archive（精确到模块，防无关归档误报）；缺输入降级
+SKIP；负面可验证（删掉对应契约必须 FAIL）。s2 §6c 的 `--prd` 传参已补全
+（此前 CS_PRD 计算后未消费——死代码 + ShellCheck SC2034）。
+
+本版同时收录 v3.26.3 全部内容（经验教训入检 8 条——未单独发布，并入本版）。
+
+## v3.26.3 (2026-09-17) — 经验教训入检：8 条 lessons 升级为正式机检（并入 v3.26.4 发布）
+
+P10"教训→检查"闭环首轮落地：对 lessons-learned 全量逐条核对机检覆盖，
+8 条未入检教训升级为正式检查（`lessons-learned.md` v1.2.0 逐条附"机检"追溯行）；
+L-P2-005（rule_operation_closure）/L-P2-001（硬链接）/L-P0-001（权限三方对账）/
+L-P4-001（--mode 透传）等 12 条此前已入检，本轮核实确认。
+
+**新增正式检查（fail-closed 优先）**：
+
+- **L-STACK-003 @Transactional 同类自调用**（critical）：`check-arch-pitfalls` §6
+  新增 `check_code_transactional_self_invoke`——@Transactional 方法在同一文件内被
+  调用（AOP 代理被绕过、事务静默失效）即拦截；随 P3b 硬门禁（arch pitfalls=0）。
+- **L-STACK-001 `.last("LIMIT")` 四方言破坏**（critical）：同上 §6
+  `check_code_last_limit`——MyBatis-Plus `.last` 拼接 LIMIT/OFFSET 在 Oracle 报错。
+- **L-P3-004 手工 JSON 拼接**（warn 启发式）：§6 `check_code_json_concat`——
+  字符串拼接构造 JSON 未转义；误报可能，交 P3b 复核。
+- **L-STACK-004 令牌比较常量化**（warn 启发式）：`p3_security_perf_gate` 新增 §6
+  `check_token_comparison`——敏感凭据 `String.equals` 时序侧信道，改
+  `MessageDigest.isEqual`；P3b 逐条复核。
+- **L-STACK-002 认证通道**：`artifact_gate` P7 部署清单强制 `DEV_PRIVILEGED` 声明
+  行（缺失即 P0；production=true 即 P0；staging=true WARN）。模板与 deploy.md 同步。
+- **L-MON-003 孤岛产物检测**：`p10_feedback_gate` 强制运行
+  `checkpoint-state.sh orphans`，报告归档 `orphans-report.txt`，关键产物缺失即 FAIL。
+- **L-MON-001 build-watchdog 留痕**：gate 模式输出留痕
+  `.devflow/<feature>/build-watchdog.log`。
+- **L-MON-002 checkpoint 日志**：save 落独立日志
+  `.devflow/<feature>/checkpoints/<id>.log`（与 state 条目可互溯）。
+- **L-P3-003 独立安全/性能报告**：核实已由结构化产物层覆盖
+  （security.json/performance.json 各自绑定独立渲染报告），不再重复实现。
+
+回归：`tests/test-dev-hardening.sh` 扩至 28 用例（三查拦截、令牌 warn、checkpoint
+日志）；既有 P7 正向夹具补 `DEV_PRIVILEGED=false`。
+
+## v3.26.2 (2026-09-17) — 深检收尾：文档一致性 + 状态机输入校验 + doctor 项目自检
+
+全部为小修（z 版），源自对编排契约/状态机/Gate 的第三轮深检（未再发现假绿/阻断级缺陷）。
+
+**文档一致性**：
+
+- `commands/devflow.md`：单轨顺序处注明 `P3cd` 是 P3c+P3d 共用 Gate 的收据别名
+  （状态机保留两个原子阶段）；skip 支持面澄清——当前仅 p2b_demo_gate.sh 实现 skip
+  分支，其余阶段写 SKIP_ 会按"已授权但 gate 未通过"处理为失败。
+- `devflow-state-complete.sh`：文件头注释纠正为本文件真实职责
+  （complete/reconcile/acceptance 等——旧头注释复制自 core.sh，误导排障）。
+
+**状态机输入校验**：
+
+- `accuracy` 增加 [0,100] 范围校验（旧版接受任意数字如 999，指标失真）；
+- `acceptance complete/inc` 增加上界校验（完成数不得超过验收点总数）；
+- `generate_from_template` 的 FEATURE 替换改为词边界（`[[:<:]]FEATURE[[:>:]]`，
+  BSD/GNU sed 通用）——旧 `s/FEATURE/x/g` 会误伤 FEATURED 等英文词，并去除重复 `-e`。
+
+**doctor 项目侧自检（`doctor.sh --project`，只读）**：
+
+- 新增一键项目预检：逐 `*.state.json` 结构校验（JSON 可解析 + 关键字段齐备）
+  + reconcile 只读漂移报告 + 逐 feature audit-receipts 收据对账——此前项目健康
+  需分跑三个命令。
+
+**P7 健康状态语义（声明=校验基准）**：
+
+- `HEALTH_HTTP_STATUS` 改为声明 2xx 状态、Gate 实测必须与声明一致——旧版硬编码
+  200，204 No Content 等合法 2xx 健康端点被误判失败；非 2xx 声明仍拒绝。
+  模板与 deploy.md 同步更新（200 夹具全部兼容）。
+
+**测试沙箱卫生**：
+
+- 4 个测试的 `cp -R "$ROOT"` 沙箱复制后清理 tests/logs/.git/.backups/_archive/
+  __pycache__——下游 manifest generate / release-audit 整树哈希不再吃进运行期垃圾。
+
+**测试提速（并入本版）**：
+
+- `gate-skill-tree.sh`：python3 单进程批量哈希快速路径（单次 4.6s→0.06s，与旧 shell
+  实现逐字节等价；无 python3 回退原实现）；
+- `run-tests.sh`：并发度 job pool（默认=物理核数，`RUN_TESTS_JOBS` 覆盖；兼容
+  bash 3.2）——全量套件墙钟 628s→206s（23/23 全绿）。
 
 ## v3.26.1 (2026-09-17) — 核心规则瘦身与运行残留清理
 

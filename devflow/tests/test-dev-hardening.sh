@@ -276,4 +276,175 @@ else
   bad "p3cd jq 缺失场景未按预期失败（rc=${IN_RC}，收据 jq 标记：$(grep -c 'jq 不可用' "$_R" 2>/dev/null || echo no-receipt)）"
 fi
 
+# ---------- 9. 状态机输入校验边界（v3.26.2） ----------
+# accuracy 必须落在 [0,100]；acceptance complete/inc 不得超过验收点总数。
+W9="$TMP/state-bounds"
+mkdir -p "$W9"
+(
+  cd "$W9" || exit 1
+  bash "$S/devflow-state.sh" init st1 --frontend=not-applicable >/dev/null 2>&1
+  bash "$S/devflow-state.sh" acceptance st1 set-count 5 >/dev/null 2>&1
+  if bash "$S/devflow-state.sh" accuracy st1 999 >/dev/null 2>&1; then
+    bad "state accuracy 999 应被拒绝（0-100 范围）"
+  else
+    ok "state accuracy 999 被拒绝（0-100 范围校验）"
+  fi
+  if bash "$S/devflow-state.sh" accuracy st1 87.5 >/dev/null 2>&1; then
+    ok "state accuracy 87.5 合法写入"
+  else
+    bad "state accuracy 87.5 被误拒"
+  fi
+  if bash "$S/devflow-state.sh" acceptance st1 complete 6 >/dev/null 2>&1; then
+    bad "state acceptance complete=6 应被拒绝（超过 count=5）"
+  else
+    ok "state acceptance complete 超上界被拒绝"
+  fi
+  if bash "$S/devflow-state.sh" acceptance st1 complete 5 >/dev/null 2>&1; then
+    ok "state acceptance complete=5（边界值）合法"
+  else
+    bad "state acceptance complete=5 被误拒"
+  fi
+)
+
+# ---------- 10. 模板 FEATURE 词边界替换（v3.26.2） ----------
+# generate_from_template 的 s/FEATURE/x/g 曾会误伤 FEATURED 等英文词。
+# 三层钉住：① 静态断言 gate 脚本已用词边界；② sed 语义行为探针；③ 真实模板生成仍工作。
+expect_contains 'scripts/devflow-state-core.sh' '\[\[:<:\]\]FEATURE\[\[:>:\]\]' \
+  "state-core 使用词边界 FEATURE 替换"
+sed_probe="$(printf 'word FEATURE here\\nFEATURED stays\\n' | sed -e "s/[[:<:]]FEATURE[[:>:]]/f1/g")"
+printf '%s\\n' "$sed_probe" | grep -q "word f1 here" && printf '%s\\n' "$sed_probe" | grep -q "FEATURED stays" \
+  && ok "sed 词边界语义：整词替换、FEATURED 不误伤" \
+  || bad "sed 词边界语义失效（${sed_probe}）"
+W10="$TMP/tpl"
+mkdir -p "$W10/docs/out"
+in_dir "$W10" bash "$S/devflow-state-template.sh" generate myfeat P0 docs/out/gen.md
+if [ "$IN_RC" -eq 0 ] && grep -q "myfeat" "$W10/docs/out/gen.md" 2>/dev/null; then
+  ok "真实模板生成仍工作（{FeatureName} 替换为 myfeat）"
+else
+  bad "真实模板生成失败（rc=${IN_RC}）"
+fi
+
+# ---------- 11. 教训入检：arch-pitfalls 三查 + 令牌比较 + checkpoint 日志（v3.26.3） ----------
+W11="$TMP/lessons"
+mkdir -p "$W11/backend/svc/src/main/java/com/x"
+cat > "$W11/backend/svc/src/main/java/com/x/OrderRepo.java" <<'EOF'
+public class OrderRepo {
+    void q(QueryWrapper w) { w.last("LIMIT 1"); }
+}
+EOF
+cat > "$W11/backend/svc/src/main/java/com/x/BadTx.java" <<'EOF'
+public class BadTx {
+    @Transactional
+    public void tx() { }
+    public void caller() { tx(); }
+}
+EOF
+out="$(cd "$W11" && WORKSPACE="$W11" bash "$C/check-arch-pitfalls.sh" --category code 2>&1)"
+printf '%s\n' "$out" | grep -q "L-STACK-001" \
+  && ok "教训入检：.last LIMIT 四方言破坏被拦（critical）" || bad "教训入检：L-STACK-001 未拦截"
+printf '%s\n' "$out" | grep -q "L-STACK-003" \
+  && ok "教训入检：@Transactional 同类自调用被拦（critical）" || bad "教训入检：L-STACK-003 未拦截"
+out="$(cd "$W11" && WORKSPACE="$W11" bash "$C/check-arch-pitfalls.sh" --category security 2>&1)"
+printf '%s\n' "$out" | grep -q "L-STACK-004\|令牌" \
+  && ok "教训入检：security 类别可见令牌检查" || true
+out="$(cd "$W11" && WORKSPACE="$W11" bash "$C/check-arch-pitfalls.sh" --category perf 2>&1)"
+# JSON 拼接（warn 级，随 code 类别）
+out="$(cd "$W11" && WORKSPACE="$W11" bash "$C/check-arch-pitfalls.sh" --category code 2>&1)"
+printf '%s\n' "$out" | grep -q "L-P3-004" \
+  && ok "教训入检：手工 JSON 拼接可检（warn）" || bad "教训入检：L-P3-004 未出现"
+mkdir -p "$W11/backend/svc/src/main/java/com/x/dto"
+printf 'if (token.equals(expected)) {}\n' > "$W11/backend/svc/src/main/java/com/x/TokenFilter.java"
+in_dir "$W11" bash "$S/p3_security_perf_gate.sh" f1 --mode security
+out="$(last_out)"
+printf '%s\n' "$out" | grep -q "常量时间" \
+  && ok "教训入检：p3cd §6 令牌 equals 比较可见（warn）" || bad "教训入检：p3cd 令牌比较未出现"
+
+# checkpoint 独立日志（L-MON-002）
+W11b="$TMP/cplog"
+mkdir -p "$W11b"
+(
+  cd "$W11b" || exit 1
+  bash "$S/devflow-state.sh" init cp1 --frontend=not-applicable >/dev/null 2>&1
+  bash "$S/checkpoint-state.sh" save cp1 P3 "p3_mvn" 1 "blocker-x" "next-y" >/dev/null 2>&1
+)
+ls "$W11b/.devflow/cp1/checkpoints/"*.log >/dev/null 2>&1 \
+  && ok "checkpoint 独立日志落盘（L-MON-002）" \
+  || bad "checkpoint 日志未落盘"
+
+# ---------- 12. 探针修复回归（v3.26.5） ----------
+W12="$TMP/probes"; mkdir -p "$W12"
+cat > "$W12/d.md" <<'EOF'
+## §3 业务规则
+| 编号 | 分类 | 规则描述 | 错误处理 |
+|---|---|---|---|
+| R6 | 删除 | 要素需先停用才可删除 | 未停用返回 ELEMENT_NOT_DISABLED |
+
+## §5.3 接口详定义
+##### 5.3.1 启停要素（停用/启用）
+| Method | 路径 | 操作名 |
+|---|---|---|
+| PATCH | /api/elements/{type}/{id}/toggle | 启停要素（停用/启用） |
+EOF
+cat > "$W12/d.json" <<'EOF'
+{"apis": [{"method": "PATCH", "path": "/api/elements/{type}/{id}/toggle", "name": "启停要素（停用/启用）"}]}
+EOF
+out="$(python3 "$ROOT/scripts/rule_operation_closure.py" --design "$W12/d.md" --design-json "$W12/d.json" 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] \
+  && ok "rule closure 契约齐全不再误 FAIL（过度捕获收敛）" \
+  || bad "rule closure 仍误报（$(printf '%s' "$out" | head -3 | tr '\n' ' ')）"
+printf '%s' "$out" | grep -q "RR6" && bad "rule closure 标签双写 RR6 未修" || ok "rule closure 标签无双写"
+
+# 负面：真缺契约仍须 FAIL（修复不得削弱检测）
+printf '## §3 业务规则\n| 编号 | 分类 | 规则描述 | 错误处理 |\n|---|---|---|---|\n| R6 | 删除 | 要素需先停用才可删除 | 未停用返回 E |\n\n## §5 接口概览\n| 子域 | Method | 路径 | 操作名 | 权限 |\n|---|---|---|---|---|\n| 要素 | DELETE | /api/elements/{id} | 删除要素 | x:y:z |\n' > "$W12/d2.md"
+python3 "$ROOT/scripts/rule_operation_closure.py" --design "$W12/d2.md" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 1 ] \
+  && ok "rule closure 真缺契约仍 FAIL（负面可验证）" \
+  || bad "rule closure 负面用例未拦截（rc=${rc}）"
+
+# content_sufficiency: 非 strict 死状态输出不再自相矛盾
+cat > "$W12/dead.md" <<'EOF'
+## §2.3 状态枚举
+| 字段 | 值 | 说明 |
+|---|---|---|
+| status | DRAFT | 草稿 |
+| status | GONE | 废弃 |
+
+## §3 规则
+| R1 | DRAFT 可提交 |
+EOF
+out="$(python3 "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/dead.md" 2>&1)"
+if printf '%s' "$out" | grep -q "死状态" && printf '%s' "$out" | grep -q "无死状态"; then
+  bad "state-matrix 非 strict 输出矛盾未修"
+else
+  ok "state-matrix 非 strict 输出不再自相矛盾"
+fi
+out="$(python3 "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/dead.md" --strict 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && ok "state-matrix --strict 死状态仍 P0（负面可验证）" || bad "state-matrix strict 未拦截（rc=${rc}）"
+
+# field-drift 负面仍 FAIL
+printf '# 旧\n`sequence_incr` 序列号机制与指数退避。\n' > "$W12/old.md"
+printf '# 新\n无。\n' > "$W12/new.md"
+python3 "$ROOT/scripts/content_sufficiency_probes.py" field-drift --design "$W12/new.md" --legacy "$W12/old.md" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 1 ] && ok "field-drift 负面仍可触发（修复未削弱检测）" || bad "field-drift 检测被削弱"
+
+# 边界：需要X才可执行（拆分顺序含"需要"，不得产出 junk「要二次鉴权」）
+printf '## §3 业务规则\n| 编号 | 分类 | 规则描述 | 错误处理 |\n|---|---|---|---|\n| R9 | 导出 | 需要二次鉴权才可执行 | 未二次鉴权返回 E |\n' > "$W12/d3.md"
+printf '{"apis":[{"method":"POST","path":"/api/export/challenge","name":"二次鉴权"}]}' > "$W12/d3.json"
+out="$(python3 "$ROOT/scripts/rule_operation_closure.py" --design "$W12/d3.md" --design-json "$W12/d3.json" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q "要二次鉴权"; then
+  ok "rule closure 需要X句式收敛（伪造操作不产出）"
+else
+  bad "rule closure 需要X句式仍过度捕获（rc=${rc}: $(printf '%s' "$out" | head -2 | tr '\n' ' ')）"
+fi
+
+# 健壮性：valid_combos 含不可哈希值 → 降级 WARN 而非 traceback 崩溃
+printf '## §2.3 状态枚举\n| 字段 | 值 | 说明 |\n|---|---|---|\n| status | A | a |\n| status | B | b |\n| type | X | x |\n| type | Y | y |\n\n## §3 规则\n| R1 | A 可提交 |\n\n## §4 转移\nA 到 B；X 到 Y。\n' > "$W12/combo.md"
+printf '{"state_machines": {"fields": ["status", "type"], "valid_combos": [{"status": ["A", "B"], "type": "X"}]}}' > "$W12/combo.json"
+out="$(python3 "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/combo.md" --design-json "$W12/combo.json" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q "Traceback"; then
+  ok "state-matrix 组合结构不可解析时降级 WARN（无崩溃）"
+else
+  bad "state-matrix 组合结构崩溃未修（rc=${rc}）"
+fi
+
 finish "test-dev-hardening"

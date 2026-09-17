@@ -88,7 +88,7 @@ grep -qF 'templates/验收点-模板.md' "$ROOT/references/RESOURCE-REGISTRY.md"
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
-cp -R "$ROOT" "$TMP/skill"
+cp -R "$ROOT" "$TMP/skill"; rm -rf "$TMP/skill/tests/logs" "$TMP/skill/.git" "$TMP/skill/.backups" "$TMP/skill/_archive" "$TMP/skill/scripts/__pycache__"
 printf '\n[broken fixture](missing-local-file.md)\n' >> "$TMP/skill/README.md"
 printf '{broken json\n' > "$TMP/skill/templates/bad.json"
 printf '\n|| malformed | table |\n' >> "$TMP/skill/templates/验收点-模板.md"

@@ -86,7 +86,23 @@ PY
       echo "[CHECKPOINT] FAILED (python3 rc=$PYRC): state 未落盘——中断恢复链路拒绝假成功" >&2
       exit 1
     fi
+    # v3.26.3: L-MON-002 入检——checkpoint 落独立日志（state.json 只有条目、无触发
+    # 时机与上下文，中断恢复时缺少现场；日志与 state 条目同时间戳可互溯）。
+    CP_ID="cp_$(date +%Y%m%d_%H%M%S)_$$"
+    CP_LOG_DIR="$STATE_DIR/$FEATURE/checkpoints"
+    mkdir -p "$CP_LOG_DIR" 2>/dev/null
+    {
+      echo "CHECKPOINT_ID=$CP_ID"
+      echo "FEATURE=$FEATURE"
+      echo "PHASE=$PHASE"
+      echo "SUBPHASE=$SUBPHASE"
+      echo "EXIT_CODE=$EXIT_CODE"
+      echo "BLOCKER=$BLOCKER"
+      echo "NEXT_ACTION=$NEXT_ACTION"
+      echo "AT=$TIMESTAMP"
+    } > "$CP_LOG_DIR/$CP_ID.log" 2>/dev/null || echo "[CHECKPOINT][WARN] 日志写入失败: $CP_LOG_DIR/$CP_ID.log"
     echo "[CHECKPOINT] saved: $FEATURE @ $PHASE/$SUBPHASE (exit=$EXIT_CODE)"
+    echo "[CHECKPOINT] log: $CP_LOG_DIR/$CP_ID.log"
     [ -n "$BLOCKER" ] && echo "[CHECKPOINT] blocker: $BLOCKER"
     [ -n "$NEXT_ACTION" ] && echo "[CHECKPOINT] next: $NEXT_ACTION"
     ;;

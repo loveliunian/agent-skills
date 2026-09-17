@@ -1,7 +1,7 @@
 ---
 name: code-reviewer
 subagent_type: generalPurpose
-version: "3.26.1"
+version: "3.26.6"
 responsibility: "Adversarial Review 编排器。/review 时调度 feasibility-reviewer + completeness-reviewer + scope-reviewer 三个 fresh subagent 并行评审。"
 description: >-
   ：Adversarial Review 3 评审编排器。

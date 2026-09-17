@@ -132,7 +132,7 @@ fi
 # v3.23.0: Agent Skills space-separated string and Claude Code list both accepted;
 # unknown tool names must still be rejected in either form.
 W_AUDIT="$TMP/audit"
-cp -R "$ROOT" "$W_AUDIT"
+cp -R "$ROOT" "$W_AUDIT"; rm -rf "$W_AUDIT/tests/logs" "$W_AUDIT/.git" "$W_AUDIT/.backups" "$W_AUDIT/_archive" "$W_AUDIT/scripts/__pycache__"
 printf '%s\n' '---' 'name: malformed-tools-fixture' 'version: "3.16.24"' 'allowed-tools:' 'paths: []' 'disable-model-invocation: false' '  - read' '---' > "$W_AUDIT/subagents/malformed-tools-fixture.md"
 printf '%s\n' '---' 'name: unknown-tools-fixture' 'version: "3.16.24"' 'allowed-tools: [read, exce]' 'paths: []' '---' > "$W_AUDIT/subagents/unknown-tools-fixture.md"
 printf '%s\n' '---' 'name: unknown-string-tools-fixture' 'version: "3.16.24"' 'allowed-tools: read exce' 'paths: []' '---' > "$W_AUDIT/subagents/unknown-string-tools-fixture.md"

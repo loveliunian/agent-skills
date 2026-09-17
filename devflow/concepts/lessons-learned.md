@@ -1,7 +1,7 @@
 # devflow 经验与教训库（Lessons Learned）
 
-> **版本**: v1.1.0  
-> **最后更新**: 2026-09-16  
+> **版本**: v1.2.0  
+> **最后更新**: 2026-09-17  
 > **来源**: detailed-design-v2 与 governance（M-01/M-02 治理模块）实施复盘  
 > **适用**: 所有使用 devflow 进行 PRD→生产交付的项目
 
@@ -147,6 +147,110 @@ SQL 标准中 NULL 与任何值的比较为 UNKNOWN，不触发唯一约束冲�
 
 ---
 
+### L-P2-005: 规则的前置操作必须反向可达——"先停用才可删除"却没有停用契约
+
+**问题描述**：
+治理服务详设 R6 规则要求"要素先停用（DISABLED）才可删除"、错误码 ELEMENT_NOT_DISABLED 与前端"提供停用快捷入口"均依赖要素停用操作，但 `PATCH /api/elements/{type}/{id}/toggle` 端点**只有接口概览表一行、无字段级契约**（无请求/响应表、无并发/审计语义）。同类的相似规则启停（§5.3.13）、回收策略启停（§5.3.42）都有完整契约，唯独最基础的要素启停是断的。开发到"删除被 409 拒绝→前端调停用"时只能猜。
+
+**影响范围**：
+- 规则前置操作无契约 → 实现靠猜，状态机/并发/权限行为各写各的
+- 删除链路（最敏感操作）的闭环在设计评审后仍断裂
+
+**根因分析**：
+1. 全部 Gate（s2/df_validate/design.json）与五角色两轮评审都只做**正向追溯**：验收点→接口→响应表。27 个验收点里没有独立的"要素停用"行为，toggle 不在 §5.3 详定义节内，没有任何检查要求它存在。
+2. 缺少**反向可达性**检查：从规则/错误码文本（"先 X 才可 Y""未 X 返回 409"）反推 X 操作必须有端点且有字段级契约。
+3. 跨域对称盲区：评审看了相似规则启停，没回头比对要素启停。
+
+**解决方案**：
+1. 设计补契约：§5.3.3 扩为「删除与启停要素」，补 toggle 请求/响应表（targetStatus/expectedStatus CAS）与启停语义（不改版本、停用后不可被新引用/不参与扫描/不进合并、内置可启停不可删）；§4.7/§4.8 同步下沉停用过滤。
+2. 机械防线：`scripts/rule_operation_closure.py`（s2 §6b 调用）——从规则表提取"先 X/未 X 返回"前置操作，有 design.json 时强校验必须命中详定义 api（仅概览行=FAIL），并排除跨域误匹配（要素停用≠启停相似规则）。
+3. 评审方法论：review-depth-methodology 探针 P4b「前置操作反向可达性」列为必做。
+4. 校验要点：依赖句式必须保守（避免名词性提及误报）；强前置与弱前置分级；负向验证（删契约必须 FAIL）。
+
+**预防措施**：
+1. P2a 评委（后端主责）逐条规则反问："这条规则引用的每个操作，在接口章有字段级契约吗？"
+2. s2 §6b 作为 P2 硬 Gate（有 design.json 时 P0）
+3. 补丁式新增端点时，同步检查规则/错误码引用的对称操作是否也有同密度契约
+
+**适用 Gate**: P2, P2a
+
+---
+
+### L-P2-006: 详设重写会丢机制——旧设计/PRD 的机制与必填项必须做承接核对
+
+**问题描述**：
+治理服务详设从 v1（archive/M-02、M-03）重写为 v2 时，**序列号分配器整体丢失**：旧设计的 `generateSequence`（Redis 原子自增 `INCR gov:code-rule:seq:<type>:<date>`、TTL 24h、DB MAX 校准、`FOR UPDATE` 降级、9 位补零）在 v2 只剩"逐段解析"一句；多节点新建要素在 `uk_element_code` 下必然撞号。同类：PRD 明确"相似度阈值（必填 0~100）"而 v2 表结构与接口契约均无 threshold 字段（DF-58）、PRD"名称唯一"无落地（DF-65）。五角色两轮评审 + 全部机械门禁零拦截。
+
+**影响范围**：
+- 核心算法/并发安全机制静默消失 → 上线即撞码/整批导入失败
+- PRD 必填项在验收矩阵外"蒸发" → 无法验收、实现各写各的
+
+**根因分析**：
+1. 全部门禁为"声明一致性"（design.json↔文档）与正向追溯（验收点→接口→响应表），**没有任何检查做"PRD/旧设计 ⊇ 新设计"的集合核对**；
+2. 重写（v1→v2）是最容易丢东西的操作，但评审员默认"新文档自洽即可"，不主动翻 archive 对照（前两轮实证）。
+
+**解决方案**：
+`scripts/content_sufficiency_probes.py field-drift`（s2 §6c 调用）：
+- 判据=**机制语义词**（序列号/幂等键/指数退避/FOR UPDATE 等，出现于设计文档自身引用的 archive）在新文档缺失即 FAIL；方法名仅作同域佐证；
+- PRD 必填措辞差集仅 WARN（别名误报高，人工核对）；
+- legacy 输入=设计文档自身 `archive/` 引用（精确到模块，防无关归档误报）。
+
+**预防措施**：
+1. 重写/大版本重构详设时，必跑 field-drift 并逐项登记"承接 / 移交 / 废弃（DDR）"；
+2. 评审探针 P4c 加入"旧设计机制清单逐项核对"；
+3. PRD 必填项在 §9 追溯矩阵的"数据字段/设计规则"列必须可指认。
+
+**适用 Gate**: P2, P2a
+
+---
+
+### L-P2-007: 状态机交叉穷举——声明的每个状态值都必须有进入/退出路径
+
+**问题描述**：
+治理服务 §2.3 声明的状态枚举在 §3/§4 无转移语义（PARSED/INACTIVE 实测死状态）；更隐蔽的是**跨表状态组合**：候选终态（REJECTED/SKIPPED）被合并链路强制回写 MERGED（违反 R12 终态机，DF-61）；要素 DISABLED 删除→恢复后的启停态未定义（DF-64）；恢复与物理清除并发无 CAS（DF-63）。两轮评审仅在单表内推演状态机，未做跨表组合。
+
+**影响范围**：
+- 状态机不可信（终态被跳变）→ 候选/台账数据语义错误
+- 测试无法写确定性断言（恢复后啥状态？）
+
+**根因分析**：
+探针 P3 只要求"列出所有状态转移+异常"，未要求：①每个枚举值都必须被引用（死状态检测）；②跨表状态组合（要素 status × 边 status × bin status）显式穷举合法/非法组合。
+
+**解决方案**：
+`content_sufficiency_probes.py state-matrix`（s2 §6c）：默认死状态 WARN、`--strict` 升 P0；提供 `design.json.state_machines`（fields + valid_combos）时做笛卡尔积缺口 P0。修复示例：R7 回写限 PENDING/APPROVED、恢复保持 DISABLED 并写明正交性。
+
+**预防措施**：
+1. P3 探针补"跨表状态组合矩阵"；每个 status 值 grep 出至少一条进入/退出描述；
+2. 任何"链路回写状态"必须显式列出允许的源状态集合（防跨终态覆盖）。
+
+**适用 Gate**: P2, P2a
+
+---
+
+### L-P2-008: 跨文档契约必须双边对账——jobKey/内部端点/权限码
+
+**问题描述**：
+治理服务 §5.4 声明 `gov_similarity_scan` 等 jobKey 与 `/internal/inspection/trigger` 端点，但运行管理分文档只登记了 2.5 个键（DF-60：扫描 jobKey 缺失、recycle 键无触发方法）；内部端点用 `/api` 前缀违反平台 `/internal/**` 网关约定（DF-67）；死信端点权限码文档内两处自相矛盾（DF-68）；deprecate 前置判定在对端无数据来源。同类问题在第一轮 DF-03（jobKey 单边声明）已出现过一次——**修复不彻底会复发**。
+
+**影响范围**：
+- 调度链路断（扫描永不触发）、网关鉴权错配（401 或暴露）
+- 权限 seed 无法落地（两套码）
+
+**根因分析**：
+跨文档一致性靠人工自觉，无机械对账；且"修复一轮后"新契约仍在增加（如 SIMILARITY_SCAN 枚举），旧对账点未覆盖新键。
+
+**解决方案**：
+`content_sufficiency_probes.py cross-doc`（s2 §6c）：①作业上下文行内全部 `gov_*` 键必须在对端文档命中（本地调度键可显式豁免"不经 HTTP"）；②作业触发目标 `/internal/` 端点对端必须承接；③权限码与 `_权限矩阵.md` 差集=0（废弃行/DDR 新增登记码除外）。发现目录用 realpath 解析设计真身（防 symlink/陈旧副本污染）。
+
+**预防措施**：
+1. 任何跨服务声明（jobKey/内部端点/回调）合入时双边同 PR 登记；
+2. 每个枚举值扩展（如新增 issueSource）必须同步检查对端作业表；
+3. P4c 探针抽查跨文档对账清单。
+
+**适用 Gate**: P2, P2a
+
+---
+
 ## 二、实施阶段（P3-P4）
 
 ### L-P3-001: MockMvc 全绿 ≠ 真实容器可用
@@ -228,6 +332,8 @@ P3cd gate 设计为合并执行以减少重复扫描，但未强制分别产出�
 
 **适用 Gate**: P3c, P3d
 
+**机检**: 已由结构化产物层覆盖——security.json / performance.json 各自绑定独立渲染报告（df_pipeline security/performance，v3.25.2），合并报告仅为 Gate 汇总。
+
 ---
 
 ### L-P3-004: JSON 禁止手工字符串拼接，统一 ObjectMapper/ObjectNode
@@ -248,6 +354,8 @@ P3cd gate 设计为合并执行以减少重复扫描，但未强制分别产出�
 1. P3b 代码审查必查"字符串拼接 JSON/SQL"模式
 2. 架构陷阱检查增加"手工 JSON 拼接"检测
 3. 无法立即修复时必须验证兜底路径并登记触发条件（见 L-PROC-004）
+
+**机检**: `checks/check-arch-pitfalls.sh` §6 `check_code_json_concat`（warn 启发式，v3.26.3）
 
 **适用 Gate**: P3, P3b
 
@@ -501,6 +609,8 @@ build-watchdog 可能未纳入 P3 gate 强制检查项。
 2. **项目侧**：P3 编码时手动记录每次 `mvn compile` / `npm run build` 的退出码
 3. build-watchdog 输出必须保存到 `.devflow/<feature>/build-watchdog.log`
 
+**机检**: `scripts/build-watchdog.sh` gate 模式输出留痕 `.devflow/<feature>/build-watchdog.log`（v3.26.3）
+
 **适用 Gate**: P3
 
 ---
@@ -525,6 +635,8 @@ checkpoint-state.sh 可能未强制输出日志文件。
 2. **项目侧**：每次手动 checkpoint 时记录当前阶段、待办事项、阻塞原因
 3. Gate 完成后自动触发 checkpoint-state.sh
 
+**机检**: `scripts/checkpoint-state.sh` save 落独立日志 `checkpoints/<id>.log`（v3.26.3）
+
 **适用场景**: 任何阶段的 Gate 完成后
 
 ---
@@ -548,6 +660,8 @@ orphans-detector 可能未纳入任何 gate 强制检查项。
 1. **skill 维护者**：将 orphans-detector 纳入 P6/P10 gate 强制检查项
 2. **项目侧**：P6 测试完成后、P10 复盘前各执行一次 orphans-detector
 3. 孤岛检测报告必须保存到 `.devflow/<feature>/orphans-report.txt`
+
+**机检**: `scripts/p10_feedback_gate.sh` 强制运行 orphans 检测并归档报告（关键产物缺失即 FAIL，v3.26.3）
 
 **适用 Gate**: P6, P10
 
@@ -710,6 +824,8 @@ MyBatis-Plus `.last("LIMIT 1")` 直接拼接 SQL，不做方言转换。
 2. P3 编码前封装方言适配工具类（如 `SqlDialectUtils.limit1()`）
 3. P3b 代码审查必须检查 `.last()` 使用是否跨方言兼容
 
+**机检**: `checks/check-arch-pitfalls.sh` §6 `check_code_last_limit`（critical，v3.26.3）
+
 **适用场景**: 任何使用 MyBatis-Plus 的项目
 
 ---
@@ -735,6 +851,8 @@ P3b 修复后新增 `ApiHeaderAuthenticationFilter` 消费网关注入头，`dev
 3. P3b 代码审查必须检查"生产环境认证可用性"
 4. P7 部署清单强制检查 `dev-privileged=false`
 
+**机检**: `scripts/artifact_gate.sh` P7 `DEV_PRIVILEGED` 声明行（production=true 即 P0，v3.26.3）
+
 **适用 Gate**: P3, P3b, P7
 
 ---
@@ -759,6 +877,8 @@ Spring 声明式事务基于代理实现，this 调用不经过代理。
 2. 修复优先 TransactionTemplate 显式边界或拆分为独立 Bean
 3. Outbox/租约类"抢占+状态推进"必须同事务
 
+**机检**: `checks/check-arch-pitfalls.sh` §6 `check_code_transactional_self_invoke`（critical，v3.26.3）
+
 **适用 Gate**: P3, P3b
 
 **Feedback ID**: FB-GOV-20260916-01
@@ -779,6 +899,8 @@ Spring 声明式事务基于代理实现，this 调用不经过代理。
 **预防措施**：
 1. 安全清单必查项扩展：令牌/密钥比较常量化、JWT 密钥启动校验长度并 fail-fast、登录失败不区分账号是否存在（防用户枚举）
 2. P3c 安全审计增加"比较方式"静态检查
+
+**机检**: `scripts/p3_security_perf_gate.sh` §6 `check_token_comparison`（warn，v3.26.3）
 
 **适用 Gate**: P3b, P3c
 
@@ -894,6 +1016,7 @@ Gate 重跑时：先按 L-PROC-003 做根因分类（内容不合格 vs 证据�
 | 版本 | 日期 | 变更 | 来源项目 |
 |------|------|------|----------|
 | v1.0.0 | 2026-09-15 | 初始版本，包含 detailed-design-v2 的 25 条经验教训 | detailed-design-v2 (治理服务) |
+| v1.2.0 | 2026-09-17 | 8 条教训入检正式检查（L-STACK-001/002/003/004、L-P3-004、L-MON-001/002/003）+ L-P3-003 覆盖注记；全文加"机检"追溯行 | 本 skill 深检（v3.26.3） |
 | v1.1.0 | 2026-09-16 | 追加 governance 项目复盘 12 条教训（L-P2-004、L-P3-004/005、L-P6-002、L-TOOL-004/005、L-MON-004/005、L-PROC-003/004、L-STACK-003/004）+ 启动检查清单 9.0 | governance (M-01 全局配置 / M-02 基础库治理) |
 
 ---
@@ -903,8 +1026,8 @@ Gate 重跑时：先按 L-PROC-003 做根因分类（内容不合格 vs 证据�
 ### 按阶段查找
 - **P0**: L-P0-001
 - **P0b**: L-P0-001, L-TOOL-005
-- **P2**: L-P2-001, L-P2-002, L-P2-003, L-P2-004, L-STACK-001
-- **P2a**: L-P0-001, L-P2-002, L-P2-003, L-P2-004, L-PROC-002, L-TOOL-005
+- **P2**: L-P2-001, L-P2-002, L-P2-003, L-P2-004, L-P2-005, L-P2-006, L-P2-007, L-P2-008, L-STACK-001
+- **P2a**: L-P2-005, L-P2-006, L-P2-007, L-P2-008, L-P0-001, L-P2-002, L-P2-003, L-P2-004, L-PROC-002, L-TOOL-005
 - **P2b**: L-PROC-001
 - **P3**: L-P3-001, L-P3-002, L-P3-003, L-P3-004, L-P3-005, L-P6-002, L-STACK-002, L-STACK-003, L-MON-001
 - **P3b**: L-P3-002, L-P3-003, L-P3-004, L-P3-005, L-STACK-001, L-STACK-002, L-STACK-003, L-STACK-004, L-PROC-002, L-PROC-004, L-TOOL-005
@@ -920,7 +1043,7 @@ Gate 重跑时：先按 L-PROC-003 做根因分类（内容不合格 vs 证据�
 - **全阶段**: L-PROC-003, L-TOOL-004
 
 ### 按类别查找
-- **设计质量**: L-P0-001, L-P2-002, L-P2-003, L-P2-004
+- **设计质量**: L-P0-001, L-P2-002, L-P2-003, L-P2-004, L-P2-005, L-P2-006, L-P2-007, L-P2-008
 - **工具适配**: L-P4-001, L-TOOL-001, L-TOOL-002, L-TOOL-003, L-TOOL-004, L-TOOL-005
 - **测试验证**: L-P3-001, L-P6-001, L-P6-002
 - **代码审查**: L-P3-002, L-P3-003, L-P3-004, L-P3-005, L-STACK-003, L-STACK-004
@@ -931,7 +1054,7 @@ Gate 重跑时：先按 L-PROC-003 做根因分类（内容不合格 vs 证据�
 
 ### 按优先级查找
 - **P0 级教训**（必须应用）: L-P2-002, L-P3-001, L-P3-002, L-STACK-002, L-STACK-003, L-P6-002, L-TOOL-004
-- **P1 级教训**（强烈建议）: L-P0-001, L-P2-001, L-P2-003, L-P2-004, L-P3-003, L-P3-004, L-P4-001, L-P6-001, L-STACK-004, L-TOOL-005, L-MON-004, L-PROC-003, L-PROC-004
+- **P1 级教训**（强烈建议）: L-P0-001, L-P2-001, L-P2-003, L-P2-004, L-P2-005, L-P2-006, L-P2-007, L-P2-008, L-P3-003, L-P3-004, L-P4-001, L-P6-001, L-STACK-004, L-TOOL-005, L-MON-004, L-PROC-003, L-PROC-004
 - **P2 级教训**（建议改进）: L-TOOL-001, L-MON-001, L-MON-002, L-MON-003, L-MON-005, L-PROC-001, L-P3-005
 
 ---

@@ -1,6 +1,6 @@
 ---
 name: PRD评审-模板
-version: "3.26.1"
+version: "3.26.6"
 description: PRD 评审模板（P0b 阶段，多角色评审循环，DF/AW 深度契约 v3.14.0）
 ---
 

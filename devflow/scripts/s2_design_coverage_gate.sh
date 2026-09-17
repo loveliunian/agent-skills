@@ -318,6 +318,94 @@ else
   p0 "关键流程缺时序图：WHEN=${WHEN_COUNT} sequenceDiagram=${SEQ_COUNT}（每个关键流程必须 WHEN 伪代码 + Mermaid 时序图成对）"
 fi
 
+# ---------- §6b 规则前置操作可达性（v3.26 NEW；L-P2-005 教训） ----------
+# 事故：R6「先停用才可删除」+错误码 ELEMENT_NOT_DISABLED 引用的 toggle 端点只有
+# 接口概览行、无字段级契约，五角色两轮评审与 §1-§6 全部漏过（正向追溯不覆盖反向可达性）。
+# 有 design.json 时为强检查（P0：硬前置必须命中详定义 api）；无则降级提示（WARN）。
+echo ""
+echo "=== §6b 规则前置操作可达性 ==="
+if command -v python3 >/dev/null 2>&1 && [ -f "$SKILL_ROOT/scripts/rule_operation_closure.py" ]; then
+  ROC_ARGS=(--design "$DESIGN")
+  [ -f "$DESIGN_JSON" ] && ROC_ARGS+=(--design-json "$DESIGN_JSON")
+  if _python3 "$SKILL_ROOT/scripts/rule_operation_closure.py" "${ROC_ARGS[@]}"; then
+    pass "rule operation closure（规则前置操作均有可达契约）"
+  else
+    if [ -f "$DESIGN_JSON" ]; then
+      p0 "rule operation closure 缺口：规则/错误码引用的前置操作缺端点或字段级契约（见上；事故教训 L-P2-005）"
+    else
+      warn "rule operation closure 存在缺口（无 design.json，未做强前置判定；建议补结构化层后复跑）"
+    fi
+  fi
+else
+  warn "skip rule operation closure: python3 或检查脚本缺失"
+fi
+
+# ---------- §6c 内容充分性三防线（v3.26.4；治理服务第三轮复核 DF-57~70 教训） ----------
+# 机械盲区实证：正向追溯门禁对「重写丢机制（DF-57/58/65）」「状态机交叉（DF-61/63/64）」
+# 「跨文档契约（DF-60/67/68）」三类问题零拦截。本节为内容级兜底：
+#   field-drift  —— archive 机制语义词丢失=P0（PRD 必填措辞仅 WARN，别名误报高）
+#   state-matrix —— Gate 恒传 --strict（死状态 P0）；探针独立运行时默认 WARN
+#   cross-doc    —— 提供 --peer/--matrix 时 jobKey/内部端点/权限码对账 P0
+echo ""
+echo "=== §6c 内容充分性三防线 ==="
+CS_PROBE="$SKILL_ROOT/scripts/content_sufficiency_probes.py"
+if command -v python3 >/dev/null 2>&1 && [ -f "$CS_PROBE" ]; then
+  CS_FAIL=0
+  # 输入发现（可选）：PRD 取验收点同目录；legacy 取 archive/ 下同域旧设计；peer 取同目录其他分文档
+  # v3.26.4：发现目录必须用「设计真身」解析（DESIGN 可能是 symlink；同目录旧副本/
+  # 自身副本会污染对端与 legacy 判定——治理服务实测：陈旧副本被当 peer 导致跨文档假 FAIL）
+  CS_DIR="$(dirname "$DESIGN")"
+  if command -v realpath >/dev/null 2>&1; then
+    CS_DIR="$(dirname "$(realpath "$DESIGN" 2>/dev/null || echo "$DESIGN")")"
+  fi
+  DESIGN_SHA=$(shasum -a 256 "$DESIGN" 2>/dev/null | awk '{print $1}')
+  CS_PRD=""; [ -n "$CRITERIA" ] && CS_PRD=$(ls "$CS_DIR/../PRD/"*.md 2>/dev/null | head -1)
+  # legacy：仅取设计文档自身引用的 archive（changelog/承接声明），精确到模块——防无关归档误报
+  CS_LEGACY=""
+  for _ref in $(grep -oE 'archive/[A-Z]-[0-9]+[^ )）`，。；]*' "$DESIGN" 2>/dev/null | sed 's|archive/||' | sort -u); do
+    for _f in "$CS_DIR/archive/${_ref}"*.md; do
+      [ -f "$_f" ] && CS_LEGACY="$CS_LEGACY $_f"
+    done
+  done
+  CS_LEGACY=$(printf '%s\n' $CS_LEGACY | sort -u | tr '\n' ' ')
+  # peers：同目录其他分文档；按 realpath 与内容哈希双重排除自身（含 symlink 名不同但内容相同）
+  CS_PEERS=""
+  for _p in "$CS_DIR"/*-详细设计-v2.md; do
+    [ -f "$_p" ] || continue
+    _rp="$_p"
+    command -v realpath >/dev/null 2>&1 && _rp="$(realpath "$_p" 2>/dev/null || echo "$_p")"
+    [ "$_rp" = "$(realpath "$DESIGN" 2>/dev/null || echo "$DESIGN")" ] && continue
+    _sha=$(shasum -a 256 "$_p" 2>/dev/null | awk '{print $1}')
+    [ -n "$DESIGN_SHA" ] && [ "$_sha" = "$DESIGN_SHA" ] && continue
+    CS_PEERS="$CS_PEERS $_p"
+  done
+  CS_MATRIX="$CS_DIR/_权限矩阵.md"
+  # 1) field-drift（legacy 任一命中即判；PRD 仅 WARN）
+  # v3.26.4: 补传 --prd（CS_PRD 此前计算后未消费——死代码 + SC2034；探针对 PRD 仅
+  # WARN 不阻断，接线后完成"PRD 必填项 0 命中提示"的既定设计）。
+  for LG in $CS_LEGACY; do
+    CS_FD_ARGS=(--design "$DESIGN" --legacy "$LG")
+    [ -n "$CS_PRD" ] && [ -f "$CS_PRD" ] && CS_FD_ARGS+=(--prd "$CS_PRD")
+    if _python3 "$CS_PROBE" field-drift "${CS_FD_ARGS[@]}"; then :; else CS_FAIL=1; fi
+  done
+  [ -z "$CS_LEGACY" ] && pass "field-drift: 无 archive 旧设计输入，跳过机制承接核对"
+  # 2) state-matrix（strict=P0 组合缺口；默认死状态 WARN 不阻断）
+  if _python3 "$CS_PROBE" state-matrix --design "$DESIGN" --design-json "${DESIGN_JSON:-}" --strict; then :; else CS_FAIL=1; fi
+  # 3) cross-doc（有 peer 或 matrix 输入才判）
+  if [ -n "$CS_PEERS" ] || [ -f "$CS_MATRIX" ]; then
+    CS_ARGS=(--design "$DESIGN")
+    for PP in $CS_PEERS; do CS_ARGS+=(--peer "$PP"); done
+    [ -f "$CS_MATRIX" ] && CS_ARGS+=(--matrix "$CS_MATRIX")
+    if _python3 "$CS_PROBE" cross-doc "${CS_ARGS[@]}"; then :; else CS_FAIL=1; fi
+  else
+    pass "cross-doc: 无对端文档/权限矩阵输入，跳过"
+  fi
+  [ "$CS_FAIL" -eq 0 ] && pass "content sufficiency probes（field-drift/state-matrix/cross-doc）" \
+                        || p0 "内容充分性缺口（见上三探针明细；修复或 DDR/豁免声明后重跑）"
+else
+  warn "skip §6c: python3 或 content_sufficiency_probes.py 缺失"
+fi
+
 # ---------- §7 占位符 ----------
 echo ""
 echo "=== §7 占位符 ==="

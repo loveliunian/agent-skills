@@ -438,6 +438,30 @@
       "manifest_sha256": "a3d1e185095c94664c8921525ab2ce0989f0d26384e12eeb11deea5d9843f327",
       "tree_hash": "9a17a2c96776c92d2e7b11006d2704436d547c708326ce06abb5364b03489087",
       "chain_hash": "9e71c0216df8760938fd9095b43bb94974108df97b3b251a2c029605af664962"
+    },
+    {
+      "version": "3.26.2",
+      "manifest_sha256": "1d1e377a02765d43217612423f04a1f923a33282cd97de8c86e4cfc49db5e73a",
+      "tree_hash": "8ed9f90fd513e5902b48a5c426781885ebf3a802ba326824b96888cdbf1c3a47",
+      "chain_hash": "0ceb815c2c050e69e88a826f2f97d07ffe61ccdb2f7085018ac136c5fb66397e"
+    },
+    {
+      "version": "3.26.4",
+      "manifest_sha256": "80a7ae7c67f17837040376bf754ac120533de5589cfd7fc423e1693aa84bac4a",
+      "tree_hash": "2713bfca2a8fc760ef5215009e0b242f8aae4b2f4e1abebb59f91633e07e34ae",
+      "chain_hash": "fca1000fd45cd7b1f7f4f2eebc298c7a654e78c586416c094cce21a0bb296dfb"
+    },
+    {
+      "version": "3.26.5",
+      "manifest_sha256": "1e845c190c533cab8a83b7c3e9f3c28e2676f2f81a749842721b373fc55c1805",
+      "tree_hash": "1479cee7361aa39b5a6af4e99c9fc4747f338c20449824533f2f7ac7bc1ea8f4",
+      "chain_hash": "f6eb5edacc35634e3aebd458f5e60d9221d9f021e6cdb4462c5cefc0ddfb8cae"
+    },
+    {
+      "version": "3.26.6",
+      "manifest_sha256": "921ba97b560126ae75025e4e4d84be606c0001ea2cf791d5af01c172ee077acc",
+      "tree_hash": "298f8afc96d76b2de476cfb743f84d8fe49669278341b2e3faf05affb8c35eba",
+      "chain_hash": "673b0f86e76da98e41985e46cab743aac929eeef792565ad419b6c007a110fdd"
     }
   ]
 }

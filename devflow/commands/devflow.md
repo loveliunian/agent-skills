@@ -1,6 +1,6 @@
 ---
 name: devflow-command
-version: "3.26.1"
+version: "3.26.6"
 description: Use when running the complete devflow lifecycle or resuming a checkpoint.
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
@@ -41,6 +41,10 @@ P0 需求澄清、P1 技术选型、P2 详细设计、P3 实现、P4 验证、P5
 P0 → P0b → P1 → P2 → P2a → P2b → P3 → P3b → P3cd
    → P4 → P4b → P5 → P6 → P7 → P8 → P9 → P10
 ```
+
+> 阶段命名说明：`P3cd` 是安全（P3c）+ 性能（P3d）**共用 Gate 的收据别名**——状态机模型保留
+> P3c/P3d 两个原子阶段，`complete P3cd` 同时标记两者完成；`p3_security_perf_gate.sh`
+> 单项模式（--mode security|performance）仍可分别产出 P3c/P3d 收据。
 
 P11 是独立事故复盘，不属于正常交付完成条件。
 
@@ -110,7 +114,9 @@ check_skip_authorization() {
   phase="$1"
   grep -qE "^SKIP_${phase}=.+" ".devflow/$FEATURE/skip-log.txt" 2>/dev/null
 }
-# skip-log.txt 行格式：SKIP_<PHASE>=<理由>（理由必填；当前支持 P2b）
+# skip-log.txt 行格式：SKIP_<PHASE>=<理由>（理由必填；当前仅 p2b_demo_gate.sh 实现了
+# skip 分支——其余阶段写 SKIP_ 不会跳过 Gate 本体，将按"已授权但 gate 未通过"处理为失败；
+# P3、P4b、P6、P7、P8、P9、P10 一律不可跳过）
 ```
 
 每一阶段按 `Gather → Act → Verify → Receipt` 执行：

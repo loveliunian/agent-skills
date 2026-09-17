@@ -250,6 +250,84 @@ done < <(find "$BACKEND"/*/src/main/java -name "*.java" -type f 2>/dev/null | gr
   pass "D-22 ObjectMapper 业务代码检查完成"
 }
 
+# ---------- §6 代码（L-STACK-001/L-P3-004/L-STACK-003 教训入检 v3.26.3） ----------
+check_code_last_limit() {
+  # L-STACK-001: MyBatis-Plus .last("LIMIT 1") 直接拼 SQL 不做方言转换，Oracle 下报错，
+  # 破坏 h2/postgresql/oracle/kingbase 四方言一致性铁律。
+  section "§6 代码（.last LIMIT 四方言破坏）"
+  while IFS= read -r f; do
+    grep -inE '\.last\(\s*"[^"]*(LIMIT|OFFSET)' "$f" 2>/dev/null | head -3 | while IFS=: read -r line rest; do
+      critical "L-STACK-001 ❌ .last(\"LIMIT/OFFSET\") 拼接破坏四方言一致性（Oracle 报错）：$f:$line —— 改方言适配工具（如 resolveDialect/FETCH FIRST）"
+    done
+done < <(find "$BACKEND"/*/src/main/java -name "*.java" -type f 2>/dev/null)
+  pass "L-STACK-001 .last LIMIT 检查完成"
+}
+
+check_code_json_concat() {
+  # L-P3-004: 手工字符串拼接构造 JSON 未做转义，值含引号/反斜杠时产物非法
+  # （数据驱动注入的 JSON 版）。启发式：同一行既有 JSON 结构字符又有字符串拼接。
+  section "§6 代码（手工 JSON 拼接）"
+  while IFS= read -r f; do
+    grep -nE '"\{[^"]*"\s*\+|\+\s*"[^"]*\}[^"]*"|"\s*\+\s*[A-Za-z_][A-Za-z0-9_.]*\s*\+\s*"\s*:' "$f" 2>/dev/null | head -3 | while IFS=: read -r line rest; do
+      warn "L-P3-004 ⚠️ 疑似手工拼接 JSON（值未转义，构造请统一 ObjectMapper/ObjectNode）：$f:$line"
+    done
+done < <(find "$BACKEND"/*/src/main/java -name "*.java" -type f 2>/dev/null | grep -v '/test/')
+  pass "L-P3-004 手工 JSON 拼接检查完成"
+}
+
+check_code_transactional_self_invoke() {
+  # L-STACK-003: Spring AOP 基于代理，同类内 this 调用不经过代理——@Transactional
+  # 静默失效（租约抢占与状态推进非原子，P0 级）。启发式：@Transactional 方法在同一
+  # 文件内被调用（声明行与注释行以外）即疑似自调用。误报仅见于显式自建代理场景，宁报勿漏。
+  section "§6 代码（@Transactional 同类自调用）"
+  while IFS=: read -r f line; do
+    [ -n "$f" ] || continue
+    critical "L-STACK-003 ❌ @Transactional 方法疑似同类自调用（AOP 代理被绕过，事务静默失效）：$f:$line —— 改 TransactionTemplate 显式边界或拆分独立 Bean"
+  done < <(python3 - "$BACKEND" <<'PYEOF'
+import glob, re, sys
+
+backend = sys.argv[1]
+files = glob.glob(f'{backend}/*/src/main/java/**/*.java', recursive=True)
+out = 0
+DECL = r'\s*(?:public|protected|private)?\s*[\w<>,\[\]\s]+\s+'
+for f in files:
+    if out >= 20:
+        break
+    try:
+        lines = open(f, encoding='utf-8', errors='ignore').read().split('\n')
+    except OSError:
+        continue
+    tx_methods = set()
+    pending_tx = False
+    for l in lines:
+        if re.search(r'@Transactional\b', l):
+            pending_tx = True
+            continue
+        m = re.match(DECL + r'(\w+)\s*\(', l)
+        if m:
+            if pending_tx:
+                tx_methods.add(m.group(1))
+            pending_tx = False
+    if not tx_methods:
+        continue
+    for i, l in enumerate(lines):
+        stripped = l.strip()
+        if stripped.startswith(('//', '*', '@')):
+            continue
+        for name in tx_methods:
+            if re.match(DECL + re.escape(name) + r'\s*\(', l):
+                continue  # 声明行本身
+            if re.search(r'(?<![\w.])' + re.escape(name) + r'\s*\(', l):
+                print(f'{f}:{i+1}')
+                out += 1
+                break
+        if out >= 20:
+            break
+PYEOF
+  )
+  pass "L-STACK-003 @Transactional 自调用检查完成"
+}
+
 # ---------- §8 性能 ----------
 check_perf_n_plus_one() {
   section "§8 性能（N+1 查询）"
@@ -386,6 +464,9 @@ case "$CATEGORY" in
     check_code_huge_service
     check_code_dto_duplicate
     check_code_objectmapper
+    check_code_last_limit
+    check_code_json_concat
+    check_code_transactional_self_invoke
     check_perf_n_plus_one
     check_obs_actuator
     check_obs_log_format
@@ -398,7 +479,7 @@ case "$CATEGORY" in
       config) check_config_env_vars; check_config_duplicate; check_config_hardcoded_url; check_config_default_secret ;;
       api) check_api_declarative; check_api_openapi ;;
       security) check_security_jwt_default; check_security_hardcoded_password; check_security_csrf_consistency ;;
-      code) check_code_huge_service; check_code_dto_duplicate; check_code_objectmapper ;;
+      code) check_code_huge_service; check_code_dto_duplicate; check_code_objectmapper; check_code_last_limit; check_code_json_concat; check_code_transactional_self_invoke ;;
       perf) check_perf_n_plus_one ;;
       obs) check_obs_actuator; check_obs_log_format ;;
       deploy) check_deploy_image_tag; check_deploy_dual_lockfile; check_deploy_resources ;;
