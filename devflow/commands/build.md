@@ -1,6 +1,6 @@
 ---
 name: build
-version: "3.26.8"
+version: "3.26.9"
 description: >-
   Use when implementing backend APIs, frontend pages, or migrations for a new feature after /plan,
   mentions "/build", "build it", "编码实现", "实现这个功能", "写代码", "全栈开发", or "start implementation".

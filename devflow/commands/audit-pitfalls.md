@@ -1,6 +1,6 @@
 ---
 name: audit-pitfalls
-version: "3.26.8"
+version: "3.26.9"
 description: |
   架构陷阱自检命令。独立于 /audit-completeness，专门扫描 30+ 通用架构陷阱。
   触发场景：任意 Phase 切换前必跑 / Postmortem 后 / 跨项目 onboarding。

@@ -1,12 +1,35 @@
 ---
 name: changelog
-version: "3.26.8"
+version: "3.26.9"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.26.8 Migration Guide
+# Changelog — devflow v1 → v3.26.9 Migration Guide
+
+## v3.26.9 (2026-09-17) — 自然句式提取 + 组合字段面 + 发布树对齐
+
+**发布树对齐说明**：v3.26.8 manifest 冻结于 17:0x，其后仓库作者的文档策略编辑
+（SKILL.md 新增铁律 15「面向读者文档遵循中文文风规范，人工自检/抽查，不设自动
+文风硬校验或 Gate 阻断」；commands/docs.md 与 concepts/中文文风规范.md 同步）于
+17:20 随提交 d9fe55c 入库——manifest 与树漂移导致发布入口复跑在
+test-v3140 manifest check 处失败。按"已发布 manifest 不可重写、漂移必须升版"规则，
+本版将上述编辑与以下修复一并发布。
+
+**P1 修复（用户侧实测反例）**：
+
+- **rule_operation_closure 自然句式漏抽**：「要素未停用时拒绝删除」因模式 2 的
+  "未 前必须是中文字符"守卫整体不提取（守卫本意防跨词，但带对象前缀的常见句式
+  被误杀）。修复：去守卫 + CN 惰性捕获（防"停用时"吞成操作词）+ 尾部补全
+  时/则/先 × 返回/拒绝 变体 + 纯条件词丢弃（"未通过返回"的"通过"不是操作）。
+- **content_sufficiency 组合未声明字段**：fields=["status"] 但组合混入
+  scope=UNKNOWN/ANY 时，旧版因查无枚举域直接跳过（保守路径被滥用）→ 未知字段
+  静默放行。修复：组合字段必须先声明（fields 之外的字段即 FAIL，诊断给出
+  "scope=(未声明字段)"）；已声明但枚举提取为空的字段仍保守跳过。
+
+回归：test-dev-hardening 扩至 45 用例（新增 3 条：未X时拒绝 负/正、未声明字段
+必 FAIL）；既有 42 用例无回归。
 
 ## v3.26.8 (2026-09-17) — 探针语义修复第二轮：条件隔断对象继承 + 组合合法性
 

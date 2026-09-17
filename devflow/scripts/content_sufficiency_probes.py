@@ -122,7 +122,12 @@ def probe_state_matrix(design: str, design_json: str | None) -> int:
                     if not isinstance(c, dict):
                         continue
                     for f, v in c.items():
-                        allowed = seen_map.get(f) or []
+                        # v3.26.9: 未声明字段拒绝——fields=["status"] 但组合混入
+                        # scope=… 时旧版因查无枚举域直接跳过，未知字段被静默放行。
+                        if f not in seen_map:
+                            invalid.append(f"{f}=(未声明字段)")
+                            continue
+                        allowed = seen_map[f] or []
                         if not allowed:
                             continue  # 枚举提取为空时无法判定合法性（保守跳过）
                         vals = v if isinstance(v, (list, tuple)) else [v]
@@ -130,7 +135,7 @@ def probe_state_matrix(design: str, design_json: str | None) -> int:
                             if vv not in allowed:
                                 invalid.append(f"{f}={vv}")
                 if invalid:
-                    print(f"[FAIL] state-matrix: 非法组合 {len(set(invalid))} 处（取值不在枚举域）："
+                    print(f"[FAIL] state-matrix: 非法组合 {len(set(invalid))} 处（取值不在枚举域或字段未声明）："
                           f"{('、'.join(sorted(set(invalid))[:6]))}"
                           "（组合矩阵必须是枚举域笛卡尔积的合法子集，L-P2-007）")
                     return 1

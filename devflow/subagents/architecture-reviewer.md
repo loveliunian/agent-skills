@@ -1,7 +1,7 @@
 ---
 name: architecture-reviewer
 subagent_type: generalPurpose
-version: "3.26.8"
+version: "3.26.9"
 description: >-
   Use when user wants architecture review, mentions "/arch-review", "architecture review",
   "架构审查", "代码重构", "公共类", "公共方法", "公共配置", or "可优化".

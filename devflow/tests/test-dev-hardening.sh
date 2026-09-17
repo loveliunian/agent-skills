@@ -485,4 +485,21 @@ python3 "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W1
   && ok "state-matrix 非法组合（取值不在枚举域）必 FAIL" \
   || bad "state-matrix 非法组合同数量放行（rc=${rc}）"
 
+# 反例：自然句式"X未Y时拒绝"（v3.26.9）——对象前缀不再令模式 2 整体漏抽
+printf '## §3 业务规则\n| 编号 | 分类 | 规则描述 | 错误处理 |\n|---|---|---|---|\n| R6 | 删除 | 要素未停用时拒绝删除 | 无 |\n' > "$W12/nat.md"
+python3 "$ROOT/scripts/rule_operation_closure.py" --design "$W12/nat.md" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 1 ] \
+  && ok "rule closure 未X时拒绝句式提取（无端点必 FAIL）" \
+  || bad "rule closure 自然句式仍漏抽（rc=${rc}）"
+printf '{"apis":[{"method":"PATCH","path":"/api/elements/toggle","name":"启停要素（停用/启用）"}]}' > "$W12/nat-ok.json"
+python3 "$ROOT/scripts/rule_operation_closure.py" --design "$W12/nat.md" --design-json "$W12/nat-ok.json" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 0 ] && ok "rule closure 自然句式正向通过" || bad "rule closure 自然句式误拒（rc=${rc}）"
+
+# 反例：组合混入未声明字段（v3.26.9）——scope=ANY 不得因无枚举域被静默放行
+printf '{"state_machines": {"fields": ["status"], "valid_combos": [{"status": "DRAFT"}, {"status": "PUBLISHED", "scope": "ANY"}]}}' > "$W12/enum-scope.json"
+python3 "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/enum.md" --design-json "$W12/enum-scope.json" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 1 ] \
+  && ok "state-matrix 未声明字段必 FAIL" \
+  || bad "state-matrix 未声明字段被放行（rc=${rc}）"
+
 finish "test-dev-hardening"
