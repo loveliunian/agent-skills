@@ -1,12 +1,19 @@
 ---
 name: changelog
-version: "3.26.0"
+version: "3.26.1"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.26.0 Migration Guide
+# Changelog — devflow v1 → v3.26.1 Migration Guide
+
+## v3.26.1 (2026-09-17) — 核心规则瘦身与运行残留清理
+
+- `concepts/core.md` 不再重复展开 Flyway 四方言、Java 权限和 Mapper/Entity 细则，
+  改为按 Runtime Profile 生效的短指针；Profile 专属规则仍保留在对应参考文件。
+- 清理本地测试产生的 `tests/logs/` 与 `scripts/__pycache__/` 运行残留（两者均被忽略，
+  不进入发布树）。
 
 ## v3.26.0 (2026-09-17) — 开发面硬化：修复 4 处假绿/死检查 + P3b 中文路径阻断
 

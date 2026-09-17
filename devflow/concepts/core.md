@@ -2,7 +2,7 @@
 name: devflow-concepts-core
 description: devflow 不可违背的铁律（true north）；规划、评审与全部 phase/command/subagent 的最高约束。
 metadata:
-  version: "3.26.0"
+  version: "3.26.1"
 ---
 
 # Concepts — True North（不可违背的铁律）
@@ -62,44 +62,20 @@ PRD → P0 需求澄清 → P0b PRD评审 → P1 技术选型 → P2 详细设�
 
 ---
 
-## 4. Flyway Four-Dialect Standard（4 方言标准）
+## 4. 技术栈规则按 Runtime Profile 生效
 
-**铁律**：每次数据库变更必须生成 4 个方言的 Flyway 脚本。
-
-```
-backend/<service>/src/main/resources/db/migration/
-├── h2/           # 开发 / 本地测试
-├── postgresql/   # 生产 / Staging
-├── oracle/       # 企业客户
-└── kingbase/     # 国产化客户
-```
-
-**禁止**：
-- 只写 1 个方言就提交
-- 创建表后不写 Flyway（直接改生产 DB）
-- 表名 / 字段与 Entity 不同步
-
-**必须**：
-- 每个 `CREATE TABLE` 同步到 4 个方言
-- 菜单 seed（`sys_menu` / `sys_menu_operation` / `sys_permission_group` / `sys_user_effective_perm`）4 方言齐全
-- postgresql 方言末尾 `setval` 序列同步
+核心流程不预设 Flyway、Spring、Mapper 或具体数据库方言。项目在 P1 冻结的
+`Runtime Profile` 声明了 `MIGRATION_ADAPTER`、`AUTHORIZATION_ADAPTER` 和客户端能力后，
+必须遵守对应 Profile 的迁移、权限、菜单 seed 与可达性契约；内置 Java 规则见
+`references/profiles/java-spring-flyway.md`。未声明的能力不得由本文件推断或套用。
 
 ---
 
-## 5. Menu Seed Completeness（菜单完整性）
+## 5. 客户端可达性与持久化变更
 
-**铁律（仅 PC Web）**：每个新增 PC Web 页面必须配套生成菜单 seed SQL。小程序和 APP 以 `app.json` / 客户端导航配置及 `devflow-client.json` 页面清单证明可达性。
-
-新增 `frontend/src/views/<feature>/index.vue` 但没有对应的 `V*__seed_<feature>_menus.sql` → **PC Web 不可达** = 功能未完成。
-
-**菜单 seed 必须含 5 段**：
-1. `sys_menu` INSERT（CATALOG + 每个页面 MENU，含 `route_path` + `perm_code`）
-2. `sys_menu_operation` INSERT（每菜单至少 VIEW 操作）
-3. `sys_permission_group` INSERT（与 `perm_code` 对齐）
-4. `sys_user_effective_perm` INSERT（admin user_id=1 自动授予全部）
-5. `setval` 序列同步（postgresql 必须，其他可选）
-
-参考路径形态：`backend/<menu-service>/src/main/resources/db/migration/postgresql/<module>/V*__seed_<feature>_menus.sql`
+**铁律**：每个冻结的客户端范围都必须有对应的可达性证据。PC Web、小程序和 APP 的
+菜单/导航、路由和旅程分别按 Runtime Profile 与 `devflow-client.json` 验证；持久化变更
+按 Profile 声明的 migration adapter 执行，禁止绕过迁移工具直接改库。
 
 ---
 
@@ -129,14 +105,13 @@ backend/<service>/src/main/resources/db/migration/
 
 | 红旗 | 立即停止并汇报 |
 |------|--------------|
-| 无 Flyway 直接改 DB | 后端依赖不存在的表 |
+| 绕过 Profile 声明的迁移 adapter 直接改 DB | 后端依赖不存在的表 |
 | 前端页面写完但无菜单 seed | 用户看不到功能 |
 | 测试报告含"盲猜密码" | 审计错误，P0 阻断 |
-| admin 无 `sys_user_effective_perm` 授权 | admin 看不到菜单 |
-| `setval` 缺失导致 ID 冲突 | 部署失败 |
-| postgresql 无 menu seed | 功能不完整 |
-| Controller 无 `@PreAuthorize` | 权限漏洞 |
-| Mapper ≠ Entity 数量 | 逻辑表无 DAO 层 |
+| Profile 要求的 admin 权限授予缺失 | admin 看不到菜单 |
+| Profile 要求的序列/菜单 seed 缺失 | 部署或客户端不可达 |
+| Profile 要求的 Controller 授权缺失 | 权限漏洞 |
+| Profile 要求的持久化映射不一致 | 运行时数据访问错误 |
 
 ---
 

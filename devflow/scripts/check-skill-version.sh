@@ -20,7 +20,7 @@ check_file() {
 
 check_file "$ROOT/SKILL.md"
 check_file "$ROOT/concepts/PRD实施方法论.md"
-# v3.26.0: 版本门禁扩域到 references/——此前只查 concepts/commands/phases/subagents，
+# v3.26.1: 版本门禁扩域到 references/——此前只查 concepts/commands/phases/subagents，
 # references 带 frontmatter 的 md 版本漂移漏报（Release Audit 正确阻断但轻门禁
 # 误报 PASS，两道门禁口径不一致）；对齐 release-audit.sh 口径：递归扫描（含 profiles/），
 # 且只要求带 frontmatter（首行 ---）的文件携带版本（structured-artifacts.md 等无

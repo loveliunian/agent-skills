@@ -31,7 +31,7 @@ while [ "$#" -gt 0 ]; do
     # v3.15.8: 带值 flag 缺值时 shift 2 失败且不改位置参数（bash 语义），set -u 无 -e 吞错
     # → while 永真死循环（实测 3s 进程仍存活）。前置 $# 检查 fail-closed。
     --service) [ "$#" -ge 2 ] && [ "${2#-}" = "$2" ] || { echo "[ERR] --service requires a non-flag value" >&2; exit 2; }; SERVICE="$2"; shift 2 ;;
-    # v3.26.0: 接受 --service=<path> 等值形式（commands/security.md 历史示例用法）
+    # v3.26.1: 接受 --service=<path> 等值形式（commands/security.md 历史示例用法）
     --service=*) [ -n "${1#--service=}" ] || { echo "[ERR] --service requires a non-flag value" >&2; exit 2; }; SERVICE="${1#--service=}"; shift ;;
     --mode)    [ "$#" -ge 2 ] && [ "${2#-}" = "$2" ] || { echo "[ERR] --mode requires a non-flag value" >&2; exit 2; }; CHECK_MODE="$2"; shift 2 ;;
     --waiver)  [ "$#" -ge 2 ] && [ "${2#-}" = "$2" ] || { echo "[ERR] --waiver requires a non-flag value" >&2; exit 2; }; WAIVER_FILE="$2"; shift 2 ;;
@@ -40,7 +40,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 case "$CHECK_MODE" in security|performance|full) ;; *) echo "[ERR] invalid mode: $CHECK_MODE"; exit 2 ;; esac
-# v3.26.0: SERVICE 归一化——裸服务名（如 payment-service）在 backend/<name> 存在时
+# v3.26.1: SERVICE 归一化——裸服务名（如 payment-service）在 backend/<name> 存在时
 # 自动补全为路径，与 p3_completion_gate.sh 的服务名语义对齐（两种取值见 commands/security.md）。
 if [ -n "$SERVICE" ] && [ ! -d "$SERVICE" ] && [ -d "backend/$SERVICE" ]; then
   SERVICE="backend/$SERVICE"
@@ -111,7 +111,7 @@ check_n_plus_one() {
   echo ""; echo "=== §2 性能审计 — N+1 查询检测 ==="
   should_skip "n1" || should_skip "perf" && { not_applicable_or_fail PERFORMANCE "N+1 检查被跳过"; return; }
   local svc_dir="${SERVICE:-backend}"
-  # v3.26.0: 委托 checks/detect-n-plus-one.sh——旧单行 grep（for(...){...}.find 必须同行）
+  # v3.26.1: 委托 checks/detect-n-plus-one.sh——旧单行 grep（for(...){...}.find 必须同行）
   # 对常规多行循环体全部漏检；检测器支持多行窗口 + JPA findById。检测器 rc=1（>5 处）
   # 或 strict 判 FAIL → P0；1-5 处 → WARN（与检测器容忍口径一致，waiver 可整项豁免）。
   local n1_script="$SCRIPT_DIR/../checks/detect-n-plus-one.sh"
@@ -211,7 +211,7 @@ check_sql_injection() {
   count=$( (find "$svc_dir" -name "*.java" -type f 2>/dev/null | grep -v '/test/' | xargs grep -lE "createQuery[[:space:]]*\([[:space:]]*[\"'].*\{|\.createNativeQuery" 2>/dev/null || true) | wc -l | tr -d ' ' )
   echo "| SQL 原生查询文件数 | $count |" >> "$REPORT_FILE"
   [ "$count" -eq 0 ] && ok "SQL 注入检测 PASS" || warn "发现 $count 处原生 SQL"
-  # v3.26.0: MyBatis ${} 拼接扫描（fail-closed）——MyBatis 项目第一大注入面此前零覆盖。
+  # v3.26.1: MyBatis ${} 拼接扫描（fail-closed）——MyBatis 项目第一大注入面此前零覆盖。
   #   a) *Mapper.xml 中任意 ${param}；b) Java 注解 SQL @Select/@Update/@Insert/@Delete 含 ${}。
   #   正当用途（白名单排序等）在该行写 `mybatis-dollar: allow` 并说明理由；waiver 可整项豁免。
   local dollar_hits
@@ -239,7 +239,7 @@ check_sql_injection() {
 check_sensitive_data() {
   echo ""; echo "=== §5 安全审计 — 敏感数据暴露 ==="
   should_skip "security" && { SKIP=$((SKIP+1)); return; }
-  # v3.26.0: dto_dir 修复——旧默认 "${SERVICE:-backend}/src/main/java" 在多模块布局下
+  # v3.26.1: dto_dir 修复——旧默认 "${SERVICE:-backend}/src/main/java" 在多模块布局下
   # 等于 backend/src/main/java（不存在）→ 扫 0 文件却报 PASS（假绿）。现与 §1/§4 同口径，
   # 在服务根（或 backend 全树）下递归找 DTO/VO。
   local dto_dir="${SERVICE:-backend}"
@@ -342,7 +342,7 @@ PYEOF
   RECEIPT_DIR="$STATE_DIR/${FEATURE:?FEATURE is required for receipt (default fallback removed v3.14.0)}/gates/$RECEIPT_PHASE"
   mkdir -p "$RECEIPT_DIR" 2>/dev/null
   {
-    # v3.26.0: EXIT_CODE 移到块尾计算——旧版在此处（块首）计算，其后 jq 缺失/证据树
+    # v3.26.1: EXIT_CODE 移到块尾计算——旧版在此处（块首）计算，其后 jq 缺失/证据树
     # 失败的 p0 会让 FAIL 增加，但收据里 EXIT_CODE 已冻结为 0（"命令失败、收据成功"
     # 矛盾状态，审计重验即漂移）。收据字段顺序不参与机器契约（键值对逐行解析）。
     echo "VERSION=p3-${CHECK_MODE}@$(bash "$(dirname "$0")/gate-version.sh")"

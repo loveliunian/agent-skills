@@ -57,7 +57,7 @@ import os, sys, re, glob, collections
 base = sys.argv[1]
 strict = int(sys.argv[2])
 
-# v3.26.0: 服务根解析修复——旧 glob `{base}/*/src/main/java/...` 假定 base 是多模块根，
+# v3.26.1: 服务根解析修复——旧 glob `{base}/*/src/main/java/...` 假定 base 是多模块根，
 # 传单服务目录（文档用法）时匹配 0 个文件却报"0 处 PASS"（假绿）。
 # base 本身是服务目录 → 单服务口径；否则多模块展开；皆无 → fail-closed。
 import os
@@ -80,12 +80,12 @@ for r in roots:
     service_files += glob.glob(f'{r}/src/main/java/**/service/impl/*ServiceImpl.java', recursive=True)
 
 # 2) Mapper 单对象调用模式
-#    v3.26.0: 补 JPA 风格（findById/getReferenceById）——phases/03 模板即 JPA 栈，
+#    v3.26.1: 补 JPA 风格（findById/getReferenceById）——phases/03 模板即 JPA 栈，
 #    旧模式只认 MyBatis-Plus 命名，JPA 循环查单对象全部漏检。
 mapper_pattern = re.compile(r'\.(getById|selectById|selectOne|getOne|selectByMap|findById|getReferenceById)\s*\(')
 
 # 3) 只匹配 for(...){...} / while(...){...} 关键字循环（不含 stream / forEach）
-#    v3.26.0: 删除未使用的 brace-matching 死代码（body_lines 计算后从未消费），
+#    v3.26.1: 删除未使用的 brace-matching 死代码（body_lines 计算后从未消费），
 #    保留"循环起始行后 30 行窗口"启发式并显式注明。
 findings = []
 

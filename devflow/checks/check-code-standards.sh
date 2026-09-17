@@ -19,7 +19,7 @@
 
 set -uo pipefail
 
-# v3.26.0: 参数解析修复——旧版 SERVICE_DIR="${1:-backend}" 会把 --strict 吃成目录
+# v3.26.1: 参数解析修复——旧版 SERVICE_DIR="${1:-backend}" 会把 --strict 吃成目录
 # （文档用法 `--strict` 单独使用即报"目录不存在：--strict"）；flag 与位置参数分离。
 SERVICE_DIR=""
 STRICT=0
@@ -63,7 +63,7 @@ fail_count = 0
 warn_count = 0
 ok_count = 0
 
-# v3.26.0: 服务根解析修复——旧 glob `{base}/*/src/main/java/...` 假定 base 是多模块根，
+# v3.26.1: 服务根解析修复——旧 glob `{base}/*/src/main/java/...` 假定 base 是多模块根，
 # 传单服务目录（文档用法）时匹配 0 个文件却报"全部 PASS"（假绿）。
 # 现在：base 本身是服务目录（含 src/main/java）→ 单服务口径；否则按多模块展开；
 # 两者皆无 → fail-closed 报错退出，不再静默 PASS。

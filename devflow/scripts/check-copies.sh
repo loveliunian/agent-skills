@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-copies.sh · 已安装副本的"直连本 skill"校验（只读，fail-closed；v3.26.0）
+# check-copies.sh · 已安装副本的"直连本 skill"校验（只读，fail-closed；v3.26.1）
 # 副本形态约定："直连软链"——各工具 skills 目录中的 devflow 必须是解析到本 skill
 # （仓库工作树）的符号链接，由仓库级同步入口或 scripts/install.sh 维护；
 # 旧的 rsync 实体副本分发（sync-copies.sh）已删除，实体副本视为漂移。

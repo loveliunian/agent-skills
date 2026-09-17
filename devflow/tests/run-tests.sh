@@ -9,7 +9,7 @@ set -uo pipefail
 
 TEST_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 SKILL_ROOT="$(cd "$TEST_DIR/.." && pwd -P)"
-# v3.26.0: 并行默认开启——串行全量 ~45min 不可接受；并行实测（2026-09-17 全绿运行）
+# v3.26.1: 并行默认开启——串行全量 ~45min 不可接受；并行实测（2026-09-17 全绿运行）
 # 各组独立 mktemp 工作区无共享状态。需要串行调试时 RUN_TESTS_PARALLEL=0。
 PARALLEL="${RUN_TESTS_PARALLEL:-1}"
 PER_GROUP_TIMEOUT="${RUN_TESTS_TIMEOUT:-900}"
@@ -36,7 +36,7 @@ SUITES=(
   "test-report-regressions.sh:报告回归"
   "test-p6-hardening.sh:P6 硬化"
   "test-version-hardening.sh:历史版本硬化（v3.20.3/v3.21.1/v3.21.2）"
-  "test-dev-hardening.sh:开发面硬化（v3.26.0）"
+  "test-dev-hardening.sh:开发面硬化（v3.26.1）"
   "test-release.sh:发布审计"
 )
 
@@ -93,14 +93,25 @@ run_group() {
 }
 
 if [ "$PARALLEL" = "1" ]; then
-  echo "[run-tests] 并行模式（RUN_TESTS_PARALLEL=1）：各组并发，独立 mktemp 工作区"
-  pids=()
+  # v3.26.1: 并发度 job pool（旧版 23 组无上限并发，10 核机器上严重过订阅——最慢组
+  # 隔离跑 73s 被拖到并行 624s）。默认并发 = 物理核数（RUN_TESTS_JOBS 覆盖，上限=组数）；
+  # 一个 slot 空出才启动下一组。兼容 macOS/Git Bash 3.2（无 wait -n）：用 SIGCHLD 计数。
+  JOBS="${RUN_TESTS_JOBS:-$(sysctl -n hw.physicalcpu 2>/dev/null || nproc 2>/dev/null || echo 4)}"
+  case "$JOBS" in ''|*[!0-9]*) JOBS=4 ;; esac
+  [ "$JOBS" -gt "${#SUITES[@]}" ] && JOBS="${#SUITES[@]}"
+  echo "[run-tests] 并行模式：job pool，并发度 ${JOBS}（RUN_TESTS_JOBS 可覆盖）"
+  running=0
   for entry in "${SUITES[@]}"; do
     script="${entry%%:*}"; label="${entry#*:}"
-    run_group "$script" "$label" & pids+=("$!")
-    sleep 0.2
+    run_group "$script" "$label" &
+    running=$((running + 1))
+    if [ "$running" -ge "$JOBS" ]; then
+      # bash 3.2 无 wait -n：等任意一个后台作业结束（SIGCHLD 唤醒），再回收已完成项
+      wait
+      running=0
+    fi
   done
-  for p in "${pids[@]}"; do wait "$p" 2>/dev/null || true; done
+  wait
 else
   for entry in "${SUITES[@]}"; do
     script="${entry%%:*}"; label="${entry#*:}"

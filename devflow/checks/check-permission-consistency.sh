@@ -39,7 +39,7 @@ case "${1:-}" in
 esac
 export DOC_FILE CONTROLLER_GLOB
 export STRICT
-# v3.26.0: code-doc 容忍度可配置（旧 40 硬编码，大仓/首轮治理无法调整）
+# v3.26.1: code-doc 容忍度可配置（旧 40 硬编码，大仓/首轮治理无法调整）
 export TOLERANCE_NEW="${TOLERANCE_NEW:-40}"
 
 echo "============================================="
@@ -68,7 +68,7 @@ def is_placeholder(p):
 STRICT = os.environ.get("STRICT", "0") == "1"
 
 # 1. 从代码抽取
-# v3.26.0: 权限码提取修复——
+# v3.26.1: 权限码提取修复——
 #   a) 旧正则只认 hasAuthority(...)，hasAnyAuthority('a','b') 的全部参数漏抽
 #      （多权限写法在代码侧不可见 → 误报 missing）；现对两种写法的实参列表全量抽取。
 code_perms = set()
@@ -85,7 +85,7 @@ for f in glob.glob(os.environ.get("CONTROLLER_GLOB", "backend/*/src/main/java/**
                 code_perms.add(p)
 
 # 2. 从文档抽取
-# v3.26.0: 文档正则补数字段——旧 `[A-Za-z]+:...:...` 不匹配 order:v2:list 等
+# v3.26.1: 文档正则补数字段——旧 `[A-Za-z]+:...:...` 不匹配 order:v2:list 等
 # 含数字权限码（文档侧不可见 → 永远计入 new 或漏对账）。
 doc_perms = set()
 try:
@@ -124,7 +124,7 @@ print()
 
 # 4. 判定
 TOLERANCE_MISSING = 0   # 文档多代码少：必须 0
-TOLERANCE_NEW = int(os.environ.get("TOLERANCE_NEW", "40"))  # v3.26.0: 环境变量可覆盖
+TOLERANCE_NEW = int(os.environ.get("TOLERANCE_NEW", "40"))  # v3.26.1: 环境变量可覆盖
 
 if STRICT:
     ok = (len(missing) == 0 and len(new) == 0)

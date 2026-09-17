@@ -12,13 +12,13 @@ license: MIT
 compatibility: Requires a repository workspace and command execution; stack-specific build, test, and migration commands are resolved from a frozen runtime profile.
 metadata:
   author: xingyunliushui
-  version: "3.26.0"
+  version: "3.26.1"
   updated: "2026-09-17"
   tags: "prd,detailed-design,development,migration,phase-gate,checkpoint-recovery,agent-skills"
 allowed-tools: read write exec glob grep task
 ---
 
-# devflow — PRD to production（v3.26.0）
+# devflow — PRD to production（v3.26.1）
 
 本文件是唯一权威入口。历史迁移只查 `references/CHANGELOG.md`；命令、阶段、角色和模板按需加载，不在入口重复。
 

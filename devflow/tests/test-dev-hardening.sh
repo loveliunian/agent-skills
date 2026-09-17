@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test-dev-hardening.sh · v3.26.0 开发面硬化回归
+# test-dev-hardening.sh · v3.26.1 开发面硬化回归
 # 钉住本轮修复的六个缺陷（修复前均可复现）：
 #   1) check-code-standards.sh：单服务目录用法假绿（扫 0 文件报 PASS）+ --strict 单独用
 #      法把 flag 吃成目录 + 零服务目录拒绝静默 PASS；
@@ -198,7 +198,7 @@ else
 fi
 
 # ---------- 7. check-entity-db-consistency 多表回归 ----------
-# v3.26.0（回归修复）: 单 SQL 文件多 CREATE TABLE 时 fields 解析缩进曾漂移到表循环外
+# v3.26.1（回归修复）: 单 SQL 文件多 CREATE TABLE 时 fields 解析缩进曾漂移到表循环外
 # （每文件只记录最后一个表）；JPA @Table 支持与约束行过滤同场验证。
 W7="$TMP/entity"
 mkdir -p "$W7/backend/order-service/src/main/java/com/x/entity" \
@@ -232,7 +232,7 @@ printf '%s\n' "$out" | grep -q "全部一致" \
   || bad "entity/DDL 对账误报（$(printf '%s' "$out" | grep -E 'WARN|不在' | tr '\n' ' ')）"
 
 # ---------- 8. p3cd 收据 EXIT_CODE 与真实退出码一致性 ----------
-# v3.26.0: 收据块内的 jq 缺失 p0 发生在旧版 EXIT_CODE 计算之后——"命令失败、收据成功"
+# v3.26.1: 收据块内的 jq 缺失 p0 发生在旧版 EXIT_CODE 计算之后——"命令失败、收据成功"
 # 矛盾。构造前置全过 + 剥离 jq 的 PATH，钉住 EXIT_CODE=1 与 rc=1 一致。
 W8="$TMP/receipt"
 mkdir -p "$W8/backend/order-service/src/main/java/com/x/controller" "$W8/.devflow/f1" "$W8/docs/评审"

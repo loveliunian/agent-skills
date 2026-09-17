@@ -46,7 +46,7 @@ for f in glob.glob(java_glob, recursive=True):
     except Exception:
         continue
     # @TableName("xxx")（MyBatis-Plus）或 @Table(name="xxx") / @Table("xxx")（JPA）
-    # v3.26.0: 补 JPA @Table 支持——phases/03 模板即 JPA 栈，旧版只认 @TableName，
+    # v3.26.1: 补 JPA @Table 支持——phases/03 模板即 JPA 栈，旧版只认 @TableName，
     # JPA 实体全部跳过（Entity 数恒偏小，一致性报告失真）。
     m = re.search(r'@TableName\s*\(["\']([^"\']+)["\']', c)
     if not m:
@@ -63,7 +63,7 @@ for f in glob.glob(java_glob, recursive=True):
 
 # 2) 抽取 DDL CREATE TABLE
 tables = {}  # table -> {fields:set, file:str}
-# v3.26.0: 过滤约束关键字行——PRIMARY KEY / CONSTRAINT / FOREIGN KEY / INDEX 等
+# v3.26.1: 过滤约束关键字行——PRIMARY KEY / CONSTRAINT / FOREIGN KEY / INDEX 等
 # 行首词曾被当作字段名（"primary"/"constraint" 混入 diff，纯噪音）。
 _constraint_words = {'primary', 'key', 'constraint', 'unique', 'foreign',
                      'check', 'index', 'create', 'using', 'on', 'exclude', 'like'}
@@ -73,7 +73,7 @@ for f in glob.glob(sql_glob, recursive=True):
     except Exception:
         continue
     # 简化：CREATE TABLE name ( ... );
-    # v3.26.0（回归修复）: fields 解析必须在 CREATE TABLE 匹配循环内——此前缩进
+    # v3.26.1（回归修复）: fields 解析必须在 CREATE TABLE 匹配循环内——此前缩进
     # 漂移导致每个文件只记录最后一个匹配表（多表项目报告失真，test-dev-hardening 钉住）。
     for m in re.finditer(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)\s*\(([^;]*)\)', c, re.IGNORECASE | re.DOTALL):
         table = m.group(1).lower()

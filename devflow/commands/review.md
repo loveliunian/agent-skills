@@ -1,6 +1,6 @@
 ---
 name: review
-version: "3.26.0"
+version: "3.26.1"
 description: >-
   Use when reviewing code changes for correctness, security, and style, mentions
   "/review", "code review", "代码审查", "review this", "cr", or "check the code".

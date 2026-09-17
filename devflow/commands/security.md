@@ -1,6 +1,6 @@
 ---
 name: security
-version: "3.26.0"
+version: "3.26.1"
 description: >-
   Use when auditing security vulnerabilities, permission gaps, or data exposure risks, mentions
   "/security", "security audit", "安全审计", "权限审计", "auth", "authorization", or "vulnerability scan".
@@ -29,7 +29,7 @@ allowed-tools:
 /security <feature> --service=<path-or-name>
 ```
 
-`--service` 支持两种取值（v3.26.0 统一契约）：
+`--service` 支持两种取值（v3.26.1 统一契约）：
 
 - 服务目录路径（相对项目根）：`backend/payment-service`（推荐，显式）
 - 裸服务名：`payment-service`——仅当 `backend/payment-service` 存在时等价

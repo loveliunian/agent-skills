@@ -85,7 +85,7 @@ check_config_default_secret() {
   section "§2 配置分散（密钥默认值）"
   while IFS= read -r yml; do
     # 找出 :${VAR:default} 形式且 default 包含密钥相关字样
-    # v3.26.0: awk 正则修复——/(password|...)/i 是 PCRE 语法，BSD awk 容忍但 gawk
+    # v3.26.1: awk 正则修复——/(password|...)/i 是 PCRE 语法，BSD awk 容忍但 gawk
     # (Linux 默认) 语法错误 + set -e 中断；改用 tolower() 便携写法。
     awk -v f="$yml" '
       /\$\{[A-Z_]+:.*\}/ {
@@ -152,7 +152,7 @@ check_security_hardcoded_password() {
   section "§4 安全（部署脚本硬编码密码）"
   for sh in "$DEPLOY"/*.sh; do
     [ -f "$sh" ] || continue
-    # v3.26.0: 移除历史真实口令字面量（含个人信息不宜内置）；保留通用弱口令样本 +
+    # v3.26.1: 移除历史真实口令字面量（含个人信息不宜内置）；保留通用弱口令样本 +
     # 新增通用 KEY=VALUE 硬编码模式（覆盖任意 8+ 字符明文赋值，不依赖枚举）。
     if grep -E "(password123|admin123|secret123)" "$sh" >/dev/null 2>&1; then
       critical "D-29 ❌ 部署脚本硬编码密码：$sh"
@@ -172,7 +172,7 @@ check_security_hardcoded_password() {
 check_security_csrf_consistency() {
   section "§4 安全（CSRF 策略一致性）"
   # 跨服务扫描 SecurityConfig
-  # v3.26.0: 正则修复——旧 `grep -q "csrf.disable"` 永不匹配 Spring 实际写法
+  # v3.26.1: 正则修复——旧 `grep -q "csrf.disable"` 永不匹配 Spring 实际写法
   # `csrf().disable()`（f 与 . 之间有括号）→ 禁用侧永远不可见，检查形同虚设。
   csrf_on=0
   csrf_off=0
@@ -255,7 +255,7 @@ check_perf_n_plus_one() {
   section "§8 性能（N+1 查询）"
   # v3.16.4（N25-P3-1）: 存在性判断同样用 $SCRIPT_DIR——cwd 相对路径在项目根
   # 恒不存在 → N+1 检查静默跳过仍报 PASS（假绿）
-  # v3.26.0: 命中判定修复——旧 `grep -q "N+1"` 连检测器自身的 "PASS（0 处）"
+  # v3.26.1: 命中判定修复——旧 `grep -q "N+1"` 连检测器自身的 "PASS（0 处）"
   # 输出都命中（恒 warn 噪音）；且 D-?? 为未替换占位符，改用文档 §8.1 编号。
   if [ -f "$SCRIPT_DIR/detect-n-plus-one.sh" ]; then
     _n1_out=$(bash "$SCRIPT_DIR/detect-n-plus-one.sh" "$BACKEND" 2>&1 || true)
