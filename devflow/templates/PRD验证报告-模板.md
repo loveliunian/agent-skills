@@ -1,10 +1,10 @@
 ---
 name: PRD验证报告-模板
-version: "3.25.0"
+version: "3.26.0"
 description: PRD 验证报告模板（P4 阶段，PRD 逐条 vs 实现证据）
 ---
 
-> **v3.25.0 结构化产物**：本产物已 JSON 化——按 `schemas/prd-validation.schema.json` 填 `.devflow/<feature>/prd-validation.json`，经 `python3 scripts/df_pipeline.py prd-validation` 校验后确定性生成本文档（样例见 `examples/structured/prd-validation.sample.json`）；校验失败不渲染、不进 Gate。本模板保留为语义参考。
+> **v3.25.2 结构化产物**：本产物已 JSON 化——按 `schemas/prd-validation.schema.json` 填 `.devflow/<feature>/prd-validation.json`，经 `python3 scripts/df_pipeline.py prd-validation` 校验后确定性生成本文档（样例见 `examples/structured/prd-validation.sample.json`）；校验失败不渲染、不进 Gate。本模板保留为语义参考。
 
 # PRD 验证报告模板 - {FeatureName}
 

@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "devflow/schemas/security.schema.json",
+  "title": "devflow P3c 安全审计结构化产物（security.json）",
+  "description": "P3c 安全审计的机器可读正本。写操作覆盖率、发现清单（severity/status/evidence 逐条）、豁免与报告绑定全部结构化——手写审计报告由本 JSON 经 df_pipeline.py security 渲染派生，Gate（p3_security_perf_gate.sh）失败关闭校验。P0/P1 级发现必须 CLOSED（或 WAIVED 且绑定 waiver 依据），OPEN 即阻断。",
+  "type": "object",
+  "required": [
+    "feature",
+    "generated_at",
+    "template",
+    "write_operations_total",
+    "preauthorize_coverage",
+    "findings",
+    "report_path"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "feature": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "template": {
+      "type": "object",
+      "required": [
+        "id",
+        "version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "const": "安全审计-模板"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "write_operations_total": {
+      "type": "integer",
+      "description": "写操作端点总数（POST/PUT/DELETE/PATCH）——0 表示本 feature 无写操作"
+    },
+    "preauthorize_coverage": {
+      "type": "integer",
+      "description": "@PreAuthorize（或等价授权适配器）覆盖率（0-100）"
+    },
+    "findings": {
+      "type": "array",
+      "description": "安全发现清单；无发现须 zero_results 声明 findings 为空",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "severity",
+          "status",
+          "evidence"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^SEC-[0-9]+$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "severity": {
+            "enum": [
+              "P0",
+              "P1",
+              "P2"
+            ]
+          },
+          "status": {
+            "enum": [
+              "CLOSED",
+              "WAIVED",
+              "OPEN"
+            ],
+            "description": "P0/P1 必须 CLOSED；WAIVED 必须绑定 waiver_ref 且 waiver_file 存在"
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "description": "证据（文件#符号 / 修复提交 / 复测命令）"
+          },
+          "waiver_ref": {
+            "type": "string",
+            "description": "status=WAIVED 时必填：豁免依据（工单/批准记录/文件:行）"
+          }
+        }
+      }
+    },
+    "waiver_file": {
+      "type": "string",
+      "description": "豁免声明文件（含 P3CD_SECURITY=NOT_APPLICABLE 或逐条豁免记录）；存在 WAIVED 发现时必填"
+    },
+    "report_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "渲染/审计报告路径（须真实存在）"
+    },
+    "zero_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "reason"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
+  "x-zeroable": [
+    "findings"
+  ]
+}

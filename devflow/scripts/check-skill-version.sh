@@ -20,6 +20,16 @@ check_file() {
 
 check_file "$ROOT/SKILL.md"
 check_file "$ROOT/concepts/PRD实施方法论.md"
+# v3.26.0: 版本门禁扩域到 references/——此前只查 concepts/commands/phases/subagents，
+# references 带 frontmatter 的 md 版本漂移漏报（Release Audit 正确阻断但轻门禁
+# 误报 PASS，两道门禁口径不一致）；对齐 release-audit.sh 口径：递归扫描（含 profiles/），
+# 且只要求带 frontmatter（首行 ---）的文件携带版本（structured-artifacts.md 等无
+# frontmatter 的活跃文档不强制）。标题扫描不扩到 references——其标题常含历史标记
+# （如 windows-compatibility.md「v3.16.0 重写」），release-audit 亦不扫 references
+# 标题，扩了反而制造误报。
+while IFS= read -r file; do
+  [ -n "$file" ] && check_file "$file"
+done < <(find "$ROOT/references" -name '*.md' -type f -exec sh -c 'for f; do head -1 "$f" | grep -qx -- "---" && echo "$f"; done' _ {} +)
 for dir in commands phases subagents; do
   for file in "$ROOT/$dir"/*.md; do
     [ -f "$file" ] && check_file "$file"

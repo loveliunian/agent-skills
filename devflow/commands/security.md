@@ -1,6 +1,6 @@
 ---
 name: security
-version: "3.25.0"
+version: "3.26.0"
 description: >-
   Use when auditing security vulnerabilities, permission gaps, or data exposure risks, mentions
   "/security", "security audit", "安全审计", "权限审计", "auth", "authorization", or "vulnerability scan".
@@ -25,14 +25,20 @@ allowed-tools:
 
 ```
 /security <feature>
-/security <feature> --scope=<path>
+/security <feature> --service <path-or-name>
+/security <feature> --service=<path-or-name>
 ```
+
+`--service` 支持两种取值（v3.26.0 统一契约）：
+
+- 服务目录路径（相对项目根）：`backend/payment-service`（推荐，显式）
+- 裸服务名：`payment-service`——仅当 `backend/payment-service` 存在时等价
 
 ## 示例
 
 ```
 /security m-03-basic-library
-/security payment-system --scope=backend/payment-service
+/security payment-system --service backend/payment-service
 ```
 
 ## 命名约定
@@ -147,7 +153,20 @@ Gate（强制）
 
 ## 输出
 
-- `docs/评审/<feature>-安全审计报告.md`
+- `docs/评审/<feature>-安全审计报告.md`——**由 JSON 正本渲染**（见下）
+
+### 结构化产物层（v3.25.2 · 失败关闭）
+
+审计结论先落结构化正本，再渲染为报告，最后进 Gate：
+
+1. 按 `schemas/security.schema.json` 填 `.devflow/<feature>/security.json`：
+   `write_operations_total` / `preauthorize_coverage` / `findings[]`（每条
+   id=SEC-n、severity、status、evidence；P0/P1 必须 CLOSED，WAIVED 须绑定
+   `waiver_ref` + `waiver_file`）/ `report_path`；
+2. 渲染：`python3 "$SKILL_ROOT/scripts/df_pipeline.py" security \
+   --input .devflow/<feature>/security.json \
+   --out docs/评审/<feature>-安全审计报告.md`（校验失败不渲染）；
+3. `p3_security_perf_gate.sh` 失败关闭校验该 JSON，收据绑定其 SHA 并纳入证据树。
 
 ## 自检命令
 

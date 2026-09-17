@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# .cursor/skills/devflow/hooks/pre-commit-devflow.sh
+# devflow pre-commit hook（安装源：skill 仓库 hooks/pre-commit-devflow.sh）
 # Windows / macOS / Linux 通用
 # 用途：在 commit 前自动跑 v2.1 完成度自检的核心 5 项，强制开发者不可绕过。
 #
 # 安装（开发者）：
-#   cp .cursor/skills/devflow/hooks/pre-commit-devflow.sh .git/hooks/pre-commit
+#   cp <skill-仓库>/hooks/pre-commit-devflow.sh .git/hooks/pre-commit
 #   chmod +x .git/hooks/pre-commit
 #
 # 行为：
 #   - 仅在 backend/ 或 frontend/ 文件改动时触发
 #   - 跑 5 项核心 grep + 1 项跨平台兼容性检查
 #   - 任一 FAIL = exit 1，commit 被阻止
-#   - SKIP 环境变量：SKIP_DEVFLOW_AUDIT=1 可绕过（CI 用）
+#   - SKIP 环境变量：SKIP_DEVFLOW_AUDIT=1 可跳过本检查（CI 用；等效显式豁免，留痕自负）
 #   - 平台：Git Bash / WSL / macOS Terminal / Linux 通用（PowerShell / CMD 不支持）
 
 set +e  # 禁用 errexit（避免 grep 0 匹配中断脚本）
@@ -145,7 +145,7 @@ echo ""
 echo "[devflow-audit] 通过: $PASSED, 失败: $FAILED"
 
 if [ "$FAILED" -gt 0 ]; then
-  echo -e "${RED}[devflow-audit] 阻塞 commit。请修复后重试，或 SKIP_DEVFLOW_AUDIT=1 git commit --no-verify 绕过。${NC}"
+  echo -e "${RED}[devflow-audit] 阻塞 commit。请修复后重试；确需豁免：SKIP_DEVFLOW_AUDIT=1 git commit（显式豁免，留痕自负）。${NC}"
   exit 1
 fi
 

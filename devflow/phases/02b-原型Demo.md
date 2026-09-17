@@ -1,6 +1,6 @@
 ---
 name: phase-2b-demo-gate
-version: "3.25.0"
+version: "3.26.0"
 description: >-
   Demo gate——先原型确认再写正式代码。
   在 P2 详细设计后、P3 编码前插入"原型验证"门。
@@ -230,7 +230,7 @@ P0 → P0b → P1 → P2 → P2a（五角色评审） → P2b（Demo Gate） →
 
 ---
 
-## 结构化产物层（v3.25.0）
+## 结构化产物层（v3.25.2）
 
 本阶段产物已结构化：AI 按 `schemas/demo-signoff.schema.json`（样例 `examples/structured/demo-signoff.sample.json`）填 `.devflow/<feature>/demo-signoff.json`，再跑管线校验并确定性渲染原型确认文档——KUF ≥3 且逐条走查、原型文件实存（docs/原型/ 反查）、PO 结论明确、签字齐备，全部机器校验后才渲染；**校验失败不渲染、不进 Gate**。
 

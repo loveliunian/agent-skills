@@ -1,6 +1,6 @@
 ---
 name: db-reserved-words
-version: "3.25.0"
+version: "3.26.0"
 description: >-
   数据库关键字规避规则与各数据库关键字清单（P2 详设表/字段命名必读）。
   配合 phases/02-详细设计.md 与 s2 设计覆盖率 Gate 使用。

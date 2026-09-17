@@ -19,16 +19,18 @@
 
 set -uo pipefail
 
-SERVICE_DIR="${1:-backend}"
+# v3.26.0: 参数解析修复——旧版 SERVICE_DIR="${1:-backend}" 会把 --strict 吃成目录
+# （文档用法 `--strict` 单独使用即报"目录不存在：--strict"）；flag 与位置参数分离。
+SERVICE_DIR=""
 STRICT=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --strict) STRICT=1 ;;
-    backend)  SERVICE_DIR="$1" ;;
     *)        SERVICE_DIR="$1" ;;
   esac
   shift
 done
+SERVICE_DIR="${SERVICE_DIR:-backend}"
 
 GREEN='\033[32m'; RED='\033[31m'; YELLOW='\033[33m'; NC='\033[0m'
 ok()   { echo -e "${GREEN}[OK]${NC} $*"; }
@@ -61,11 +63,32 @@ fail_count = 0
 warn_count = 0
 ok_count = 0
 
+# v3.26.0: 服务根解析修复——旧 glob `{base}/*/src/main/java/...` 假定 base 是多模块根，
+# 传单服务目录（文档用法）时匹配 0 个文件却报"全部 PASS"（假绿）。
+# 现在：base 本身是服务目录（含 src/main/java）→ 单服务口径；否则按多模块展开；
+# 两者皆无 → fail-closed 报错退出，不再静默 PASS。
+def service_roots(base):
+    roots = []
+    if os.path.isdir(os.path.join(base, 'src', 'main', 'java')):
+        roots.append(base)
+    for d in sorted(glob.glob(f'{base}/*/src/main/java')):
+        roots.append(os.path.dirname(os.path.dirname(os.path.dirname(d))))
+    return roots
+
+roots = service_roots(base)
+if not roots:
+    print(f'[FAIL] 未发现服务目录（{base} 下既无 src/main/java 也无 */src/main/java）——拒绝零文件假绿')
+    sys.exit(1)
+print(f'  服务根: {len(roots)} 个')
+
 # 1) 行数检查
 total_services = 0
 over_threshold = []
-for f in glob.glob(f'{base}/*/src/main/java/**/controller/*Controller.java', recursive=True) + \
-            glob.glob(f'{base}/*/src/main/java/**/service/impl/*ServiceImpl.java', recursive=True):
+scan_globs = []
+for r in roots:
+    scan_globs += glob.glob(f'{r}/src/main/java/**/controller/*Controller.java', recursive=True)
+    scan_globs += glob.glob(f'{r}/src/main/java/**/service/impl/*ServiceImpl.java', recursive=True)
+for f in scan_globs:
     try:
         line_count = sum(1 for _ in open(f, encoding='utf-8', errors='ignore'))
     except Exception:
@@ -93,7 +116,10 @@ print()
 # 2) System.out.println 检查
 print('  2. System.out.println 检查（业务代码禁用）')
 sop_files = []
-for f in glob.glob(f'{base}/*/src/main/java/**/*.java', recursive=True):
+sop_globs = []
+for r in roots:
+    sop_globs += glob.glob(f'{r}/src/main/java/**/*.java', recursive=True)
+for f in sop_globs:
     if '/test/' in f or '/Test/' in f:
         continue
     try:

@@ -238,7 +238,10 @@ EV_REPORT="$REPORT_PATH"
 EV_DESIGN="$DESIGN_PATH"
 # v3.16.11（P1-4 附）: criteria 纳入证据树——验收标准是 P3b 覆盖检查的对账源
 #（此前只绑 report+design，删 criteria 后收据重验无感知）
-EV_CRITERIA="docs/requirements/${FEATURE}-acceptance-criteria.md"
+# v3.26.0: 复用已解析的 CRITERIA_PATH——旧版硬编码英文回退路径，中文路径项目
+#（v3.22.0 起默认命名）证据文件不存在 → receipt_evidence_tree 失败 → P3b 永远
+# 产不出收据（test-chinese-paths 未覆盖 p3b，故未被发现）。
+EV_CRITERIA="$CRITERIA_PATH"
 command -v jq >/dev/null 2>&1 || { echo "[FATAL] jq 不可用——收据契约无法生成，拒绝产出无绑定收据" >&2; exit 2; }
 EVIDENCE_PATHS_JSON=$(jq -cn --arg a "$EV_REPORT" --arg b "$EV_DESIGN" --arg c "$EV_CRITERIA" '[$a, $b, $c]')
 # v3.16.2: 结果守卫——jq 损坏时 JSON 为空同样拒绝

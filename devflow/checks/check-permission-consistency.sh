@@ -14,7 +14,7 @@
 #
 # 容忍度：
 #   - doc-code 缺（文档多代码少）：0 个（**必须修**）
-#   - code-doc 缺（代码多文档少）：≤40 个（auto 生成会随代码扩展）
+#   - code-doc 缺（代码多文档少）：≤ TOLERANCE_NEW（默认 40，环境变量可覆盖；auto 生成随代码扩展）
 #
 # 用法：
 #   bash "$SKILL_ROOT/checks/check-permission-consistency.sh"          # 检查
@@ -39,6 +39,8 @@ case "${1:-}" in
 esac
 export DOC_FILE CONTROLLER_GLOB
 export STRICT
+# v3.26.0: code-doc 容忍度可配置（旧 40 硬编码，大仓/首轮治理无法调整）
+export TOLERANCE_NEW="${TOLERANCE_NEW:-40}"
 
 echo "============================================="
 echo "  权限码一致性检查"
@@ -66,6 +68,9 @@ def is_placeholder(p):
 STRICT = os.environ.get("STRICT", "0") == "1"
 
 # 1. 从代码抽取
+# v3.26.0: 权限码提取修复——
+#   a) 旧正则只认 hasAuthority(...)，hasAnyAuthority('a','b') 的全部参数漏抽
+#      （多权限写法在代码侧不可见 → 误报 missing）；现对两种写法的实参列表全量抽取。
 code_perms = set()
 for f in glob.glob(os.environ.get("CONTROLLER_GLOB", "backend/*/src/main/java/**/*.java"), recursive=True):
     if not f.endswith("Controller.java"): continue
@@ -73,16 +78,19 @@ for f in glob.glob(os.environ.get("CONTROLLER_GLOB", "backend/*/src/main/java/**
         c = open(f, encoding="utf-8").read()
     except Exception:
         continue
-    for m in re.finditer(r"hasAuthority\(['\"]([^'\"]+)['\"]\)", c):
-        p = m.group(1)
-        if not is_placeholder(p) and ":" in p and len(p) > 5:
-            code_perms.add(p)
+    for m in re.finditer(r"has(?:Any)?Authority\(([^)]*)\)", c):
+        for q in re.finditer(r"['\"]([^'\"]+)['\"]", m.group(1)):
+            p = q.group(1)
+            if not is_placeholder(p) and ":" in p and len(p) > 5:
+                code_perms.add(p)
 
 # 2. 从文档抽取
+# v3.26.0: 文档正则补数字段——旧 `[A-Za-z]+:...:...` 不匹配 order:v2:list 等
+# 含数字权限码（文档侧不可见 → 永远计入 new 或漏对账）。
 doc_perms = set()
 try:
     c = open(DOC_FILE, encoding="utf-8").read()
-    for m in re.finditer(r"`([A-Za-z]+:[A-Za-z_-]+:[A-Za-z_-]+)`", c):
+    for m in re.finditer(r"`([A-Za-z0-9]+:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+)`", c):
         p = m.group(1)
         if not is_placeholder(p):
             doc_perms.add(p)
@@ -116,7 +124,7 @@ print()
 
 # 4. 判定
 TOLERANCE_MISSING = 0   # 文档多代码少：必须 0
-TOLERANCE_NEW = 40      # 代码多文档少：≤40 容忍
+TOLERANCE_NEW = int(os.environ.get("TOLERANCE_NEW", "40"))  # v3.26.0: 环境变量可覆盖
 
 if STRICT:
     ok = (len(missing) == 0 and len(new) == 0)

@@ -12,13 +12,13 @@ license: MIT
 compatibility: Requires a repository workspace and command execution; stack-specific build, test, and migration commands are resolved from a frozen runtime profile.
 metadata:
   author: xingyunliushui
-  version: "3.25.0"
+  version: "3.26.0"
   updated: "2026-09-17"
   tags: "prd,detailed-design,development,migration,phase-gate,checkpoint-recovery,agent-skills"
 allowed-tools: read write exec glob grep task
 ---
 
-# devflow — PRD to production（v3.25.0）
+# devflow — PRD to production（v3.26.0）
 
 本文件是唯一权威入口。历史迁移只查 `references/CHANGELOG.md`；命令、阶段、角色和模板按需加载，不在入口重复。
 
@@ -73,11 +73,13 @@ allowed-tools: read write exec glob grep task
 
 - 给人看的过程性文档默认用**中文名**：目录如 `docs/需求`、`docs/详细设计`、`docs/评审`、`docs/测试`、`docs/测试用例`、`docs/发布`、`docs/复盘`；文件如 `<feature>-需求澄清.md`、`<feature>-验收点.md`、`<feature>-详细设计.md`、`<feature>-终验报告.md`、`<feature>-部署记录.md`。完整中英映射见 `scripts/devflow_paths.sh`。
 - 所有 Gate **中文优先、英文回退**：历史英文路径（`docs/requirements/`、`<feature>-design.md` 等）继续被接受，在途项目无需迁移。
-- 机器契约层**不翻译、不可改名**：`.devflow/` 下的 `receipt.txt`、`*.state.json`、`<kind>.json`（全阶段结构化产物，v3.25.0）、`*.tsv`、`*.env`、`skip-log.txt`、`feedback/`、`review-sessions/`、`gates/<PHASE>/`，以及 stage 名（P0–P10）与 ASCII feature 标识；证据型 `*-implementation-evidence.tsv`、`*-p4-results.tsv`、`*-unit-coverage.html`、`*-migration-evidence.env` 等同样保留英文。
+- 机器契约层**不翻译、不可改名**：`.devflow/` 下的 `receipt.txt`、`*.state.json`、`<kind>.json`（全阶段结构化产物，v3.25.2）、`*.tsv`、`*.env`、`skip-log.txt`、`feedback/`、`review-sessions/`、`gates/<PHASE>/`，以及 stage 名（P0–P10）与 ASCII feature 标识；证据型 `*-implementation-evidence.tsv`、`*-p4-results.tsv`、`*-unit-coverage.html`、`*-migration-evidence.env` 等同样保留英文。
 
-### 全阶段结构化产物（v3.25.0）
+### 全阶段结构化产物（v3.25.2）
 
-每个环节的 md 产物都有 JSON 正本：按 `schemas/<kind>.schema.json` 填 `.devflow/<feature>/<kind>.json`，经 `python3 scripts/df_pipeline.py <kind>` 校验并渲染后进阶段 Gate；失败不渲染、不进 Gate；空集合必须 `zero_results` 声明。kind 与阶段对应关系见上表及各 phase 文档「结构化产物层」一节（共 19 种，含 design/verification/demo-signoff/sharing）。
+每个环节的 md 产物有 JSON 正本，按 schema 契约填 `.devflow/<feature>/<kind>.json`，经 `df_pipeline.py <kind>` 校验渲染进 Gate，空集合须 `zero_results` 声明。kind↔阶段映射见上表。
+
+Gate 强制矩阵（P0/P2/P3c/P3d/P6）见 `references/structured-artifacts.md`。
 
 ## P0-P10 单轨
 

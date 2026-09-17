@@ -1,12 +1,98 @@
 ---
 name: changelog
-version: "3.25.0"
+version: "3.26.0"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.25.0 Migration Guide
+# Changelog — devflow v1 → v3.26.0 Migration Guide
+
+## v3.26.0 (2026-09-17) — 开发面硬化：修复 4 处假绿/死检查 + P3b 中文路径阻断
+
+本版全部修复项均来自对 skill 自身的深度评审（探针先行、逐项复现），并新增
+`tests/test-dev-hardening.sh` 回归钉住。
+
+**假绿（检查失效却报 PASS）修复**：
+
+- **check-code-standards.sh**：文档声明的单服务目录用法扫 0 文件却报"全部 PASS"——
+  服务根解析重写（base 是服务目录→单服务口径；多模块根→展开；皆无→fail-closed 拒绝
+  零文件假绿）；`--strict` 单独用法不再被 `${1:-backend}` 吃成目录名。
+- **detect-n-plus-one.sh**：同样的单服务用法假绿修复；检测模式补 JPA 风格
+  （`findById`/`getReferenceById`，phases/03 模板即 JPA 栈）；删除从未消费的
+  brace-matching 死代码，显式注明 30 行窗口启发式；零服务目录 fail-closed。
+- **p3_security_perf_gate.sh §5**：默认目录 `backend/src/main/java` 在多模块布局下
+  不存在 → 扫 0 文件报 PASS；现与 §1/§4 同口径在服务根/全树下递归扫描。
+- **check-arch-pitfalls.sh CSRF**：`grep "csrf.disable"` 永不匹配 Spring 实际写法
+  `csrf().disable()`（禁用侧永远不可见）→ 改为 `csrf\(\)\.disable` 正则。
+
+**阻断性 bug 修复**：
+
+- **p3_security_perf_gate.sh 收据矛盾**：收据块首即计算 `EXIT_CODE`，其后 jq 缺失/
+  证据树失败的 p0 让 FAIL 增加，收据却已冻结 `EXIT_CODE=0`（"命令失败、收据成功"，
+  审计重验即漂移）——移到块尾、全部 p0 之后计算。
+- **p3b_code_review_gate.sh**：证据树绑定的 criteria 路径硬编码英文回退路径，而
+  CRITERIA_PATH 已按中文优先解析 → 中文路径项目（v3.22.0 起默认命名）永远产不出
+  P3b 收据；改为复用解析结果（test-chinese-paths 此前未覆盖 p3b，已由新回归补上）。
+- **check-entity-db-consistency.sh 缩进回归**：单 SQL 文件多 CREATE TABLE 时 fields
+  解析漂移到表循环外（每文件只记录最后一个表，多表项目报告失真）——恢复循环内
+  解析；test-dev-hardening 新增多表用例钉住。
+- **references 版本对齐 + 版本门禁扩域**：references/ 下 10 个带 frontmatter 的 md
+  残留 v3.25.2（Release Audit FAIL=11 正确阻断，而 check-skill-version 轻门禁漏报）
+  ——全部升版，且 check-skill-version 的 frontmatter 与标题扫描扩到 references/
+  （两道门禁口径一致，同类漂移在轻门禁即拦截）。
+
+**检测能力增强**：
+
+- **p3_security_perf_gate.sh §4**：新增 MyBatis `${}` 拼接扫描（`*Mapper.xml` 任意
+  `${}` + Java `@Select/@Update/@Insert/@Delete` 注解含 `${}`），fail-closed P0；
+  正当用途行内标注 `mybatis-dollar: allow`。此前 MyBatis 项目第一大注入面零覆盖。
+- **p3_security_perf_gate.sh §2**：N+1 检测委托 `checks/detect-n-plus-one.sh`
+  （多行窗口 + JPA 模式）——旧单行 grep 对常规多行循环体全部漏检；>5 处 P0、1-5 处
+  WARN（与检测器容忍口径一致）；检测范围无服务目录（backend 缺失或无服务）走
+  NOT_APPLICABLE/waiver 判定，不误报超阈值。
+- **check-arch-pitfalls.sh §8**：N+1 命中判定修复（旧 `grep -q "N+1"` 连 PASS 输出
+  都命中→恒 warn 噪音）；`D-??` 占位符改文档编号 §8.1。
+- **check-permission-consistency.sh**：文档侧正则补数字段（`order:v2:list` 此前
+  永不匹配）；代码侧补 `hasAnyAuthority(...)` 全参量抽取；`TOLERANCE_NEW` 环境变量
+  可覆盖（旧 40 硬编码）。
+- **check-entity-db-consistency.sh**：补 JPA `@Table(name=...)` 支持（旧版只认
+  MyBatis-Plus `@TableName`，JPA 实体全部跳过）；DDL 字段抽取过滤
+  PRIMARY KEY/CONSTRAINT 等约束行（噪音）。
+
+**契约统一与可观测性**：
+
+- **`--service` 语义统一**（p3_security_perf_gate）：接受 `--service <v>` 与
+  `--service=<v>` 两种形式；裸服务名在 `backend/<name>` 存在时自动归一化为路径
+  （与 p3_completion 的服务名语义对齐）；commands/security.md 的 `--scope=` 幽灵
+  参数文档已修正。
+- **p3_completion_gate.sh**：menu-seed 检查在页面目录约定不匹配时不再无声跳过
+  （显式 p1 提示人工核对可达性）；前端 TODO/FIXME 可见化（p1，非阻塞，P3b 评审核对）
+  ——此前前端残留无任何 gate 覆盖。
+- **check-arch-pitfalls.sh §4**：`/(…)/i` PCRE 语法改 `tolower()` 便携写法
+  （gawk/Linux 语法错误 + set -e 中断）；移除部署脚本检查中的历史真实口令字面量，
+  换通用 KEY=VALUE 明文模式。
+- **secret-scan.sh**：`logs/`、`manifest/` 仅在扫描 skill 自身发布树时排除——扫用户
+  项目时同名目录不再形成盲区（日志恰是泄密高发面）。
+- **pre-commit-devflow.sh**：安装路径注释更新（旧 `.cursor/` 路径）；豁免提示与
+  实际机制对齐（SKIP env 即显式豁免，`--no-verify` 并非必需）。
+- **run-tests.sh**：并行模式默认开启（串行全量 ~45min；并行各组独立 mktemp 工作区，
+  2026-09-17 全绿验证）；`RUN_TESTS_PARALLEL=0` 回串行。
+
+## v3.25.2 (2026-09-17) — P3c/P3d 证据链加固 + 版本纪律
+
+- **P3 Gate 证据树 fail-closed**：缺 jq 不再静默降级（降级即审计失去对 security/performance JSON 的保护）——直接 P0 阻断。
+- **report_path 三重约束**：工作区内相对路径（拒绝绝对路径与 .. 越权）+ 真实落盘 + 与 `df_render` 从当前 JSON 的渲染产物逐字节一致（手工改动/双正本漂移即 P0）；实际报告路径纳入 EVIDENCE_PATHS_JSON 证据树，审计可重验。
+- **版本纪律**：全局升版 v3.25.2（此前 security/performance 命令与源码注释残留 v3.25.2 字样而主版本仍为 v3.25.1）。
+
+## v3.25.1 (2026-09-17) — 结构化正本接入 Gate + 正文质量 lint（评审问题修复）
+
+- **P0 悬空引用修复**：phases/02 与分文档模板引用的 `scripts/check_design_doc_quality.py` 实现为真实工具（DQ-001 交叉引用 / DQ-002 规则引用 / DQ-003 接口消费三类闭环，支持项目规则文件白名单），prompt-refs 回到 3 PASS / 0 FAIL。
+- **P0 Gate 接入 JSON 正本（失败关闭）**：`s0` §1b——acceptance.json 缺失/校验失败/与 Markdown 分母不一致即 P0，收据绑定 ACCEPTANCE_JSON_SHA256；phase-docs 新增不可绕过证明（112 → 116 PASS）。
+- **P3c/P3d 结构化层**：新增 security/performance schema+样例+validator 专项检查，p3_security_perf_gate 失败关闭接入并绑定 JSON SHA。
+- **P3c/P3d 闭环收口（评审二轮）**：df_render 新增 security/performance 渲染器（df_pipeline 两种 kind 端到端可用，P0）；/security、/performance 命令补「JSON 正本 → df_pipeline 渲染 → Gate」路线（P0）；P3cd 收据把报告与两种 JSON 纳入 EVIDENCE_PATHS_JSON 证据树，audit-receipts 重算树哈希——Gate 后替换 JSON 必 FAIL（P1，孤立 SHA 漏洞关闭）；check_response_time 重写为 performance.json 逐场景对账（实测 P95 必须出现在压测报告、阈值取自 JSON，废除固定 500ms 双事实源，P1）。
+
+- **声称对齐**：SKILL.md 改为精确的 Gate 强制矩阵（P0/P2/P3c/P3d/P6 已强制；其余 kind 管线已强制、Gate 分批接入）。
 
 ## v3.25.0 (2026-09-17) — 全阶段结构化产物（每个环节的 md 产物都有 JSON 契约）
 

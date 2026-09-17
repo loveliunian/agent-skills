@@ -57,17 +57,36 @@ import os, sys, re, glob, collections
 base = sys.argv[1]
 strict = int(sys.argv[2])
 
+# v3.26.0: 服务根解析修复——旧 glob `{base}/*/src/main/java/...` 假定 base 是多模块根，
+# 传单服务目录（文档用法）时匹配 0 个文件却报"0 处 PASS"（假绿）。
+# base 本身是服务目录 → 单服务口径；否则多模块展开；皆无 → fail-closed。
+import os
+def service_roots(base):
+    roots = []
+    if os.path.isdir(os.path.join(base, 'src', 'main', 'java')):
+        roots.append(base)
+    for d in sorted(glob.glob(f'{base}/*/src/main/java')):
+        roots.append(os.path.dirname(os.path.dirname(os.path.dirname(d))))
+    return roots
+
+roots = service_roots(base)
+if not roots:
+    print(f'[FAIL] 未发现服务目录（{base} 下既无 src/main/java 也无 */src/main/java）——拒绝零文件假绿')
+    sys.exit(1)
+
 # 1) 找所有 Service 实现类
 service_files = []
-for f in glob.glob(f'{base}/*/src/main/java/**/service/impl/*ServiceImpl.java', recursive=True):
-    service_files.append(f)
+for r in roots:
+    service_files += glob.glob(f'{r}/src/main/java/**/service/impl/*ServiceImpl.java', recursive=True)
 
 # 2) Mapper 单对象调用模式
-mapper_pattern = re.compile(r'\.(getById|selectById|selectOne|getOne|selectByMap)\s*\(')
+#    v3.26.0: 补 JPA 风格（findById/getReferenceById）——phases/03 模板即 JPA 栈，
+#    旧模式只认 MyBatis-Plus 命名，JPA 循环查单对象全部漏检。
+mapper_pattern = re.compile(r'\.(getById|selectById|selectOne|getOne|selectByMap|findById|getReferenceById)\s*\(')
 
 # 3) 只匹配 for(...){...} / while(...){...} 关键字循环（不含 stream / forEach）
-#    通过 brace 匹配取循环体
-loop_starts = []
+#    v3.26.0: 删除未使用的 brace-matching 死代码（body_lines 计算后从未消费），
+#    保留"循环起始行后 30 行窗口"启发式并显式注明。
 findings = []
 
 for f in service_files:
@@ -76,49 +95,9 @@ for f in service_files:
     except Exception:
         continue
     lines = content.split('\n')
-    # 找所有 for( / while( 起始行（必须有开括号，未闭合）
+    # 找所有 for( / while( 起始行；检测窗口 = 循环起始行后 30 行（启发式，需人工 review）
     for i, line in enumerate(lines):
-        # for (...)   或   while (...)
         if re.search(r'\b(for|while)\s*\(', line) and not re.search(r'\bforEach\s*\(|\bstream\s*\(', line):
-            # 计算本行括号深度
-            # 简化：从 i 开始往后读直到闭合 ... 内的 ) 与 {
-            j = i
-            depth_paren = 0
-            depth_brace = 0
-            found_open = False
-            body_lines = []
-            while j < len(lines):
-                l = lines[j]
-                if j == i:
-                    # 从 for 开始数
-                    for ch in l:
-                        if ch == '(':
-                            depth_paren += 1
-                            found_open = True
-                        elif ch == ')':
-                            depth_paren -= 1
-                else:
-                    # 在 for() 闭合之后进入 body
-                    if depth_paren == 0 and depth_brace == 0 and '{' in l and found_open:
-                        # 进入 body
-                        for ch in l[l.index('{'):]:
-                            if ch == '{': depth_brace += 1
-                            elif ch == '}':
-                                depth_brace -= 1
-                                if depth_brace == 0: break
-                        body_lines.append(l)
-                        j += 1
-                        continue
-                    # 同一行若有 { 也要算
-                    for ch in l:
-                        if ch == '{': depth_brace += 1
-                        elif ch == '}':
-                            depth_brace -= 1
-                            if depth_brace == 0: break
-                j += 1
-                if depth_paren <= 0 and depth_brace <= 0 and found_open:
-                    break
-            # 简单粗暴版：只取 for(...) 后 30 行内的 mapper 调用
             block = '\n'.join(lines[i:i+30])
             for m in mapper_pattern.finditer(block):
                 col = block[:m.start()].count('\n')

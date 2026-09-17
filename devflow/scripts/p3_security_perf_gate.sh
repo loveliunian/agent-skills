@@ -31,6 +31,8 @@ while [ "$#" -gt 0 ]; do
     # v3.15.8: 带值 flag 缺值时 shift 2 失败且不改位置参数（bash 语义），set -u 无 -e 吞错
     # → while 永真死循环（实测 3s 进程仍存活）。前置 $# 检查 fail-closed。
     --service) [ "$#" -ge 2 ] && [ "${2#-}" = "$2" ] || { echo "[ERR] --service requires a non-flag value" >&2; exit 2; }; SERVICE="$2"; shift 2 ;;
+    # v3.26.0: 接受 --service=<path> 等值形式（commands/security.md 历史示例用法）
+    --service=*) [ -n "${1#--service=}" ] || { echo "[ERR] --service requires a non-flag value" >&2; exit 2; }; SERVICE="${1#--service=}"; shift ;;
     --mode)    [ "$#" -ge 2 ] && [ "${2#-}" = "$2" ] || { echo "[ERR] --mode requires a non-flag value" >&2; exit 2; }; CHECK_MODE="$2"; shift 2 ;;
     --waiver)  [ "$#" -ge 2 ] && [ "${2#-}" = "$2" ] || { echo "[ERR] --waiver requires a non-flag value" >&2; exit 2; }; WAIVER_FILE="$2"; shift 2 ;;
     --skip=*) SKIP_CHECKS="${SKIP_CHECKS} ${1#--skip=}"; shift ;;
@@ -38,10 +40,18 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 case "$CHECK_MODE" in security|performance|full) ;; *) echo "[ERR] invalid mode: $CHECK_MODE"; exit 2 ;; esac
+# v3.26.0: SERVICE 归一化——裸服务名（如 payment-service）在 backend/<name> 存在时
+# 自动补全为路径，与 p3_completion_gate.sh 的服务名语义对齐（两种取值见 commands/security.md）。
+if [ -n "$SERVICE" ] && [ ! -d "$SERVICE" ] && [ -d "backend/$SERVICE" ]; then
+  SERVICE="backend/$SERVICE"
+  info "SERVICE 归一化为路径: $SERVICE"
+fi
 # v3.15.5: feature 白名单共享校验（devflow_feature.sh）——封堵路径穿越（../evil 写穿项目外）与 grep -E 正则注入
 source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
 # v3.22.0: 文档层中文化（中文优先、英文回退）
 source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
+# v3.25.2: 证据树绑定（receipt_evidence_tree）——P3cd 收据纳入报告与两种 JSON
+source "$SCRIPT_DIR/devflow_receipt.sh" 2>/dev/null || true
 devflow_feature_validate "$FEATURE" || exit 2
 REPORT_DIR="${WORK_DIR}/${FEATURE}"
 REPORT_FILE="${REPORT_DIR}/p3-security-perf-report.md"
@@ -101,6 +111,35 @@ check_n_plus_one() {
   echo ""; echo "=== §2 性能审计 — N+1 查询检测 ==="
   should_skip "n1" || should_skip "perf" && { not_applicable_or_fail PERFORMANCE "N+1 检查被跳过"; return; }
   local svc_dir="${SERVICE:-backend}"
+  # v3.26.0: 委托 checks/detect-n-plus-one.sh——旧单行 grep（for(...){...}.find 必须同行）
+  # 对常规多行循环体全部漏检；检测器支持多行窗口 + JPA findById。检测器 rc=1（>5 处）
+  # 或 strict 判 FAIL → P0；1-5 处 → WARN（与检测器容忍口径一致，waiver 可整项豁免）。
+  local n1_script="$SCRIPT_DIR/../checks/detect-n-plus-one.sh"
+  if [ -f "$n1_script" ]; then
+    local n1_out n1_rc
+    n1_out=$(bash "$n1_script" "$svc_dir" 2>&1); n1_rc=$?
+    # 检测器两层 fail-closed 出口：shell 层"目录不存在"（backend 缺失）与
+    # python 层"未发现服务目录"（目录在但无服务）——两者都不是 N+1 发现，
+    # 走 NOT_APPLICABLE 判定（waiver 豁免 / 无 waiver 则 P0），勿误报超阈值。
+    if printf '%s\n' "$n1_out" | grep -qE "未发现服务目录|目录不存在"; then
+      not_applicable_or_fail PERFORMANCE "N+1 检测范围无服务目录（${svc_dir}）"
+      return
+    fi
+    local n1_count
+    n1_count=$(printf '%s\n' "$n1_out" | sed -n 's/.*发现 \([0-9]\{1,\}\) 处潜在 N+1.*/\1/p' | tail -1)
+    n1_count="${n1_count:-0}"
+    echo "| N+1 可疑模式数 | $n1_count |" >> "$REPORT_FILE"
+    if [ "$n1_rc" -ne 0 ]; then
+      p0 "N+1 检测 FAIL：超容忍阈值（详见 detect-n-plus-one.sh 输出）"
+      printf '%s\n' "$n1_out" | grep -E '^\s+📄|^\s+L[0-9]+' | head -10 | sed 's/^/    /'
+    elif [ "$n1_count" -gt 0 ]; then
+      warn "N+1 可疑 ${n1_count} 处（≤5 容忍，建议优化；详见 detect-n-plus-one.sh 输出）"
+    else
+      ok "N+1 检测 PASS"
+    fi
+    return
+  fi
+  # 检测器缺失时回退旧单行 grep（保守降级，输出注明）
   local svcs
   svcs=$(find "$svc_dir" -name "*Service.java" -type f 2>/dev/null | grep -v '/test/' | head -30)
   [ -z "$svcs" ] && { not_applicable_or_fail PERFORMANCE "未找到 Service"; return; }
@@ -111,32 +150,57 @@ check_n_plus_one() {
     count=$(grep -cE "for[[:space:]]*\([^)]+\)[[:space:]]*\{[^}]*\.(find|get|select|load|query)" "$s" 2>/dev/null || true)
     [ "$count" -gt 0 ] && { suspicious=$((suspicious + 1)); warn "N+1 可疑: $s"; }
   done <<< "$svcs"
-  echo "| N+1 可疑模式数 | $suspicious |" >> "$REPORT_FILE"
+  echo "| N+1 可疑模式数 | ${suspicious}（单行回退模式） |" >> "$REPORT_FILE"
   [ "$suspicious" -eq 0 ] && ok "N+1 检测 PASS" || p0 "N+1 检测 FAIL：发现 $suspicious 处"
 }
 
 check_response_time() {
-  echo ""; echo "=== §3 性能审计 — API 响应时间 ==="
+  echo ""; echo "=== §3 性能审计 — API 响应时间（JSON 正本对账） ==="
   should_skip "response" || should_skip "perf" && { not_applicable_or_fail PERFORMANCE "响应时间检查被跳过"; return; }
-  # v3.22.0: 压测报告路径中英双语（docs/测试 优先，回退 docs/test）
-  local perf
-  perf="$(df_resolve_doc "$FEATURE" load_test .md test)"
-  [ -n "$perf" ] || perf="docs/test/${FEATURE}-load-test-report.md"
-  echo "| P95 | 见 $perf |" >> "$REPORT_FILE"
-  if [ -f "$perf" ]; then
-    local p95
-    # v3.15.5: 旧管道提取的第一个数字是字面 "P95" 里的 95——[ 95 -le 500 ] 恒真，阈值校验形同虚设；
-    # 且 ERE 无非贪婪 .*?。改为 sed 捕获 P95 标签后的首个数字（[[:space:]] 口径，BSD/GNU sed 通用）。
-    p95=$(sed -nE 's/.*P95[^0-9]*([0-9]+)[[:space:]]*ms.*/\1/p' "$perf" 2>/dev/null | head -1 || echo "")
-    if [ -n "$p95" ]; then
-      echo "| P95 实测 | ${p95}ms |" >> "$REPORT_FILE"
-      [ "$p95" -le 500 ] && ok "API P95 = ${p95}ms（< 500ms），PASS" || p0 "API P95 = ${p95}ms（> 500ms）"
-    else
-      p0 "压测报告未提供可解析 P95: $perf"
-    fi
-  else
-    not_applicable_or_fail PERFORMANCE "未找到压测报告: $perf"
+  # v3.25.2(P1)：以 performance.json 为唯一事实源——逐场景核对压测报告实测 P95
+  # 与 JSON 一致（双事实源消除）；阈值判定来自 JSON（v3.25.2 前的固定 500ms 已废），
+  # p95>threshold 的 PASS 由 df_validate check_performance 拦截，此处按场景断言 PASS。
+  local pj="${STATE_DIR:-.devflow}/${FEATURE}/performance.json"
+  if [ ! -f "$pj" ]; then
+    p0 "performance.json 缺失（结构化正本，先走 df_pipeline.py performance）"
+    return
   fi
+  echo "| 正本 | $pj |" >> "$REPORT_FILE"
+  local rt_out
+  rt_out=$( (unset LC_ALL; python3 - "$pj" <<'PYEOF'
+import json, re, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+rp = (d.get("report_path") or "").strip()
+try:
+    report = open(rp, encoding="utf-8", errors="replace").read()
+except OSError:
+    print(f"P0\treport_path 不可读: {rp}")
+    sys.exit(0)
+fail = 0
+for s in d.get("scenarios", []):
+    name, p95, thr, st = s.get("name"), s.get("p95_ms"), s.get("threshold_ms"), s.get("status")
+    line = f"P95 {p95} ms"
+    if line not in report:
+        print(f"P0\t场景「{name}」实测 {line} 未在压测报告找到（JSON 与报告双正本漂移）")
+        fail = 1
+        continue
+    if isinstance(p95, int) and isinstance(thr, int) and p95 > thr:
+        print(f"P0\t场景「{name}」p95={p95}ms 超冻结阈值 {thr}ms")
+        fail = 1
+        continue
+    print(f"OK\t场景「{name}」P95={p95}ms ≤ 阈值 {thr}ms，PASS")
+sys.exit(1 if fail else 0)
+PYEOF
+) ) || true
+  local row bad=0
+  while IFS= read -r row; do
+    [ -z "$row" ] && continue
+    case "$row" in
+      P0*) p0 "${row#P0	}"; bad=1 ;;
+      OK*) ok "${row#OK	}" ;;
+    esac
+  done <<< "$rt_out"
+  [ "$bad" -eq 0 ] && echo "| 场景对账 | 全部通过 |" >> "$REPORT_FILE"
 }
 
 check_sql_injection() {
@@ -147,12 +211,38 @@ check_sql_injection() {
   count=$( (find "$svc_dir" -name "*.java" -type f 2>/dev/null | grep -v '/test/' | xargs grep -lE "createQuery[[:space:]]*\([[:space:]]*[\"'].*\{|\.createNativeQuery" 2>/dev/null || true) | wc -l | tr -d ' ' )
   echo "| SQL 原生查询文件数 | $count |" >> "$REPORT_FILE"
   [ "$count" -eq 0 ] && ok "SQL 注入检测 PASS" || warn "发现 $count 处原生 SQL"
+  # v3.26.0: MyBatis ${} 拼接扫描（fail-closed）——MyBatis 项目第一大注入面此前零覆盖。
+  #   a) *Mapper.xml 中任意 ${param}；b) Java 注解 SQL @Select/@Update/@Insert/@Delete 含 ${}。
+  #   正当用途（白名单排序等）在该行写 `mybatis-dollar: allow` 并说明理由；waiver 可整项豁免。
+  local dollar_hits
+  # 注意：不用 case——macOS/Git Bash 3.2 的 $() 内多行 case 语法不受支持（windows-compatibility 契约）
+  dollar_hits=$( (find "$svc_dir" \( -name "*Mapper.xml" -o -name "*.java" \) -type f 2>/dev/null | grep -v '/test/' \
+    | while IFS= read -r _f; do
+        if [ "${_f%*Mapper.xml}" != "$_f" ]; then
+          grep -nE '\$\{' "$_f" 2>/dev/null
+        else
+          grep -nE '@(Select|Update|Insert|Delete)\(.*\$\{' "$_f" 2>/dev/null
+        fi
+      done | grep -v 'mybatis-dollar: allow' || true) )
+  if [ -n "$dollar_hits" ]; then
+    local dollar_n
+    dollar_n=$(printf '%s\n' "$dollar_hits" | grep -c . || true)
+    echo "| MyBatis \${} 拼接 | $dollar_n 处 |" >> "$REPORT_FILE"
+    p0 "MyBatis \${} 拼接注入风险：$dollar_n 处（改用 #{} 或白名单绑定；正当用途行内标注 mybatis-dollar: allow）"
+    printf '%s\n' "$dollar_hits" | head -10 | sed 's/^/    /'
+  else
+    echo "| MyBatis \${} 拼接 | 0 处 |" >> "$REPORT_FILE"
+    ok "MyBatis \${} 注入检测 PASS"
+  fi
 }
 
 check_sensitive_data() {
   echo ""; echo "=== §5 安全审计 — 敏感数据暴露 ==="
   should_skip "security" && { SKIP=$((SKIP+1)); return; }
-  local dto_dir="${SERVICE:-backend}/src/main/java"
+  # v3.26.0: dto_dir 修复——旧默认 "${SERVICE:-backend}/src/main/java" 在多模块布局下
+  # 等于 backend/src/main/java（不存在）→ 扫 0 文件却报 PASS（假绿）。现与 §1/§4 同口径，
+  # 在服务根（或 backend 全树）下递归找 DTO/VO。
+  local dto_dir="${SERVICE:-backend}"
   local count
   count=$( (find "$dto_dir" -type f \( -name "*DTO.java" -o -name "*VO.java" \) -exec grep -lE "password|secret|token|key" {} + 2>/dev/null || true) | wc -l | tr -d ' ' )
   echo "| 含敏感字段的 DTO 数 | $count |" >> "$REPORT_FILE"
@@ -166,10 +256,79 @@ main() {
   echo "══════════════════════════════════════════════════"
   { echo "# P3c+P3d 安全+性能 Gate 报告";
     echo "## Feature: $FEATURE | $(date -u +%Y-%m-%dT%H:%M:%SZ)"; echo ""; } > "$REPORT_FILE"
+  # ---------- v3.25.2(P1-b): 结构化产物层 security/performance JSON 失败关闭 ----------
+  # SKILL.md「全阶段结构化产物」契约的 P3c/P3d 落地：JSON 缺失或校验失败即 P0，
+  # 手写审计报告必须由 df_pipeline.py security/performance 从 JSON 正本渲染派生。
+  GATE_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+  STATE_DIR="${STATE_DIR:-.devflow}"
+  SECURITY_JSON="${STATE_DIR}/${FEATURE}/security.json"
+  PERFORMANCE_JSON="${STATE_DIR}/${FEATURE}/performance.json"
+  enforce_phase_json() {
+    local kind="$1" p="$2"
+    if [ ! -f "$p" ]; then
+      p0 "${kind}.json 缺失: ${p}——必须产出结构化审计正本（契约 schemas/${kind}.schema.json，管线 df_pipeline.py ${kind}，失败不渲染、不进 Gate）"
+      return 1
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+      p0 "${kind}.json 存在但 python3 不可用——结构化校验无法执行（失败关闭）"
+      return 1
+    fi
+    if ! (unset LC_ALL; python3 "${GATE_SCRIPT_DIR}/df_validate.py" --kind "$kind" --input "$p" --workspace . >/dev/null 2>&1); then
+      (unset LC_ALL; python3 "${GATE_SCRIPT_DIR}/df_validate.py" --kind "$kind" --input "$p" --workspace . 2>&1 | head -4 | sed 's/^/    /')
+      p0 "${kind}.json 校验失败——修复后重跑 df_pipeline.py ${kind} 再过 Gate"
+      return 1
+    fi
+    # v3.25.2：report_path 三重约束——①工作区内相对路径；②真实落盘；③与 df_render
+    # 从当前 JSON 的渲染产物逐字节一致（手工改动/双正本漂移即 P0；validate 不查，Gate 查）。
+    local rp rp_err
+    rp_err=$( (unset LC_ALL; python3 - "$p" <<'PYEOF'
+import json, os, sys
+rp = (json.load(open(sys.argv[1])).get("report_path") or "").strip()
+if not rp:
+    print("缺 report_path"); sys.exit(1)
+if os.path.isabs(rp):
+    print(f"必须是工作区内相对路径（得到绝对路径 {rp}）"); sys.exit(1)
+base = os.path.realpath(".")
+full = os.path.realpath(rp)
+if full != base and not full.startswith(base + os.sep):
+    print(f"越出工作区: {rp}"); sys.exit(1)
+if not os.path.isfile(full):
+    print(f"不存在: {rp}——必须由 df_pipeline.py 渲染落盘"); sys.exit(1)
+PYEOF
+) 2>&1) || true
+    if [ -n "$rp_err" ]; then
+      p0 "${kind}.json report_path 非法: $rp_err"
+      return 1
+    fi
+    rp=$( (unset LC_ALL; python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("report_path",""))' "$p" 2>/dev/null) || true)
+    # 渲染一致性：report_path 必须与 df_render 从当前 JSON 的输出逐字节一致
+    local expect
+    expect=$(mktemp -t p3render.XXXXXX)
+    if ! (unset LC_ALL; python3 "${GATE_SCRIPT_DIR}/df_render.py" "$kind" --input "$p" --out "$expect" >/dev/null 2>&1); then
+      p0 "${kind} 报告渲染失败（渲染器/JSON 异常）"
+      rm -f "$expect"
+      return 1
+    fi
+    if ! cmp -s "$expect" "$rp"; then
+      p0 "${kind} 报告与 JSON 渲染产物不一致: ${rp}——手工改动/双正本漂移，重跑 df_pipeline.py ${kind}"
+      rm -f "$expect"
+      return 1
+    fi
+    rm -f "$expect"
+    pass "${kind}.json 校验通过（结构化正本 + 报告渲染一致）"
+    return 0
+  }
   case "$CHECK_MODE" in
-    security) check_security; check_sql_injection; check_sensitive_data ;;
-    performance) check_n_plus_one; check_response_time ;;
-    full) check_security; check_n_plus_one; check_response_time; check_sql_injection; check_sensitive_data ;;
+    security)
+      enforce_phase_json security "$SECURITY_JSON" || true
+      check_security; check_sql_injection; check_sensitive_data ;;
+    performance)
+      enforce_phase_json performance "$PERFORMANCE_JSON" || true
+      check_n_plus_one; check_response_time ;;
+    full)
+      enforce_phase_json security "$SECURITY_JSON" || true
+      enforce_phase_json performance "$PERFORMANCE_JSON" || true
+      check_security; check_n_plus_one; check_response_time; check_sql_injection; check_sensitive_data ;;
   esac
   echo ""; echo "RESULT: PASS=$PASS FAIL=$FAIL WARN=$WARN SKIP=$SKIP"
   echo "报告: $REPORT_FILE"
@@ -183,13 +342,62 @@ main() {
   RECEIPT_DIR="$STATE_DIR/${FEATURE:?FEATURE is required for receipt (default fallback removed v3.14.0)}/gates/$RECEIPT_PHASE"
   mkdir -p "$RECEIPT_DIR" 2>/dev/null
   {
-    echo "EXIT_CODE=$([ "$FAIL" -gt 0 ] && echo 1 || echo 0)"
+    # v3.26.0: EXIT_CODE 移到块尾计算——旧版在此处（块首）计算，其后 jq 缺失/证据树
+    # 失败的 p0 会让 FAIL 增加，但收据里 EXIT_CODE 已冻结为 0（"命令失败、收据成功"
+    # 矛盾状态，审计重验即漂移）。收据字段顺序不参与机器契约（键值对逐行解析）。
     echo "VERSION=p3-${CHECK_MODE}@$(bash "$(dirname "$0")/gate-version.sh")"
     echo "SKILL_TREE=$(bash "$(dirname "$0")/gate-skill-tree.sh" 2>/dev/null || echo unknown)"
     echo "MODE=$CHECK_MODE"
     echo "PHASE=$RECEIPT_PHASE"
     echo "EVIDENCE_PATH=$REPORT_FILE"
     echo "EVIDENCE_SHA256=$(hash_file "$REPORT_FILE")"
+    # v3.25.2(P1-b): 结构化正本绑定——篡改 security/performance.json 后审计重验即 FAIL
+    case "$CHECK_MODE" in
+      security|full)
+        [ -f "$SECURITY_JSON" ] && echo "SECURITY_JSON_SHA256=$(hash_file "$SECURITY_JSON")" || echo "SECURITY_JSON=missing" ;;
+    esac
+    case "$CHECK_MODE" in
+      performance|full)
+        [ -f "$PERFORMANCE_JSON" ] && echo "PERFORMANCE_JSON_SHA256=$(hash_file "$PERFORMANCE_JSON")" || echo "PERFORMANCE_JSON=missing" ;;
+    esac
+    # v3.25.2(P1)：证据树 fail-closed——缺 jq 不得静默降级为"只保护单一报告"
+    # （否则审计无法重验 security/performance JSON，Gate 后替换即逃逸）。
+    if ! command -v jq >/dev/null 2>&1; then
+      p0 "jq 不可用——无法写入 EVIDENCE_PATHS_JSON/树哈希，security/performance JSON 将不受审计保护（失败关闭，请安装 jq）"
+    else
+      _P3CD_EV_ARGS=("$REPORT_FILE")
+      # JSON 的 report_path（工作区内、渲染一致已由 enforce 保证）一并纳入证据树
+      local _p3cd_sr _p3cd_pf
+      case "$CHECK_MODE" in
+        security|full)
+          _p3cd_sr=$( (unset LC_ALL; python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("report_path",""))' "$SECURITY_JSON" 2>/dev/null) || true)
+          [ -n "$_p3cd_sr" ] && [ -f "$_p3cd_sr" ] && _P3CD_EV_ARGS+=("$_p3cd_sr") ;;
+      esac
+      case "$CHECK_MODE" in
+        performance|full)
+          _p3cd_pf=$( (unset LC_ALL; python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("report_path",""))' "$PERFORMANCE_JSON" 2>/dev/null) || true)
+          [ -n "$_p3cd_pf" ] && [ -f "$_p3cd_pf" ] && _P3CD_EV_ARGS+=("$_p3cd_pf") ;;
+      esac
+      [ -f "$SECURITY_JSON" ] && _P3CD_EV_ARGS+=("$SECURITY_JSON")
+      [ -f "$PERFORMANCE_JSON" ] && _P3CD_EV_ARGS+=("$PERFORMANCE_JSON")
+      _P3CD_TREE=$(receipt_evidence_tree "${_P3CD_EV_ARGS[@]}")
+      if [ -n "$_P3CD_TREE" ]; then
+        _P3CD_PATHS='['
+        _p3cd_first=1
+        for _p3cd_f in "${_P3CD_EV_ARGS[@]}"; do
+          _p3cd_one=$(jq -cn --arg p "$_p3cd_f" '$p' 2>/dev/null) || _p3cd_one='""'
+          [ "$_p3cd_first" -eq 1 ] || _P3CD_PATHS="${_P3CD_PATHS},"
+          _P3CD_PATHS="${_P3CD_PATHS}${_p3cd_one}"
+          _p3cd_first=0
+        done
+        _P3CD_PATHS="${_P3CD_PATHS}]"
+        echo "EVIDENCE_PATHS_JSON=$_P3CD_PATHS"
+        echo "EVIDENCE_TREE_SHA256=$_P3CD_TREE"
+      else
+        p0 "证据树哈希计算失败（receipt_evidence_tree 异常）——拒绝产出不受审计保护的收据"
+      fi
+    fi
+    echo "EXIT_CODE=$([ "$FAIL" -gt 0 ] && echo 1 || echo 0)"
     echo "PASS=$PASS FAIL=$FAIL WARN=$WARN SKIP=$SKIP"
     echo "CHECKED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   } > "$RECEIPT_DIR/receipt.txt" 2>/dev/null

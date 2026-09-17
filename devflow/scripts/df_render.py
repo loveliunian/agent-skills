@@ -1667,7 +1667,95 @@ def render_sharing(data, input_path):
     return "\n".join(lines)
 
 
+def render_security(data, input_path):
+    """P3c 安全审计报告（v3.25.2/P0：df_pipeline.py security 渲染正本）。"""
+    findings = data.get("findings", [])
+    open_n = sum(1 for f in findings if f.get("status") == "OPEN")
+    waived = sum(1 for f in findings if f.get("status") == "WAIVED")
+    lines = [
+        f"# 安全审计报告 - {data.get('feature')}",
+        "",
+        f"> 生成时间：{_gen_time(data)}　数据来源：security.json 自动汇总（人工勿改）",
+        _audit("security", input_path),
+        "",
+        "## 覆盖概览",
+        "",
+        _table(["项", "数值"], [
+            ["写操作端点总数", data.get("write_operations_total")],
+            ["@PreAuthorize 覆盖率", f"{data.get('preauthorize_coverage')}%"],
+            ["发现总数", len(findings)],
+            ["OPEN（P0/P1 即阻断）", open_n],
+            ["WAIVED（须绑定豁免依据）", waived],
+        ]),
+        "",
+        "## Gate 机器字段（由 df_render 从 JSON 派生，人工勿改）",
+        "",
+        "```text",
+        _kv([("SECURITY_COVERAGE", data.get("preauthorize_coverage")),
+             ("WRITE_OPERATIONS_TOTAL", data.get("write_operations_total")),
+             ("FINDINGS_TOTAL", len(findings)),
+             ("FINDINGS_OPEN", open_n)]),
+        "```",
+        "",
+        "### 结构化 FINDING 行（p3 gate 消费口径）",
+        "",
+    ]
+    f_lines = [f"FINDING|{f.get('severity')}|{f.get('id')}|STATUS={f.get('status')}|{f.get('evidence')}"
+               for f in findings]
+    lines += ["```text", "\n".join(f_lines) if f_lines else "（无安全发现）", "```", ""]
+    lines += [
+        "## 发现明细",
+        "",
+        _table(["ID", "严重性", "状态", "标题", "证据", "豁免依据"],
+               [[f.get("id"), f.get("severity"), f.get("status"), f.get("title"),
+                 f.get("evidence"), f.get("waiver_ref") or "—"] for f in findings])
+        if findings else "本审计未登记发现（zero_results 声明）。", "",
+        f"豁免声明文件：{data.get('waiver_file') or '—'}", "",
+    ]
+    return "\n".join(lines)
+
+
+def render_performance(data, input_path):
+    """P3d 性能审计报告（v3.25.2/P0）：df_pipeline.py performance 渲染正本。
+
+    每个场景输出机器行 `P95 <p95> ms`——p3 gate 按场景与 JSON 对账（值漂移即拦截）。"""
+    scenarios = data.get("scenarios", [])
+    lines = [
+        f"# 性能审计报告 - {data.get('feature')}",
+        "",
+        f"> 生成时间：{_gen_time(data)}　数据来源：performance.json 自动汇总（人工勿改）",
+        _audit("performance", input_path),
+        "",
+        "## 场景实测",
+        "",
+        _table(["场景", "P95 实测", "冻结阈值", "终态"],
+               [[s.get("name"), f"{s.get('p95_ms')} ms", f"{s.get('threshold_ms')} ms", s.get("status")]
+                for s in scenarios]),
+        "",
+        "## Gate 机器字段（由 df_render 从 JSON 派生，人工勿改）",
+        "",
+        "```text",
+        _kv([("SCENARIOS_TOTAL", len(scenarios)),
+             ("SCENARIOS_PASS", sum(1 for s in scenarios if s.get("status") == "PASS")),
+             ("NPLUS1_SUSPICIOUS", data.get("nplus1_suspicious"))]),
+        "```",
+        "",
+        "### 结构化 P95 行（p3 gate 与 JSON 逐场景对账）",
+        "",
+        "```text",
+        "\n".join(f"P95 {s.get('p95_ms')} ms ｜ {s.get('name')}" for s in scenarios),
+        "```",
+        "",
+        f"N+1 可疑模式数：{data.get('nplus1_suspicious')}",
+        "",
+        f"结论：{data.get('conclusion') or '—'}", "",
+    ]
+    return "\n".join(lines)
+
+
 _REPORT_RENDERERS = {
+    "security": render_security,
+    "performance": render_performance,
     "clarification": render_clarification,
     "acceptance": render_acceptance,
     "constraints": render_constraints,

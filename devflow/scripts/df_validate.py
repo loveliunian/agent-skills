@@ -57,9 +57,11 @@ _DEFAULT_SCHEMAS = {
     # P1 / P2a
     "tech-selection": _SCHEMA_DIR / "tech-selection.schema.json",
     "design-review": _SCHEMA_DIR / "design-review.schema.json",
-    # P3 / P3b / P4 / P5
+    # P3 / P3b / P3c / P3d / P4 / P5
     "self-check": _SCHEMA_DIR / "self-check.schema.json",
     "code-review": _SCHEMA_DIR / "code-review.schema.json",
+    "security": _SCHEMA_DIR / "security.schema.json",
+    "performance": _SCHEMA_DIR / "performance.schema.json",
     "prd-validation": _SCHEMA_DIR / "prd-validation.schema.json",
     "test-cases": _SCHEMA_DIR / "test-cases.schema.json",
     # P7 / P8 / P9 / P10 / P2b / SMALL-CHANGE
@@ -1734,6 +1736,56 @@ def check_self_check(data, errors, workspace=""):
             errors.append(f"outputs[{i}]({o.get('check_id')}): 命令输出过短（粘贴实际输出，禁止只写「已验证」）")
 
 
+def check_security(data, errors, workspace=""):
+    """P3c 安全审计（v3.25.1/P1-b）：P0/P1 发现必须 CLOSED（WAIVED 须绑定豁免依据），
+    覆盖率缺口须有发现兜底，报告路径必须真实存在。"""
+    total = data.get("write_operations_total", 0)
+    coverage = data.get("preauthorize_coverage", 0)
+    waiver_file = (data.get("waiver_file") or "").strip()
+    has_open_p01 = False
+    for i, f in enumerate(data.get("findings", [])):
+        where = f"findings[{i}]({f.get('id')})"
+        sev = f.get("severity")
+        status = f.get("status")
+        if sev in ("P0", "P1") and status == "OPEN":
+            has_open_p01 = True
+            errors.append(
+                f"{where}: P0/P1 级安全发现处于 OPEN（P3c 通过前必须 CLOSED，"
+                f"或 WAIVED 且绑定 waiver_ref + waiver_file）"
+            )
+        if status == "WAIVED":
+            if not (f.get("waiver_ref") or "").strip():
+                errors.append(f"{where}: WAIVED 但缺 waiver_ref（豁免必须可追溯：工单/批准记录/文件:行）")
+            if not waiver_file:
+                errors.append(f"{where}: 存在 WAIVED 发现但顶层缺 waiver_file（豁免声明文件）")
+    if waiver_file and not (Path(workspace) / waiver_file if workspace and not os.path.isabs(waiver_file) else Path(waiver_file)).is_file():
+        errors.append(f"waiver_file 不存在: {waiver_file}")
+    if total > 0 and coverage < 100 and not data.get("findings"):
+        errors.append(
+            f"写操作 {total} 个但 @PreAuthorize 覆盖率 {coverage}% 且 findings 为空"
+            f"（覆盖缺口必须逐条登记发现并处置，不得静默）"
+        )
+    # v3.25.2：report_path 存在性由 p3 gate 强制（渲染前文件尚不存在属正常——
+    # 管线顺序是 validate → render，报告是渲染产物）
+
+
+def check_performance(data, errors, workspace=""):
+    """P3d 性能审计（v3.25.1/P1-b）：场景 p95 超阈值不得标 PASS，全部场景须 PASS，
+    报告路径必须真实存在。"""
+    for i, s in enumerate(data.get("scenarios", [])):
+        where = f"scenarios[{i}]({s.get('name')})"
+        p95 = s.get("p95_ms")
+        thr = s.get("threshold_ms")
+        if isinstance(p95, int) and isinstance(thr, int) and p95 > thr and s.get("status") == "PASS":
+            errors.append(
+                f"{where}: p95={p95}ms 超过冻结阈值 {thr}ms 却标 PASS"
+                f"（超阈值必须 FAIL 并给出优化/豁免决定，不得虚报）"
+            )
+        if s.get("status") == "FAIL":
+            errors.append(f"{where}: 场景 FAIL（P3d 通过前所有场景必须 PASS 或移出范围并冻结说明）")
+    # v3.25.2：report_path 存在性由 p3 gate 强制（同 security 口径）
+
+
 def check_code_review(data, errors, workspace=""):
     """P3b 代码审查：角色分离 + P0 findings 全 CLOSED + 目标文件真实存在。"""
     dev = (data.get("developer_id") or "").strip()
@@ -2169,6 +2221,8 @@ def main():
             "tech-selection": lambda: check_tech_selection(data, errors, constraints_path=args.constraints, workspace=ws),
             "self-check": lambda: check_self_check(data, errors, workspace=ws),
             "code-review": lambda: check_code_review(data, errors, workspace=ws),
+            "security": lambda: check_security(data, errors, workspace=ws),
+            "performance": lambda: check_performance(data, errors, workspace=ws),
             "prd-validation": lambda: check_prd_validation(data, errors, workspace=ws or "."),
             "test-cases": lambda: check_test_cases(data, errors, criteria_path=args.criteria),
             "deployment": lambda: check_deployment(data, errors, workspace=ws or "."),

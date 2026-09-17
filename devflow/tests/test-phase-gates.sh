@@ -284,6 +284,7 @@ EOF
 
 # v3.14.1: s 系 gate 拒绝无 state 运行（default 回退已移除），fixture 先建工作流
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/devflow-state.sh" init foo --frontend=not-applicable >/dev/null 2>&1); then :; else bad "phase-gates init fixture"; fi
+mk_acceptance_json foo "$TMP"   # v3.25.1(P1-a): 结构化验收点正本（缺失即 P0）
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/s0_acceptance_gate.sh" foo); then ok "P0 fixture"; else bad "P0 fixture"; fi
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/devflow-state.sh" constraints-freeze foo >/dev/null 2>&1); then :; else bad "constraints-freeze fixture"; fi
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/s1_fact_sources_gate.sh" docs/detailed-design); then ok "P1 fixture"; else bad "P1 fixture"; fi

@@ -1,6 +1,6 @@
 ---
 name: performance
-version: "3.25.0"
+version: "3.26.0"
 description: >-
   Use when auditing performance bottlenecks, slow queries, or scalability issues, mentions
   "/performance", "性能", "performance audit", "性能审计", "N+1", "slow query", "优化", or "load test".
@@ -146,7 +146,20 @@ Gate（强制）
 
 ## 输出
 
-- `docs/评审/<feature>-性能审计报告.md`
+- `docs/测试/<feature>-压测报告.md`——**由 JSON 正本渲染**（见下）
+
+### 结构化产物层（v3.25.2 · 失败关闭）
+
+压测结果先落结构化正本，再渲染为报告，最后进 Gate：
+
+1. 按 `schemas/performance.schema.json` 填 `.devflow/<feature>/performance.json`：
+   `scenarios[]`（每场景 name、`p95_ms` 实测、`threshold_ms` 冻结阈值、status；
+   p95 超阈值不得标 PASS）、`nplus1_suspicious`、`report_path`；
+2. 渲染：`python3 "$SKILL_ROOT/scripts/df_pipeline.py" performance \
+   --input .devflow/<feature>/performance.json \
+   --out docs/测试/<feature>-压测报告.md`（校验失败不渲染；渲染含逐场景
+   `P95 <p95> ms` 机器行，Gate 与 JSON 逐场景对账，双事实源漂移即拦截）；
+3. `p3_security_perf_gate.sh` 失败关闭校验该 JSON，收据绑定其 SHA 并纳入证据树。
 
 ## 自检命令
 

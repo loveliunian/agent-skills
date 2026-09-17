@@ -1,0 +1,21 @@
+{
+  "feature": "demo-pay",
+  "generated_at": "2026-09-17T10:00:00Z",
+  "template": {
+    "id": "安全审计-模板",
+    "version": "3.25.1"
+  },
+  "write_operations_total": 3,
+  "preauthorize_coverage": 100,
+  "findings": [
+    {
+      "id": "SEC-1",
+      "title": "导出接口未校验数据范围，存在越权导出风险",
+      "severity": "P1",
+      "status": "CLOSED",
+      "evidence": "ExportController#export 已补 @PreAuthorize(\"@ss.hasPermi('pay:export')\") 并加数据范围过滤；复测命令 mvn -pl pay-service test -Dtest=ExportScopeTest"
+    }
+  ],
+  "report_path": "docs/评审/demo-pay-安全审计报告.md",
+  "zero_results": []
+}

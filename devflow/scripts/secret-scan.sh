@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# secret-scan.sh · v3.25.0 · 高置信度明文秘密扫描（fail-closed、输出脱敏）
+# secret-scan.sh · v3.26.0 · 高置信度明文秘密扫描（fail-closed、输出脱敏）
 # 语义契约见 references/sensitive-data-policy.md。
 # 用法：secret-scan.sh [path ...]；无参数时扫描本 skill 发布树。
 # 输出：SECRET_FOUND|<type>|<file>:<line>|VALUE=<redacted>；任一命中退出码 1。
@@ -35,8 +35,13 @@ PATTERN_REGS=(
 collect_files() {
   local t="$1"
   if [ -d "$t" ]; then
-    find "$t" -type d \( -name .git -o -name _archive -o -name logs -o -name manifest \
-      -o -name .backups -o -name node_modules -o -name .devflow \) -prune \
+    # v3.26.0: logs/、manifest/ 仅在扫描 skill 自身发布树时排除（自树 tests/logs 含
+    # 夹具假秘密）；扫用户项目时同名目录不再 prune——日志恰是泄密高发面，盲区即漏报。
+    local base_prunes=(-name .git -o -name _archive -o -name .backups -o -name node_modules -o -name .devflow)
+    if [ "$t" = "$DEFAULT_ROOT" ]; then
+      base_prunes+=(-o -name logs -o -name manifest)
+    fi
+    find "$t" -type d \( "${base_prunes[@]}" \) -prune \
       -o -type f -size -2M -print 2>/dev/null
   elif [ -f "$t" ]; then
     printf '%s\n' "$t"

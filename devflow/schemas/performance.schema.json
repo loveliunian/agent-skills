@@ -1,0 +1,114 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "devflow/schemas/performance.schema.json",
+  "title": "devflow P3d 性能审计结构化产物（performance.json）",
+  "description": "P3d 性能审计的机器可读正本。压测场景逐条绑定 P95 实测/阈值/终态，N+1 可疑点结构化登记——手写性能报告由本 JSON 经 df_pipeline.py performance 渲染派生，Gate（p3_security_perf_gate.sh）失败关闭校验。任一场景非 PASS 即阻断。",
+  "type": "object",
+  "required": [
+    "feature",
+    "generated_at",
+    "template",
+    "scenarios",
+    "nplus1_suspicious",
+    "report_path"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "feature": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "template": {
+      "type": "object",
+      "required": [
+        "id",
+        "version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "const": "性能审计-模板"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "description": "压测场景清单（至少覆盖核心写路径与最重查询）",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "p95_ms",
+          "threshold_ms",
+          "status"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "p95_ms": {
+            "type": "integer",
+            "description": "P95 实测（毫秒）"
+          },
+          "threshold_ms": {
+            "type": "integer",
+            "description": "冻结阈值（毫秒）"
+          },
+          "status": {
+            "enum": [
+              "PASS",
+              "FAIL"
+            ],
+            "description": "p95_ms ≤ threshold_ms 才能标 PASS（跨字段校验）"
+          }
+        }
+      }
+    },
+    "nplus1_suspicious": {
+      "type": "integer",
+      "description": "N+1 可疑模式数（扫描口径与 Gate 一致）；>0 须在 findings/说明给出结论"
+    },
+    "conclusion": {
+      "type": "string",
+      "description": "审计结论（如 N+1 可疑点的复核结论、优化决定）"
+    },
+    "report_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "压测/审计报告路径（须真实存在）"
+    },
+    "zero_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "reason"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
+  "x-zeroable": []
+}

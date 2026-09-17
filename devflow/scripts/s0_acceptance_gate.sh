@@ -32,6 +32,8 @@ p0() { echo "[P0] $1"; FAIL=$((FAIL + 1)); }
 p1() { echo "[P1] $1"; }
 pass() { echo "[PASS] $1"; PASS=$((PASS + 1)); }
 warn() { echo "[WARN] $1"; WARN=$((WARN + 1)); }
+# v3.25.2: 收据证据绑定用 SHA-256（与 artifact_gate/P7 同口径）
+hash_file() { if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | awk '{print $1}'; else sha256sum "$1" | awk '{print $1}'; fi; }
 
 # ---------- 参数解析 ----------
 FEATURE=""
@@ -90,6 +92,46 @@ else
   else
     p0 "no atomic acceptance points found"
   fi
+fi
+
+# ---------- §1b 结构化产物层 acceptance.json（v3.25.2 · 失败关闭） ----------
+# SKILL.md「全阶段结构化产物」契约的 P0 落地：JSON 缺失/校验失败/与 Markdown 分母
+# 不一致，任一即 P0——Markdown 与 JSON 互为双正本的矛盾在进 Gate 前拦截（A03 同款）。
+echo ""
+echo "=== §1b 结构化产物层 (acceptance.json) ==="
+STATE_DIR_EARLY="${STATE_DIR:-.devflow}"
+ACCEPTANCE_JSON="${STATE_DIR_EARLY}/${EFF_FEATURE}/acceptance.json"
+if [ ! -f "$ACCEPTANCE_JSON" ]; then
+  p0 "acceptance.json 缺失: ${ACCEPTANCE_JSON}——P0 必须产出结构化验收点（契约 schemas/acceptance.schema.json，管线 df_pipeline.py acceptance，见 phases/00-需求澄清.md §结构化产物层）"
+elif ! command -v python3 >/dev/null 2>&1; then
+  p0 "acceptance.json 存在但 python3 不可用——结构化校验无法执行（失败关闭）: $ACCEPTANCE_JSON"
+else
+  if (unset LC_ALL; python3 "$SKILL_ROOT/scripts/df_validate.py" --kind acceptance \
+      --input "$ACCEPTANCE_JSON" --workspace . >/dev/null 2>&1); then
+    pass "acceptance.json 校验通过（schema + 全部 FROZEN + PRD 来源）"
+  else
+    (unset LC_ALL; python3 "$SKILL_ROOT/scripts/df_validate.py" --kind acceptance \
+      --input "$ACCEPTANCE_JSON" --workspace . 2>&1 | head -5 | sed 's/^/    /')
+    p0 "acceptance.json 校验失败——修复后重跑 df_pipeline.py acceptance 再过 Gate"
+  fi
+  # JSON ↔ Markdown 冻结分母集合全等（双正本对账）
+  SET_OUT=$(mktemp -t s0set.XXXXXX)
+  if (unset LC_ALL; python3 - "$ACCEPTANCE_JSON" "$CRITERIA_PATH" >"$SET_OUT" 2>&1 <<'PYEOF'
+import json, re, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+jids = sorted({p.get("id") for p in d.get("points", [])})
+mids = sorted(set(re.findall(r"M-?[0-9]{2}-F[0-9]{2}-A[0-9]{2}", open(sys.argv[2], encoding="utf-8", errors="replace").read())))
+if jids != mids:
+    print(f"JSON={jids[:5]}… Markdown={mids[:5]}…")
+    sys.exit(1)
+PYEOF
+  ); then
+    pass "acceptance.json 与 Markdown 冻结分母集合全等"
+  else
+    p0 "acceptance.json 验收点集合与 Markdown 冻结分母不一致（双正本必须全等）:"
+    sed 's/^/    /' "$SET_OUT"
+  fi
+  rm -f "$SET_OUT"
 fi
 
 # ---------- §2 P0 歧义数 (v3.9.1: regex 收紧到表格行) ----------
@@ -262,7 +304,14 @@ EXIT_CODE=$([ "$FAIL" -gt 0 ] && echo 1 || echo 0)
   echo "VERSION=p0@$(bash "$(dirname "$0")/gate-version.sh")"
   echo "PHASE=P0"
   echo "SKILL_TREE=$(bash "$(dirname "$0")/gate-skill-tree.sh" 2>/dev/null || echo unknown)"
-  echo "ARTIFACTS=$CRITERIA_PATH,$CLARIFICATION_PATH"
+  echo "ARTIFACTS=$CRITERIA_PATH,$CLARIFICATION_PATH,$ACCEPTANCE_JSON"
+  # v3.25.2(P1-a): 结构化正本绑定——篡改 acceptance.json 后 audit 证据重验即 FAIL
+  if [ -f "$ACCEPTANCE_JSON" ]; then
+    echo "ACCEPTANCE_JSON=$ACCEPTANCE_JSON"
+    echo "ACCEPTANCE_JSON_SHA256=$(hash_file "$ACCEPTANCE_JSON")"
+  else
+    echo "ACCEPTANCE_JSON=missing"
+  fi
   echo "CONSTRAINTS_PATH=$TC_PATH"
   [ -f "$TC_PATH" ] && echo "CONSTRAINTS_SHA256=$(tc_sha256 "$TC_PATH")" || echo "CONSTRAINTS_SHA256=missing"
   echo "PASS=$PASS FAIL=$FAIL WARN=$WARN total=${TOTAL:-0}"

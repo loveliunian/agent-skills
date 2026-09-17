@@ -198,6 +198,10 @@ case "$FRONTEND_SCOPE" in
       (cd "$CLIENT_DIR" && npm run build) && pass "PC Web build" || fail "PC Web build"
       (cd "$CLIENT_DIR" && npm run type-check) && pass "PC Web type-check" || fail "PC Web type-check"
     fi
+    # v3.26.0: 前端 TODO/FIXME 可见化——旧版只扫 backend Java，前端残留无任何 gate 覆盖；
+    # 非阻塞 p1（与后端 TODO=0 的阻塞口径分开，纳入 P3b 评审）。
+    FE_TODO_COUNT=$(grep -rnE 'TODO|FIXME' "$CLIENT_DIR/src" 2>/dev/null | wc -l | tr -d ' ' || true)
+    [ "$FE_TODO_COUNT" -eq 0 ] || p1 "frontend TODO/FIXME=${FE_TODO_COUNT}（非阻塞，P3b 评审须核对）"
     if bash "$SCRIPT_DIR/client-adapter.sh" validate pc-web "$CLIENT_DIR" --strict; then pass "PC Web standards"; else fail "PC Web standards"; fi
     ;;
   mini-program|app)
@@ -211,6 +215,11 @@ esac
 NEW_PAGES=0
 if [ "$FRONTEND_SCOPE" = "pc-web" ]; then
   NEW_PAGES=$(find "$CLIENT_DIR/src/views/$FEATURE" -name 'index.vue' -type f 2>/dev/null | wc -l | tr -d ' ' || true)
+fi
+# v3.26.0: menu-seed 静默跳过可见化——页面目录约定不匹配（NEW_PAGES=0）时旧版
+# 无声跳过 seed 校验（目录改名即可绕过）；现显式 p1 提示，人工确认可达性。
+if [ "$FRONTEND_SCOPE" = "pc-web" ] && [ "$NEW_PAGES" -eq 0 ] && [ -d "$CLIENT_DIR/src/views" ]; then
+  p1 "menu-seed 检查跳过：未发现 $CLIENT_DIR/src/views/$FEATURE/index.vue——若页面在非约定路径，须人工核对菜单可达性"
 fi
 if [ "$NEW_PAGES" -gt 0 ]; then
   for vendor in h2 postgresql oracle kingbase; do

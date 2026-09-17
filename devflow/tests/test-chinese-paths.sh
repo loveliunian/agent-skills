@@ -77,6 +77,7 @@ EOF
 WZ="$TMP/zh"; mkdir -p "$WZ/docs/需求"
 ( cd "$WZ" && WORKSPACE="$WZ" bash "$S/devflow-state.sh" init zh --frontend=not-applicable >/dev/null 2>&1 )
 make_s0_docs "$WZ/docs/需求" zh
+mk_acceptance_json zh "$WZ"   # v3.25.1(P1-a)：结构化验收点正本
 S0_OUT=$(cd "$WZ" && WORKSPACE="$WZ" bash "$S/s0_acceptance_gate.sh" zh 2>&1)
 if echo "$S0_OUT" | grep -q "P0 GATE: PASS"; then ok "全中文布局 s0 gate 通过"; else
   bad "全中文布局 s0 gate 失败"; echo "$S0_OUT" | grep -E "^\[P0\]|RESULT"; fi
@@ -125,6 +126,7 @@ constraint_set=NONE
 confirmed=true
 DEVFLOW:END -->
 EOF
+mk_acceptance_json en "$WE"   # v3.25.1(P1-a)：英文布局同口径
 S0_EN=$(cd "$WE" && WORKSPACE="$WE" bash "$S/s0_acceptance_gate.sh" en 2>&1)
 if echo "$S0_EN" | grep -q "P0 GATE: PASS"; then ok "历史英文布局 s0 gate 仍通过（向后兼容）"; else
   bad "历史英文布局 s0 gate 失败（回归）"; echo "$S0_EN" | grep -E "^\[P0\]|RESULT"; fi

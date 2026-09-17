@@ -456,5 +456,114 @@ printf '%s' "$S1M_OUT2" | grep -q "all fact sources carry source/as_of/scope met
   && ok "s1 metadata complete after DEVFLOW:FACT-SOURCE blocks (A14)" \
   || bad "s1 metadata completion not detected"
 
+# ---------- P0：check_design_doc_quality.py 三类闭环（引用/规则/接口消费） ----------
+DQL="$WORK/dql"; mkdir -p "$DQL"
+cat > "$DQL/design.md" <<'EOF'
+# 设计
+
+## §3 业务规则
+| 规则编号 | 规则描述 |
+|---|---|
+| R1 | 输入校验 |
+| R2 | 幂等控制 |
+
+## §5.3.1 创建
+见 §3。
+
+## §5.3.2 删除
+详见 §3。
+
+## §6 流程
+WHEN 创建 (cmd): [R1]
+  1. 校验
+
+## §7.2 页面与接口映射
+| 页面 | 接口 |
+|---|---|
+| 列表 | §5.3.1 |
+EOF
+DQ="$ROOT/scripts/check_design_doc_quality.py"
+printf '%s' '{"api_detail_parent": "5.3"}' > "$DQL/rules-default.json"
+DQ_OUT=$(python3 "$DQ" "$DQL/design.md" --rules "$DQL/rules-default.json" 2>&1 || true)
+printf '%s' "$DQ_OUT" | grep -q "DQ-002" && printf '%s' "$DQ_OUT" | grep -q "DQ-003" \
+  && ok "lint catches unreferenced rule + unconsumed API detail" \
+  || bad "lint missed violations: $DQ_OUT"
+printf '%s' "$DQ_OUT" | grep -q "DQ-001" && bad "valid §3 ref falsely flagged" || ok "valid § cross-ref not flagged"
+cat > "$DQL/rules.json" <<'EOF'
+{"api_detail_parent": "5.3", "rules_without_flow_ref": ["R2"], "internal_endpoints": ["5.3.2"]}
+EOF
+check_rc 0 "lint passes with project rules whitelist" \
+  python3 "$DQ" "$DQL/design.md" --rules "$DQL/rules.json" --root "$WORK"
+
+# ---------- P1-b：P3c/P3d JSON 正本接线（waiver 路径正/负向） ----------
+WP3="$WORK/p3"; mkdir -p "$WP3/.devflow/p3f" "$WP3/docs/评审" "$WP3/docs/测试"
+printf 'P3CD_SECURITY=NOT_APPLICABLE\nP3CD_PERFORMANCE=NOT_APPLICABLE\n' > "$WP3/waiver.txt"
+python3 - "$WP3" <<'PYEOF'
+import json, os, sys
+os.chdir(sys.argv[1])
+sec = {"feature": "p3f", "generated_at": "2026-09-17T00:00:00Z",
+       "template": {"id": "安全审计-模板", "version": "1"},
+       "write_operations_total": 0, "preauthorize_coverage": 100, "findings": [],
+       "report_path": "docs/评审/p3f-安全审计报告.md",
+       "zero_results": [{"path": "findings", "reason": "无写操作无发现"}]}
+perf = {"feature": "p3f", "generated_at": "2026-09-17T00:00:00Z",
+        "template": {"id": "性能审计-模板", "version": "1"},
+        "scenarios": [{"name": "核心查询", "p95_ms": 380, "threshold_ms": 500, "status": "PASS"}],
+        "nplus1_suspicious": 0, "conclusion": "达标",
+        "report_path": "docs/测试/p3f-压测报告.md", "zero_results": []}
+os.makedirs("docs/评审", exist_ok=True)
+os.makedirs("docs/测试", exist_ok=True)
+json.dump(sec, open(".devflow/p3f/security.json", "w"), ensure_ascii=False)
+json.dump(perf, open(".devflow/p3f/performance.json", "w"), ensure_ascii=False)
+PYEOF
+# v3.25.2(P0)：报告由 df_pipeline 从 JSON 正本渲染（渲染器 + 管线端到端）
+check_rc 0 "pipeline security renders audit report (P0-fix)" \
+  bash -c "cd '$WP3' && python3 '$ROOT/scripts/df_pipeline.py' security --input .devflow/p3f/security.json --out docs/评审/p3f-安全审计报告.md"
+check_rc 0 "pipeline performance renders load-test report (P0-fix)" \
+  bash -c "cd '$WP3' && python3 '$ROOT/scripts/df_pipeline.py' performance --input .devflow/p3f/performance.json --out docs/测试/p3f-压测报告.md"
+grep -q "P95 380 ms" "$WP3/docs/测试/p3f-压测报告.md" && ok "performance renderer emits machine P95 lines" || bad "performance renderer missing P95 lines"
+P3_OUT=$(cd "$WP3" && bash "$ROOT/scripts/p3_security_perf_gate.sh" p3f --waiver waiver.txt 2>&1 || true)
+if (cd "$WP3" && bash "$ROOT/scripts/p3_security_perf_gate.sh" p3f --waiver waiver.txt >/dev/null 2>&1); then
+  ok "p3 gate passes with valid security/performance JSON (P1-b)"
+else
+  bad "p3 gate rejected valid JSONs: $(printf '%s' "$P3_OUT" | grep '\[P0\]' | head -3 | tr '\n' ' ')"
+fi
+grep -q "SECURITY_JSON_SHA256=" "$WP3/.devflow/p3f/gates/P3cd/receipt.txt" \
+  && grep -q "PERFORMANCE_JSON_SHA256=" "$WP3/.devflow/p3f/gates/P3cd/receipt.txt" \
+  && ok "P3cd receipt binds both JSON SHAs (P1-b)" || bad "P3cd receipt missing JSON binding"
+grep -q "EVIDENCE_TREE_SHA256=" "$WP3/.devflow/p3f/gates/P3cd/receipt.txt" \
+  && ok "P3cd receipt carries evidence tree (P1)" || bad "P3cd receipt missing evidence tree"
+# v3.25.2(P1)：Gate 后替换 JSON → audit-receipts 证据树重验必须 FAIL（孤立 SHA 时代的漏洞关闭）
+if (cd "$WP3" && bash "$ROOT/scripts/audit-receipts.sh" p3f .devflow docs >/dev/null 2>&1); then
+  ok "audit passes before tamper (baseline)"
+else
+  bad "audit fails before any tamper (环境问题)"
+fi
+printf '\n{\n  "id": "SEC-99",\n  "severity": "P2",\n  "status": "CLOSED",\n  "title": "事后注入",\n  "evidence": "tamper"\n}\n' >> "$WP3/.devflow/p3f/security.json"
+if (cd "$WP3" && bash "$ROOT/scripts/audit-receipts.sh" p3f .devflow docs >/dev/null 2>&1); then
+  bad "post-gate security.json replacement NOT caught by audit (P1)"
+else
+  ok "post-gate security.json replacement caught by audit evidence tree (P1)"
+fi
+rm -f "$WP3/.devflow/p3f/security.json"
+if (cd "$WP3" && bash "$ROOT/scripts/p3_security_perf_gate.sh" p3f --waiver waiver.txt >/dev/null 2>&1); then
+  bad "p3 gate passed without security.json (bypass!)"
+else
+  ok "p3 gate rejects missing security.json even with waiver (P1-b)"
+fi
+# v3.25.2(P1)：性能双正本漂移——报告删掉 P95 机器行，Gate 必须与 JSON 对账拦截
+python3 - "$WP3" <<'PYEOF'
+import re, sys
+from pathlib import Path
+p = Path(sys.argv[1]) / "docs/测试/p3f-压测报告.md"
+t = p.read_text(encoding="utf-8")
+t = re.sub(r"P95 380 ms.*\n", "", t)
+p.write_text(t, encoding="utf-8")
+PYEOF
+P3_DRIFT=$(cd "$WP3" && bash "$ROOT/scripts/p3_security_perf_gate.sh" p3f --waiver waiver.txt 2>&1 || true)
+printf '%s' "$P3_DRIFT" | grep -qE "渲染产物不一致|双正本漂移" \
+  && ok "perf report P95 drift vs JSON rejected (P1)" \
+  || bad "perf dual-source drift not caught"
+
 echo "=== design contract hardening RESULT PASS=$PASS FAIL=$FAIL ==="
 [ "$FAIL" -eq 0 ] || exit 1

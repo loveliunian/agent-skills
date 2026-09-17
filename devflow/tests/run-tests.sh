@@ -4,12 +4,14 @@
 #   - 独立日志：tests/logs/<ts>-<pid>/<group>.log + 失败组尾部回显
 #   - 超时保护：每组独立超时（默认 900s，RUN_TESTS_TIMEOUT 覆盖；rc=124 表示超时）
 #   - 树哈希首尾锚定：套件启动和收尾各真实计算一次，确保运行期间发布树未漂移。
-#   - 可选并行：RUN_TESTS_PARALLEL=1 时无共享状态的组并发执行（各组独立 mktemp 工作区）
+#   - 可选并行：默认并行（各组独立 mktemp 工作区）；RUN_TESTS_PARALLEL=0 回到串行
 set -uo pipefail
 
 TEST_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 SKILL_ROOT="$(cd "$TEST_DIR/.." && pwd -P)"
-PARALLEL="${RUN_TESTS_PARALLEL:-0}"
+# v3.26.0: 并行默认开启——串行全量 ~45min 不可接受；并行实测（2026-09-17 全绿运行）
+# 各组独立 mktemp 工作区无共享状态。需要串行调试时 RUN_TESTS_PARALLEL=0。
+PARALLEL="${RUN_TESTS_PARALLEL:-1}"
 PER_GROUP_TIMEOUT="${RUN_TESTS_TIMEOUT:-900}"
 
 SUITES=(
@@ -34,6 +36,7 @@ SUITES=(
   "test-report-regressions.sh:报告回归"
   "test-p6-hardening.sh:P6 硬化"
   "test-version-hardening.sh:历史版本硬化（v3.20.3/v3.21.1/v3.21.2）"
+  "test-dev-hardening.sh:开发面硬化（v3.26.0）"
   "test-release.sh:发布审计"
 )
 

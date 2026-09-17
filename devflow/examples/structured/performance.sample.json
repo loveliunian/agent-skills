@@ -1,0 +1,26 @@
+{
+  "feature": "demo-pay",
+  "generated_at": "2026-09-17T10:00:00Z",
+  "template": {
+    "id": "性能审计-模板",
+    "version": "3.25.1"
+  },
+  "scenarios": [
+    {
+      "name": "分页查询（100 并发 × 5 分钟）",
+      "p95_ms": 210,
+      "threshold_ms": 500,
+      "status": "PASS"
+    },
+    {
+      "name": "创建支付单（50 并发 × 5 分钟）",
+      "p95_ms": 380,
+      "threshold_ms": 500,
+      "status": "PASS"
+    }
+  ],
+  "nplus1_suspicious": 0,
+  "conclusion": "核心场景 P95 均低于冻结阈值；Mapper 关联查询已走批量接口，无 N+1。",
+  "report_path": "docs/测试/demo-pay-压测报告.md",
+  "zero_results": []
+}

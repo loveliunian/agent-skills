@@ -208,11 +208,32 @@ cp "$OUT/clarification.md" "docs/需求/demo-pay-需求澄清.md"
 cp "$OUT/constraints.md" "docs/需求/demo-pay-技术约束.md"
 mkdir -p docs/详细设计
 printf '# 权限矩阵\n\nperm:pay:add\nperm:pay:view\nperm:pay:close\n' > docs/详细设计/_权限矩阵.md
+# v3.25.1(P1-a)：负向①——JSON 正本缺失时 s0 必须 FAIL（不可绕过证明）
+S0_NEG1=$(bash "$ROOT/scripts/s0_acceptance_gate.sh" demo-pay 2>&1 || true)
+echo "$S0_NEG1" | grep -q "acceptance.json 缺失" && ok "s0 拒绝缺失 acceptance.json（不可绕过）" || {
+  bad "s0 未拦截缺失 acceptance.json"; echo "$S0_NEG1" | grep '\[P0\]' | head -3; }
+# 正本落位（样例即渲染源——双正本天然全等）+ PRD 来源文件
+mkdir -p .devflow/demo-pay docs/PRD
+printf '# demo-pay PRD\n' > docs/PRD/demo-pay.md
+cp "$EX/acceptance.sample.json" .devflow/demo-pay/acceptance.json
 S0_OUT=$(bash "$ROOT/scripts/s0_acceptance_gate.sh" demo-pay 2>&1)
 echo "$S0_OUT" | grep -q 'P0 RESULT: PASS=1[0-9] FAIL=0' && ok "s0 gate 端到端通过(渲染产物)" || {
   bad "s0 gate 端到端通过(渲染产物)"
   echo "$S0_OUT" | grep '\[P0\]' | head -5
 }
+echo "$S0_OUT" | grep -q "acceptance.json 校验通过" && ok "s0 校验并绑定 acceptance.json 正本" || bad "s0 未校验 acceptance.json"
+grep -q "ACCEPTANCE_JSON_SHA256=" .devflow/demo-pay/gates/P0/receipt.txt && ok "P0 收据绑定 acceptance.json SHA" || bad "P0 收据未绑定 JSON SHA"
+# v3.25.1(P1-a)：负向②——非 FROZEN 的 JSON 校验失败即 FAIL
+python3 - <<'PYEOF'
+import json
+d = json.load(open(".devflow/demo-pay/acceptance.json"))
+d["points"][0]["status"] = "REVIEWING"
+json.dump(d, open(".devflow/demo-pay/acceptance.json", "w"), ensure_ascii=False)
+PYEOF
+S0_NEG2=$(bash "$ROOT/scripts/s0_acceptance_gate.sh" demo-pay 2>&1 || true)
+echo "$S0_NEG2" | grep -q "acceptance.json 校验失败" && ok "s0 拒绝非 FROZEN 的 acceptance.json" || {
+  bad "s0 未拦截非 FROZEN JSON"; echo "$S0_NEG2" | grep '\[P0\]' | head -3; }
+cp "$EX/acceptance.sample.json" .devflow/demo-pay/acceptance.json
 
 # ---------- 6. 管线失败关闭：坏 JSON 不落盘 ----------
 cp "$OUT/acceptance.md" pipeline-doc.before
