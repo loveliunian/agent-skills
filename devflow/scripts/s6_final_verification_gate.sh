@@ -486,10 +486,8 @@ fi
 # 因果序：Gate 执行并校验通过 → 从已校验 JSON 渲染报告 → 报告与 JSON 进入收据证据树。
 # 渲染失败 = 失败关闭（拒绝产出绑定不完整的收据）。
 # v3.22.0: 终验报告改中文产物名；历史英文路径若存在（在途项目）继续沿用同一文件，避免双报告
-P6_REPORT="$(df_default_doc "$EFF_FEATURE" final_verification .md test)"
-if [ -f "docs/test/${EFF_FEATURE}-final-verification-report.md" ]; then
-  P6_REPORT="docs/test/${EFF_FEATURE}-final-verification-report.md"
-fi
+P6_REPORT="$(df_resolve_doc "$EFF_FEATURE" final_verification .md test)"
+[ -n "$P6_REPORT" ] || P6_REPORT="$(df_default_doc "$EFF_FEATURE" final_verification .md test)"
 if [ "$FAIL" -eq 0 ]; then
   mkdir -p "$(dirname "$P6_REPORT")" || p0 "无法创建报告目录 $(dirname "$P6_REPORT")"
   if python3 "$(cd "$(dirname "$0")" && pwd)/df_render.py" verification \

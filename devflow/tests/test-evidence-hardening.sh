@@ -116,7 +116,7 @@ mkdir -p "$TMP/docs/需求" "$TMP/docs/详细设计"
 printf 'clarification\n' > "$TMP/docs/需求/foo-需求澄清.md"
 printf 'acceptance\n' > "$TMP/docs/需求/foo-验收点.md"
 printf 'design\n' > "$TMP/docs/详细设计/foo-详细设计.md"
-printf 'tech-selection\n' > "$TMP/docs/详细设计/foo-技术选型.md"
+printf 'tech-selection\n' > "$TMP/docs/详细设计/foo-设计决策.md"
 cat > "$TMP/.devflow/foo/feedback/feedback.md" <<'EOF'
 FEEDBACK_ID=FB-001
 ROOT_CAUSE=详设未覆盖边界场景
@@ -671,14 +671,26 @@ for template in \
   templates/详细设计-总分总文档-模板.md \
   templates/详细设计-总分分文档-模板.md; do
   if grep -q '成熟组件复用' "$ROOT/$template" && \
-     grep -q '公共服务与公共组件' "$ROOT/$template" && \
-     grep -q '命名规范' "$ROOT/$template" && \
-     grep -q '设计决策记录（DDR）' "$ROOT/$template"; then
-    ok "final design template carries all four design-quality sections: $template"
+     grep -q '公共服务与公共组件' "$ROOT/$template"; then
+    ok "design template carries component-reuse/common-extraction sections: $template"
   else
-    bad "final design template carries all four design-quality sections: $template"
+    bad "design template carries component-reuse/common-extraction sections: $template"
   fi
 done
+# v3.27.15：规范遵循移入技术选型报告（结构化字段+渲染），详设不再含
+if grep -q '"standards"' "$ROOT/schemas/tech-selection.schema.json" && \
+   grep -q '规范遵循' "$ROOT/scripts/df_render.py"; then
+  ok "standards baseline moved to tech-selection report (schema + renderer)"
+else
+  bad "standards baseline moved to tech-selection report (schema + renderer)"
+fi
+# v3.27.15：DDR 与数据库迁移移出详设，统一在数据库设计决策模板
+if grep -q '设计决策记录（DDR）' "$ROOT/templates/数据库设计决策-模板.md" && \
+   grep -q '数据库迁移' "$ROOT/templates/数据库设计决策-模板.md"; then
+  ok "db design doc template carries DDR + migration sections"
+else
+  bad "db design doc template carries DDR + migration sections"
+fi
 
 # v3.14.6: 结束前关闭 P7 探测服务（若本轮启动过）
 [ -n "${HPID:-}" ] && kill "$HPID" 2>/dev/null || true

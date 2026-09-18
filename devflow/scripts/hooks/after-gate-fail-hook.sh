@@ -8,6 +8,8 @@
 #
 # 用法：
 #   bash scripts/hooks/after-gate-fail-hook.sh <feature> <stage> "<reason>"
+#   GATE_LOG=<gate-output.log> bash scripts/hooks/after-gate-fail-hook.sh <feature> <stage> "<reason>"
+#     # 可选：附 Gate 输出分类（gate-fail-classify.sh），报告落在 <feature>/feedback/
 #   bash scripts/hooks/after-gate-fail-hook.sh --latest
 # =============================================================================
 set -uo pipefail
@@ -69,6 +71,7 @@ esac
 # `after-gate-fail-hook.sh "../../evil" P3 "boom"` 在项目外建 feedback 目录写文件）；
 # --latest 分支 FEATURE 源自 find 输出一并校验；build-watchdog v3.15.10 同型收口
 source "$(cd "$(dirname "$0")/.." && pwd)/devflow_feature.sh" || { echo "[FATAL] devflow_feature.sh 加载失败" >&2; exit 2; }
+SKILL_ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
 devflow_feature_validate "$FEATURE" || exit 2
 
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -90,6 +93,16 @@ OCCURRED_AT=$TIMESTAMP
 STAGE=$STAGE
 REASON=$REASON
 EOF
+
+# v3.27.11: 可选 Gate 输出分类——execute_gate 失败时把 Gate 日志写入 GATE_LOG，
+# 这里生成错误分类/修复建议/关联教训报告，供修复与 P10 复盘消费（失败不阻断钩子）。
+GATE_LOG="${GATE_LOG:-}"
+CLASSIFY="$SKILL_ROOT/scripts/gate-fail-classify.sh"
+if [ -n "$GATE_LOG" ] && [ -f "$GATE_LOG" ] && [ -f "$CLASSIFY" ]; then
+  CLASSIFY_OUT="$FEEDBACK_DIR/gate-classification-$(date -u +%Y%m%dT%H%M%SZ).md"
+  bash "$CLASSIFY" "$GATE_LOG" "$SKILL_ROOT/concepts/lessons-learned.md" > "$CLASSIFY_OUT" 2>&1 || true
+  echo "[HOOK] Gate 分类报告: $CLASSIFY_OUT"
+fi
 
 echo "[HOOK] 失败反馈已写入: $FEEDBACK_FILE"
 echo "[HOOK] Feature: $FEATURE  Stage: $STAGE"

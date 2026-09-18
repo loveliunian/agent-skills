@@ -35,6 +35,8 @@ done
 cd "$WORK" || exit 1
 cp "$ROOT/examples/structured/design.sample.json" design.json
 cp "$ROOT/examples/structured/design.skeleton.md" doc.md
+cp "$ROOT/examples/structured/数据库设计决策.skeleton.md" dbdoc.md
+cp "$ROOT/examples/structured/需求追溯.skeleton.md" tracedoc.md
 printf 'M01-F01-A01\nM01-F01-A02\nM01-F02-A01\n' > /dev/null
 cat > criteria.md <<'EOF'
 | M01-F01-A01 | x |
@@ -44,10 +46,9 @@ EOF
 # v3.24.0(A04)：prd_anchor 来源文件必须真实存在——样例锚点指向 docs/requirements/ 下
 mkdir -p docs/requirements && cp criteria.md docs/requirements/demo-pay-acceptance-criteria.md
 check_rc 0 "sample design validates" python3 "$V" --kind design --input design.json --criteria criteria.md
-check_rc 0 "sample design pipeline renders into skeleton" python3 "$P" design --input design.json --doc doc.md --criteria criteria.md
-grep -q "覆盖率：3/3 = 100%，全部验收点都完成了设计" doc.md && ok "human-readable coverage line rendered" || bad "human-readable coverage line rendered"
-grep -q "df:begin:trace-matrix" doc.md && grep -q "M01-F02-A01" doc.md && ok "trace matrix spliced" || bad "trace matrix spliced"
-grep -q "异步受理模式" doc.md && ok "zero-result declaration rendered" || bad "zero-result declaration rendered"
+check_rc 0 "sample design pipeline renders into skeleton" python3 "$P" design --input design.json --doc doc.md --criteria criteria.md --db-doc dbdoc.md --trace-doc tracedoc.md
+grep -q "覆盖率：3/3 = 100%，全部验收点都完成了设计" tracedoc.md && ok "human-readable coverage line rendered" || bad "human-readable coverage line rendered"
+grep -q "df:begin:trace-matrix" tracedoc.md && grep -q "M01-F02-A01" tracedoc.md && ok "trace matrix spliced" || bad "trace matrix spliced"
 
 # 2. 骨架缺锚点块 → 渲染失败关闭（不静默跳过、不落盘）
 cp "$ROOT/examples/structured/design.skeleton.md" partial.md
@@ -55,7 +56,7 @@ python3 - <<'PYEOF'
 from pathlib import Path
 lines = Path("partial.md").read_text(encoding="utf-8").splitlines(keepends=True)
 Path("partial.md").write_text(
-    "".join(ln for ln in lines if "df:begin:trace-matrix" not in ln and "df:end:trace-matrix" not in ln),
+    "".join(ln for ln in lines if "df:begin:summary" not in ln and "df:end:summary" not in ln),
     encoding="utf-8",
 )
 PYEOF
@@ -86,10 +87,10 @@ check_rc 1 "undeclared empty collection rejected" python3 "$V" --kind design --i
 check_rc 1 "placeholder wording rejected" python3 "$V" --kind design --input d-ph.json --criteria criteria.md
 check_rc 1 "criteria set inequality rejected" bash -c "printf '| M01-F01-A01 |\n' > few.md && python3 '$V' --kind design --input design.json --criteria few.md"
 
-# 3b. v3.17.1: 接口概览↔详细定义闭环 + DDR↔字段一一对应
-grep -q "df:begin:ddr-index" doc.md && ok "skeleton carries ddr blocks" || bad "skeleton carries ddr blocks"
+# 3b. v3.17.1: 接口概览↔详细定义闭环 + DDR↔字段一一对应（v3.27.15：DDR 在数据库设计决策文档）
+grep -q "df:begin:ddr-index" dbdoc.md && ok "db doc skeleton carries ddr blocks" || bad "db doc skeleton carries ddr blocks"
 grep -q "df:begin:resource-operations" doc.md && grep -q "df:begin:integrations-configs" doc.md && ok "skeleton carries compensation/integration blocks" || bad "skeleton carries compensation/integration blocks"
-grep -q "| pay_order | order_no | DDR-1 |" doc.md && ok "ddr matrix rendered (field-level mapping)" || bad "ddr matrix rendered (field-level mapping)"
+grep -q "| pay_order | order_no | DDR-1 |" dbdoc.md && ok "ddr matrix rendered (field-level mapping)" || bad "ddr matrix rendered (field-level mapping)"
 # 正向：含详细定义小节的文档通过（含文档对账）
 check_rc 0 "design validates with --doc (overview↔detail closure)" python3 "$V" --kind design --input design.json --criteria criteria.md --doc doc.md
 # 反向：概览有、详细定义缺
@@ -129,6 +130,162 @@ check_rc 1 "field without DDR reference rejected" python3 "$V" --kind design --i
 check_rc 1 "dangling DDR reference rejected" python3 "$V" --kind design --input d-dangling.json --doc doc.md
 check_rc 1 "orphan DDR without waiver rejected" python3 "$V" --kind design --input d-orphan-ddr.json --doc doc.md
 check_rc 0 "orphan DDR with unreferenced_reason accepted" python3 "$V" --kind design --input d-orphan-ok.json --doc doc.md
+
+# 3c. v3.27.9：页面规格结构化（route/component/page_type 必填 + §7.2/§7.3 对账 + 弹窗接口锚点闭环）
+python3 - <<'PYEOF'
+import json
+d = json.load(open("design.json"))
+a = json.loads(json.dumps(d)); del a["pages"][0]["route"]
+json.dump(a, open("d-noroute.json", "w"), ensure_ascii=False)
+b = json.loads(json.dumps(d)); b["pages"][0]["dialogs"][0]["api"] = "§3.9.9"
+json.dump(b, open("d-dangling-dialog.json", "w"), ensure_ascii=False)
+c = json.loads(json.dumps(d)); c["pages"][1]["table_columns"][0]["field"] = "ghostField"
+json.dump(c, open("d-doc-drift.json", "w"), ensure_ascii=False)
+e = json.loads(json.dumps(d)); e["pages"][0]["dialogs"][0]["component"] = "views/pay/GhostDialog.vue"
+json.dump(e, open("d-dialog-drift.json", "w"), ensure_ascii=False)
+PYEOF
+check_rc 1 "page missing route rejected (required)" python3 "$V" --kind design --input d-noroute.json --criteria criteria.md
+check_rc 1 "dialog api anchor dangling rejected" python3 "$V" --kind design --input d-dangling-dialog.json --criteria criteria.md
+check_rc 1 "table_columns field not in doc rejected" python3 "$V" --kind design --input d-doc-drift.json --criteria criteria.md --doc doc.md
+check_rc 1 "dialog component not in doc row rejected" python3 "$V" --kind design --input d-dialog-drift.json --criteria criteria.md --doc doc.md
+# 3c2. v3.27.15：链路列（列/控件→接口→表）机检——悬空即拒，闭环放行
+python3 - <<'PYEOF'
+import json
+from pathlib import Path
+d = json.load(open("design.json"))
+a = json.loads(json.dumps(d))
+a["pages"][1]["table_columns"][0]["api_field"] = "§3.2.1 orderId"
+a["pages"][1]["table_columns"][0]["source"] = "pay_refund.refund_no"
+json.dump(a, open("d-chain-ok.json", "w"), ensure_ascii=False)
+b = json.loads(json.dumps(a)); b["pages"][1]["table_columns"][0]["api_field"] = "§3.9.9 orderId"
+json.dump(b, open("d-chain-badapi.json", "w"), ensure_ascii=False)
+c = json.loads(json.dumps(a)); c["pages"][1]["table_columns"][0]["source"] = "pay_refund.ghost"
+json.dump(c, open("d-chain-badsrc.json", "w"), ensure_ascii=False)
+e = json.loads(json.dumps(a)); e["pages"][0]["form_controls"][0]["submit_api"] = "§3.9.9"
+json.dump(e, open("d-chain-badform.json", "w"), ensure_ascii=False)
+t = Path("doc.md").read_text(encoding="utf-8")
+t = t.replace("| orderNo | 订单号 | 文本；超长省略 | — ← — |",
+              "| orderNo | 订单号 | 文本；超长省略 | §3.2.1 orderId ← pay_refund.refund_no |")
+Path("doc-chain.md").write_text(t, encoding="utf-8")
+PYEOF
+check_rc 0 "page element → API → table chain resolves, doc row matches" python3 "$V" --kind design --input d-chain-ok.json --criteria criteria.md --doc doc-chain.md
+CH_API=$(python3 "$V" --kind design --input d-chain-badapi.json --criteria criteria.md 2>&1 || true)
+printf '%s' "$CH_API" | grep -q "链路断链" \
+  && ok "dangling api_field anchor rejected (v3.27.15)" || bad "api_field closure missed: $CH_API"
+CH_SRC=$(python3 "$V" --kind design --input d-chain-badsrc.json --criteria criteria.md 2>&1 || true)
+printf '%s' "$CH_SRC" | grep -q "落库字段必须真实存在" \
+  && ok "dangling source table field rejected (v3.27.15)" || bad "source closure missed: $CH_SRC"
+check_rc 1 "dangling form submit_api rejected (v3.27.15)" python3 "$V" --kind design --input d-chain-badform.json --criteria criteria.md
+# v3.27.15：全部弹窗/抽屉进 §7.1 清单——清单缺弹窗行即拒
+python3 - <<'PYEOF'
+from pathlib import Path
+t = Path("doc.md").read_text(encoding="utf-8")
+t = t.replace("| 3 | 支付 | 提交确认 | /pay/order/create | views/pay/SubmitConfirmDialog.vue | 弹窗（确认） | pay:order:create |\n", "")
+Path("doc-nodialogrow.md").write_text(t, encoding="utf-8")
+PYEOF
+NDR_OUT=$(python3 "$V" --kind design --input design.json --criteria criteria.md --doc doc-nodialogrow.md 2>&1 || true)
+printf '%s' "$NDR_OUT" | grep -q "未出现在 §7.1 页面清单表" \
+  && ok "dialog missing from §7.1 inventory rejected (v3.27.15)" \
+  || bad "dialog §7.1 inventory closure missed: $NDR_OUT"
+
+# 3e. v3.27.15：表名/字段名保留字分层机检（fail→FAIL；warn→WARN 不阻断）
+python3 - <<'PYEOF'
+import json
+d = json.load(open("design.json"))
+a = json.loads(json.dumps(d)); a["tables"][0]["fields"][0]["name"] = "order"
+json.dump(a, open("d-reserved-fail.json", "w"), ensure_ascii=False)
+b = json.loads(json.dumps(d)); b["tables"][0]["fields"][0]["name"] = "status"
+json.dump(b, open("d-reserved-warn.json", "w"), ensure_ascii=False)
+PYEOF
+RWF_OUT=$(python3 "$V" --kind design --input d-reserved-fail.json --criteria criteria.md 2>&1 || true)
+printf '%s' "$RWF_OUT" | grep -q "命中数据库保留字（fail 层）" \
+  && ok "reserved fail-tier field rejected (v3.27.15)" \
+  || bad "reserved fail-tier not rejected: $RWF_OUT"
+RWW_OUT=$(python3 "$V" --kind design --input d-reserved-warn.json --criteria criteria.md 2>&1 || true)
+printf '%s' "$RWW_OUT" | grep -q "软关键字（warn 层）" \
+  && ok "reserved warn-tier field warns without blocking (v3.27.15)" \
+  || bad "reserved warn-tier warning missing: $RWW_OUT"
+
+# 3d. v3.27.11：惰性字段接线（related_acceptance 闭环 / test_scenarios 非空 / 执行契约切片闭环）
+python3 - <<'PYEOF'
+import json
+d = json.load(open("design.json"))
+a = json.loads(json.dumps(d)); a["baseline"]["entries"][0]["related_acceptance"] = ["M-99-F99-A99"]
+json.dump(a, open("d-relacc.json", "w"), ensure_ascii=False)
+b = json.loads(json.dumps(d)); b["business_operations"][0]["test_scenarios"] = []
+json.dump(b, open("d-noscen.json", "w"), ensure_ascii=False)
+PYEOF
+check_rc 1 "baseline.related_acceptance dangling rejected" python3 "$V" --kind design --input d-relacc.json --criteria criteria.md
+check_rc 1 "business_operations empty test_scenarios rejected" python3 "$V" --kind design --input d-noscen.json --criteria criteria.md
+# 3d2. v3.27.15：错误码契约（重复/格式/正文出现）
+python3 - <<'PYEOF'
+import json
+d = json.load(open("design.json"))
+a = json.loads(json.dumps(d))
+a["rules"][0]["error_codes"] = [{"code": "DUPLICATE_CODE", "meaning": "x"}]
+a["rules"][1]["error_codes"] = [{"code": "DUPLICATE_CODE", "meaning": "y"}]
+json.dump(a, open("d-ec-dup.json", "w"), ensure_ascii=False)
+b = json.loads(json.dumps(d))
+b["rules"][1]["error_codes"] = [{"code": "ghost_code", "meaning": "x"}]
+json.dump(b, open("d-ec-format.json", "w"), ensure_ascii=False)
+c = json.loads(json.dumps(d))
+c["rules"][1]["error_codes"] = [{"code": "GHOST_CODE", "meaning": "x"}]
+json.dump(c, open("d-ec-docmiss.json", "w"), ensure_ascii=False)
+PYEOF
+EC_DUP=$(python3 "$V" --kind design --input d-ec-dup.json --criteria criteria.md 2>&1 || true)
+printf '%s' "$EC_DUP" | grep -q "错误码 DUPLICATE_CODE .*重复" \
+  && ok "duplicate error code rejected (v3.27.15)" || bad "duplicate error code missed: $EC_DUP"
+check_rc 1 "lowercase error code rejected by schema pattern" python3 "$V" --kind design --input d-ec-format.json --criteria criteria.md
+EC_DOC=$(python3 "$V" --kind design --input d-ec-docmiss.json --criteria criteria.md --doc doc.md 2>&1 || true)
+printf '%s' "$EC_DOC" | grep -q "错误码 GHOST_CODE 未出现在详设正文" \
+  && ok "error code absent from doc rejected (v3.27.15)" || bad "error code doc closure missed: $EC_DOC"
+cp "$ROOT/examples/structured/execution-plan.sample.json" ep.json
+check_rc 0 "execution-plan sample validates" python3 "$V" --kind execution-plan --input ep.json
+# 3d3. v3.27.15：执行契约 design_refs 锚点闭环
+python3 - <<'PYEOF'
+import json
+d = json.load(open("ep.json"))
+a = json.loads(json.dumps(d)); a["tasks"][0]["design_refs"] = ["not-anchor"]
+json.dump(a, open("ep-ref-format.json", "w"), ensure_ascii=False)
+b = json.loads(json.dumps(d)); b["tasks"][0]["design_refs"] = ["anchor: made-up"]
+json.dump(b, open("ep-ref-unknown.json", "w"), ensure_ascii=False)
+PYEOF
+EP_FMT=$(python3 "$V" --kind execution-plan --input ep-ref-format.json 2>&1 || true)
+printf '%s' "$EP_FMT" | grep -q "格式非法" \
+  && ok "execution-plan malformed design_ref rejected (v3.27.15)" || bad "design_ref format missed: $EP_FMT"
+EP_UNK=$(python3 "$V" --kind execution-plan --input ep-ref-unknown.json 2>&1 || true)
+printf '%s' "$EP_UNK" | grep -q "不在语义锚点集合" \
+  && ok "execution-plan unknown anchor rejected (v3.27.15)" || bad "design_ref anchor closure missed: $EP_UNK"
+# 3d4. v3.27.15：规则锚点单一化——页组级共同锚点合法；通用锚点仍拒
+python3 - <<'PYEOF'
+import json
+d = json.load(open("design.json"))
+def five(anchor):
+    rs = []
+    for i in range(1, 6):
+        r = {"id": f"R{i}", "anchor": anchor, "summary": f"规则{i}"}
+        if i > 1: r["unreferenced_reason"] = "演示"
+        rs.append(r)
+    return rs
+a = json.loads(json.dumps(d)); a["rules"] = five("§7.2.1")
+json.dump(a, open("d-rules-page.json", "w"), ensure_ascii=False)
+b = json.loads(json.dumps(d)); b["rules"] = five("§5")
+json.dump(b, open("d-rules-generic.json", "w"), ensure_ascii=False)
+PYEOF
+check_rc 0 "rules sharing a page-group anchor accepted (v3.27.15)" python3 "$V" --kind design --input d-rules-page.json --criteria criteria.md --doc doc.md
+RGEN=$(python3 "$V" --kind design --input d-rules-generic.json --criteria criteria.md --doc doc.md 2>&1 || true)
+printf '%s' "$RGEN" | grep -q "锚点单一化" \
+  && ok "rules piled on a generic anchor rejected (v3.27.15)" || bad "generic-anchor pileup missed: $RGEN"
+python3 - <<'PYEOF'
+import json
+d = json.load(open("ep.json"))
+a = json.loads(json.dumps(d)); a["slices"][0]["task_ids"] = ["T-999"]
+json.dump(a, open("ep-bad.json", "w"), ensure_ascii=False)
+b = json.loads(json.dumps(d)); b["slices"][0]["components"] = [""]
+json.dump(b, open("ep-bad2.json", "w"), ensure_ascii=False)
+PYEOF
+check_rc 1 "execution-plan slice task_id dangling rejected" python3 "$V" --kind execution-plan --input ep-bad.json
+check_rc 1 "execution-plan empty component rejected" python3 "$V" --kind execution-plan --input ep-bad2.json
 
 # 4. verification 正向：baseline 全等 + SHA 实算 + exec-record 对账
 cp "$ROOT/examples/structured/verification.sample.json" verification.json
@@ -260,7 +417,7 @@ cat > d-backend.json <<'EOF'
   "template": {"id": "详细设计-完整版-模板", "version": "1", "mode": "monolith"},
   "acceptance": [{"id": "M-01-F01-A01", "prd_anchor": "criteria.md#M-01-F01-A01", "page": "—", "api": "—", "data": "—", "rule": "R1", "test_case": "TC-B-001", "status": "COMPLETE"}],
   "tables": [], "apis": [], "pages": [],
-  "rules": [{"id": "R1", "anchor": "§5.1", "summary": "校验"}],
+  "rules": [{"id": "R1", "anchor": "§5", "summary": "校验"}],
   "business_operations": [{"id": "BOP-1", "name": "执行每日汇总", "trigger": "每日 02:00 定时触发", "actor": "调度系统", "stateless": true, "steps": ["读取上游输入", "计算并写出结果"], "result": "任务完成并写审计", "failure": "失败按退避重试并告警", "test_scenarios": ["正常汇总", "输入缺失跳过并告警"], "acceptance_refs": ["M-01-F01-A01"], "anchor": "§6.1"}],
   "baseline": {"repo_root": ".", "db_evidence": {"source": "none"}, "entries": [{"id": "BL-1", "target": "backend/job/SummaryJob.java", "decision": "ADD", "target_module": "job 模块（同类模式参照现有 ExportJob）", "verify": "SummaryJobTest"}]},
   "client": {"scope": "not-applicable", "not_applicable_reason": "纯后端"},

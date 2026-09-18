@@ -1,7 +1,7 @@
 ---
 name: backend-dev
 subagent_type: generalPurpose
-version: "3.27.4"
+version: "3.27.15"
 responsibility: "实现一个垂直切片的 Entity/Repository/Service/Controller/DTO 与单测。"
 allowed-tools: [read, write, exec, grep, glob]
 ---
@@ -23,7 +23,7 @@ DISCOVER → PLAN PATCH → IMPLEMENT → VERIFY → DIFF REVIEW
 1. 定位现有入口与调用链（入口 → Service → Repository → 表）；
 2. 查找同类实现与可复用的工具类/公共组件；
 3. 查明现有测试模式与可运行命令；
-4. 与详设「实现交接」节（`anchor: implementation-handoff`）逐项对账：baseline 文件/符号必须真实存在。
+4. 与实现交接文档（`docs/详细设计/<feature>-实现交接.md`，`anchor: implementation-handoff`）逐项对账：baseline 文件/符号必须真实存在。
 
 ```text
 DISCOVER|entry=<符号>|file=<路径>|cmd=<搜索命令>
@@ -68,7 +68,7 @@ Required（缺任意一项不得开工）：
 
 - `FEATURE_ID`、`SLICE_ID`
 - `ACCEPTANCE_IDS[]`
-- `DESIGN_PATH`（冻结详细设计；`anchor: implementation-handoff` 节为施工图正本）
+- `DESIGN_PATH`（冻结详细设计）与 `HANDOFF_PATH`（`<feature>-实现交接.md`，施工图正本 `anchor: implementation-handoff`）
 - `RUNTIME_PROFILE`（能力位命令见 `references/runtime-profile.md`）
 - `VERIFY_COMMANDS[]`
 

@@ -32,6 +32,7 @@ Gate 仍是阶段权威（如 P6 的 s6_final_verification_gate.sh 会实际执�
       --out-env .devflow/c1/small-change.env --out-scan .devflow/c1/project-scan.txt
 """
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -40,6 +41,27 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 _HERE = Path(__file__).resolve().parent
+
+
+def _design_doc_mode(input_path, doc_path):
+    """v3.27.10：总分模式从设计包清单解析当前文档角色（无清单/未登记返回 None）。
+
+    总文档（mode=total）校验时不做模块级锚点与正文明细对账（见 df_validate
+    --doc-mode）——模块级对象由分文档承担；此前总文档会被模块级锚点误拦。"""
+    pkg = Path(input_path).resolve().parent / "design-package.json"
+    if not pkg.is_file():
+        return None
+    try:
+        data = json.loads(pkg.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    doc = str(doc_path).replace("\\", "/").lstrip("./")
+    for d in data.get("docs", []) or []:
+        cand = str(d.get("path") or "").replace("\\", "/").lstrip("./")
+        if cand and (cand == doc or Path(cand).name == Path(doc).name):
+            mode = (d.get("mode") or "").strip()
+            return mode if mode in ("total", "sub") else None
+    return None
 
 
 def _run(cmd):
@@ -58,6 +80,10 @@ def main():
     ap.add_argument("--input", required=True, help="结构化 JSON 路径")
     ap.add_argument("--schema", default=None, help="schema.json 路径（缺省用 skill 内置）")
     ap.add_argument("--doc", default=None, help="design: 拼接目标详设文档")
+    ap.add_argument("--db-doc", dest="db_doc", default=None, metavar="PATH",
+                    help="design: 数据库设计决策文档（DDR/迁移移出详设后的渲染目标，v3.27.15；须含 ddr-index/ddr-matrix 锚点块）")
+    ap.add_argument("--trace-doc", dest="trace_doc", default=None, metavar="PATH",
+                    help="design: 需求追溯文档（追溯矩阵移出详设后的渲染目标，v3.27.15；须含 trace-matrix 锚点块）")
     ap.add_argument("--out", default=None, help="输出 Markdown（verification/各阶段报告必填）")
     ap.add_argument("--out-env", default=None, help="small-change: small-change.env 输出路径")
     ap.add_argument("--out-scan", default=None, help="small-change: project-scan.txt 输出路径")
@@ -103,6 +129,9 @@ def main():
             validate_cmd += ["--criteria", args.criteria]
         if args.doc:
             validate_cmd += ["--doc", args.doc]
+            doc_mode = _design_doc_mode(args.input, args.doc)
+            if doc_mode:
+                validate_cmd += ["--doc-mode", doc_mode]
     if args.kind == "verification":
         if args.baseline:
             validate_cmd += ["--baseline", args.baseline]
@@ -124,6 +153,14 @@ def main():
                   "--workspace", args.workspace]
     if args.kind == "design":
         render_cmd += (["--doc", args.doc] if args.doc else ["--out", args.out])
+        if args.db_doc:
+            if not args.doc:
+                ap.error("--db-doc 需要同时提供 --doc（详设正文）")
+            render_cmd += ["--db-doc", args.db_doc]
+        if args.trace_doc:
+            if not args.doc:
+                ap.error("--trace-doc 需要同时提供 --doc（详设正文）")
+            render_cmd += ["--trace-doc", args.trace_doc]
     else:
         render_cmd += ["--out", args.out]
         if args.kind == "small-change":

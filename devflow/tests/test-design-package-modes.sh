@@ -84,7 +84,7 @@ import re
 from pathlib import Path
 t = Path("doc.md").read_text(encoding="utf-8")
 t = re.sub(r"(### 2\.2\.2 退款单表（pay_refund）\n)(.*?)(## §3)", r"\1\3", t, flags=re.S)
-t = re.sub(r"(### 7\.1\.2 退款页\n)(.*?)(### 7\.3\.1)", r"\1\3", t, flags=re.S)
+t = re.sub(r"(### 7\.1\.2 退款页\n)(.*?)(### 7\.2\.1)", r"\1\3", t, flags=re.S)
 Path("doc-sub.md").write_text(t, encoding="utf-8")
 PYEOF
 check_rc 1 "full reconciliation fails when doc lacks module-B sections" \
@@ -118,6 +118,17 @@ t = t.replace("""| GET | /api/示例/{id} | 详情查询 | 示例:view |
 | DELETE | /api/示例/{id} | 删除 | 示例:delete |
 | GET | /api/示例/export | 导出 | 示例:export |
 """, "")
+# v3.27.12：§7.1 页面清单表行改为与 design.json pages[] 同源（清单表对账）
+_lines = t.split("\n")
+for _i, _l in enumerate(_lines):
+    if _l.startswith("| # | 子域/分组 | 页面 | 路径 | 组件"):
+        _j = _i + 2
+        _k = _j
+        while _k < len(_lines) and _lines[_k].startswith("|"):
+            _k += 1
+        _lines[_j:_k] = ["| 1 | 示例 | 列表页 | /demo/list | views/demo/ListPage.vue | 列表+详情抽屉 | demo:view |"]
+        break
+t = "\n".join(_lines)
 Path(dst).write_text(t, encoding="utf-8")
 PYEOF
   printf '| M-01-F01-A01 | FROZEN |\n' > "$d/docs/需求/subf-验收点.md"
@@ -139,7 +150,7 @@ tbl_cfg = {
         {"name": "config_type", "type": "varchar(32)", "constraint": "NOT NULL", "default": "—", "note": "配置类型", "ddr": ["DDR-1"]},
         {"name": "description", "type": "varchar(256)", "constraint": "NULL", "default": "NULL", "note": "描述", "ddr": ["DDR-1"]},
         {"name": "sort_order", "type": "int", "constraint": "NOT NULL", "default": "0", "note": "排序", "ddr": ["DDR-1"]},
-        {"name": "status", "type": "tinyint", "constraint": "NOT NULL", "default": "1", "note": "1=启用，0=停用", "ddr": ["DDR-1"]},
+        {"name": "config_status", "type": "tinyint", "constraint": "NOT NULL", "default": "1", "note": "1=启用，0=停用", "ddr": ["DDR-1"]},
         {"name": "version", "type": "int", "constraint": "NOT NULL", "default": "0", "note": "乐观锁版本", "ddr": ["DDR-1"]},
         {"name": "deleted", "type": "tinyint", "constraint": "NOT NULL", "default": "0", "note": "逻辑删除标志", "ddr": ["DDR-1"]},
         {"name": "create_time", "type": "datetime", "constraint": "NOT NULL", "default": "CURRENT_TIMESTAMP", "note": "创建时间", "ddr": ["DDR-1"]},
@@ -151,8 +162,8 @@ tbl_rec = {
     "anchor": "§2.3.2", "name": "示例_record", "fields": [
         {"name": "id", "type": "bigint", "constraint": "PK, AUTO_INCREMENT", "default": "—", "note": "主键", "ddr": ["DDR-1"]},
         {"name": "record_no", "type": "varchar(32)", "constraint": "NOT NULL, UNIQUE", "default": "—", "note": "业务编号", "ddr": ["DDR-1"]},
-        {"name": "name", "type": "varchar(128)", "constraint": "NOT NULL", "default": "—", "note": "名称", "ddr": ["DDR-1"]},
-        {"name": "status", "type": "varchar(32)", "constraint": "NOT NULL", "default": "'ACTIVE'", "note": "状态", "ddr": ["DDR-1"]},
+        {"name": "record_name", "type": "varchar(128)", "constraint": "NOT NULL", "default": "—", "note": "名称", "ddr": ["DDR-1"]},
+        {"name": "record_status", "type": "varchar(32)", "constraint": "NOT NULL", "default": "'ACTIVE'", "note": "状态", "ddr": ["DDR-1"]},
         {"name": "version", "type": "int", "constraint": "NOT NULL", "default": "0", "note": "乐观锁版本", "ddr": ["DDR-1"]},
         {"name": "deleted", "type": "tinyint", "constraint": "NOT NULL", "default": "0", "note": "逻辑删除", "ddr": ["DDR-1"]},
         {"name": "create_time", "type": "datetime", "constraint": "NOT NULL", "default": "CURRENT_TIMESTAMP", "note": "创建时间", "ddr": ["DDR-1"]},
@@ -172,8 +183,8 @@ api_page = {
         {"name": "total", "type": "long", "always": "是", "rule": "满足过滤条件的总数", "source": "count 查询", "masking": "否"},
         {"name": "records[].id", "type": "long", "always": "是", "rule": "记录主键", "source": "demo_record.id", "masking": "否"},
         {"name": "records[].recordNo", "type": "string", "always": "是", "rule": "业务编号", "source": "demo_record.record_no", "masking": "否"},
-        {"name": "records[].name", "type": "string", "always": "是", "rule": "名称", "source": "demo_record.name", "masking": "否"},
-        {"name": "records[].status", "type": "string", "always": "是", "rule": "状态枚举", "source": "demo_record.status", "masking": "否"},
+        {"name": "records[].name", "type": "string", "always": "是", "rule": "名称", "source": "demo_record.record_name", "masking": "否"},
+        {"name": "records[].status", "type": "string", "always": "是", "rule": "状态枚举", "source": "demo_record.record_status", "masking": "否"},
         {"name": "records[].createTime", "type": "datetime", "always": "是", "rule": "创建时间", "source": "demo_record.create_time", "masking": "否"}]}}
 api_create = {
     "anchor": "§5.3.2", "detail_anchor": "§5.3.2", "name": "新增", "method": "POST",
@@ -186,8 +197,8 @@ api_create = {
         {"name": "recordNo", "type": "string", "always": "是", "rule": "按 R1 生成", "source": "demo_record.record_no", "masking": "否"}]}}
 rules = [
     {"id": "R1", "anchor": "§5.3.2", "summary": "record_no 自动生成，同日唯一"},
-    {"id": "R2", "anchor": "§2.3.2", "summary": "name trim 后非空"},
-    {"id": "R3", "anchor": "§2.3.2", "summary": "status 缺省默认值"},
+    {"id": "R2", "anchor": "§2.3.2", "summary": "record_name trim 后非空"},
+    {"id": "R3", "anchor": "§2.3.2", "summary": "record_status 缺省默认值"},
     {"id": "R4", "anchor": "§4.3", "summary": "已删除记录不允许更新"},
     {"id": "R5", "anchor": "§4.2", "summary": "不可变字段禁止修改"},
     {"id": "R6", "anchor": "§2.3.2", "summary": "乐观锁版本控制"},
@@ -203,7 +214,7 @@ design = {
                     "page": ["§7.1"], "api": ["§5.3.1", "§5.3.2"], "data": ["§2.3.1", "§2.3.2"],
                     "rule": "R1", "test_case": "TC-SUB-001", "status": "COMPLETE"}],
     "tables": [tbl_cfg, tbl_rec], "apis": [api_page, api_create],
-    "pages": [{"anchor": "§7.1", "name": "列表页", "permission": "demo:view"}],
+    "pages": [{"anchor": "§7.1", "name": "列表页", "permission": "demo:view", "route": "/demo/list", "component": "views/demo/ListPage.vue", "page_type": "列表+详情抽屉"}],
     "rules": rules,
     "business_operations": [{"id": "BOP-1", "name": "新增记录", "trigger": "用户提交新增表单",
         "actor": "demo:add 持有者", "input": "name/description", "preconditions": ["name 校验（R2）"],
@@ -236,6 +247,8 @@ PYEOF
 {"feature":"subf","docs":[
   {"path":"docs/详细设计/subf-详细设计.md","mode":"sub","acceptance_ids":["M-01-F01-A01"]}]}
 EOF
+  cp "$ROOT/examples/structured/需求追溯.skeleton.md" "$d/docs/详细设计/subf-需求追溯.md"
+  sed "s/{{template_version}}/$tplv/" "$ROOT/templates/实现交接-模板.md" > "$d/docs/详细设计/subf-实现交接.md"
   (cd "$d" && WORKSPACE="$d" bash "$ROOT/scripts/devflow-state.sh" init subf --frontend=pc-web >/dev/null 2>&1)
 }
 
@@ -243,7 +256,7 @@ SUBF="$WORK/subf"
 build_sub_fixture "$SUBF"
 # 管线（校验+渲染）先于 Gate——与 phases/02 管线契约一致
 check_rc 0 "sub mode: template copy fills and passes pipeline (A07)" \
-  bash -c "cd '$SUBF' && python3 '$PI' design --input .devflow/subf/design.json --doc docs/详细设计/subf-详细设计.md --criteria docs/需求/subf-验收点.md"
+  bash -c "cd '$SUBF' && python3 '$PI' design --input .devflow/subf/design.json --doc docs/详细设计/subf-详细设计.md --criteria docs/需求/subf-验收点.md --trace-doc docs/详细设计/subf-需求追溯.md"
 check_rc 0 "sub mode: filled template passes s2 Gate end-to-end (A07/A05)" \
   bash -c "cd '$SUBF' && bash '$S2' docs/详细设计/subf-详细设计.md docs/需求/subf-验收点.md --mode=sub"
 # 总分模式缺设计包 → 拒
@@ -251,6 +264,19 @@ mv "$SUBF/.devflow/subf/design-package.json" "$SUBF/.devflow/subf/design-package
 assert_out "design-package.json 缺失" "sub mode without design-package manifest rejected (A05)" \
   bash -c "cd '$SUBF' && bash '$S2' docs/详细设计/subf-详细设计.md docs/需求/subf-验收点.md --mode=sub"
 mv "$SUBF/.devflow/subf/design-package.json.bak" "$SUBF/.devflow/subf/design-package.json"
+
+# ---------- v3.27.7：s2 --mode 与 P1 冻结 design_doc_structure 对账 ----------
+# sub fixture 无选型报告 → WARN 不阻断（非标准/在途布局）
+# 选型报告冻结 total 时，--mode=sub 放行（total 家族内）；冻结 monolith 时 --mode=sub 必须 FAIL
+printf '# subf 技术选型\n## 决策矩阵\nx\n## 决策结论\n用户确认: YES\n## 详设文档结构决策\ndesign_doc_structure_mode=total\n' \
+  > "$SUBF/docs/详细设计/subf-技术选型.md"
+check_rc 0 "s2 --mode=sub 与 P1 total 一致放行 (v3.27.7)" \
+  bash -c "cd '$SUBF' && bash '$S2' docs/详细设计/subf-详细设计.md docs/需求/subf-验收点.md --mode=sub"
+printf '# subf 技术选型\n## 决策矩阵\nx\n## 决策结论\n用户确认: YES\n## 详设文档结构决策\ndesign_doc_structure_mode=monolith\n' \
+  > "$SUBF/docs/详细设计/subf-技术选型.md"
+assert_out "总分结构未在 P1 决策登记" "s2 --mode=sub 与 P1 monolith 错配被拒 (v3.27.7)" \
+  bash -c "cd '$SUBF' && bash '$S2' docs/详细设计/subf-详细设计.md docs/需求/subf-验收点.md --mode=sub"
+rm -f "$SUBF/docs/详细设计/subf-技术选型.md"
 
 # ---------- A07/A05：total 模式完整正向 ----------
 build_total_fixture() { # <dir>
@@ -340,14 +366,61 @@ PYEOF
 {"feature":"totf","docs":[
   {"path":"docs/详细设计/totf-系统详细设计.md","mode":"total","acceptance_ids":["M-01-F01-A01"]}]}
 EOF
+  cp "$ROOT/examples/structured/需求追溯.skeleton.md" "$d/docs/详细设计/totf-系统详细设计-需求追溯.md"
+  sed "s/{{template_version}}/$tplv/" "$ROOT/templates/实现交接-模板.md" > "$d/docs/详细设计/totf-系统详细设计-实现交接.md"
   (cd "$d" && WORKSPACE="$d" bash "$ROOT/scripts/devflow-state.sh" init totf --frontend=not-applicable >/dev/null 2>&1)
 }
 
 TOTF="$WORK/totf"
 build_total_fixture "$TOTF"
+printf '# totf 技术选型\n## 决策矩阵\nx\n## 决策结论\n用户确认: YES\n## 详设文档结构决策\ndesign_doc_structure_mode=total\n' \
+  > "$TOTF/docs/详细设计/totf-技术选型.md"
 check_rc 0 "total mode: template copy fills and passes pipeline (A07)" \
-  bash -c "cd '$TOTF' && python3 '$PI' design --input .devflow/totf/design.json --doc docs/详细设计/totf-系统详细设计.md --criteria docs/需求/totf-验收点.md"
+  bash -c "cd '$TOTF' && python3 '$PI' design --input .devflow/totf/design.json --doc docs/详细设计/totf-系统详细设计.md --criteria docs/需求/totf-验收点.md --trace-doc docs/详细设计/totf-系统详细设计-需求追溯.md"
 check_rc 0 "total mode: filled template passes s2 Gate end-to-end (A07/A05)" \
+  bash -c "cd '$TOTF' && bash '$S2' docs/详细设计/totf-系统详细设计.md docs/需求/totf-验收点.md --mode=total"
+# v3.27.7：P1 冻结 total 但 s2 以 monolith 运行 → FAIL
+assert_out "不得在 P2 自行改回单文档" "s2 --mode=monolith 与 P1 total 错配被拒 (v3.27.7)" \
+  bash -c "cd '$TOTF' && bash '$S2' docs/详细设计/totf-系统详细设计.md docs/需求/totf-验收点.md --mode=monolith"
+
+# ---------- v3.27.10(H1)：total + 前端页面/旅程——模块级对象不在总文档对账 ----------
+python3 - "$TOTF" <<'PYEOF'
+import json, sys
+p = f"{sys.argv[1]}/.devflow/totf/design.json"
+d = json.load(open(p))
+d["acceptance"][0]["page"] = "§7.1.1"
+d["pages"] = [{"anchor": "§7.1.1", "name": "列表页", "permission": "demo:view",
+               "route": "/demo/list", "component": "views/demo/ListPage.vue",
+               "page_type": "列表+详情抽屉"}]
+d["client"] = {"scope": "pc-web",
+               "journeys": [{"name": "列表查看", "page": "§7.1.1", "evidence": "真实浏览器"}]}
+d["zero_results"] = [z for z in d["zero_results"] if z["path"] != "pages"]
+json.dump(d, open(p, "w"), ensure_ascii=False)
+PYEOF
+jq '.scope.frontend="pc-web"' "$TOTF/.devflow/totf.state.json" > "$TOTF/.devflow/totf.state.json.tmp" \
+  && mv "$TOTF/.devflow/totf.state.json.tmp" "$TOTF/.devflow/totf.state.json"
+check_rc 0 "total mode: UI page+journey re-render (doc-mode auto-resolved from design-package)" \
+  bash -c "cd '$TOTF' && python3 '$PI' design --input .devflow/totf/design.json --doc docs/详细设计/totf-系统详细设计.md --criteria docs/需求/totf-验收点.md --trace-doc docs/详细设计/totf-系统详细设计-需求追溯.md"
+check_rc 0 "total mode: UI page+journey passes s2 (module-level checks skipped on total doc, H1)" \
+  bash -c "cd '$TOTF' && bash '$S2' docs/详细设计/totf-系统详细设计.md docs/需求/totf-验收点.md --mode=total"
+# v3.27.10(M2)：design.json template.mode 与 Gate --mode 漂移 → 拒
+python3 - "$TOTF" <<'PYEOF'
+import json, sys
+p = f"{sys.argv[1]}/.devflow/totf/design.json"
+d = json.load(open(p)); d["template"]["mode"] = "monolith"
+json.dump(d, open(p, "w"), ensure_ascii=False)
+PYEOF
+assert_out "template.mode=monolith 与 Gate --mode=total 不一致" "s2 rejects JSON template.mode drift (v3.27.10)" \
+  bash -c "cd '$TOTF' && bash '$S2' docs/详细设计/totf-系统详细设计.md docs/需求/totf-验收点.md --mode=total"
+# v3.27.10(M3)：design.json constraints[] 登记冻结集合之外的约束 → 拒
+python3 - "$TOTF" <<'PYEOF'
+import json, sys
+p = f"{sys.argv[1]}/.devflow/totf/design.json"
+d = json.load(open(p)); d["template"]["mode"] = "total"
+d["constraints"] = [{"id": "TC-TECH-999"}]
+json.dump(d, open(p, "w"), ensure_ascii=False)
+PYEOF
+assert_out "冻结集合之外" "s2 rejects design.json constraints outside frozen set (v3.27.10)" \
   bash -c "cd '$TOTF' && bash '$S2' docs/详细设计/totf-系统详细设计.md docs/需求/totf-验收点.md --mode=total"
 
 # ---------- A06：适用性正向夹具（纯 UI / 消息消费者 / 小程序 / APP） ----------
@@ -363,7 +436,9 @@ d["acceptance"] = [dict(d["acceptance"][0], id="M01-F01-A01", page=_acc_page, ap
 d["tables"] = []
 d["apis"] = []
 d["pages"] = [d["pages"][0]]
-d["rules"] = [{"id": "R1", "anchor": "§5.1", "summary": "重复提交幂等"}]
+for _dlg in d["pages"][0].get("dialogs", []):
+    _dlg["api"] = "—"  # 该场景复用既有接口、本期不新增 APIs——弹窗接口位显式 —（v3.27.9 闭环校验）
+d["rules"] = [{"id": "R1", "anchor": "§5", "summary": "重复提交幂等"}]
 _bop = dict(d["business_operations"][0],
     name="界面操作", acceptance_refs=["M01-F01-A01"], anchor="§6.1",
     input="页面输入", stateless=True, steps=["用户操作", "前端校验"],

@@ -59,8 +59,8 @@
 ### 1. 纯前端项目的 P3 Gate 落地组合
 
 后台接口全部复用存量系统时，仓库内仍需一个**真实可编译的 Maven 契约模块**承载 mvn compile/test/JaCoCo
-检查（详设"复用接口"需要机器可验证的同源实现物）：Controller 契约层（注解+路径对齐详设 §3）+
-`@Entity` 契约实体（字段名与详设 §2 snake_case 对齐）+ 契约测试。Gate 组合：
+检查（详设"复用接口"需要机器可验证的同源实现物）：Controller 契约层（注解+路径对齐详设接口契约 `anchor: api-contracts`，完整版 §3.2 / 分文档 §5.3）+
+`@Entity` 契约实体（字段名与详设数据模型 `anchor: data-model` snake_case 对齐，完整版 §2.2 / 分文档 §2.3）+ 契约测试。Gate 组合：
 
 ```bash
 API_REQUIRED=0 PERSISTENCE_REQUIRED=0 bash scripts/p3_completion_gate.sh <bff-service> <feature>

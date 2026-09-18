@@ -12,13 +12,13 @@ license: MIT
 compatibility: Requires a repository workspace and command execution; stack-specific build, test, and migration commands are resolved from a frozen runtime profile.
 metadata:
   author: xingyunliushui
-  version: "3.27.4"
+  version: "3.27.15"
   updated: "2026-09-17"
   tags: "prd,detailed-design,development,migration,phase-gate,checkpoint-recovery,agent-skills"
 allowed-tools: read write exec glob grep task
 ---
 
-# devflow — PRD to production（v3.27.4）
+# devflow — PRD to production（v3.27.15）
 
 本文件是唯一权威入口。历史迁移只查 `references/CHANGELOG.md`；命令、阶段、角色和模板按需加载，不在入口重复。
 
@@ -72,8 +72,8 @@ allowed-tools: read write exec glob grep task
 
 ### 过程性产物命名（v3.22.0 起）
 
-- 给人看的过程性文档默认用**中文名**：目录如 `docs/需求`、`docs/详细设计`、`docs/评审`、`docs/测试`、`docs/测试用例`、`docs/发布`、`docs/复盘`；文件如 `<feature>-需求澄清.md`、`<feature>-验收点.md`、`<feature>-详细设计.md`、`<feature>-终验报告.md`、`<feature>-部署记录.md`。完整中英映射见 `scripts/devflow_paths.sh`。
-- 所有 Gate **中文优先、英文回退**：历史英文路径（`docs/requirements/`、`<feature>-design.md` 等）继续被接受，在途项目无需迁移。
+- 给人看的过程性文档默认用**中文名**：目录如 `docs/需求`、`docs/详细设计`、`docs/评审`、`docs/测试`、`docs/测试报告`、`docs/发布`、`docs/复盘`、`docs/知识沉淀`；文件如 `<feature>-需求澄清.md`、`<feature>-PRD验证报告.md`、`<feature>-单元测试报告.md`、`<feature>-集成测试报告.md`、`<feature>-客户端旅程报告.md`、`<feature>-压测报告.md`、`<feature>-预发布验证报告.md`、`<feature>-终验报告.md`、`<feature>-部署记录.md`、`<feature>-监控配置.md`、`<feature>-知识分享.md`；P7/P8 证据文件同理。完整中英映射见 `scripts/devflow_paths.sh`。
+- 所有 Gate **中文优先、英文回退**：历史英文路径（`docs/requirements/`、`<feature>-unit-report.md` 等）继续被接受，在途项目无需迁移。
 - 机器契约层**不翻译、不可改名**：`.devflow/` 下的 `receipt.txt`、`*.state.json`、`<kind>.json`（全阶段结构化产物，v3.25.2）、`*.tsv`、`*.env`、`skip-log.txt`、`feedback/`、`review-sessions/`、`gates/<PHASE>/`，以及 stage 名（P0–P10）与 ASCII feature 标识；证据型 `*-implementation-evidence.tsv`、`*-p4-results.tsv`、`*-unit-coverage.html`、`*-migration-evidence.env` 等同样保留英文。
 
 ### 全阶段结构化产物（v3.25.2）
@@ -92,7 +92,7 @@ Gate 强制矩阵（P0/P2/P3c/P3d/P6）见 `references/structured-artifacts.md`�
 | P3/P3b/P3c/P3d | 实现、代码审查、安全、性能 | `build-watchdog.sh gate`（P3-build）、`df_pipeline.py self-check`、`p3_completion_gate.sh`、`df_pipeline.py code-review`、`p3b_code_review_gate.sh`、`p3_security_perf_gate.sh` |
 | P4/P4b | PRD 验证与精确 PRD-vs-Code | `df_pipeline.py prd-validation`、`p4_validation_gate.sh`、`p4_prd_vs_code.sh` |
 | P5/P6 | 测试设计、执行、迁移、凭证、准确率 | `df_pipeline.py test-cases`、`p5_test_cases_gate.sh`(主)、`s5_migration_gate.sh`(B/C，P5-migration)、`s6_first_pass_accuracy.sh`、`p6_credential_gate.sh` |
-| P6 终验 | 部署前强制：验收点集合与冻结 baseline 全等 + FAIL=0；Gate 实际执行五类测试命令并绑定报告、日志与真实退出码；verification.json 必填并对账冻结前端范围 | `s6_final_verification_gate.sh`（执行→校验→渲染报告→收据绑定 `gates/P6-final/`，缺失则 complete P6 拒绝） |
+| P6 终验 | 部署前强制（定位：**交付把关而非缺陷发现**——只回答"功能已实现且真实可运行"，缺陷发现在 P3/P3b/P4）：验收点集合与冻结基线全等、FAIL=0；测出的问题必须**修复→重跑 Gate→循环直到测不出问题**，禁止带病交付或降断言换绿灯；Gate 实际执行五类测试命令并绑定报告、日志与真实退出码；verification.json 必填并对账冻结前端范围 | `s6_final_verification_gate.sh`（执行→校验→渲染报告→收据绑定 `gates/P6-final/`，缺失则 complete P6 拒绝） |
 | P7/P8/P9 | 部署、监控、文档 | `df_pipeline.py deployment/monitoring/docs-index`、`artifact_gate.sh P7/P8/P9` |
 | P10 | 复盘与项目反馈闭环 | `df_pipeline.py retrospective`、`p10_feedback_gate.sh` |
 

@@ -80,7 +80,7 @@ df_zh_suffix() {
     constraints)            echo "技术约束" ;;
     prd_review)             echo "PRD评审" ;;
     prd_domain_checklist)   echo "PRD领域清单" ;;
-    tech_selection)         echo "技术选型" ;;
+    tech_selection)         echo "设计决策" ;;
     design)                 echo "详细设计" ;;
     design_summary)         echo "设计摘要" ;;
     design_review_report)   echo "设计评审报告" ;;
@@ -110,9 +110,18 @@ df_zh_suffix() {
     first_pass_review)      echo "首轮准确率评审" ;;
     client_journey_report)  echo "客户端旅程报告" ;;
     e2e_report)             echo "端到端报告" ;;
+    unit_report)            echo "单元测试报告" ;;
     integration_report)     echo "集成测试报告" ;;
+    staging_report)         echo "预发布验证报告" ;;
+    raw_validation)         echo "PRD验证原始证据" ;;
     deploy_record)          echo "部署记录" ;;
     monitor_config)         echo "监控配置" ;;
+    alert_rules)            echo "告警规则" ;;
+    alert_test_output)      echo "告警测试输出" ;;
+    log_query_evidence)     echo "日志查询证据" ;;
+    metrics_samples)        echo "指标采样" ;;
+    metrics_snapshot)       echo "指标快照" ;;
+    release_evidence)       echo "发布证据" ;;
     docs_index)             echo "文档索引" ;;
     retro)                  echo "复盘" ;;
     sharing)                echo "知识分享" ;;
@@ -144,7 +153,7 @@ df_en_suffix() {
     code_review_report)     echo "code-review-report" ;;
     security_audit)         echo "security-audit-report" ;;
     performance_audit)      echo "performance-audit-report" ;;
-    load_test)              echo "load-test-report" ;;
+    load_test)              echo "load-test-report load-report" ;;
     n_plus_one)             echo "n-plus-one-report" ;;
     feasibility)            echo "feasibility-review" ;;
     completeness_review)    echo "completeness-review" ;;
@@ -161,14 +170,23 @@ df_en_suffix() {
     final_verification)     echo "final-verification-report" ;;
     final_verification_preview) echo "final-verification-report-preview" ;;
     first_pass_review)      echo "first-pass-review-report" ;;
-    client_journey_report)  echo "client-journey-report" ;;
+    client_journey_report)  echo "client-journey-report client-report" ;;
     e2e_report)             echo "e2e-report" ;;
+    unit_report)            echo "unit-report unit-test-report" ;;
     integration_report)     echo "integration-report" ;;
+    staging_report)         echo "staging-report" ;;
+    raw_validation)         echo "raw-validation" ;;
     deploy_record)          echo "deploy-record" ;;
     monitor_config)         echo "monitor-config" ;;
+    alert_rules)            echo "alert-rules" ;;
+    alert_test_output)      echo "alert-test-output" ;;
+    log_query_evidence)     echo "log-query-evidence" ;;
+    metrics_samples)        echo "metrics-samples" ;;
+    metrics_snapshot)       echo "metrics-snapshot" ;;
+    release_evidence)       echo "release-evidence" ;;
     docs_index)             echo "docs-index" ;;
     retro)                  echo "retro" ;;
-    sharing)                echo "knowledge-sharing" ;;
+    sharing)                echo "knowledge-sharing sharing" ;;
     postmortem)             echo "pm" ;;
     small_change)           echo "small-change" ;;
     plan)                   echo "plan" ;;
@@ -201,12 +219,14 @@ df_default_dir() { df_zh_dir "$1"; }
 # 输出第一个命中；无命中输出空串。
 df_resolve_doc() {
   local feature="$1" suffix_key="$2" ext="$3"; shift 3
-  local zh_suf en_suf d f
+  local zh_suf en_suf d f _alt
   zh_suf="$(df_zh_suffix "$suffix_key")"; en_suf="$(df_en_suffix "$suffix_key")"
   while IFS= read -r d; do
     [ -n "$d" ] && [ -d "$d" ] || continue
     [ -n "$zh_suf" ] && { f="$d/${feature}-${zh_suf}${ext}"; [ -f "$f" ] && { printf '%s\n' "$f"; return 0; }; }
-    [ -n "$en_suf" ] && { f="$d/${feature}-${en_suf}${ext}"; [ -f "$f" ] && { printf '%s\n' "$f"; return 0; }; }
+    for _alt in $en_suf; do
+      f="$d/${feature}-${_alt}${ext}"; [ -f "$f" ] && { printf '%s\n' "$f"; return 0; }
+    done
   done < <(df_doc_dirs "$@")
   # 宽松 glob 兜底（中文目录/英文目录都找，中文关键词优先）
   local cand

@@ -1,7 +1,7 @@
 ---
 name: frontend-dev
 subagent_type: generalPurpose
-version: "3.27.4"
+version: "3.27.15"
 responsibility: "实现一个垂直切片的客户端页面、API 调用、路由和可达性证据。"
 allowed-tools: [read, write, exec, grep, glob]
 ---
@@ -13,7 +13,7 @@ allowed-tools: [read, write, exec, grep, glob]
 你不是架构决策者，也不是 Reviewer。
 
 > 施工纪律同 `subagents/backend-dev.md`：DISCOVER → PLAN → IMPLEMENT → VERIFY → DIFF REVIEW；
-> 写码前先与详设实现交接节（`anchor: implementation-handoff`）对账本模块的页面/接口基线，不符即 `BLOCKED`。
+> 写码前先与实现交接文档（`docs/详细设计/<feature>-实现交接.md`，`anchor: implementation-handoff`）对账本模块的页面/接口基线，不符即 `BLOCKED`。
 
 ## Input Contract
 

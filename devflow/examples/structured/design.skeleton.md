@@ -8,7 +8,7 @@
 （由 design.json 自动生成业务操作契约索引）
 <!-- df:end:biz-ops -->
 
-### 6.1 创建支付订单
+### 6.1 创建支付订单（BOP-1）
 
 ```text
 WHEN 创建支付订单 (command, operator):
@@ -28,7 +28,7 @@ sequenceDiagram
     Service-->>前端: 200 OK
 ```
 
-### 6.2 创建退款单
+### 6.2 创建退款单（BOP-2）
 
 ```text
 WHEN 创建退款单 (orderId, operator):
@@ -100,15 +100,27 @@ sequenceDiagram
 
 ## §5 业务规则
 
-### 5.1 重复提交幂等
+> 本示例规则均属页面交互，见 §7.2 各页组「业务规则」表；无页面场景规则（MQ/定时/纯后端）在此登记。
 
-WHEN 同一 order_no 在 60 秒内重复提交：返回原单，不重复扣款。
-
-### 5.2 退款金额上限
-
-WHEN 退款金额 > 剩余可退金额：拒绝并提示上限。
+无非页面规则（页面规则见 §7.2 各页组）。
 
 ## §7 前端页面
+
+<!-- df:begin:rule-index -->
+| 规则 | §锚点 | 摘要 | 错误码 |
+|---|---|---|---|
+| R1 | §7.2.1 | 重复提交幂等 | — |
+| R2 | §7.2.2 | 退款金额上限 | REFUND_AMOUNT_EXCEEDED |
+<!-- df:end:rule-index -->
+
+### 7.1 页面清单
+
+| # | 子域/分组 | 页面 | 路径 | 组件（真实路径） | 类型 | 权限 |
+|---|---|---|---|---|---|---|
+| 1 | 支付 | 下单页 | /pay/order/create | views/pay/OrderCreate.vue | 表单页 | pay:order:create |
+| 2 | 支付 | 退款页 | /pay/refund | views/pay/RefundCreate.vue | 表单页 | pay:refund:create |
+| 3 | 支付 | 提交确认 | /pay/order/create | views/pay/SubmitConfirmDialog.vue | 弹窗（确认） | pay:order:create |
+| 4 | 支付 | 退款确认 | /pay/refund | views/pay/RefundConfirmDialog.vue | 弹窗（确认） | pay:refund:create |
 
 ### 7.1.1 下单页
 
@@ -118,26 +130,85 @@ WHEN 退款金额 > 剩余可退金额：拒绝并提示上限。
 
 表单与权限见权限矩阵。
 
-### 7.3.1 下单页交互
+### 7.2.1 下单页交互（覆盖：下单页）
 
-关键交互：金额校验、重复提交防护（WHEN 规则见 §5.1）。
+- **查询区**：无
+- **列表**：无
+- **表单**：有（下单表单，见下方表单控件规格）
 
-### 7.3.2 退款页交互
+**业务规则：**
 
-关键交互：退款金额上限提示（WHEN 规则见 §5.2）。
+| 规则 | WHEN（触发） | 处理与错误码 |
+|---|---|---|
+| R1 | WHEN 同一 order_no 在 60 秒内重复提交：返回原单，不重复扣款。 | 幂等返回原单，不重复扣款 |
 
-## §11 需求追溯与覆盖率基线
+**调用接口：**
 
-<!-- anchor: acceptance-traceability -->
-<!-- df:begin:trace-matrix -->
-| ID | PRD 锚点 | 页面/任务 | 接口 | 数据 | 规则 | 测试用例 | 状态 |
-|---|---|---|---|---|---|---|---|
-| M01-F01-A01 | docs/requirements/demo-pay-acceptance-criteria.md#M01-F01-A01 | §7.1 | §3.1 | §2.1 | R1 | TC-PAY-001 | COMPLETE |
-| M01-F01-A02 | docs/requirements/demo-pay-acceptance-criteria.md#M01-F01-A02 | §7.1 | §3.1 | §2.1 | R1 | TC-PAY-002 | COMPLETE |
-| M01-F02-A01 | docs/requirements/demo-pay-acceptance-criteria.md#M01-F02-A01 | §7.2 | §3.1 | §2.2 | R2 | TC-PAY-003 | COMPLETE |
+| 接口 | 用途/触发时机 | 涉及表（表.字段） | 业务操作（BOP-n） |
+|---|---|---|---|
+| §3.2.1 | 提交下单 | pay_order.order_no | BOP-1 |
 
-覆盖率：3/3 = 100%，全部验收点都完成了设计。
-<!-- df:end:trace-matrix -->
+**操作：**
+
+| 操作 | 类型 | 权限点 | 关联（§3.2.x · BOP-n · Rn） | 触发弹窗/抽屉 |
+|---|---|---|---|---|
+| 提交 | 行操作 | pay:order:create | §3.2.1 · BOP-1 · R1 | → 弹窗/抽屉：提交确认 |
+
+**弹窗/抽屉：**
+
+| 交互 | 组件 | 接口 | 关键状态/确认流 |
+|---|---|---|---|
+| 提交确认 | views/pay/SubmitConfirmDialog.vue | §3.2.1 POST | 二次确认；重复提交返回原单不重复扣款；失败保留草稿 |
+
+**表单控件规格：**
+
+| 字段 | 标签 | 控件 | 校验与提示 | 候选来源 | 链路（§3.2.x → 表.字段） |
+|---|---|---|---|---|---|
+| amount | 金额 | el-input-number | 必填、大于 0（R1） | 用户输入 | §3.2.1 → — |
+| payMethod | 支付方式 | el-select | 必填；提示「请选择支付方式」 | 静态枚举 | §3.2.1 → — |
+
+### 7.2.2 退款页交互（覆盖：退款页）
+
+- **查询区**：无
+- **列表**：有（退款状态列，见下方表格列规格）
+- **表单**：有（退款表单，见下方表单控件规格）
+
+**业务规则：**
+
+| 规则 | WHEN（触发） | 处理与错误码 |
+|---|---|---|
+| R2 | WHEN 退款金额 > 剩余可退金额：拒绝并返回 REFUND_AMOUNT_EXCEEDED。 | REFUND_AMOUNT_EXCEEDED（409），保留输入 |
+
+**调用接口：**
+
+| 接口 | 用途/触发时机 | 涉及表（表.字段） | 业务操作（BOP-n） |
+|---|---|---|---|
+| §3.2.2 | 提交退款 | pay_refund.refund_no | BOP-2 |
+
+**操作：**
+
+| 操作 | 类型 | 权限点 | 关联（§3.2.x · BOP-n · Rn） | 触发弹窗/抽屉 |
+|---|---|---|---|---|
+| 发起退款 | 行操作 | pay:refund:create | §3.2.2 · BOP-2 · R2 | → 弹窗/抽屉：退款确认 |
+
+**弹窗/抽屉：**
+
+| 交互 | 组件 | 接口 | 关键状态/确认流 |
+|---|---|---|---|
+| 退款确认 | views/pay/RefundConfirmDialog.vue | §3.2.2 POST | 二次确认；超限拦截并保留输入 |
+
+**表格列规格：**
+
+| 字段 | 列标题 | 渲染说明 | 链路（§3.2.x 字段 ← 表.字段） |
+|---|---|---|---|
+| orderNo | 订单号 | 文本；超长省略 | — ← — |
+| refundStatus | 退款状态 | 状态 Tag（待退款/退款中/已退款） | — ← — |
+
+**表单控件规格：**
+
+| 字段 | 标签 | 控件 | 校验与提示 | 候选来源 | 链路（§3.2.x → 表.字段） |
+|---|---|---|---|---|---|
+| refundAmount | 退款金额 | el-input-number | 必填、不大于剩余可退金额（R2）；提示「退款金额超过剩余可退金额」 | 用户输入 | §3.2.2 → — |
 
 <!-- df:begin:api-index -->
 | 方法 | 路径 | 接口名称 | 权限 | 概览锚点 | 详细定义 | 请求字段 | 响应字段 |
@@ -156,55 +227,21 @@ WHEN 退款金额 > 剩余可退金额：拒绝并提示上限。
 <!-- df:begin:permission-matrix -->
 | 对象 | §锚点 | 所需权限 |
 |---|---|---|
-| 下单页 | §7.1 | pay:order:create |
-| 退款页 | §7.2 | pay:refund:create |
-| POST /api/v1/pay/orders | §3.1 | pay:order:create |
-| POST /api/v1/pay/refunds | §3.1 | pay:refund:create |
+| 下单页 | §7.1.1 | pay:order:create |
+| 退款页 | §7.1.2 | pay:refund:create |
+| POST /api/v1/pay/orders | §3.2.1 | pay:order:create |
+| POST /api/v1/pay/refunds | §3.2.2 | pay:refund:create |
 
 > 每个页面和接口都标注了所需的权限；完全公开的对象在该列标注 public。
 <!-- df:end:permission-matrix -->
-
-<!-- df:begin:rule-index -->
-| 规则 | §锚点 | 摘要 |
-|---|---|---|
-| R1 | §5.1 | 重复提交幂等 |
-| R2 | §5.2 | 退款金额上限 |
-<!-- df:end:rule-index -->
 
 <!-- df:begin:client-scope -->
 客户端范围为**PC 网页端**，以下旅程必须在真实环境中走通：
 
 | 旅程 | §页面锚点 | 证据形态 |
 |---|---|---|
-| 下单主流程 | §7.1 | 真实浏览器 |
+| 下单主流程 | §7.1.1 | 真实浏览器 |
 <!-- df:end:client-scope -->
-
-<!-- df:begin:zero-results -->
-以下内容已确认为空，并非遗漏：
-
-| 为空的内容 | 原因 |
-|---|---|
-| apis[1].response.fields | 退款接口异步受理模式，同步响应仅返回受理状态码，无业务字段 |
-<!-- df:end:zero-results -->
-
-<!-- df:begin:ddr-index -->
-| 编号 | 决策点 | 备选方案 | 选定 | 理由 |
-|---|---|---|---|---|
-| DDR-1 | order_no 长度 | varchar(20) / varchar(32) | varchar(64) | 编码规则 18 位定长 + 2 位冗余，预留 3 倍兼容跨系统单号；参照 §13 规范 R-004 |
-| DDR-2 | refund_no 类型 | varchar / text | varchar(64) | 须参与唯一索引；text 不能建普通索引（§13 规范 R-007） |
-| DDR-3 | 金额精度 | DECIMAL(10,2) / DECIMAL(12,2) | DECIMAL(12,2) | 单笔上限 10^10 分级业务口径，2 位小数满足分账精度；量化：最大流水 9,999,999,999.99 |
-
-> 每条设计决策回答了「为什么这么设计」，并与具体字段一一对应（见下表）。理由均来自业务口径、规范条目或量化数据，不只凭经验。
-<!-- df:end:ddr-index -->
-
-<!-- df:begin:ddr-matrix -->
-| 表 | 字段 | 关联 DDR |
-|---|---|---|
-| pay_order | order_no | DDR-1 |
-| pay_refund | refund_no | DDR-2、DDR-3 |
-
-全部 2 个字段都能追溯到决定它的设计决策。
-<!-- df:end:ddr-matrix -->
 
 <!-- df:begin:resource-operations -->
 | 资源 | 类别 | 超时取消（timeout） |

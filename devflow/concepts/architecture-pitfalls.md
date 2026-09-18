@@ -1,6 +1,6 @@
 ---
 name: architecture-pitfalls
-version: "3.27.4"
+version: "3.27.15"
 description: |
   从 `docs/架构升级改造计划.md` 54 项 D-XX 偏差、21 项 G 守卫、44 项 B 改进中归纳的
   通用化"架构陷阱"清单。**任何项目在任何 Phase 切换前都应自检**。
@@ -703,3 +703,32 @@ bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category deploy
 ## 16. 一句话原则
 
 > **架构不是一次性设计，而是与坑的持续对抗。把每次踩过的坑变成不可绕过的规则。**
+
+---
+
+## 附录：M-01 实战新增坑（v3.27.5，2026-09-18）
+
+### PITFALL-M01-01：ORM 全局逻辑删除 × 显式生命周期字段（P0）
+
+- **模式**：服务用回收站/生命周期唯一键模式（deleted 参与业务状态机 + recycle_ref 显式置位），同时继承脚手架的 `logic-delete-field` 全局配置。
+- **后果**：MP 从一切 UPDATE SET 过滤该字段——删除进站/恢复/置空全链路静默失效；P3 返工 3 轮。
+- **检查**：凡服务启用回收站模式，application.yml 禁用 `logic-delete-field`，deleted 过滤下沉服务层。
+- **已在 check-arch-pitfalls 覆盖**：否（正则难以静态判定，依赖规约 + 回环测试）。
+
+### PITFALL-M01-02：实体 FQCN 类型名破坏文档↔代码字段对账
+
+- **模式**：实体字段写 `private java.time.LocalDateTime x;`。
+- **后果**：P4b 实体字段抽取正则（短类型名）失配，datetime 字段集体报"Field missing"（假阴性对账失败）。
+- **规约**：实体一律短类型名 + import。
+
+### PITFALL-M01-03：updateById 置空语义静默失效
+
+- **模式**：用 updateById/entity 或普通 set 置 null（lock_until=NULL 解锁、recycle_ref=NULL 复位）。
+- **后果**：空值被跳过，状态永不复位（解锁失败/恢复失败）。
+- **规约**：置空一律 LambdaUpdateWrapper.set(field, null) + "置空后回读断言"测试。
+
+### PITFALL-M01-04：渲染器整篇重建 × 手写章节共存
+
+- **模式**：确定性渲染器对已含手写增强章节的文档执行骨架级重建。
+- **后果**：手写内容（表格/流程/约束表）全部丢失；本文档类事故在 M-01 造成 2h 返工。
+- **规约**：渲染器对既有文档只做锚点块拼接（df_render v3.27.5 守卫已实现）；手写增强一律写在锚点块外。

@@ -1,6 +1,6 @@
 ---
 name: monitor
-version: "3.27.4"
+version: "3.27.15"
 description: >-
   Use when configuring application monitoring after P6 testing, mentions
   "/monitor", "监控", "监控配置", "prometheus", "metrics", "actuator", or "observability setup".
@@ -40,6 +40,16 @@ allowed-tools:
 ## 命名约定
 
 输出：`docs/发布/<feature>-监控配置.md`
+
+证据文件（人类可读产物一律中文名，与监控配置同目录）：
+
+| 证据 | 路径 |
+|------|------|
+| 指标采样（≥5 条真实采样行） | `docs/发布/<feature>-指标采样.txt` |
+| 指标端点快照 | `docs/发布/<feature>-指标快照.txt` |
+| 日志查询证据（≥2 行真实查询结果） | `docs/发布/<feature>-日志查询证据.txt` |
+| 告警规则（含 `alert:` + `expr:`） | `docs/发布/<feature>-告警规则.yml` |
+| 告警实测输出（三要素） | `docs/发布/<feature>-告警测试输出.txt` |
 
 ## 执行步骤
 
@@ -108,9 +118,10 @@ grep -rn "MeterRegistry\|Counter\\.builder\|Gauge\\.builder\\|Timer\\.builder" \
 
 METRICS_ENDPOINT=<actual-prometheus-endpoint>
 LOG_QUERY=<saved-query-or-dashboard-link>
-ALERT_RULE=<rule-id-or-file-path>
+LOG_QUERY_EVIDENCE=docs/发布/<feature>-日志查询证据.txt
+ALERT_RULE=docs/发布/<feature>-告警规则.yml
 ALERT_TESTED=PASS
-ALERT_TEST_OUTPUT=<path-to-alert-test-output>
+ALERT_TEST_OUTPUT=docs/发布/<feature>-告警测试输出.txt
 
 ## 三件套检查
 

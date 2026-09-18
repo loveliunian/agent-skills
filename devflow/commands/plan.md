@@ -1,6 +1,6 @@
 ---
 name: plan
-version: "3.27.4"
+version: "3.27.15"
 description: >-
   Use when decomposing a detailed design into actionable tasks, mentions
   "/plan", "任务分解", "任务清单", "分解任务", "break down", "task list", or "work items".
@@ -21,7 +21,7 @@ allowed-tools:
 # /plan - 任务分解规划（执行契约）
 
 > **前置依赖**：`/spec` 已完成 → `docs/详细设计/<feature>-详细设计.md` 已冻结。
-> **职责边界**：详设负责 WHAT + CONTRACT（含「实现交接」施工图）；`/plan` 负责 **WHERE + HOW TO VERIFY**
+> **职责边界**：详设负责 WHAT + CONTRACT；实现交接文档（`<feature>-实现交接.md`）是施工图正本（baseline/变更/不变量）；`/plan` 负责 **WHERE + HOW TO VERIFY**
 > （把每个行为翻译成 exact target、修改类型、不变量、验证方式）；`/build` 负责最小补丁实现与证据。
 > **核心原则**：每个任务必须映射至少一个冻结验收 ID 和语义锚点；每个 Target 是一条可独立验证的修改。
 
@@ -41,10 +41,12 @@ allowed-tools:
 
 ## 执行步骤
 
-### 1. 读取详设
+### 1. 读取详设与附属文档
 
 ```bash
 test -f docs/详细设计/<feature>-详细设计.md || { echo "BLOCKED: 详设缺失"; exit 1; }
+test -f docs/详细设计/<feature>-实现交接.md || { echo "BLOCKED: 实现交接文档缺失（施工图正本）"; exit 1; }
+test -f docs/详细设计/<feature>-需求追溯.md || { echo "BLOCKED: 需求追溯文档缺失"; exit 1; }
 test -f docs/需求/<feature>-验收点.md || { echo "BLOCKED: 验收基线缺失"; exit 1; }
 bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/详细设计/<feature>-详细设计.md docs/需求/<feature>-验收点.md
 # v3.24.0(A12)：设计完成 = P2 + P2a——/plan 与 /build 消费同一份设计批准收据，
@@ -53,11 +55,11 @@ test -f ".devflow/<feature>/gates/P2a/receipt.txt" && grep -q '^EXIT_CODE=0$' ".
   || { echo "BLOCKED: P2a 设计评审未通过——先运行 p2a_design_review_gate.sh <feature>"; exit 1; }
 ```
 
-### 2. 从「实现交接」节生成执行契约
+### 2. 从实现交接文档生成执行契约
 
-- 以 `<!-- anchor: implementation-handoff -->` 节为施工图正本：现有实现基线、预计代码变更、不变量；
+- 以 `docs/详细设计/<feature>-实现交接.md`（`<!-- anchor: implementation-handoff -->`）为施工图正本：现有实现基线、预计代码变更、不变量（v3.27.15 起从详设移出）；
   同时按原子验收 ID 聚合共同变化的表、接口、页面、权限与测试。
-- 详设缺少实现交接节或 Target 与实际代码不符：`BLOCKED`，回 P2 补齐后重跑（不得凭猜测补 Target）。
+- 实现交接文档缺失或 Target 与实际代码不符：`BLOCKED`，回 P2 补齐后重跑（不得凭猜测补 Target）。
 - 设计锚点一律用语义锚点引用（`anchor: data-model` / `api-contracts` / `business-rules` /
   `acceptance-traceability` / `implementation-handoff`），章节号仅作展示。
 - 每个验收 ID 必须被至少一个任务消费。
@@ -99,10 +101,10 @@ bugfix、缓存、定时任务、纯算法、纯 UI、配置变更等都不需�
 ## 任务矩阵（Task = 切片；每行 = 一个 exact target）
 | Task | Acceptance | DesignRef | Target | Action | Invariants | Verify | Risk | 依赖 |
 |------|-----------|-----------|--------|--------|------------|--------|------|------|
-| T-01 | M-01-F01-A01 | anchor: api-contracts §3.2.1 | `XxxController#list` | MODIFY | 响应结构不得变化 | `XxxControllerTest` | LOW | - |
+| T-01 | M-01-F01-A01 | anchor: api-contracts §3.2.1（分文档 §5.3.1） | `XxxController#list` | MODIFY | 响应结构不得变化 | `XxxControllerTest` | LOW | - |
 | T-01 | M-01-F01-A01 | anchor: business-rules R1 | `XxxService#page` | MODIFY | 未指定条件时行为不变 | `XxxServiceTest` | MEDIUM | - |
-| T-01 | M-01-F01-A01 | anchor: data-model §2.2 {表名} | `XxxMapper.xml#selectPage` | MODIFY | 不得引入 N+1 | repository test | MEDIUM | - |
-| T-02 | M-01-F01-A02 | anchor: implementation-handoff §14.2 | `XxxServiceTest` | ADD | - | 目标测试命令 | LOW | T-01 |
+| T-01 | M-01-F01-A01 | anchor: data-model §2.2 {表名}（分文档 §2.3） | `XxxMapper.xml#selectPage` | MODIFY | 不得引入 N+1 | repository test | MEDIUM | - |
+| T-02 | M-01-F01-A02 | anchor: implementation-handoff §2（`<feature>-实现交接.md`） | `XxxServiceTest` | ADD | - | 目标测试命令 | LOW | T-01 |
 
 ## 切片要求
 - 每个切片是一个可独立验证的行为闭环；测试随切片同时提交

@@ -56,11 +56,34 @@ source "$(cd "$(dirname "$0")" && pwd)/perf-track.sh"
 perf_start "P2a"
 
 DESIGN_PATH="$(df_resolve_doc "$FEATURE" design .md design)"
-[ -n "$DESIGN_PATH" ] || DESIGN_PATH="docs/detailed-design/${FEATURE}-design.md"
+[ -n "$DESIGN_PATH" ] || DESIGN_PATH="docs/详细设计/${FEATURE}-详细设计.md"
+# v3.27.15：附属文档自动发现——需求追溯 / 实现交接 / 数据库设计决策（DDR+迁移）已移出详设
+_P2A_DIR=$(dirname "$DESIGN_PATH")
+_P2A_BASE=$(basename "$DESIGN_PATH")
+case "$_P2A_BASE" in
+  *-详细设计.md) _P2A_STEM="${_P2A_BASE%-详细设计.md}" ;;
+  *-design.md)   _P2A_STEM="${_P2A_BASE%-design.md}" ;;
+  *)             _P2A_STEM="${_P2A_BASE%.md}" ;;
+esac
+TRACE_DOC="$_P2A_DIR/${_P2A_STEM}-需求追溯.md"
+HANDOFF_DOC="$_P2A_DIR/${_P2A_STEM}-实现交接.md"
+DB_DOC="$_P2A_DIR/${_P2A_STEM}-数据库设计决策.md"
+TECH_DOC="$(df_resolve_doc "$FEATURE" tech_selection .md design 2>/dev/null || true)"
+[ -n "$TECH_DOC" ] || TECH_DOC="docs/详细设计/${FEATURE}-技术选型.md"
+TRACE_SRC="$DESIGN_PATH"
+[ -f "$TRACE_DOC" ] && TRACE_SRC="$TRACE_DOC"
+_p2a_anchor_present() { # <anchor>：详设或附属文档任一存在即通过
+  local a="$1"
+  grep -q "anchor: $a" "$DESIGN_PATH" 2>/dev/null && return 0
+  [ -f "$TRACE_DOC" ] && grep -q "anchor: $a" "$TRACE_DOC" 2>/dev/null && return 0
+  [ -f "$HANDOFF_DOC" ] && grep -q "anchor: $a" "$HANDOFF_DOC" 2>/dev/null && return 0
+  [ -f "$DB_DOC" ] && grep -q "anchor: $a" "$DB_DOC" 2>/dev/null && return 0
+  return 1
+}
 REVIEW_PATH="$(df_resolve_doc "$FEATURE" design_review_report .md review)"
-[ -n "$REVIEW_PATH" ] || REVIEW_PATH="docs/review/${FEATURE}-design-review-report.md"
+[ -n "$REVIEW_PATH" ] || REVIEW_PATH="docs/评审/${FEATURE}-设计评审报告.md"
 CRITERIA_PATH="$(df_resolve_doc "$FEATURE" acceptance .md requirements)"
-[ -n "$CRITERIA_PATH" ] || CRITERIA_PATH="docs/requirements/${FEATURE}-acceptance-criteria.md"
+[ -n "$CRITERIA_PATH" ] || CRITERIA_PATH="docs/需求/${FEATURE}-验收点.md"
 
 # ---------- §0 基础存在性 ----------
 echo ""
@@ -193,7 +216,7 @@ fi
 echo ""
 echo "=== §3f 领域专项评审清单 ==="
 DC="$(df_resolve_doc "$FEATURE" design_domain_checklist .md review)"
-[ -n "$DC" ] || DC="docs/review/${FEATURE}-domain-checklist.md"
+[ -n "$DC" ] || DC="docs/评审/${FEATURE}-设计领域清单.md"
 DC_PLATFORM="pc-web"
 DC_STATE="${STATE_DIR:-.devflow}/${FEATURE}.state.json"
 if [ -f "$DC_STATE" ] && command -v jq >/dev/null 2>&1; then
@@ -242,11 +265,11 @@ STRUCT_MISSING=0
 # v3.23.0: 语义锚点优先（正本）——章节编号仅展示，锚点是 /plan、/build 与评审定位契约
 for _spec in "data-model:数据模型" "api-contracts:接口" "business-rules:业务规则" "acceptance-traceability:需求追溯" "implementation-handoff:实现交接"; do
   _a="${_spec%%:*}"; _t="${_spec#*:}"
-  if grep -q "anchor: $_a" "$DESIGN_PATH" 2>/dev/null \
+  if _p2a_anchor_present "$_a" \
      || grep -qE "^## .*$_t" "$DESIGN_PATH" 2>/dev/null; then
     pass "design semantic anchor present: $_a"
   else
-    p0 "design missing semantic anchor: ${_a}（补 <!-- anchor: ${_a} --> 或标题含「${_t}」的章节）"
+    p0 "design missing semantic anchor: ${_a}（补 <!-- anchor: ${_a} --> 或标题含「${_t}」的章节/附属文档）"
     STRUCT_MISSING=$((STRUCT_MISSING+1))
   fi
 done
@@ -258,8 +281,9 @@ for _spec in "component-reuse:组件复用|复用清单:组件复用" \
              "standards-compliance:规范遵循|规范基线:规范遵循" \
              "design-decisions:设计决策|DDR:设计决策 DDR"; do
   _a="${_spec%%:*}"; _rest="${_spec#*:}"; _h2="${_rest%%:*}"; _t="${_rest#*:}"
-  if grep -q "anchor: $_a" "$DESIGN_PATH" 2>/dev/null \
-     || grep -qE "^## .*(${_h2})" "$DESIGN_PATH" 2>/dev/null; then
+  if _p2a_anchor_present "$_a" \
+     || grep -qE "^## .*(${_h2})" "$DESIGN_PATH" 2>/dev/null \
+     || { [ "$_a" = "standards-compliance" ] && grep -qE "^## .*(规范遵循|规范基线)" "$TECH_DOC" 2>/dev/null; }; then
     pass "design semantic anchor present: $_a"
   else
     p0 "design missing semantic anchor: ${_a}（${_t}；补 <!-- anchor: ${_a} --> 或含「${_t}」的 H2 章节——编号在不同模板模式下不一致，语义锚点是唯一机器契约）"
@@ -506,7 +530,7 @@ echo "=== §5 需求追溯（acceptance-traceability）100% 覆盖 ==="
 P0_ID_FILE=$(mktemp -t p2a-criteria.XXXXXX)
 DESIGN_ID_FILE=$(mktemp -t p2a-design.XXXXXX)
 grep -oE 'M-[0-9]{2}-F[0-9]{2}-A[0-9]{2}' "$CRITERIA_PATH" 2>/dev/null | sort -u > "$P0_ID_FILE"
-grep -oE 'M-[0-9]{2}-F[0-9]{2}-A[0-9]{2}' "$DESIGN_PATH" 2>/dev/null | sort -u > "$DESIGN_ID_FILE"
+grep -oE 'M-[0-9]{2}-F[0-9]{2}-A[0-9]{2}' "$TRACE_SRC" 2>/dev/null | sort -u > "$DESIGN_ID_FILE"
 P0_IDS=$(grep -c . "$P0_ID_FILE" 2>/dev/null || true)
 DESIGN_IDS=$(grep -c . "$DESIGN_ID_FILE" 2>/dev/null || true)
 MISSING_TRACE=$(comm -23 "$P0_ID_FILE" "$DESIGN_ID_FILE" || true)

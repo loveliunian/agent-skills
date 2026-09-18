@@ -180,4 +180,38 @@ echo z > 主索引.md
 out="$(df_resolve_master_index)"; [ "$out" = "主索引.md" ] && ok "主索引中文优先" || bad "主索引中文优先失败: $out"
 cd "$_SAVED_PWD" || exit 1
 
+# ---------- 8. 证据文件中文映射（P4/P6/P8/P10，新产物中文默认、英文历史回退） ----------
+_SAVED_PWD="$PWD"
+mkdir -p "$TMP/ev"; cd "$TMP/ev" || exit 1
+source "$S/devflow_paths.sh"
+_assert_def() { # <suffix> <ext> <dir> <expected>
+  local out; out="$(df_default_doc f "$1" "$2" "$3")"
+  [ "$out" = "$4" ] && ok "默认中文证据路径: $out" || bad "证据路径默认错误: ${out}（期望 $4）"
+}
+_assert_def unit_report .md test "docs/测试/f-单元测试报告.md"
+_assert_def integration_report .md test "docs/测试/f-集成测试报告.md"
+_assert_def client_journey_report .md test "docs/测试/f-客户端旅程报告.md"
+_assert_def load_test .md test "docs/测试/f-压测报告.md"
+_assert_def staging_report .md test "docs/测试/f-预发布验证报告.md"
+_assert_def raw_validation .md test "docs/测试/f-PRD验证原始证据.md"
+_assert_def release_evidence .md deploy "docs/发布/f-发布证据.md"
+_assert_def alert_rules .yml deploy "docs/发布/f-告警规则.yml"
+_assert_def alert_test_output .txt deploy "docs/发布/f-告警测试输出.txt"
+_assert_def log_query_evidence .txt deploy "docs/发布/f-日志查询证据.txt"
+_assert_def metrics_samples .txt deploy "docs/发布/f-指标采样.txt"
+_assert_def metrics_snapshot .txt deploy "docs/发布/f-指标快照.txt"
+# 历史英文名（含项目实测的 -report 简写）继续可解析
+mkdir -p docs/测试 docs/发布 docs/知识沉淀
+echo x > docs/测试/f-unit-report.md
+out="$(df_resolve_doc f unit_report .md test)"; [ "$out" = "docs/测试/f-unit-report.md" ] && ok "历史英文 unit-report 可解析" || bad "unit-report 英文回退失败: $out"
+echo x > docs/测试/f-load-report.md
+out="$(df_resolve_doc f load_test .md test)"; [ "$out" = "docs/测试/f-load-report.md" ] && ok "历史英文 load-report 可解析" || bad "load-report 英文回退失败: $out"
+echo x > docs/测试/f-client-report.md
+out="$(df_resolve_doc f client_journey_report .md test)"; [ "$out" = "docs/测试/f-client-report.md" ] && ok "历史英文 client-report 可解析" || bad "client-report 英文回退失败: $out"
+echo x > docs/测试/f-staging-report.md
+out="$(df_resolve_doc f staging_report .md test)"; [ "$out" = "docs/测试/f-staging-report.md" ] && ok "历史英文 staging-report 可解析" || bad "staging-report 英文回退失败: $out"
+echo x > docs/知识沉淀/f-知识分享.md
+out="$(df_resolve_doc f sharing .md knowledge)"; [ "$out" = "docs/知识沉淀/f-知识分享.md" ] && ok "知识沉淀中文目录可解析" || bad "知识沉淀解析失败: $out"
+cd "$_SAVED_PWD" || exit 1
+
 finish "CHINESE_PATHS"

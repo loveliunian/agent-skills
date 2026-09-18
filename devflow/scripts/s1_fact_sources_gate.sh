@@ -28,8 +28,10 @@ if [ "$#" -ge 1 ] && [ -n "$1" ]; then
   DOC_DIR="$1"
 elif [ -d "docs/详细设计" ]; then
   DOC_DIR="docs/详细设计"
-else
+elif [ -d "docs/detailed-design" ]; then
   DOC_DIR="docs/detailed-design"
+else
+  DOC_DIR="docs/详细设计"
 fi
 DOC_DIR="${DOC_DIR%/}"
 # 事实源双语：主目录缺失时到另一历史目录取证（文件名机器契约不翻译）
@@ -37,7 +39,7 @@ ALT_DOC_DIR=""
 if [ "$DOC_DIR" = "docs/详细设计" ]; then ALT_DOC_DIR="docs/detailed-design"
 elif [ "$DOC_DIR" = "docs/detailed-design" ]; then ALT_DOC_DIR="docs/详细设计"; fi
 
-# v3.16.25: P1 必须验证 P0 技术硬约束与技术选型报告，不能只验证事实源。
+# v3.16.25: P1 必须验证 P0 技术硬约束与设计决策记录，不能只验证事实源。
 if [ -n "${TECH_SELECTION_FILE:-}" ]; then
   TECH_REPORT="$TECH_SELECTION_FILE"
 else
@@ -97,7 +99,7 @@ done
 
 # ---------- §1b 技术选型与硬约束契约 ----------
 echo ""
-echo "=== §1b 技术选型报告与硬约束契约 ==="
+echo "=== §1b 设计决策记录与硬约束契约 ==="
 for f in "$TECH_CONSTRAINTS" "$TECH_REPORT"; do
   if [ ! -f "$f" ]; then
     p0 "$f missing"
@@ -145,6 +147,40 @@ if [ -f "$TECH_REPORT" ]; then
   grep -qE '决策矩阵' "$TECH_REPORT" || p0 "technology selection report missing decision matrix"
   grep -qE '决策结论' "$TECH_REPORT" || p0 "technology selection report missing decision conclusion"
   grep -qE 'constraint_id|constraint_set' "$TECH_REPORT" || p0 "technology selection report missing constraint bindings"
+
+  # v3.27.7: 详设文档结构（单文档/总分）决策从 P2 上移至 P1——P2 只按冻结结果选模板。
+  # 机检行为 df_pipeline 渲染产物；缺机检行的存量手写报告 WARN（限期补登），有行但值非法 FAIL。
+  if grep -qE 'design_doc_structure_mode=(monolith|total)' "$TECH_REPORT"; then
+    pass "technology selection record carries frozen design doc structure decision (P2 不再重复决策)"
+  elif grep -qE '详设文档结构决策' "$TECH_REPORT"; then
+    p0 "technology selection report has 详设文档结构决策 section but missing machine line design_doc_structure_mode=monolith|total"
+  else
+    warn "technology selection report missing 详设文档结构决策（design_doc_structure_mode=monolith|total）——v3.27.7 起文档结构须在 P1 决策，P2 不再做总分/单文档决策；请重跑 tech-selection 管线补登"
+  fi
+
+  # v3.27.14：脚手架重合度审计（铁律 18）——tech-selection.json 登记 scaffold_audit 时，
+  # 渲染报告必须含《脚手架重合度审计》章节与清单表（防手写/陈旧渲染覆盖结构化产物）。
+  TS_JSON="${STATE_DIR:-.devflow}/${EFF_FEATURE}/tech-selection.json"
+  if [ -f "$TS_JSON" ] && command -v jq >/dev/null 2>&1 \
+     && jq -e '(.scaffold_audit // []) | length > 0' "$TS_JSON" >/dev/null 2>&1; then
+    if grep -qF '脚手架重合度审计' "$TECH_REPORT" \
+       && grep -qE '\|[[:space:]]*判定（裁剪/复用/新建）[[:space:]]*\|' "$TECH_REPORT"; then
+      pass "scaffold overlap audit section rendered (铁律 18)"
+    else
+      p0 "tech-selection.json 登记了 scaffold_audit，但报告缺《脚手架重合度审计》章节或判定清单表——重跑 df_pipeline.py tech-selection 渲染"
+    fi
+  fi
+
+  # v3.27.15：规范遵循结构化——tech-selection.json 登记 standards 时，报告必须含《规范遵循》章节
+  # （详设 §13 已删除，规范基线唯一正本在设计决策记录）。
+  if [ -f "$TS_JSON" ] && command -v jq >/dev/null 2>&1 \
+     && jq -e '(.standards // []) | length > 0' "$TS_JSON" >/dev/null 2>&1; then
+    if grep -qF '规范遵循' "$TECH_REPORT"; then
+      pass "standards section rendered (v3.27.15)"
+    else
+      p0 "tech-selection.json 登记了 standards，但报告缺《规范遵循》章节——重跑 df_pipeline.py tech-selection 渲染"
+    fi
+  fi
 
   # v3.16.26: 用户确认正则修复——LC_ALL=C 下 [^[:alnum:]] 会吞掉多字节汉字，
   # 旧正则曾把"用户确认: 未确认"误判为已确认。现在：正向匹配必须在冒号后直接出现

@@ -127,6 +127,21 @@ check_rc 1 "prd-review: 角色 DF/ZERO-DF 缺失被拦截" validate prd-review n
 mutate 'import json; d=json.load(open("'"$EX"'/tech-selection.sample.json")); d["dimensions"][0]["weight"]=75; json.dump(d, open("neg-tech-selection.json","w"), ensure_ascii=False)'
 check_rc 1 "tech-selection: 权重合计≠100 被拦截" validate tech-selection neg-tech-selection.json --constraints constraints-contract.md
 
+mutate 'import json; d=json.load(open("'"$EX"'/tech-selection.sample.json")); d["design_doc_structure"]={"mode":"total","reason":"模块多跨服务并行开发需总分","planned_docs":[]}; json.dump(d, open("neg-tech-docstructure.json","w"), ensure_ascii=False)'
+check_rc 1 "tech-selection: design_doc_structure=total 缺 planned_docs 被拦截" validate tech-selection neg-tech-docstructure.json --constraints constraints-contract.md
+
+mutate 'import json; d=json.load(open("'"$EX"'/tech-selection.sample.json")); del d["design_doc_structure"]; json.dump(d, open("neg-tech-nodocstructure.json","w"), ensure_ascii=False)'
+check_rc 1 "tech-selection: 缺 design_doc_structure 被拦截（v3.27.7 文档结构 P1 决策）" validate tech-selection neg-tech-nodocstructure.json --constraints constraints-contract.md
+
+mutate 'import json; d=json.load(open("'"$EX"'/tech-selection.sample.json")); d["scaffold_audit"]=[]; json.dump(d, open("neg-tech-scaffold-empty.json","w"), ensure_ascii=False)'
+check_rc 1 "tech-selection: scaffold_audit 空数组被拦截（登记即须逐域裁决，v3.27.14）" validate tech-selection neg-tech-scaffold-empty.json --constraints constraints-contract.md
+
+mutate 'import json; d=json.load(open("'"$EX"'/tech-selection.sample.json")); d["scaffold_audit"][0]["action"]="裁剪"; json.dump(d, open("neg-tech-scaffold-action.json","w"), ensure_ascii=False)'
+check_rc 1 "tech-selection: 裁剪项未写明处置动作被拦截（v3.27.14）" validate tech-selection neg-tech-scaffold-action.json --constraints constraints-contract.md
+
+mutate 'import json; d=json.load(open("'"$EX"'/tech-selection.sample.json")); d["scaffold_audit"][1]["domain"]=d["scaffold_audit"][0]["domain"]; json.dump(d, open("neg-tech-scaffold-dup.json","w"), ensure_ascii=False)'
+check_rc 1 "tech-selection: scaffold_audit 功能域重复被拦截（v3.27.14）" validate tech-selection neg-tech-scaffold-dup.json --constraints constraints-contract.md
+
 mutate 'import json; d=json.load(open("'"$EX"'/design-review.sample.json")); d["receipts"][0]["session_id"]="REV-OTHER"; json.dump(d, open("neg-design-review.json","w"), ensure_ascii=False)'
 check_rc 1 "design-review: 收据 session 与 run_id 不一致被拦截" validate design-review neg-design-review.json
 
@@ -188,6 +203,9 @@ grep -q '^## 模糊点清单' "$OUT/clarification.md" && grep -q '^## 签字确�
 grep -q 'DEVFLOW:CONSTRAINTS' "$OUT/constraints.md" && grep -q 'constraint_set\|constraint_id' "$OUT/constraints.md" && ok "constraints: 机器契约块" || bad "constraints: 机器契约块"
 grep -qE '^#### DF-01 ' "$OUT/prd-review.md" && grep -qE '^- AW-1 场景：' "$OUT/prd-review.md" && grep -q '探针执行记录' "$OUT/prd-review.md" && ok "prd-review: DF/AW/探针标记(P0b gate)" || bad "prd-review: DF/AW/探针标记(P0b gate)"
 grep -q '决策矩阵' "$OUT/tech-selection.md" && grep -q 'DEVFLOW:CONSTRAINT-BINDINGS' "$OUT/tech-selection.md" && ok "tech-selection: 决策矩阵+绑定块(s1 gate)" || bad "tech-selection: 决策矩阵+绑定块(s1 gate)"
+grep -q '详设文档结构决策' "$OUT/tech-selection.md" && grep -qE '^design_doc_structure_mode=(monolith|total)' "$OUT/tech-selection.md" && ok "tech-selection: 详设文档结构决策机检行(v3.27.7)" || bad "tech-selection: 详设文档结构决策机检行(v3.27.7)"
+grep -q '脚手架重合度审计' "$OUT/tech-selection.md" && grep -qE '\|[[:space:]]*判定（裁剪/复用/新建）[[:space:]]*\|' "$OUT/tech-selection.md" && ok "tech-selection: 脚手架重合度审计章节渲染(v3.27.14/铁律 18)" || bad "tech-selection: 脚手架重合度审计章节渲染(v3.27.14/铁律 18)"
+grep -q '规范遵循' "$OUT/tech-selection.md" && grep -q 'standards-compliance' "$OUT/tech-selection.md" && ok "tech-selection: 规范遵循章节渲染(v3.27.15 从详设移入)" || bad "tech-selection: 规范遵循章节渲染(v3.27.15)"
 grep -q '^REVIEW_RUN_ID=' "$OUT/design-review.md" && grep -qE '^#### DF-01 ' "$OUT/design-review.md" && ok "design-review: RUN_ID+DF 标记(p2a gate)" || bad "design-review: RUN_ID+DF 标记(p2a gate)"
 grep -qE '^FINDING\|P0\|P0-1\|STATUS=CLOSED\|' "$OUT/code-review.md" && grep -q '^DEVELOPER_ID=dev-zhangsan' "$OUT/code-review.md" && ok "code-review: FINDING 行+角色分离字段(p3b gate)" || bad "code-review: FINDING 行+角色分离字段(p3b gate)"
 grep -qx 'P0_BLOCKERS=0' "$OUT/prd-validation.md" && grep -q '^P4_CMD=' "$OUT/prd-validation.md" && ok "prd-validation: P4 机器字段(p4 gate)" || bad "prd-validation: P4 机器字段(p4 gate)"

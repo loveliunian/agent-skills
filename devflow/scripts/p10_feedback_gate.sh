@@ -15,9 +15,9 @@ devflow_feature_validate "$FEATURE" || exit 2
 STATE_DIR="${STATE_DIR:-.devflow}"
 # v3.22.0: 复盘/知识分享 中文优先、英文回退
 RETRO="$(df_resolve_doc "$FEATURE" retro .md retro)"
-[ -n "$RETRO" ] || RETRO="docs/retrospectives/${FEATURE}-retro.md"
+[ -n "$RETRO" ] || RETRO="docs/复盘/${FEATURE}-复盘报告.md"
 KNOWLEDGE="$(df_resolve_doc "$FEATURE" sharing .md knowledge)"
-[ -n "$KNOWLEDGE" ] || KNOWLEDGE="docs/knowledge/${FEATURE}-sharing.md"
+[ -n "$KNOWLEDGE" ] || KNOWLEDGE="docs/知识沉淀/${FEATURE}-知识分享.md"
 FEEDBACK="${STATE_DIR}/${FEATURE}/feedback/feedback.md"
 PASS=0
 FAIL=0

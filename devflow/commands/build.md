@@ -1,6 +1,6 @@
 ---
 name: build
-version: "3.27.4"
+version: "3.27.15"
 description: >-
   Use when implementing backend APIs, frontend pages, or migrations for a new feature after /plan,
   mentions "/build", "build it", "编码实现", "实现这个功能", "写代码", "全栈开发", or "start implementation".
@@ -27,7 +27,7 @@ allowed-tools:
 
 > **前置依赖**：P0-P2与`/plan`全部通过；首轮baseline必须在任何代码修改前冻结。
 > **完成度自检**：先跑 `scripts/build-watchdog.sh gate <feature>` 产出 P3-build 收据，再以 `scripts/p3_completion_gate.sh` 非零/零退出码为最终 P3 判定。
-> **施工顺序（P2 → Plan → Build 边界）**：详设 = WHAT + CONTRACT（含「实现交接」施工图 `anchor: implementation-handoff`）；`/plan` = WHERE + HOW TO VERIFY（exact target / action / invariants / verify）；`/build` = MINIMAL PATCH——先 READ EXISTING CODE 对账实现交接 → 最小补丁 → 目标测试 → 相关回归 → DIFF scope review（子 Agent 细则见 `subagents/backend-dev.md`）。
+> **施工顺序（P2 → Plan → Build 边界）**：详设 = WHAT + CONTRACT；实现交接文档（`<feature>-实现交接.md`，`anchor: implementation-handoff`）= 施工图；`/plan` = WHERE + HOW TO VERIFY（exact target / action / invariants / verify）；`/build` = MINIMAL PATCH——先 READ EXISTING CODE 对账实现交接 → 最小补丁 → 目标测试 → 相关回归 → DIFF scope review（子 Agent 细则见 `subagents/backend-dev.md`）。
 
 ## 使用方式
 
@@ -72,7 +72,7 @@ bash "$SKILL_ROOT/scripts/s4_first_pass_snapshot.sh" freeze <feature> docs/需�
 
 加载`phases/03-规范实现.md`。任一命令非零立即阻断，不得只打印告警继续。
 
-开工前先读详设「实现交接」节（`anchor: implementation-handoff`）：Target 与实际代码不符、或详设未给出基线，
+开工前先读实现交接文档 `docs/详细设计/<feature>-实现交接.md`（`anchor: implementation-handoff`）：Target 与实际代码不符、或未给出基线，
 `STATUS=BLOCKED` 回 P2 补齐——禁止编码 Agent 自行重新研究实现方案。
 
 开始实现前读取`references/git-branch-strategy.md`；涉及前端时同时读取`references/frontend-tech-stack.md`。用户明确要求在当前分支工作时以用户指令为准，但必须记录分支和检查点。

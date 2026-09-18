@@ -1,10 +1,10 @@
 ---
 name: retro
-version: "3.27.4"
+version: "3.27.15"
 description: >-
   Use when conducting a retrospective or lessons-learned session after a feature ships, mentions
   "/retro", "复盘", "回顾", "retrospective", "知识沉淀", "lessons learned", or "post-mortem".
-  Output: docs/复盘/<feature>-复盘.md. Must include a "上次遗漏了什么" section.
+  Output: docs/复盘/<feature>-复盘报告.md. Must include a "上次遗漏了什么" section.
 paths:
   - "docs/复盘/**"
   - "docs/PRD/**"
@@ -40,7 +40,7 @@ allowed-tools:
 
 | 文档 | 路径 |
 |------|------|
-| 复盘报告 | `docs/复盘/<feature>-复盘.md` |
+| 复盘报告 | `docs/复盘/<feature>-复盘报告.md` |
 | 知识分享 | `docs/知识沉淀/<feature>-知识分享.md` |
 
 ## 执行步骤
@@ -50,12 +50,12 @@ allowed-tools:
 ```bash
 # 列出所有阶段产出
 find docs/ -name "<feature>-*.md" -type f
-ls -la docs/复盘/<feature>-audit-P*.md
+ls -la docs/复盘/<feature>-P*审计*.md
 ```
 
 ### 2. 起草复盘 markdown
 
-`docs/复盘/<feature>-复盘.md` 必须含：
+`docs/复盘/<feature>-复盘报告.md` 必须含：
 
 ```markdown
 # <feature> 复盘总结
@@ -173,7 +173,7 @@ Gate（强制）
 
 | 项 | 强制条件 |
 |----|----------|
-| 复盘路径 | `docs/复盘/<feature>-复盘.md` 实际写入 |
+| 复盘路径 | `docs/复盘/<feature>-复盘报告.md` 实际写入 |
 | "上次遗漏了什么"段 | **必须存在**（grep 命中） |
 | "本次新发现"段 | **必须存在**（grep 命中） |
 | 知识分享 markdown | `docs/知识沉淀/<feature>-知识分享.md` 实际写入 |
@@ -185,7 +185,7 @@ Gate（强制）
 
 ## 输出
 
-- `docs/复盘/<feature>-复盘.md`
+- `docs/复盘/<feature>-复盘报告.md`
 - `docs/知识沉淀/<feature>-知识分享.md`
 - `.devflow/<feature>/feedback/feedback.md`
 
@@ -193,7 +193,7 @@ Gate（强制）
 
 ```bash
 # P10 自检：复盘含关键段
-RETRO=docs/复盘/<feature>-复盘.md
+RETRO=docs/复盘/<feature>-复盘报告.md
 grep -q "上次遗漏" "$RETRO" && echo "上次遗漏段 OK" || echo "MISSING"
 grep -q "本次新发现" "$RETRO" && echo "本次新发现段 OK" || echo "MISSING"
 

@@ -58,11 +58,11 @@ case "$PHASE" in
     echo "=== P0b PRD 评审产物 Gate ==="
     # v3.22.0: 中文优先、英文回退
     R="$(df_resolve_doc "$FEATURE" prd_review .md requirements)"
-    [ -n "$R" ] || R="docs/requirements/${FEATURE}-prd-review.md"
+    [ -n "$R" ] || R="docs/需求/${FEATURE}-PRD评审.md"
     EVIDENCE_PATH="$R"
     # v3.14.1: 领域专项清单（PRD 阶段）——平台非 not-applicable 或存在对接信号时强制
     DC="$(df_resolve_doc "$FEATURE" prd_domain_checklist .md requirements)"
-    [ -n "$DC" ] || DC="docs/requirements/${FEATURE}-prd-domain-checklist.md"
+    [ -n "$DC" ] || DC="docs/需求/${FEATURE}-PRD领域清单.md"
     DC_PLATFORM="pc-web"; DC_DEP=0
     DC_STATE="${STATE_DIR:-.devflow}/${FEATURE}.state.json"
     if [ -f "$DC_STATE" ] && command -v jq >/dev/null 2>&1; then
@@ -222,7 +222,7 @@ case "$PHASE" in
         AG_MATRIX="docs/详细设计/_权限矩阵.md"; [ -f "$AG_MATRIX" ] || AG_MATRIX="docs/detailed-design/_权限矩阵.md"
         AG_MENU="docs/详细设计/_菜单Seed索引.md"; [ -f "$AG_MENU" ] || AG_MENU="docs/detailed-design/_菜单Seed索引.md"
         AG_CLAR="$(df_resolve_doc "$FEATURE" clarification .md requirements)"
-        [ -n "$AG_CLAR" ] || AG_CLAR="docs/requirements/${FEATURE}-clarification.md"
+        [ -n "$AG_CLAR" ] || AG_CLAR="docs/需求/${FEATURE}-需求澄清.md"
         perm_reconcile_three_way "$AG_MATRIX" "$AG_CLAR" "$AG_MENU" || true
       fi
 
@@ -245,7 +245,7 @@ case "$PHASE" in
     echo "=== P7 部署记录产物 Gate ==="
     # v3.22.0: 部署记录中文优先、英文回退
     R="$(df_resolve_doc "$FEATURE" deploy_record .md deploy)"
-    [ -n "$R" ] || R="docs/deploy/${FEATURE}-deploy-record.md"
+    [ -n "$R" ] || R="docs/发布/${FEATURE}-部署记录.md"
     EVIDENCE_PATH="$R"
     STATE_FILE="${STATE_DIR:-.devflow}/${FEATURE}.state.json"
     if [ ! -f "$R" ]; then
@@ -357,7 +357,7 @@ case "$PHASE" in
     echo "=== P8 监控配置产物 Gate ==="
     # v3.22.0: 监控配置中文优先、英文回退
     R="$(df_resolve_doc "$FEATURE" monitor_config .md deploy)"
-    [ -n "$R" ] || R="docs/deploy/${FEATURE}-monitor-config.md"
+    [ -n "$R" ] || R="docs/发布/${FEATURE}-监控配置.md"
     EVIDENCE_PATH="$R"
     if [ ! -f "$R" ]; then
       p0 "missing: $R"

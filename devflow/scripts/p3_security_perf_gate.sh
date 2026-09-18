@@ -361,6 +361,16 @@ PYEOF
     performance) RECEIPT_PHASE="P3d" ;;
     full) RECEIPT_PHASE="P3cd" ;;
   esac
+  # v3.27.5（FB-20260918-002）：full 是终态绑定——签发 P3cd 后删除被取代的 P3c/P3d
+  # 子收据（含 docs 镜像）。子收据的证据树绑定分项渲染时的共享报告字节，full 重渲染
+  # 后必然失配（死循环），audit-receipts 会误报"证据绑定 broken"。P3cd 覆盖安全+性能
+  # 双域，子收据属过程性产物。
+  if [ "$CHECK_MODE" = "full" ]; then
+    for _sub in P3c P3d; do
+      rm -f "$STATE_DIR/${FEATURE:?}/gates/$_sub/receipt.txt" \
+            "docs/${FEATURE}/gates/$_sub/receipt.txt" 2>/dev/null || true
+    done
+  fi
   RECEIPT_DIR="$STATE_DIR/${FEATURE:?FEATURE is required for receipt (default fallback removed v3.14.0)}/gates/$RECEIPT_PHASE"
   mkdir -p "$RECEIPT_DIR" 2>/dev/null
   {

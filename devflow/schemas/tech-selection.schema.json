@@ -2,46 +2,137 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "devflow/schemas/tech-selection.schema.json",
   "title": "devflow P1 技术选型结构化产物（tech-selection.json）",
-  "description": "P1 技术选型的机器可读业务产物层。选型顺序是硬性的：先硬约束淘汰 → 补充缺失事实 → 只对剩余方案评分 → 决策。加权合计由渲染器派生；校验器强制 ≥2 候选、≥3 维度、权重合计 100%、每个评分有证据、选定方案来自候选集合、用户批准（原则 12）、冻结约束逐条绑定。渲染器派生决策矩阵表与 <!-- DEVFLOW:CONSTRAINT-BINDINGS --> 机器契约块（s1_fact_sources_gate.sh 解析格式逐字段兼容）。",
+  "description": "P1 技术选型的机器可读业务产物层。选型顺序是硬性的：先硬约束淘汰 → 补充缺失事实 → 只对剩余方案评分 → 决策。加权合计由渲染器派生；校验器强制 ≥2 候选、≥3 维度、权重合计 100%、每个评分有证据、选定方案来自候选集合、用户批准（原则 12）、冻结约束逐条绑定、详设文档结构决策（design_doc_structure：v3.27.7 起单文档/总分在 P1 冻结，P2 不再决策）。渲染器派生决策矩阵表与 <!-- DEVFLOW:CONSTRAINT-BINDINGS --> 机器契约块（s1_fact_sources_gate.sh 解析格式逐字段兼容）。",
   "type": "object",
-  "x-unique": ["candidates[].id", "bindings[].constraint_id"],
-  "x-zeroable": ["facts", "constraints_scan", "risks"],
-  "x-min-count": [
-    { "path": "candidates", "min": 2, "why": "Gate 标准：至少评估 2 个候选方案" },
-    { "path": "dimensions", "min": 3, "why": "Gate 标准：决策矩阵必须 ≥ 3 个评估维度" }
+  "x-unique": [
+    "candidates[].id",
+    "bindings[].constraint_id"
   ],
-  "required": ["feature", "generated_at", "template", "feature_name", "date", "selector", "reviewer", "existing_stack", "constraints_doc", "constraints_scan", "facts", "candidates", "dimensions", "decision", "user_confirmed", "risks", "bindings", "plan", "signoffs", "zero_results"],
+  "x-zeroable": [
+    "facts",
+    "constraints_scan",
+    "risks"
+  ],
+  "x-min-count": [
+    {
+      "path": "candidates",
+      "min": 2,
+      "why": "Gate 标准：至少评估 2 个候选方案"
+    },
+    {
+      "path": "dimensions",
+      "min": 3,
+      "why": "Gate 标准：决策矩阵必须 ≥ 3 个评估维度"
+    }
+  ],
+  "required": [
+    "feature",
+    "generated_at",
+    "template",
+    "feature_name",
+    "date",
+    "selector",
+    "reviewer",
+    "existing_stack",
+    "constraints_doc",
+    "constraints_scan",
+    "facts",
+    "candidates",
+    "dimensions",
+    "decision",
+    "design_doc_structure",
+    "user_confirmed",
+    "risks",
+    "bindings",
+    "plan",
+    "standards",
+    "signoffs",
+    "zero_results"
+  ],
   "additionalProperties": false,
   "properties": {
-    "feature": { "type": "string", "minLength": 1 },
-    "generated_at": { "type": "string", "minLength": 1 },
+    "feature": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1
+    },
     "template": {
       "type": "object",
-      "required": ["id", "version"],
+      "required": [
+        "id",
+        "version"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": { "const": "技术选型报告-模板" },
-        "version": { "type": "string", "minLength": 1 }
+        "id": {
+          "const": "设计决策记录-模板"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
-    "feature_name": { "type": "string", "minLength": 1 },
-    "date": { "type": "string", "minLength": 1 },
-    "selector": { "type": "string", "minLength": 1 },
-    "reviewer": { "type": "string", "minLength": 1 },
-    "existing_stack": { "type": "string", "minLength": 2, "description": "从仓库实际依赖读取的现有技术栈" },
-    "constraints_doc": { "type": "string", "minLength": 1, "description": "P0 技术约束契约文件路径" },
+    "feature_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "date": {
+      "type": "string",
+      "minLength": 1
+    },
+    "selector": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviewer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "existing_stack": {
+      "type": "string",
+      "minLength": 2,
+      "description": "从仓库实际依赖读取的现有技术栈"
+    },
+    "constraints_doc": {
+      "type": "string",
+      "minLength": 1,
+      "description": "P0 技术约束契约文件路径"
+    },
     "constraints_scan": {
       "type": "array",
       "description": "Step 2 硬约束淘汰记录；淘汰判定必须给理由（跨字段校验）",
       "items": {
         "type": "object",
-        "required": ["constraint_id", "candidate", "verdict", "reason"],
+        "required": [
+          "constraint_id",
+          "candidate",
+          "verdict",
+          "reason"
+        ],
         "additionalProperties": false,
         "properties": {
-          "constraint_id": { "type": "string", "pattern": "^TC-[A-Z]+-[0-9]{3}$" },
-          "candidate": { "type": "string", "minLength": 1 },
-          "verdict": { "enum": ["淘汰", "保留"] },
-          "reason": { "type": "string", "description": "违反 MUST_USE/MUST_NOT_USE 的具体点；淘汰时必填" }
+          "constraint_id": {
+            "type": "string",
+            "pattern": "^TC-[A-Z]+-[0-9]{3}$"
+          },
+          "candidate": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verdict": {
+            "enum": [
+              "淘汰",
+              "保留"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "description": "违反 MUST_USE/MUST_NOT_USE 的具体点；淘汰时必填"
+          }
         }
       }
     },
@@ -50,12 +141,25 @@
       "description": "Step 3 缺失事实补充（POC/基准测试/官方文档）",
       "items": {
         "type": "object",
-        "required": ["fact", "method", "conclusion"],
+        "required": [
+          "fact",
+          "method",
+          "conclusion"
+        ],
         "additionalProperties": false,
         "properties": {
-          "fact": { "type": "string", "minLength": 2 },
-          "method": { "type": "string", "minLength": 2 },
-          "conclusion": { "type": "string", "minLength": 2 }
+          "fact": {
+            "type": "string",
+            "minLength": 2
+          },
+          "method": {
+            "type": "string",
+            "minLength": 2
+          },
+          "conclusion": {
+            "type": "string",
+            "minLength": 2
+          }
         }
       }
     },
@@ -64,14 +168,41 @@
       "minItems": 2,
       "items": {
         "type": "object",
-        "required": ["id", "name", "description", "pros", "cons"],
+        "required": [
+          "id",
+          "name",
+          "description",
+          "pros",
+          "cons"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string", "pattern": "^[A-E]$" },
-          "name": { "type": "string", "minLength": 1 },
-          "description": { "type": "string", "minLength": 4 },
-          "pros": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-          "cons": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+          "id": {
+            "type": "string",
+            "pattern": "^[A-E]$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 4
+          },
+          "pros": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "cons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
         }
       }
     },
@@ -81,21 +212,47 @@
       "description": "评估维度；权重合计必须 100%（跨字段校验）；评分必须有证据",
       "items": {
         "type": "object",
-        "required": ["name", "weight", "scores"],
+        "required": [
+          "name",
+          "weight",
+          "scores"
+        ],
         "additionalProperties": false,
         "properties": {
-          "name": { "type": "string", "minLength": 1 },
-          "weight": { "type": "integer", "minimum": 1, "maximum": 100 },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "weight": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
           "scores": {
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["candidate", "score", "evidence"],
+              "required": [
+                "candidate",
+                "score",
+                "evidence"
+              ],
               "additionalProperties": false,
               "properties": {
-                "candidate": { "type": "string", "pattern": "^[A-E]$" },
-                "score": { "type": "integer", "minimum": 1, "maximum": 5 },
-                "evidence": { "type": "string", "minLength": 2, "description": "基准/引用；无证据的评分无效（跨字段校验）" }
+                "candidate": {
+                  "type": "string",
+                  "pattern": "^[A-E]$"
+                },
+                "score": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 5
+                },
+                "evidence": {
+                  "type": "string",
+                  "minLength": 2,
+                  "description": "基准/引用；无证据的评分无效（跨字段校验）"
+                }
               }
             }
           }
@@ -104,24 +261,115 @@
     },
     "decision": {
       "type": "object",
-      "required": ["chosen", "reason"],
+      "required": [
+        "chosen",
+        "reason"
+      ],
       "additionalProperties": false,
       "properties": {
-        "chosen": { "type": "string", "pattern": "^[A-E]$", "description": "必须来自 Step 2 淘汰后的候选集合（跨字段校验）" },
-        "reason": { "type": "string", "minLength": 8, "description": "须引用决策矩阵中的证据" }
+        "chosen": {
+          "type": "string",
+          "pattern": "^[A-E]$",
+          "description": "必须来自 Step 2 淘汰后的候选集合（跨字段校验）"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 8,
+          "description": "须引用决策矩阵中的证据"
+        }
       }
     },
-    "user_confirmed": { "enum": ["已确认", "YES", "PENDING"], "description": "必须由用户明确批准后填写；PENDING 会被校验拦截（原则 12）" },
+    "design_doc_structure": {
+      "type": "object",
+      "description": "P2 详设文档结构决策（v3.27.7 起从 P2 上移至 P1 记录）：单文档（monolith）还是总分文档（total）；P2 只按此冻结结果选模板，不再做结构决策（跨字段校验：total 时 planned_docs 至少 1 项）",
+      "required": [
+        "mode",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "monolith",
+            "total"
+          ],
+          "description": "monolith=单文档（详细设计-完整版-模板）；total=总分文档（总分总+总分分模板，P2 冻结 design-package.json）"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 8,
+          "description": "决策依据（模块数量/跨服务依赖/团队并行等事实，禁止只复述结论）"
+        },
+        "planned_docs": {
+          "type": "array",
+          "description": "总分模式的计划文档清单（总文档+分文档）；monolith 留空数组",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "path",
+              "doc_mode"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^(TOTAL|M-[0-9]{2})$",
+                "description": "TOTAL=总文档；M-01…=分文档"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "description": "相对仓库根的文档路径"
+              },
+              "doc_mode": {
+                "enum": [
+                  "total",
+                  "sub"
+                ],
+                "description": "对应 s2 gate --mode：总文档 total，分文档 sub"
+              }
+            }
+          }
+        }
+      }
+    },
+    "user_confirmed": {
+      "enum": [
+        "已确认",
+        "YES",
+        "PENDING"
+      ],
+      "description": "必须由用户明确批准后填写；PENDING 会被校验拦截（原则 12）"
+    },
     "risks": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["risk", "impact", "mitigation"],
+        "required": [
+          "risk",
+          "impact",
+          "mitigation"
+        ],
         "additionalProperties": false,
         "properties": {
-          "risk": { "type": "string", "minLength": 2 },
-          "impact": { "type": "string", "minLength": 1 },
-          "mitigation": { "type": "string", "minLength": 2 }
+          "risk": {
+            "type": "string",
+            "minLength": 2
+          },
+          "impact": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mitigation": {
+            "type": "string",
+            "minLength": 2
+          }
         }
       }
     },
@@ -130,14 +378,36 @@
       "description": "硬约束绑定（机器契约）；与技术约束契约逐条对账（--constraints 提供时）",
       "items": {
         "type": "object",
-        "required": ["constraint_id", "selected_product", "compliance", "evidence"],
+        "required": [
+          "constraint_id",
+          "selected_product",
+          "compliance",
+          "evidence"
+        ],
         "additionalProperties": false,
         "properties": {
-          "constraint_id": { "type": "string", "pattern": "^TC-[A-Z]+-[0-9]{3}$" },
-          "selected_product": { "type": "string", "minLength": 1, "description": "实际选定产品名；禁止「未引入 X」这类否定描述（跨字段校验）" },
-          "selected_version": { "type": "string" },
-          "compliance": { "enum": ["PASS", "FAIL"] },
-          "evidence": { "type": "string", "description": "依赖坐标/POC/配置路径；compliance=PASS 时必填（跨字段校验）" }
+          "constraint_id": {
+            "type": "string",
+            "pattern": "^TC-[A-Z]+-[0-9]{3}$"
+          },
+          "selected_product": {
+            "type": "string",
+            "minLength": 1,
+            "description": "实际选定产品名；禁止「未引入 X」这类否定描述（跨字段校验）"
+          },
+          "selected_version": {
+            "type": "string"
+          },
+          "compliance": {
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "evidence": {
+            "type": "string",
+            "description": "依赖坐标/POC/配置路径；compliance=PASS 时必填（跨字段校验）"
+          }
         }
       }
     },
@@ -146,12 +416,25 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["task", "owner", "due"],
+        "required": [
+          "task",
+          "owner",
+          "due"
+        ],
         "additionalProperties": false,
         "properties": {
-          "task": { "type": "string", "minLength": 2 },
-          "owner": { "type": "string", "minLength": 1 },
-          "due": { "type": "string", "minLength": 1 }
+          "task": {
+            "type": "string",
+            "minLength": 2
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1
+          },
+          "due": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -160,12 +443,25 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["role", "name", "date"],
+        "required": [
+          "role",
+          "name",
+          "date"
+        ],
         "additionalProperties": false,
         "properties": {
-          "role": { "type": "string", "minLength": 1 },
-          "name": { "type": "string", "minLength": 1 },
-          "date": { "type": "string", "minLength": 1 }
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "date": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -173,11 +469,158 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["path", "reason"],
+        "required": [
+          "path",
+          "reason"
+        ],
         "additionalProperties": false,
         "properties": {
-          "path": { "type": "string", "minLength": 1 },
-          "reason": { "type": "string", "minLength": 1 }
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "scaffold_audit": {
+      "type": "array",
+      "minItems": 1,
+      "description": "脚手架重合度审计清单（铁律 18）。输入含脚手架/存量代码时必须登记（逐功能域二分裁决：重合→裁剪、不重合→复用；禁止双实现并存）；非脚手架项目省略。渲染器据此生成报告《脚手架重合度审计》章节，s1 Gate 对账；裁剪/复用/新建由 P2 baseline（DELETE/MODIFY/REUSE/ADD）承接。",
+      "items": {
+        "type": "object",
+        "required": [
+          "domain",
+          "scaffold_state",
+          "verdict",
+          "action",
+          "bearing"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "domain": {
+            "type": "string",
+            "minLength": 1,
+            "description": "PRD 功能域（F0x）或模块名"
+          },
+          "scaffold_state": {
+            "type": "string",
+            "minLength": 1,
+            "description": "脚手架现状（代码/菜单/页面/表）"
+          },
+          "verdict": {
+            "enum": [
+              "裁剪",
+              "复用",
+              "新建"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "minLength": 1,
+            "description": "处置动作（删除代码/下线菜单/移除页面路由/迁移清理 或 复用方式）"
+          },
+          "bearing": {
+            "type": "string",
+            "minLength": 1,
+            "description": "新实现承载位置（模块/类）"
+          }
+        }
+      }
+    },
+    "standards": {
+      "type": "array",
+      "minItems": 1,
+      "description": "规范遵循基线（v3.27.15 从详设 §13 移入设计决策记录）：命名/开发/注释/数据库等规范域；渲染《规范遵循》章节，s1 Gate 对账",
+      "items": {
+        "type": "object",
+        "required": [
+          "domain",
+          "standard"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "domain": {
+            "type": "string",
+            "minLength": 1,
+            "description": "规范域（命名/开发/注释/数据库/接口…）"
+          },
+          "standard": {
+            "type": "string",
+            "minLength": 1,
+            "description": "采用规范（默认阿里巴巴 Java 开发手册）"
+          },
+          "version": {
+            "type": "string",
+            "description": "版本/链接"
+          },
+          "landing": {
+            "type": "string",
+            "description": "本设计落点（如 §2.2 表名小写）"
+          },
+          "deviation": {
+            "type": "string",
+            "description": "偏离说明（无偏离写 无 或省略）"
+          }
+        }
+      }
+    },
+    "design_tradeoffs": {
+      "type": "array",
+      "description": "设计取舍记录（v3.27.15）：接口/页面/架构层的设计决策与备选方案对比——评审可能质疑的决策在此显式记录",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "topic",
+          "context",
+          "chosen",
+          "alternatives",
+          "reason"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^DT-\\d+$",
+            "description": "取舍编号 DT-1..N"
+          },
+          "topic": {
+            "type": "string",
+            "minLength": 1,
+            "description": "决策点（如「分页方案」「PATCH vs PUT」）"
+          },
+          "context": {
+            "type": "string",
+            "minLength": 1,
+            "description": "为什么需要决策（背景/约束）"
+          },
+          "scope": {
+            "type": "string",
+            "description": "影响范围（接口/页面/表/全局）"
+          },
+          "chosen": {
+            "type": "string",
+            "minLength": 1,
+            "description": "选定方案"
+          },
+          "alternatives": {
+            "type": "string",
+            "minLength": 1,
+            "description": "被否决的备选（≥1 个）"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "description": "选定理由（业务口径/量化数据/规范引用）"
+          },
+          "anchor": {
+            "type": "string",
+            "description": "关联详设锚点（如 §3.2.1）"
+          }
         }
       }
     }

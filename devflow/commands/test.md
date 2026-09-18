@@ -1,6 +1,6 @@
 ---
 name: test
-version: "3.27.4"
+version: "3.27.15"
 description: Use when a user asks to generate or run unit, integration, browser, load, business, or legacy-migration tests.
 paths: [scripts/**, docs/测试/**, docs/测试用例/**, frontend/**, miniprogram/**, app/**]
 allowed-tools: [read, write, exec, glob, grep, task]
@@ -55,6 +55,20 @@ python3 "$SKILL_ROOT/scripts/df_pipeline.py" verification \
   --exec-record .devflow/<feature>/test-execution-results.env
 ```
 
+## 报告命名（人类可读产物一律中文名）
+
+| 类型 | 报告路径（新产物默认） |
+|------|------------------------|
+| Unit | `docs/测试/<feature>-单元测试报告.md` |
+| Integration | `docs/测试/<feature>-集成测试报告.md` |
+| Client journey | `docs/测试/<feature>-客户端旅程报告.md` |
+| Load | `docs/测试/<feature>-压测报告.md` |
+| Staging | `docs/测试/<feature>-预发布验证报告.md` |
+| P4 原始证据 | `docs/测试/<feature>-PRD验证原始证据.md` |
+
+`test-evidence.env` 的 `*_REPORT_PATH` 必须指向上表中文路径；Gate 仍接受历史英文名（`*-unit-report.md`、`*-validation-report.md` 等），但新产物不得再起英文名。
+机器契约层不翻译、不改名：`<feature>-implementation-evidence.tsv`、`<feature>-p4-results.tsv`、`<feature>-first-pass-results.tsv`、`<feature>-migration-evidence.env`、`.devflow/` 下产物保留英文名。
+
 ## Required evidence
 
 | Area | Gate |
@@ -76,6 +90,7 @@ Any missing runtime, browser, database, graph, or staging evidence remains `运�
 ## Output
 
 - `docs/测试/<feature>-测试报告.md`
+- 五类测试报告：单元/集成/客户端旅程/压测/预发布验证（`docs/测试/<feature>-<中文类型>报告.md`）
 - `docs/测试/<feature>-migration-evidence.env` for B/C
 - `.devflow/<feature>/first-pass-results.tsv`
 - P4/P5/P6 reports required by their phase files

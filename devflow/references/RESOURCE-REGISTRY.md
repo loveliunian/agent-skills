@@ -1,6 +1,6 @@
 ---
 name: devflow-resource-registry
-version: "3.27.4"
+version: "3.27.15"
 description: Active phase, subagent, and template resources registered for release validation.
 ---
 
@@ -60,10 +60,17 @@ templates/_菜单Seed索引.md
 templates/代码审查报告-模板.md
 templates/复盘报告-模板.md
 templates/完成度自检报告-模板.md
-templates/技术选型报告-模板.md
+templates/安全审计-模板.md
+templates/性能审计-模板.md
+templates/原型确认-模板.md
+templates/知识分享.md
+templates/设计决策记录-模板.md
 templates/技术约束-模板.md
 templates/测试用例-模板.md
 templates/监控配置-模板.md
+templates/数据库设计决策-模板.md
+templates/实现交接-模板.md
+templates/需求追溯-模板.md
 templates/详细设计-完整版-模板.md
 templates/详细设计-总分分文档-模板.md
 templates/详细设计-总分总文档-模板.md

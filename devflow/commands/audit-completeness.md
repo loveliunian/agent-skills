@@ -1,6 +1,6 @@
 ---
 name: audit-completeness
-version: "3.27.4"
+version: "3.27.15"
 description: >-
   Use when checking Phase completion before transitioning to the next phase, mentions
   "/audit", "/audit-completeness", "检查完成度", "阶段门控", "P3 自检", or "gate self-check".
@@ -242,8 +242,8 @@ exit $rc
 ### P5 完成度自检（用例数 ≥ 详设功能点 — ）
 
 ```bash
-# 详设 §6 功能点
-FUNC_POINTS=$(grep -cE "^### 6\.|^#### 6\." docs/详细设计/<feature>-详细设计.md 2>/dev/null | tr -d ' ')
+# 详设功能点（关键流程小节：完整版 §6 / 分文档 §4）
+FUNC_POINTS=$(grep -cE "^### (6|4)\.[0-9]+" docs/详细设计/<feature>-详细设计.md 2>/dev/null | tr -d ' ')
 
 # 测试用例数（kebab-case 文档）
 TEST_CASES=$(find docs/测试用例 -name "<feature>*.md" -type f -exec grep -cE "^[0-9]+\." {} + 2>/dev/null | awk '{s+=$1} END {print s+0}')

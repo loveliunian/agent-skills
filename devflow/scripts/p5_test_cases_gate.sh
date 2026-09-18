@@ -66,7 +66,7 @@ else
   # 3) 验收点覆盖对照：用例必须引用合法 M-ID 且全覆盖 criteria
   # v3.27.1: 验收点路径统一解析（中文优先、英文回退）——旧版纯英文硬编码
   CRIT="$(df_resolve_doc "$FEATURE" acceptance .md requirements 2>/dev/null || true)"
-  [ -n "$CRIT" ] || CRIT="docs/requirements/${FEATURE}-acceptance-criteria.md"
+  [ -n "$CRIT" ] || CRIT="docs/需求/${FEATURE}-验收点.md"
   if [ -f "$CRIT" ]; then
     CRIT_IDS=$(grep -oE 'M-[0-9]{2}-F[0-9]{2}-A[0-9]{2}' "$CRIT" 2>/dev/null | sort -u)
     CASE_AIDS=$(printf '%s\n' "$DATA_ROWS" | grep -oE 'M-[0-9]{2}-F[0-9]{2}-A[0-9]{2}' | sort -u)

@@ -1,14 +1,14 @@
 ---
 name: INDEX-接口
-version: "3.27.4"
-description: 接口索引模板（详设 §6 + Controller 注解 + 与 auto 生成版并存）
+version: "3.27.15"
+description: 接口索引模板（详设接口设计节 + Controller 注解 + 与 auto 生成版并存）
 ---
 
 # INDEX-接口.md
 
 
 > **本文件由 `scripts/generate-interface-index.sh` 自动生成**
-> **手工维护请在每个 `M-*` 详设 §6 接口设计 用标准格式填表**
+> **手工维护请在每个 `M-*` 详设接口设计节（完整版 §3 / 分文档 §5）用标准格式填表**
 > **生成时间: {DATE}**
 
 ---
@@ -23,7 +23,7 @@ description: 接口索引模板（详设 §6 + Controller 注解 + 与 auto 生�
 
 ## 2. 全量接口索引
 
-> **本节由脚本自动填入**：聚合各 `M-*` 详设 §6 中的 `### <path>` 小节 + Controller 的 `@RequestMapping`
+> **本节由脚本自动填入**：聚合各 `M-*` 详设接口设计节中的接口定义小节 + Controller 的 `@RequestMapping`
 
 | 方法 | 路径 | 服务 | Controller | 鉴权 | 详设章节 | 备注 |
 |---|---|---|---|---|---|---|

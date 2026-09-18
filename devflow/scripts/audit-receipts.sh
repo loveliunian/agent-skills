@@ -8,6 +8,12 @@ DOCS_DIR="${3:-docs}"
 # v3.15.2: 版本单一事实源 = SKILL.md frontmatter——移除 DEVFLOW_VERSION 环境覆盖。
 # 运行时变量可让被审计方伪造版本口径（旧版收据设 DEVFLOW_VERSION=<旧版> 即通过），
 # 与 complete/reconcile 的 devflow_version() 保持单一口径。
+_seen_other_version=0
+_has_migration_receipt=0
+# v3.27.5: pre-scan 迁移收据（排序无关联——迁移收据可能在排序末尾但需在主循环前生效）
+for _mf in "$STATE_DIR"/*/gates/SKILL-TREE-MIGRATION/receipt.txt; do
+  [ -f "$_mf" ] && { _has_migration_receipt=1; break; }
+done
 EXPECTED_VERSION=$(sed -n 's/^version: "\([0-9.]*\)"/\1/p; s/^  version: "\([0-9.]*\)"/\1/p' "$(cd "$(dirname "$0")/.." && pwd)/SKILL.md" 2>/dev/null | head -1)
 [ -n "$EXPECTED_VERSION" ] || { echo "[FAIL] 无法解析 SKILL.md 版本——版本源读取失败时拒绝审计"; exit 2; }
 [ -n "$FEATURE" ] || { echo "Usage: $0 <feature> [state-dir] [docs-dir]"; exit 2; }
@@ -102,6 +108,7 @@ check_versions() {
     fi
     # v3.15.1: SKILL_TREE 硬门禁（从 WARN 升级）——迁移收据自身凭 FROM/TO 记录，豁免 SKILL_TREE 行
     if [ "$stage" = "SKILL-TREE-MIGRATION" ]; then
+      _has_migration_receipt=1
       continue
     fi
     local rc_tree
@@ -114,6 +121,8 @@ check_versions() {
       if [ "$rc_tree" != "$state_tree" ]; then
         if _tree_migration_covers "$rc_tree" "$state_tree"; then
           echo "  [NOTE] $stage 收据树属迁移前旧树，经 SKILL-TREE-MIGRATION 收据放行"
+        elif [ "$_has_migration_receipt" = "1" ]; then
+          echo "  [NOTE] $stage receipt tree is pre-migration (tracked by SKILL-TREE-MIGRATION)"
         else
           fail "$stage receipt SKILL_TREE mismatch: receipt=$rc_tree state=$state_tree (skill 升级需 devflow-state.sh migrate-tree 显式迁移)"
         fi
@@ -388,6 +397,9 @@ done < <(find "$STATE_DIR/$FEATURE/gates" -name 'receipt.txt' -type f 2>/dev/nul
 [ "$LEGACY_BINDINGS" -gt 0 ] && echo "[WARN] legacy 无绑定收据: $LEGACY_BINDINGS 张（新收据必须携带 EVIDENCE_PATHS_JSON+EVIDENCE_TREE_SHA256）"
 
 if [ "$FAIL" -eq 0 ]; then
+  if [ "$_seen_other_version" -eq 1 ]; then
+    echo "[WARN] receipts version != current skill (tracked, no in-chain mixing) (v3.27.5)"
+  fi
   echo "RECEIPT AUDIT: PASS feature=$FEATURE"
   exit 0
 fi

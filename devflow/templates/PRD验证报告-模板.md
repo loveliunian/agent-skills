@@ -1,10 +1,10 @@
 ---
 name: PRD验证报告-模板
-version: "3.27.4"
+version: "3.27.15"
 description: PRD 验证报告模板（P4 阶段，PRD 逐条 vs 实现证据）
 ---
 
-> **v3.25.2 结构化产物**：本产物已 JSON 化——按 `schemas/prd-validation.schema.json` 填 `.devflow/<feature>/prd-validation.json`，经 `python3 scripts/df_pipeline.py prd-validation` 校验后确定性生成本文档（样例见 `examples/structured/prd-validation.sample.json`）；校验失败不渲染、不进 Gate。本模板保留为语义参考。
+> **v3.25.2 结构化产物**：本产物已 JSON 化——按 `schemas/prd-validation.schema.json` 填 `.devflow/<feature>/prd-validation.json`，经 `python3 scripts/df_pipeline.py prd-validation` 校验后确定性生成本文档（样例见 `examples/structured/prd-validation.sample.json`）；校验失败不渲染、不进 Gate。本模板保留为语义参考；章节结构以渲染产物为准（历史章节不再逐一对齐）。
 
 # PRD 验证报告模板 - {FeatureName}
 
@@ -22,9 +22,11 @@ description: PRD 验证报告模板（P4 阶段，PRD 逐条 vs 实现证据）
 
 <!-- P4 Gate 机器可读结论：完成验证后填写真实值。 -->
 P0_BLOCKERS={0}
-VALIDATION_EVIDENCE={raw-validation-evidence-path}
+VALIDATION_EVIDENCE=docs/测试/{feature}-PRD验证原始证据.md
 P4_CMD={direct-trusted-validation-command}
 P4_RESULTS_PATH=docs/测试/{feature}-p4-results.tsv
+
+> 原始证据为人类可读产物，用中文名（`<feature>-PRD验证原始证据.md`）；`P4_RESULTS_PATH` 是机器解析 TSV（表头契约），保留英文名。
 
 > `P4_CMD` 必须直接调用受信验证运行器或仓内 `./scripts/` 可执行文件，不能使用 shell 包装或输出重定向；它必须生成 `ID<TAB>STATUS` 结果表，所有冻结验收 ID 恰好一次且全部为 `PASS`。
 

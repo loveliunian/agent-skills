@@ -1,6 +1,6 @@
 ---
 name: performance
-version: "3.27.4"
+version: "3.27.15"
 description: >-
   Use when auditing performance bottlenecks, slow queries, or scalability issues, mentions
   "/performance", "性能", "performance audit", "性能审计", "N+1", "slow query", "优化", or "load test".
@@ -56,7 +56,7 @@ find backend/<service>/src/main/java -name "*.java" -type f | grep "/service/imp
 ### 2. 索引覆盖审计
 
 ```bash
-# 详设 §3 表清单与 Flyway 索引交叉对比
+# 详设表清单（table-index 渲染块，回退 CREATE TABLE）与 Flyway 索引交叉对比
 Windows / macOS / Linux 通用：while-read 替代 for f in $(...)
 grep -oE "(?<=TABLE\\s)[a-zA-Z_]+" \
               backend/<service>/src/main/resources/db/migration/postgresql/*.sql 2>/dev/null \

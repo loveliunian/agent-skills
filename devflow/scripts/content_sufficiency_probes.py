@@ -232,7 +232,7 @@ def probe_cross_doc(design: str, peers: list[str], matrix: str | None) -> int:
         mtext = _read(matrix)
         dead_rows = {ln for ln in dtext.splitlines()
                      if re.search(r"废弃|旧详设码", ln)
-                     # §7.5 新旧映射行：一行内 ≥2 个权限码（旧码列+落地码列）视为映射残留
+                     # §7.3 新旧映射行：一行内 ≥2 个权限码（旧码列+落地码列）视为映射残留
                      or (ln.count(":") >= 2 and len(re.findall(r"[a-z0-9]+(?::[a-z0-9_\-]+){1,3}", ln)) >= 2
                          and ln.count("`") >= 1 and ln.startswith("|"))}
         live_text = "\n".join(ln for ln in dtext.splitlines() if ln not in dead_rows)

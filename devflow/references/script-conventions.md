@@ -25,3 +25,14 @@
 | `set -euo pipefail` ✓ | `p6_credential_gate.sh`、`gen-review-keypair.sh`、`devflow_profile.sh` 等 |
 
 > 清单为快照，转换一个划掉一个；转换时在脚本头注释标注版本与回归结论。
+
+## 版本升级与发布入口（skill 维护者）
+
+| 工具 | 用途 |
+|---|---|
+| `scripts/bump-version.sh <new-version>` | **版本号唯一升级入口**：同步 SKILL.md/commands/phases/subagents/references/concepts/templates 的 frontmatter 与标题、脚本 banner、structured samples 的 `template.version`、`agents/devflow.md` |
+| `scripts/check-skill-version.sh` | 版本一致性校验（脚本 banner / 模板正文版本字面量 / sample version） |
+| `scripts/release.sh` | **唯一发布入口**（全量测试 → 版本一致性 → Release Audit → Secret scan → ShellCheck → state 冻结对照 → manifest → 副本对账） |
+
+升级顺序：`bump-version.sh <v>` → `check-skill-version.sh` → 全量 `tests/run-tests.sh` → `release.sh`。
+禁止直接手改单个文件的版本号（会漏掉 samples/banner/agents 声明，版本门禁会拦）。

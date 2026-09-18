@@ -1,6 +1,6 @@
 ---
 name: phase-2b-demo-gate
-version: "3.27.4"
+version: "3.27.15"
 description: >-
   Demo gate——先原型确认再写正式代码。
   在 P2 详细设计后、P3 编码前插入"原型验证"门。
@@ -37,7 +37,7 @@ disable-model-invocation: false
 进入 P2b 之前必须满足：
 
 - [x] P2 详细设计已完成（详见 `phases/02-详细设计.md`）
-- [x] 详设 §3 数据模型 / §6 接口 / §7 关键流程 三大冻结
+- [x] 详设三大冻结：数据模型（`anchor: data-model`）/ 接口契约（`anchor: api-contracts`）/ 关键流程（`anchor: business-operations`）
 - [x] USER PERSONA / KEY USER FLOW 已识别
 
 如果任一不满足，必须**先回到 P2** 完成。
@@ -133,12 +133,12 @@ bash "$SKILL_ROOT/scripts/p2b_demo_gate.sh" <feature>
 # 1. 创建原型目录
 mkdir -p docs/原型/M-XX
 
-# 2. 写 KUF（基于 02 详设 §7 关键流程）
+# 2. 写 KUF（基于 02 详设关键流程 anchor: business-operations）
 # 在 docs/原型/M-XX/kuf-1.md ... kuf-5.md
 ```
 
 **Agent 职责**：
-- 基于 P2 详设 §7 关键流程抽 3-5 个 KUF
+- 基于 P2 详设关键流程（`anchor: business-operations`）抽 3-5 个 KUF
 - 为每个 KUF 写一份:<10 页的"UI 草图描述"或实际 HTML
 - 标注关键决策点（哪个按钮、哪个弹窗、哪个表单字段）
 

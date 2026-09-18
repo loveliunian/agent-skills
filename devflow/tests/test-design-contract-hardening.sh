@@ -43,17 +43,30 @@ cp criteria.md docs/requirements/demo-pay-acceptance-criteria.md
 # 基线工作区隔离：样例 MODIFY 目标在本仓不存在 → 无工程标志时反查关闭
 check_rc 0 "baseline sample validates without workspace markers" python3 "$V" --kind design --input design.json --criteria criteria.md --doc doc.md
 
-# ---------- A07：块注册表 13 块同源 ----------
-BLOCKS="summary trace-matrix table-index api-index permission-matrix rule-index biz-ops client-scope zero-results ddr-index ddr-matrix resource-operations integrations-configs"
+# ---------- A07：块注册表同源（v3.27.15：详设 10 块 + DB 2 块 + 追溯 1 块） ----------
+DESIGN_BLOCKS="summary table-index api-index permission-matrix rule-index biz-ops client-scope resource-operations integrations-configs"
+DB_BLOCKS="ddr-index ddr-matrix"
+TRACE_BLOCKS="trace-matrix"
+BLOCKS="$DESIGN_BLOCKS $DB_BLOCKS $TRACE_BLOCKS"
 NB=0
-for b in $BLOCKS; do NB=$((NB+1)); done
+for b in $DESIGN_BLOCKS; do NB=$((NB+1)); done
 for t in "详细设计-完整版-模板.md" "详细设计-总分总文档-模板.md" "详细设计-总分分文档-模板.md"; do
   _miss=""
-  for b in $BLOCKS; do
+  for b in $DESIGN_BLOCKS; do
     grep -q "df:begin:$b" "$ROOT/templates/$t" || _miss="$_miss $b"
   done
-  [ -z "$_miss" ] && ok "template carries all $NB render blocks: $t" || bad "template missing blocks ($_miss): $t"
+  [ -z "$_miss" ] && ok "design template carries all $NB render blocks: $t" || bad "design template missing blocks ($_miss): $t"
 done
+_miss=""
+for b in $DB_BLOCKS; do
+  grep -q "df:begin:$b" "$ROOT/templates/数据库设计决策-模板.md" || _miss="$_miss $b"
+done
+[ -z "$_miss" ] && ok "db design doc template carries ddr blocks" || bad "db design doc template missing blocks ($_miss)"
+_miss=""
+for b in $TRACE_BLOCKS; do
+  grep -q "df:begin:$b" "$ROOT/templates/需求追溯-模板.md" || _miss="$_miss $b"
+done
+[ -z "$_miss" ] && ok "traceability template carries trace blocks" || bad "traceability template missing blocks ($_miss)"
 # init-doc 初始化入口
 check_rc 0 "init-doc creates skeleton" python3 "$R" design --input design.json --init-doc fresh-skeleton.md
 for b in $BLOCKS; do
@@ -61,7 +74,7 @@ for b in $BLOCKS; do
 done
 ok "init-doc skeleton has all blocks"
 check_rc 1 "init-doc refuses existing doc" python3 "$R" design --input design.json --init-doc fresh-skeleton.md
-# 旧反例复现：只保留声明的 10 块（删 resource-operations/integrations-configs）→ 渲染失败关闭且报缺块
+# 旧反例复现：删 resource-operations/integrations-configs → 渲染失败关闭且报缺块
 python3 - <<'PYEOF'
 from pathlib import Path
 t = Path("fresh-skeleton.md").read_text(encoding="utf-8")
@@ -69,10 +82,10 @@ for k in ("resource-operations", "integrations-configs"):
     t = t.replace(f"<!-- df:begin:{k} -->\n<!-- df:end:{k} -->", "")
 Path("ten-blocks.md").write_text(t, encoding="utf-8")
 PYEOF
-check_rc 1 "10-block doc fails closed (registry mismatch, A07)" python3 "$R" design --input design.json --doc ten-blocks.md
+check_rc 1 "doc missing registry blocks fails closed (A07)" python3 "$R" design --input design.json --doc ten-blocks.md
 assert_out "resource-operations" "missing-block error names the undeclared block (A07)" python3 "$R" design --input design.json --doc ten-blocks.md
-# 13 块骨架 → 管线全链路（校验+渲染）
-check_rc 0 "13-block skeleton renders via renderer (A07)" python3 "$R" design --input design.json --doc fresh-skeleton.md
+# 全量骨架（13 块）→ 渲染：详设 11 块必需；骨架中存量 ddr 块一并刷新（升级期兼容）
+check_rc 0 "full skeleton renders via renderer (A07)" python3 "$R" design --input design.json --doc fresh-skeleton.md
 grep -q "df:begin:biz-ops" fresh-skeleton.md && grep -q "BOP-1\|创建支付订单" fresh-skeleton.md && ok "biz-ops block rendered (A01)" || bad "biz-ops block rendered"
 
 # ---------- A01：业务操作覆盖闭环 ----------
@@ -286,8 +299,8 @@ cat > "$WS2/docs/详细设计/pure-详细设计.md" <<EOF
 > 模板 ID：\`详细设计-完整版-模板\`
 > 模板版本：\`$TPL_VER\`
 
-## §0 总分架构决策
-单体模式：单模块纯计算。
+## §0 文档结构
+单体模式：单模块纯计算（结构经 P1 选型决策：design_doc_structure_mode=monolith）。
 
 ## §1 功能概述
 纯计算功能：无表、无接口、无前端。
@@ -343,27 +356,30 @@ sequenceDiagram
 ## §10.3 资源与补偿链
 无受管资源。
 
-## §11 需求追溯与覆盖率基线
+## §8 验收标准（零结果）（追溯矩阵在存量位置，s2 回退读取）
 <!-- anchor: acceptance-traceability -->
 | M-01-F01-A01 | docs/prd-pure.md#L1 | — | — | — | R1 | TC-PURE-001 | COMPLETE |
 设计覆盖率 = 100%
 
-## §12 组件复用与公共抽取
+## §10 组件复用与公共抽取
 <!-- anchor: component-reuse -->
 <!-- anchor: common-extraction -->
 无新增复用与抽取（纯标准库计算）。
 
-## §13 规范遵循
+## §9 依赖项（规范）
 <!-- anchor: standards-compliance -->
 遵循阿里巴巴 Java 开发手册；无偏离。
 
-## §14 实现交接（Implementation Handoff）
+## §11 异常处理、安全与性能设计
+沿用平台统一异常/认证/性能基线；纯计算无事务与缓存决策。
+
+## §12 实现交接（Implementation Handoff）
 <!-- anchor: implementation-handoff -->
 | 文件/符号 | ADD/MODIFY/DELETE | 设计依据 | 验收点 |
 |---|---|---|---|
 | backend/pure/CalcService.java | ADD | §6 | M-01-F01-A01 |
 
-## §15 变更历史
+## §12 变更历史
 v1 初稿。
 
 ## 评审记录
@@ -477,7 +493,12 @@ cat > "$DQL/design.md" <<'EOF'
 WHEN 创建 (cmd): [R1]
   1. 校验
 
-## §7.2 页面与接口映射
+## §7.2 关键页面交互设计
+
+> 页组在子小节内列出调用接口。
+
+### 7.2.1 列表页交互
+
 | 页面 | 接口 |
 |---|---|
 | 列表 | §5.3.1 |

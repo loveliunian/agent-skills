@@ -1,6 +1,6 @@
 ---
 name: design-review
-version: "3.27.4"
+version: "3.27.15"
 description: Use when reviewing a detailed design through the independent five-role P2a committee.
 paths: [docs/详细设计/**, docs/评审/**]
 allowed-tools: [read, write, exec, glob, grep, task]
@@ -30,6 +30,15 @@ allowed-tools: [read, write, exec, glob, grep, task]
 编排器必须两阶段产生收据（`scripts/review-receipt.sh begin` 于 spawn 返回 agent_id 后、报告产出前——报告文件必须尚不存在；`complete` 于各角色产物落盘后；AUTHOR + 5 角色），
 Gate 通过 `verify` 校验收据的输入/输出 SHA、时间窗与评审者独立性——**报告自报的 ID 不作为独立性证据**。
 语义调用约定见 `references/agent-runtime-adapter.md`。
+
+推荐用一键引导脚本（v3.27.11；含密钥生成、批量 begin/complete 与逐事件签名）：
+
+```bash
+bash "$SKILL_ROOT/scripts/review-attest-init.sh" keygen <feature>      # 生成发起方密钥对
+bash "$SKILL_ROOT/scripts/review-attest-init.sh" env <feature>         # 导出 REVIEW_ATTESTATION_PUBKEY
+bash "$SKILL_ROOT/scripts/review-attest-init.sh" begin-all    <feature> <session> <design.md> <report.md> "<角色表>"
+bash "$SKILL_ROOT/scripts/review-attest-init.sh" complete-all <feature> <session> <design.md> <report.md> "<角色表>"
+```
 
 ## 评审流程
 
@@ -69,16 +78,16 @@ Gate 通过 `verify` 校验收据的输入/输出 SHA、时间窗与评审者独
 | `后端专家` | 数据模型、接口、事务 | 字段级/五列表/接口契约 |
 | `前端专家` | UI 交互、组件设计 | 用户体验/可访问性 |
 | `测试开发` | 可测性、边界条件 | 测试覆盖/边界/异常 |
-| `DBA` | 数据模型、DDL、索引、容量 | 设计决策 DDR 逐行核问（理由禁止"经验/习惯"）、字段类型长度依据、索引策略、四方言一致性 |
+| `DBA` | 数据模型、DDL、索引、容量 | 数据库设计决策文档的 DDR 逐行核问（理由禁止"经验/习惯"）、字段类型长度依据、索引策略、四方言一致性 |
 
 ## 设计质量四要素（v3.9.7 · 各角色分工必查）
 
 | 要素 | 详设章节 | 主责角色 | 检查要点 |
 |------|----------|----------|----------|
-| 成熟组件复用 | §12.1 复用清单 | 架构师 | 有成熟组件的诉求禁止自研；自研须附调研结论 |
-| 公共服务/组件抽取 | §12.2 抽取登记 | 架构师 + 后端专家 | ≥2 消费方的能力必须抽取登记（产出/消费双向） |
-| 规范遵循 | §13 规范基线 | 后端专家 | 命名/开发/注释规范显性声明（默认阿里巴巴 Java 开发手册），偏离须列明 |
-| 设计决策记录 DDR | §2.3 决策表 | **DBA** | 每行"备选+选定+理由"；理由须有业务口径/规范引用/量化数据 |
+| 成熟组件复用 | 完整版 §10.1 / 分文档 §10（`anchor: component-reuse`） | 架构师 | 有成熟组件的诉求禁止自研；自研须附调研结论 |
+| 公共服务/组件抽取 | 完整版 §10.2 / 分文档 §10（`anchor: common-extraction`） | 架构师 + 后端专家 | ≥2 消费方的能力必须抽取登记（产出/消费双向） |
+| 规范遵循 | 设计决策记录《规范遵循》（`anchor: standards-compliance`；v3.27.15 从详设 §13 移入） | 后端专家 | 命名/开发/注释规范显性声明（默认阿里巴巴 Java 开发手册），偏离须列明 |
+| 设计决策记录 DDR | 数据库设计决策文档 §1（`anchor: design-decisions`；v3.27.15 移出详设） | **DBA** | 每行"备选+选定+理由"；理由须有业务口径/规范引用/量化数据 |
 
 ## 评审产物
 
@@ -100,7 +109,7 @@ bash "$SKILL_ROOT/scripts/p2a_design_review_gate.sh" <feature>
 # 4. 需求追溯（acceptance-traceability）100% 覆盖 P0 验收点
 # 5. P2 设计覆盖率 = 100%
 # 6. 无 TODO/占位符
-# 7. 详设四要素显性存在（组件复用/公共抽取/规范遵循/DDR）      ← v3.9.7
+# 7. 详设四要素显性存在（组件复用/公共抽取/规范遵循 + 数据库设计决策文档 DDR）      ← v3.9.7 / v3.27.15
 # 8. DF 按实际发现；零发现必须有 ZERO-DF 核查证据                 ← v3.16.25
 # 9. AW 对抗场景走查 ≥3 条且每条 `结果:` 收尾                  ← v3.14.0
 # 10. 六类探针执行记录齐全                                     ← v3.14.0
@@ -116,7 +125,7 @@ bash "$SKILL_ROOT/scripts/p2a_design_review_gate.sh" <feature>
 | 4 | 遗留问题 = 0 | v3.14.1 起 p2a 硬阻断：出现"遗留/待修复/TBD/FIXME"即 FAIL |
 | 5 | 需求追溯 = P0 验收点 | 验收 ID 集合相等（comm -23/-13 为空） |
 | 6 | P2 覆盖率 = 100% | `s2_design_coverage_gate.sh` exit = 0 |
-| 7 | 五要素齐备 | 详设含 §12 组件复用/公共抽取、§13 规范、§2.3 DDR、§14 实现交接（anchor: implementation-handoff） |
+| 7 | 五要素齐备 | 详设含组件复用/公共抽取（`anchor: component-reuse`/`common-extraction`）、规范遵循在设计决策记录（`anchor: standards-compliance`）；实现交接（`anchor: implementation-handoff`）在 `<feature>-实现交接.md`、DDR（`anchor: design-decisions`）在数据库设计决策文档、追溯（`anchor: acceptance-traceability`）在需求追溯文档 |
 | 8 | DF/ZERO-DF 证据 | DF 按实际发现；每角色必须有 DF 或 ZERO-DF 核查证据，字段完整 |
 | 9 | AW 走查 | ≥3 条且有结果收尾 |
 

@@ -1,10 +1,10 @@
 ---
 name: devflow-routing
-version: "3.27.4"
+version: "3.27.15"
 description: devflow 命令、阶段、Gate 与人工资源注册表。
 ---
 
-# devflow 路由索引（v3.27.4）
+# devflow 路由索引（v3.27.15）
 
 本文件只负责路由。执行规则以 `SKILL.md`、对应 command/phase 和 `concepts/core.md` 为准。
 
@@ -68,7 +68,7 @@ description: devflow 命令、阶段、Gate 与人工资源注册表。
 | P0 需求澄清 | `templates/需求澄清-模板.md` |
 | P0 验收点 | `templates/验收点-模板.md` |
 | P0b PRD 评审 | `templates/PRD评审-模板.md` |
-| P1 技术选型 | `templates/技术选型报告-模板.md` |
+| P1 技术选型 | `templates/设计决策记录-模板.md` |
 | P2 详细设计 | `templates/详细设计-模板.md` / `templates/详细设计-完整版-模板.md` |
 | P2a 设计评审 | `templates/详细设计评审报告-模板.md` |
 | P3b 代码审查 | `templates/代码审查报告-模板.md` |

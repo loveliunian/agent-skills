@@ -1,6 +1,6 @@
 ---
 name: docs
-version: "3.27.4"
+version: "3.27.15"
 description: >-
   Use when updating project documentation after a feature is delivered, mentions
   "/docs", "更新文档", "文档", "文档更新", "api docs", "readme", "changelog", or "doc update".
@@ -38,16 +38,16 @@ allowed-tools:
 
 ## 命名约定
 
-`<feature>` = kebab-case 全小写 → 输出在 `docs/api/` `docs/ops/` `docs/复盘/` 等。
+`<feature>` = kebab-case 全小写 → 输出在 `docs/接口文档/` `docs/运维手册/` `docs/复盘/` 等中文目录。
 
 | 文档 | 路径 |
 |------|------|
-| API 文档 | `docs/api/<feature>-api.md` |
-| 运维文档 | `docs/ops/<feature>-ops.md` |
-| Runbook | `docs/runbook/<feature>-runbook.md`（可选） |
-| FAQ | `docs/faq/<feature>-faq.md`（可选） |
-| 数据字典 | `docs/data/<feature>-data-dictionary.md`（可选） |
-| 复盘 | `docs/复盘/<feature>-复盘.md` |
+| API 文档 | `docs/接口文档/<feature>-接口文档.md` |
+| 运维文档 | `docs/运维手册/<feature>-运维手册.md` |
+| Runbook | `docs/运行手册/<feature>-运行手册.md`（可选） |
+| FAQ | `docs/常见问题/<feature>-常见问题.md`（可选） |
+| 数据字典 | `docs/数据字典/<feature>-数据字典.md`（可选） |
+| 复盘 | `docs/复盘/<feature>-复盘报告.md` |
 
 ## 执行步骤
 
@@ -60,15 +60,23 @@ find docs/ -name "<feature>-*.md" -type f
 
 ### 2. API 文档（强制）
 
-`docs/api/<feature>-api.md` 必须含：
-- 接口列表（与详设 §6 一致）
+`docs/接口文档/<feature>-接口文档.md` 必须含：
+- 接口列表（与详设接口契约 / `.devflow/<feature>/design.json` `apis[]` 一致）
 - 每个接口的请求/响应示例
 - 错误码表
 - 鉴权说明
 
+存在 `.devflow/<feature>/design.json` 时，先跑确定性生成器产出骨架，再人工补齐业务说明（v3.27.11）：
+
+```bash
+python3 "$SKILL_ROOT/scripts/generate-api-doc.py" \
+  .devflow/<feature>/design.json \
+  docs/接口文档/<feature>-接口文档.md --feature <feature>
+```
+
 ### 3. 运维文档（强制）
 
-`docs/ops/<feature>-ops.md` 必须含：
+`docs/运维手册/<feature>-运维手册.md` 必须含：
 - 部署步骤
 - 健康检查
 - 监控指标列表
@@ -76,7 +84,7 @@ find docs/ -name "<feature>-*.md" -type f
 
 ### 4. 复盘 markdown
 
-`docs/复盘/<feature>-复盘.md` 必须含：
+`docs/复盘/<feature>-复盘报告.md` 必须含：
 - "上次遗漏了什么"段
 - "本次新发现的坑"段
 - 修复策略
@@ -84,16 +92,16 @@ find docs/ -name "<feature>-*.md" -type f
 
 ### 5. 输出文档路径清单与 P9 索引
 
-写到 `docs/复盘/<feature>-audit-P9.md` 或直接 stdout：
+写到 `docs/复盘/<feature>-P9文档审计.md` 或直接 stdout：
 
 ```markdown
 # <feature> 文档清单
 
 ## 实际产出文件路径
 
-1. `docs/api/<feature>-api.md` ✅ (文件大小: 12KB, 行数: 280)
-2. `docs/ops/<feature>-ops.md` ✅ (文件大小: 8KB, 行数: 195)
-3. `docs/复盘/<feature>-复盘.md` ✅ (文件大小: 5KB, 行数: 120)
+1. `docs/接口文档/<feature>-接口文档.md` ✅ (文件大小: 12KB, 行数: 280)
+2. `docs/运维手册/<feature>-运维手册.md` ✅ (文件大小: 8KB, 行数: 195)
+3. `docs/复盘/<feature>-复盘报告.md` ✅ (文件大小: 5KB, 行数: 120)
 4. `docs/测试/<feature>-PRD验证报告.md` ✅ (文件大小: 15KB, 行数: 360)
 5. `docs/评审/<feature>-代码审查报告.md` ✅ (文件大小: 18KB, 行数: 425)
 6. `docs/评审/<feature>-安全审计报告.md` ✅ (文件大小: 10KB, 行数: 240)
@@ -128,15 +136,15 @@ Gate（强制）
 | 路径真实性 | 每个文件 `test -f` 验证 + `_SHA256` 固化与实测一致 |
 | 文档实质 | 每份 ≥10 行、≥2 标题、≥5 正文行（占位文档不通过） |
 | 语义章节 | 用户指南含"使用/指南"、开发指南含"开发/构建"、API 含"接口/API"、运维含"运维/部署/监控"、发布说明含"变更/版本/发布" |
-| API 文档 | 与详设 §6 接口清单 100% 对应 |
+| API 文档 | 与详设接口清单（anchor: api-contracts / design.json `apis[]`）100% 对应 |
 | 运维文档 | 含部署 / 监控 / 排错 |
 | 复盘 markdown | 含"上次遗漏了什么"段 |
 
 ## 输出
 
-- `docs/api/<feature>-api.md`
-- `docs/ops/<feature>-ops.md`
-- `docs/复盘/<feature>-复盘.md`
+- `docs/接口文档/<feature>-接口文档.md`
+- `docs/运维手册/<feature>-运维手册.md`
+- `docs/复盘/<feature>-复盘报告.md`
 - 其他辅助文档
 
 ## 自检命令
@@ -148,9 +156,9 @@ echo "文档数量: $COUNT"
 test "$COUNT" -ge 5  # 必须 ≥ 5
 
 # 关键文档存在性
-for f in docs/api/<feature>-api.md \
-         docs/ops/<feature>-ops.md \
-         docs/复盘/<feature>-复盘.md \
+for f in docs/接口文档/<feature>-接口文档.md \
+         docs/运维手册/<feature>-运维手册.md \
+         docs/复盘/<feature>-复盘报告.md \
          docs/测试/<feature>-PRD验证报告.md \
          docs/评审/<feature>-代码审查报告.md; do
   test -f "$f" && echo "$f OK" || echo "$f MISSING"

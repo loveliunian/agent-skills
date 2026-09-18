@@ -1,6 +1,6 @@
 ---
 name: devflow-command
-version: "3.27.4"
+version: "3.27.15"
 description: Use when running the complete devflow lifecycle or resuming a checkpoint.
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
@@ -15,11 +15,19 @@ allowed-tools: [read, write, exec, glob, grep, task]
 /devflow <prd-path> [--mode=new|change|extend|small-change]
          --frontend=pc-web|mini-program|app|not-applicable
          [--frontend-dir=<path>] [--service=<service>]
+         [--scaffold=<path>] [--prototype=<path>] [--ui-spec=<path>] [--design-rules=<path>]
          [--migration=A|B|C] [--source-count=<n>] [--profile=<id>]
          [--design-only] [--skip=<phase>]
 ```
 
 - `--frontend` 必须显式冻结；不得从目录存在与否猜测。
+- **`--scaffold=<path>`（输入含脚手架/存量代码时必填）**：P1 强制「脚手架重合度审计」（铁律 18）——
+  逐功能域对照「本次新功能 vs 脚手架已有能力」，产出裁剪/复用清单：**重合 → 裁剪脚手架对应实现并由本次设计
+  重新实现（宜独立新模块承载）；不重合 → 复用脚手架既有能力**；禁止同一功能域新旧双实现并存。
+  清单写入 P1 设计决策记录《脚手架重合度审计》章节并被 P2 baseline（DELETE/MODIFY/REUSE/ADD）承接。
+- **`--prototype` / `--ui-spec` / `--design-rules`（提供时）**：原型图/交互稿、UI 规范、设计规则为
+  设计硬约束（铁律 19）：P2 详设与 P3 实现必须遵循物料，脚手架既有设计只作实现载体，
+  不得覆盖物料的样式/交互/信息架构；冲突时 `BLOCKED` 回用户裁决。
 - `new` 从 P0 开始；`change`/`extend` 先读取当前实现与已有冻结基线，再从最早受影响阶段恢复。
 - `small-change` 先加载 `commands/small-change.md` 扫描项目并分类；结果为 FULL 时自动回到 `change`，不得继续快速路径。
 - `--design-only` 在 **P2a 评审 Gate 通过后**停止（设计完成 = P2 内容校验 + P2a 实施可行性评审，v3.24.0 与 /spec、/plan、/build 统一口径）；只能声明设计完成。
@@ -89,28 +97,36 @@ P11 是独立事故复盘，不属于正常交付完成条件。
 execute_gate() {
   phase="$1"
   shift
+  # v3.27.11: Gate 输出落盘（.devflow/<feature>/gates/<phase>/gate-output.log），
+  # 失败钩子据此做错误分类/教训匹配（gate-fail-classify.sh）。
+  gate_log=".devflow/$FEATURE/gates/$phase/gate-output.log"
+  mkdir -p "$(dirname "$gate_log")"
   # v3.14.6: 用户显式授权跳过——gate 自身读取 skip-log.txt 并产出 SKIPPED=1 的成功收据，
   #          complete 按普通收据关闭阶段（如 p2b_demo_gate.sh）。未实现 skip 分支的 gate 不适用。
   if check_skip_authorization "$phase"; then
-    if "$@"; then
+    if "$@" > "$gate_log" 2>&1; then
+      cat "$gate_log"
       bash "$SKILL_ROOT/scripts/devflow-state.sh" complete "$FEATURE" "$phase" || return $?
       return 0
     fi
     code=$?
+    cat "$gate_log"
     echo "[WARN] SKIP_${phase} 已授权但 gate 未通过（exit=${code}）——按失败处理" >&2
     return "$code"
   fi
-  if "$@"; then
+  if "$@" > "$gate_log" 2>&1; then
+    cat "$gate_log"
     # v3.14.0: complete 被拒（收据/顺序/证据校验失败）时必须向上传播，不得吞掉
     bash "$SKILL_ROOT/scripts/devflow-state.sh" complete "$FEATURE" "$phase" || return $?
     return 0
   else
     code=$?
+    cat "$gate_log"
   fi
-  bash "$SKILL_ROOT/scripts/hooks/after-gate-fail-hook.sh" \
+  GATE_LOG="$gate_log" bash "$SKILL_ROOT/scripts/hooks/after-gate-fail-hook.sh" \
     "$FEATURE" "$phase" "gate exit=$code" || true
   bash "$SKILL_ROOT/scripts/checkpoint-state.sh" save \
-    "$FEATURE" "$phase" "gate-fail" "$code" "见 Gate 输出" "修复后恢复" || true
+    "$FEATURE" "$phase" "gate-fail" "$code" "见 $gate_log" "修复后恢复" || true
   return "$code"
 }
 

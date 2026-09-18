@@ -26,15 +26,17 @@ if [ -n "$FEATURE" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+# v3.27.15: 详设正文解析共用库（渲染块 + 旧版手写两类版式）
+source "$SCRIPT_DIR/design_parse_lib.sh"
 # v3.22.0: 文档层中文化（中文优先、英文回退）
 source "$SCRIPT_DIR/devflow_paths.sh"
 if [ -n "${DESIGN_FILE:-}" ]; then
   DESIGN="$DESIGN_FILE"
 elif [ -n "$FEATURE" ]; then
   DESIGN="$(df_resolve_doc "$FEATURE" design .md design)"
-  [ -n "$DESIGN" ] || DESIGN="docs/detailed-design/${FEATURE}-design.md"
+  [ -n "$DESIGN" ] || DESIGN="docs/详细设计/${FEATURE}-详细设计.md"
 else
-  DESIGN="docs/detailed-design/${FEATURE}-design.md"
+  DESIGN="docs/详细设计/${FEATURE}-详细设计.md"
 fi
 STATE_DIR="${STATE_DIR:-.devflow}"
 API_REQUIRED="${API_REQUIRED:-1}"
@@ -136,8 +138,8 @@ fi
 # ---------- 详设声明表 ↔ Flyway 实建表对账（原 p3_detail_diff.sh 并入 v3.16.26） ----------
 if [ -f "$DESIGN" ] && [ -d "backend/$SERVICE/src/main/resources/db/migration" ]; then
   DIFF_TMP=$(mktemp -d)
-  grep -oiE 'CREATE[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+NOT[[:space:]]+EXISTS[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*' "$DESIGN" 2>/dev/null \
-    | sed -E 's/.*[[:space:]]([A-Za-z_][A-Za-z0-9_]*)$/\1/' | tr '[:upper:]' '[:lower:]' | sort -u > "$DIFF_TMP/design-tables.txt" || true
+  # v3.27.15: 优先解析 table-index 渲染块，回退旧版 CREATE TABLE 字面量（design_parse_lib.sh）
+  design_tables_from_doc "$DESIGN" | tr '[:upper:]' '[:lower:]' | sort -u > "$DIFF_TMP/design-tables.txt" || true
   find "backend/$SERVICE/src/main/resources/db/migration" -type f -name 'V*.sql' -exec grep -hiE '^[[:space:]]*CREATE[[:space:]]+TABLE' {} + 2>/dev/null \
     | tr '[:upper:]' '[:lower:]' \
     | sed -E 's/^[[:space:]]*create[[:space:]]+table[[:space:]]+(if[[:space:]]+not[[:space:]]+exists[[:space:]]+)?([a-z_][a-z0-9_]*).*/\2/' \
@@ -222,16 +224,30 @@ esac
 NEW_PAGES=0
 if [ "$FRONTEND_SCOPE" = "pc-web" ]; then
   NEW_PAGES=$(find "$CLIENT_DIR/src/views/$FEATURE" -name 'index.vue' -type f 2>/dev/null | wc -l | tr -d ' ' || true)
+  # v3.27.15: 页面不落在 src/views/<feature>/ 约定路径时，回退按施工图基线判定——
+  # design.json baseline 里 ADD/MODIFY 的前端页面目标即新增/变更页。
+  if [ "$NEW_PAGES" -eq 0 ] && [ -f "$STATE_DIR/$FEATURE/design.json" ]; then
+    NEW_PAGES=$(jq -r '[.baseline.entries[]? | select((.decision=="ADD" or .decision=="MODIFY") and ((.target // "") | test("(^|/)(views|pages)/")))] | length' \
+      "$STATE_DIR/$FEATURE/design.json" 2>/dev/null || echo 0)
+  fi
 fi
 # v3.26.1: menu-seed 静默跳过可见化——页面目录约定不匹配（NEW_PAGES=0）时旧版
 # 无声跳过 seed 校验（目录改名即可绕过）；现显式 p1 提示，人工确认可达性。
 if [ "$FRONTEND_SCOPE" = "pc-web" ] && [ "$NEW_PAGES" -eq 0 ] && [ -d "$CLIENT_DIR/src/views" ]; then
-  p1 "menu-seed 检查跳过：未发现 $CLIENT_DIR/src/views/$FEATURE/index.vue——若页面在非约定路径，须人工核对菜单可达性"
+  p1 "menu-seed 检查跳过：未发现 $CLIENT_DIR/src/views/$FEATURE/index.vue 且基线无前端页面变更——若页面在非约定路径，须人工核对菜单可达性"
 fi
 if [ "$NEW_PAGES" -gt 0 ]; then
   for vendor in h2 postgresql oracle kingbase; do
     SEED=$(find "backend/$SERVICE/src/main/resources/db/migration/$vendor" -type f \
       \( -name "*seed_${FEATURE}_menus*.sql" -o -name "*${FEATURE}*menu*.sql" \) 2>/dev/null | head -1 || true)
+    if [ -z "$SEED" ]; then
+      # v3.27.15: 历史项目按 module 命名（文件名不含 feature）——兜底命中但提示规范名
+      SEED=$(find "backend/$SERVICE/src/main/resources/db/migration/$vendor" -type f \
+        -name "*seed_*_menus*.sql" 2>/dev/null | head -1 || true)
+      if [ -n "$SEED" ]; then
+        p1 "$vendor menu seed 文件名不含 feature（建议改名 *seed_${FEATURE}_menus*.sql）: $SEED"
+      fi
+    fi
     if [ -z "$SEED" ]; then fail "$vendor menu seed missing"; continue; fi
     missing=0
     for table in sys_menu sys_menu_operation sys_permission_group sys_user_effective_perm; do

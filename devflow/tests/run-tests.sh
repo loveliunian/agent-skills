@@ -17,6 +17,8 @@ PER_GROUP_TIMEOUT="${RUN_TESTS_TIMEOUT:-900}"
 SUITES=(
   "test-contracts.sh:契约面"
   "test-trigger-eval.sh:触发评测语料"
+  "test-golden-renders.sh:渲染黄金样本"
+  "test-schema-guards.sh:schema 契约守卫"
   "test-state.sh:state 机"
   "test-client-platforms.sh:客户端平台"
   "test-phase-gates.sh:阶段门控"

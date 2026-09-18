@@ -236,7 +236,11 @@
           "additionalProperties": false,
           "properties": {
             "source": {
-              "enum": ["migration_ddl", "live_schema", "none"]
+              "enum": [
+                "migration_ddl",
+                "live_schema",
+                "none"
+              ]
             },
             "note": {
               "type": "string",
@@ -553,33 +557,51 @@
         "page": {
           "description": "页面/任务 §锚点（单对象字符串或多对象数组——一条验收行为可关联多个页面），须存在于 pages",
           "anyOf": [
-            { "type": "string", "minLength": 1 },
+            {
+              "type": "string",
+              "minLength": 1
+            },
             {
               "type": "array",
               "minItems": 1,
-              "items": { "type": "string", "minLength": 1 }
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           ]
         },
         "api": {
           "description": "接口 §锚点（单对象字符串或多对象数组），须存在于 apis",
           "anyOf": [
-            { "type": "string", "minLength": 1 },
+            {
+              "type": "string",
+              "minLength": 1
+            },
             {
               "type": "array",
               "minItems": 1,
-              "items": { "type": "string", "minLength": 1 }
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           ]
         },
         "data": {
           "description": "数据 §锚点（单对象字符串或多对象数组），须存在于 tables",
           "anyOf": [
-            { "type": "string", "minLength": 1 },
+            {
+              "type": "string",
+              "minLength": 1
+            },
             {
               "type": "array",
               "minItems": 1,
-              "items": { "type": "string", "minLength": 1 }
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           ]
         },
@@ -773,14 +795,14 @@
     "field_group_req": {
       "type": "object",
       "required": [
-        "anchor",
         "fields"
       ],
       "additionalProperties": false,
       "properties": {
         "anchor": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "可选：请求/响应拆分为独立小节时的锚点（须在文档中真实存在）；默认随接口详细定义小节，无需重复登记——v3.27.10 起不再必填（此前必填导致无意义漂移位）"
         },
         "fields": {
           "type": "array",
@@ -828,14 +850,14 @@
     "field_group_res": {
       "type": "object",
       "required": [
-        "anchor",
         "fields"
       ],
       "additionalProperties": false,
       "properties": {
         "anchor": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "可选：请求/响应拆分为独立小节时的锚点（须在文档中真实存在）；默认随接口详细定义小节，无需重复登记——v3.27.10 起不再必填（此前必填导致无意义漂移位）"
         },
         "fields": {
           "type": "array",
@@ -888,7 +910,10 @@
       "required": [
         "anchor",
         "name",
-        "permission"
+        "permission",
+        "route",
+        "component",
+        "page_type"
       ],
       "additionalProperties": false,
       "properties": {
@@ -908,6 +933,153 @@
           "type": "string",
           "minLength": 1,
           "description": "页面所需权限；公开页须显式占位（如 public）"
+        },
+        "route": {
+          "type": "string",
+          "minLength": 1,
+          "description": "路由路径（§7.1 页面清单「路径」列正本）；无独立路由的视图写所属路由+视图标识，纯后台任务写 — 并在 page_type 标明"
+        },
+        "component": {
+          "type": "string",
+          "minLength": 1,
+          "description": "组件真实路径（§7.1 页面清单「组件」列正本，前端工程内可定位）；纯后台任务写 —"
+        },
+        "page_type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "页面类型（§7.1 页面清单「类型」列正本）：列表+详情抽屉/表单页/树+详情/只读详情/后台任务…"
+        },
+        "table_columns": {
+          "type": "array",
+          "description": "表格列规格（§7.2 页组「表格列规格」表正本，v3.27.9；v3.27.15 增链路列）：字段必须出现在 §7.2.* 表格列规格表首列；api_field/source 提供即对账（悬空即 FAIL）",
+          "items": {
+            "type": "object",
+            "required": [
+              "field",
+              "label",
+              "render"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "field": {
+                "type": "string",
+                "minLength": 1,
+                "description": "字段名（与 VO/接口字段同名；表格列规格表首列）"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "description": "列标题"
+              },
+              "render": {
+                "type": "string",
+                "minLength": 1,
+                "description": "渲染说明：状态 Tag/超长省略/停用置底/空值口径等"
+              },
+              "api_field": {
+                "type": "string",
+                "minLength": 1,
+                "description": "接口字段链路（v3.27.15）：格式 `§x.y.z 字段名`——anchor 必须存在于 apis[].anchor/detail_anchor，字段名必须存在于该接口请求/响应字段；列→接口→表全链正本",
+                "pattern": "^§[0-9]+(?:\\.[0-9]+)+\\s+\\S+$"
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "description": "落库字段链路（v3.27.15）：格式 `表名.字段名`，必须存在于 tables[].name/fields[]；无落表（纯计算/透传）写 —",
+                "pattern": "^—$|^[A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]*$"
+              }
+            }
+          }
+        },
+        "form_controls": {
+          "type": "array",
+          "description": "表单控件规格（§7.2 页组「表单控件规格」表正本，v3.27.9；v3.27.15 增链路列）：字段必须出现在 §7.2.* 表单控件规格表首列；submit_api/target_field 提供即对账（悬空即 FAIL）",
+          "items": {
+            "type": "object",
+            "required": [
+              "field",
+              "label",
+              "control",
+              "validation",
+              "source"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "field": {
+                "type": "string",
+                "minLength": 1,
+                "description": "字段名（表单控件规格表首列）"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "description": "标签"
+              },
+              "control": {
+                "type": "string",
+                "minLength": 1,
+                "description": "控件（el-input/el-select/el-tree-select/el-date-picker…）"
+              },
+              "validation": {
+                "type": "string",
+                "minLength": 1,
+                "description": "校验与提示（必填/长度/唯一性 + 提示文案；引用规则 R 编号）"
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "description": "候选来源（用户输入/静态枚举/树选中上下文/部门岗位关联数据…）"
+              },
+              "submit_api": {
+                "type": "string",
+                "minLength": 1,
+                "description": "提交接口链路（v3.27.15）：格式 `§x.y.z`——必须存在于 apis[].anchor/detail_anchor；只读展示控件写 —",
+                "pattern": "^—$|^§[0-9]+(?:\\.[0-9]+)+$"
+              },
+              "target_field": {
+                "type": "string",
+                "minLength": 1,
+                "description": "落库字段链路（v3.27.15）：格式 `表名.字段名`，必须存在于 tables[].name/fields[]；无落表（透传/计算）写 —",
+                "pattern": "^—$|^[A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]*$"
+              }
+            }
+          }
+        },
+        "dialogs": {
+          "type": "array",
+          "description": "弹窗/抽屉映射（§7.2 弹窗/抽屉表正本，v3.27.15 由原 §7.3 并入）：name/component/api 必须与 §7.2 表行对上，且 name/component 必须出现在 §7.1 页面清单表（全部 UI 面唯一清单）；api 锚点闭环到 apis[]（无接口交互写 —）",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "component",
+              "api",
+              "state"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "交互名（§7.2 弹窗/抽屉表「交互」列）"
+              },
+              "component": {
+                "type": "string",
+                "minLength": 1,
+                "description": "弹窗/抽屉组件真实路径（§7.2 弹窗/抽屉表「组件」列）"
+              },
+              "api": {
+                "type": "string",
+                "minLength": 1,
+                "description": "关联接口锚点（§x.y.z，可多个；必须闭环到 apis[].anchor/detail_anchor）；无接口交互写 —"
+              },
+              "state": {
+                "type": "string",
+                "minLength": 1,
+                "description": "关键状态/确认流（§7.2 弹窗/抽屉表「关键状态/确认流」列）"
+              }
+            }
+          }
         }
       }
     },
@@ -937,11 +1109,41 @@
           "type": "string",
           "minLength": 1
         },
-        "when_line": {
-          "type": "string",
-          "minLength": 1,
-          "description": "该规则对应的 WHEN 准伪代码行（逐字契约）：提供时必须在该规则 §锚点小节原文中出现——正文改写伪代码而 JSON 不同步即规则不一致（跨字段校验）"
-        }
+          "when_line": {
+            "type": "string",
+            "minLength": 1,
+            "description": "该规则对应的 WHEN 准伪代码行（逐字契约）：提供时必须在该规则 §锚点小节原文中出现——正文改写伪代码而 JSON 不同步即规则不一致（跨字段校验）"
+          },
+          "error_codes": {
+            "type": "array",
+            "description": "该规则对外稳定错误码（v3.27.15）：code 全局唯一且必须出现在详设正文（df_validate --doc 对账）；前端 §7.4 errorCode→行为表按此引用",
+            "items": {
+              "type": "object",
+              "required": [
+                "code",
+                "meaning"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{2,}$",
+                  "description": "稳定错误码（大写下划线，如 REFUND_AMOUNT_EXCEEDED）"
+                },
+                "meaning": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "错误语义（用户可见提示或后端 message 口径）"
+                },
+                "http_status": {
+                  "type": "integer",
+                  "minimum": 400,
+                  "maximum": 599,
+                  "description": "对应 HTTP 状态码（可选）"
+                }
+              }
+            }
+          }
       }
     },
     "business_operation_def": {
@@ -1091,7 +1293,12 @@
           "description": "文件路径或 文件#符号（如 backend/.../FooController.java#list）；REUSE/MODIFY/DELETE 必须真实存在（--workspace 反查）"
         },
         "decision": {
-          "enum": ["REUSE", "MODIFY", "ADD", "DELETE"]
+          "enum": [
+            "REUSE",
+            "MODIFY",
+            "ADD",
+            "DELETE"
+          ]
         },
         "target_module": {
           "type": "string",

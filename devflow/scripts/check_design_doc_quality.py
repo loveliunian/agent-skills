@@ -6,7 +6,7 @@
   ① 交叉引用闭环：正文数字引用（§5.3.N）必须指向真实小节（重编号须全文同步）；
   ② 规则引用闭环：§3 每条 R 规则必须被至少一个流程的 `[Rn]` 标注引用
      （确属横切约束的须在规则文件显式登记例外）；
-  ③ 接口消费闭环：§7.2 页面映射须消费全部接口详细定义节
+  ③ 接口消费闭环：§7.2 关键页面交互设计（页组内调用接口）须消费全部接口详细定义节
      （纯内部端点在项目 lint 规则白名单登记）。
 
 用法：
@@ -142,12 +142,15 @@ def main():
             continue
         violations.append(f"〔DQ-002〕规则 {r} 未被任何流程 [Rn] 标注引用——补流程标注，或在规则 rules_without_flow_ref 登记横切例外")
 
-    # ③ 接口消费闭环：接口详细定义节必须被页面映射节消费
+    # ③ 接口消费闭环：接口详细定义节必须被关键页面交互设计节消费
+    #    （调用接口随页组下沉到 §7.2.N 子小节——锚点节正文须连同全部子小节聚合扫描）
     detail_nums = [h for h in heads
                    if h.startswith(api_parent + ".") and len(h.split(".")) > len(api_parent.split("."))]
-    mapping_text = sections.get(mapping_anchor, "")
-    if detail_nums and not mapping_text:
-        violations.append(f"〔DQ-003〕未找到页面映射节 §{mapping_anchor}——无法核对接口消费闭环")
+    mapping_parts = [text for key, text in sections.items()
+                     if key == mapping_anchor or key.startswith(mapping_anchor + ".")]
+    mapping_text = "\n".join(mapping_parts)
+    if detail_nums and not mapping_parts:
+        violations.append(f"〔DQ-003〕未找到关键页面交互设计节 §{mapping_anchor}——无法核对接口消费闭环")
     else:
         for n in detail_nums:
             if n in internal_eps:
@@ -155,8 +158,8 @@ def main():
             title = heads.get(n, "")
             if n not in mapping_text and title not in mapping_text:
                 violations.append(
-                    f"〔DQ-003〕接口详细定义 §{n}（{title[:40]}）未被 §{mapping_anchor} 页面映射消费"
-                    f"——补映射，或在规则 internal_endpoints 登记纯内部端点"
+                    f"〔DQ-003〕接口详细定义 §{n}（{title[:40]}）未被 §{mapping_anchor} 关键页面交互设计消费"
+                    f"——补页组调用接口，或在规则 internal_endpoints 登记纯内部端点"
                 )
 
     if violations:

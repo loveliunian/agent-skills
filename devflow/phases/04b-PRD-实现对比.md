@@ -1,6 +1,6 @@
 ---
 name: prd-vs-code-phase
-version: "3.27.4"
+version: "3.27.15"
 description: Use when running the P4b exact acceptance evidence Gate.
 ---
 
@@ -15,6 +15,12 @@ Prove that every frozen acceptance ID has concrete code and test evidence. Count
 > ② **条件**：把该点的边界值/配置值代入判断逻辑——证明条件在该点会放行（不是只被别处复用的通用路径）；
 > ③ **落点**：测试断言或运行证据——证明最终行为真实生效，而非仅"代码看起来会生效"。
 > 三层与 implementation-evidence TSV 行一一对应；P3b 评审复用时按同一口径抽查。
+
+> **跨产物一致性对账（v3.27.6 起，L-M01-011）**：除验收点逐条对账外，必须抽查**跨产物约定**的一致性，至少包括——
+> ① 前端静态路由/redirect 目标 ↔ 菜单种子数据（redirect 落点必须存在于种子路由或静态路由中，否则登录后必 404）；
+> ② 前端契约代码（加解密/签名）↔ 对端密钥/配置事实源；
+> ③ E2E 冒烟断言对象 ↔ 当前 UI 结构（失效断言按 FAIL 计）。
+> 任何一条不一致即 P4b 不通过。
 
 ## Required artifacts
 

@@ -17,14 +17,14 @@ WORKSPACE="${WORKSPACE:-$PWD}"
 cd "$WORKSPACE" || { echo "[P0] workspace unavailable: $WORKSPACE"; exit 2; }
 if [ -z "$REPORT" ]; then
   REPORT="$(df_resolve_doc "$FEATURE" validation_report .md test)"
-  [ -n "$REPORT" ] || REPORT="docs/test/${FEATURE}-validation-report.md"
+  [ -n "$REPORT" ] || REPORT="docs/测试/${FEATURE}-PRD验证报告.md"
 fi
 STATE_DIR="${STATE_DIR:-.devflow}"
 RECEIPT_DIR="$STATE_DIR/${FEATURE}/gates/P4"
 EXEC_DIR="$STATE_DIR/${FEATURE}/test-executions"
 EXEC_LOG="$EXEC_DIR/p4-validation.log"
 CRITERIA="$(df_resolve_doc "$FEATURE" acceptance .md requirements)"
-[ -n "$CRITERIA" ] || CRITERIA="docs/requirements/${FEATURE}-acceptance-criteria.md"
+[ -n "$CRITERIA" ] || CRITERIA="docs/需求/${FEATURE}-验收点.md"
 
 PASS=0; FAIL=0
 P4_STARTED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -93,8 +93,11 @@ elif [ -n "$RESULTS_PATH" ]; then
     p0 "P4_RESULTS_PATH must resolve to a generated workspace file: $RESULTS_PATH"
   elif [ ! -s "$RESULTS_RESOLVED" ]; then
     p0 "P4 results are empty: $RESULTS_PATH"
-  elif [ "$(head -1 "$RESULTS_RESOLVED" 2>/dev/null)" != "ID	STATUS" ]; then
-    p0 "P4 results header must be ID<TAB>STATUS: $RESULTS_PATH"
+  elif ! head -1 "$RESULTS_RESOLVED" 2>/dev/null | grep -qE '^(ID	STATUS|acceptance_id	(	code_paths	test_paths	status)?)'; then
+    # v3.27.5（FB-20260918-003）：统一接受两种表头——2 列（ID/STATUS，p4 专用）
+    # 与 4 列（acceptance_id/code_paths/test_paths/status，与 p4b --evidence 共用一份），
+    # 消除"同文件两门格式冲突"（M-01 实测返工点）。
+    p0 "P4 results header must be ID<TAB>STATUS or acceptance_id<TAB>code_paths<TAB>test_paths<TAB>status: $RESULTS_PATH"
   else
     grep -oE 'M-?[0-9]{2}-F[0-9]{2}-A[0-9]{2}' "$CRITERIA" | sort -u > "$TMP_IDS"
     awk -F '\t' 'NR > 1 && NF >= 2 {print $1}' "$RESULTS_RESOLVED" | sort > "$TMP_RESULTS"
@@ -103,7 +106,8 @@ elif [ -n "$RESULTS_PATH" ]; then
     DUPLICATES=$(uniq -d "$TMP_RESULTS" | tr '\n' ' ')
     [ -z "$DUPLICATES" ] || p0 "P4 results contain duplicate IDs: $DUPLICATES"
     if ! diff -u "$TMP_IDS" <(sort -u "$TMP_RESULTS") >/dev/null 2>&1; then p0 "P4 result ID set differs from frozen criteria (P4_ACCEPTANCE_SET_MISMATCH)"; else pass "P4 result ID set equals frozen criteria ($EXPECTED_COUNT IDs)"; fi
-    BAD_ROWS=$(awk -F '\t' 'NR > 1 && ($2 != "PASS" || NF != 2) {print $1 "=" $2}' "$RESULTS_RESOLVED" | tr '\n' ' ')
+    # 状态列：2 列格式取 $2，4 列格式取 $4（code_paths 内不含制表符）
+    BAD_ROWS=$(awk -F '\t' 'NR > 1 && $NF != "PASS" {print $1 "=" $NF}' "$RESULTS_RESOLVED" | tr '\n' ' ')
     [ -z "$BAD_ROWS" ] && pass "all P4 acceptance rows PASS" || p0 "P4 acceptance has non-PASS/invalid rows (P4_ACCEPTANCE_FAIL): $BAD_ROWS"
   fi
 fi

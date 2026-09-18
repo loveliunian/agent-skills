@@ -718,6 +718,16 @@ def check_doc_content_agreement(data, errors, doc_path):
                                 f"apis[{ai}]({a.get('name')}) {side} 字段 {name!r}: "
                                 f"JSON 类型 {f.get('type')!r} 与正文表格类型 {row[1]!r} 冲突"
                             )
+                        # v3.27.11：响应「恒出性」JSON↔正文对账（此前为无消费者的空转字段）
+                        if side == "response" and len(row) >= 3:
+                            jv = str(f.get("always") or "").strip()
+                            dv = str(row[2] or "").strip()
+                            if jv and dv and jv != dv:
+                                errors.append(
+                                    f"apis[{ai}]({a.get('name')}) response 字段 {name!r}: "
+                                    f"JSON 恒出性 {jv!r} 与正文表格恒出性 {dv!r} 冲突"
+                                    f"（同字段双正本必须一致）"
+                                )
 
     # v3.24.0(A03)：规则 WHEN 逐字契约——rules[].when_line 必须在该规则 §锚点小节
     # 原文（含围栏）中逐字出现；正文改写伪代码而 JSON 不同步即"规则不一致"。
@@ -734,6 +744,340 @@ def check_doc_content_agreement(data, errors, doc_path):
                 f"rules[{ri}]({r.get('id')}).when_line: 在 §{key} 小节中找不到逐字匹配的 WHEN 行"
                 f"（{when_line!r}）——正文伪代码与 JSON 规则不一致，二者必须同源"
             )
+
+
+def _load_reserved_word_tiers():
+    """v3.27.15：保留字清单单一正本 = references/db-reserved-words.md 的
+    DEVFLOW:RESERVED-TIERS 契约块。fail=真保留字（FAIL）；warn=高风险软关键字（WARN）。"""
+    fail, warn = set(), set()
+    ref = Path(__file__).resolve().parent.parent / "references" / "db-reserved-words.md"
+    if not ref.is_file():
+        return fail, warn
+    m = re.search(r"<!--\s*DEVFLOW:RESERVED-TIERS(.*?)-->",
+                  ref.read_text(encoding="utf-8", errors="replace"), re.S)
+    if not m:
+        return fail, warn
+    for line in m.group(1).splitlines():
+        line = line.strip()
+        low = line.lower()
+        if low.startswith("fail="):
+            fail = {w.strip().lower() for w in line.split("=", 1)[1].split(",") if w.strip()}
+        elif low.startswith("warn="):
+            warn = {w.strip().lower() for w in line.split("=", 1)[1].split(",") if w.strip()}
+    warn -= fail
+    return fail, warn
+
+
+def check_reserved_words(data, errors, warnings):
+    """v3.27.15：表名/字段名数据库保留字扫描——fail 层记 errors，warn 层记 warnings。"""
+    fail_words, warn_words = _load_reserved_word_tiers()
+    if not (fail_words or warn_words):
+        return
+    for ti, t in enumerate(data.get("tables", [])):
+        idents = [(t.get("name"), "表名")]
+        idents += [(f.get("name"), "字段") for f in (t.get("fields") or [])]
+        for ident, kind in idents:
+            w = str(ident or "").strip().lower()
+            if not w:
+                continue
+            if w in fail_words:
+                errors.append(
+                    f"tables[{ti}]({t.get('name')}) {kind} {ident!r} 命中数据库保留字（fail 层）"
+                    f"——未加引号建表/查询会报错，按 references/db-reserved-words.md 改名后再校验"
+                )
+            elif w in warn_words:
+                warnings.append(
+                    f"tables[{ti}]({t.get('name')}) {kind} {ident!r} 是高风险软关键字（warn 层）"
+                    f"——建议按 references/db-reserved-words.md 规避，或在口径说明中写明理由"
+                )
+
+
+def check_error_codes(data, errors, doc_path=None):
+    """v3.27.15：rules[].error_codes[] 错误码契约——全局唯一 + 必须出现在详设正文。
+
+    错误码此前只散落在规则「约束/错误处理」列与 §7.4 前端行为表（手写，易漂移）。
+    登记即对账：重复码 FAIL；提供 --doc 时码必须出现在正文（规则列或行为表）。"""
+    seen = {}
+    for ri, r in enumerate(data.get("rules", [])):
+        for ei, ec in enumerate(r.get("error_codes") or []):
+            code = str(ec.get("code") or "").strip()
+            if not code:
+                continue
+            where = f"rules[{ri}]({r.get('id')}).error_codes[{ei}]"
+            if code in seen:
+                errors.append(f"{where}: 错误码 {code} 与 {seen[code]} 重复（错误码全局唯一）")
+            else:
+                seen[code] = f"rules[{ri}]({r.get('id')})"
+    if not seen or not doc_path:
+        return
+    p = Path(doc_path)
+    if not p.is_file():
+        return
+    text = p.read_text(encoding="utf-8", errors="replace")
+    for code, where in sorted(seen.items()):
+        if code not in text:
+            errors.append(
+                f"{where}.error_codes: 错误码 {code} 未出现在详设正文"
+                f"（须写入规则「约束/错误处理」列或 §7.4 前端行为表）"
+            )
+
+
+def check_page_specs(data, errors):
+    """v3.27.9(F2)：页面规格结构化——dialogs[].api 锚点闭环到 apis[]。
+
+    弹窗/抽屉映射（§7.2 弹窗/抽屉表，v3.27.15 由原 §7.3 并入）是写操作交互的
+    接口证据位：api 必须引用真实存在的 §3.2.N 详细定义（apis[].anchor/detail_anchor），
+    或显式 — 声明无接口交互。
+
+    链路闭环（v3.27.15）：table_columns[].api_field（`§x.y.z 字段`）/source（`表.字段`）、
+    form_controls[].submit_api（`§x.y.z`）/target_field（`表.字段`）提供即对账——
+    接口锚点必须存在、字段/落库列必须存在于 apis[] / tables[]（悬空即 FAIL）。"""
+    api_anchors = set()
+    api_fields = {}  # 规范化 anchor -> {字段名}
+    for a in data.get("apis", []):
+        fields = set()
+        for side in ("request", "response"):
+            for f in (a.get(side) or {}).get("fields") or []:
+                if f.get("name"):
+                    fields.add(str(f.get("name")).strip())
+        for k in ("anchor", "detail_anchor"):
+            v = (a.get(k) or "").strip()
+            if v:
+                api_anchors.add(v)
+                api_anchors.add(_norm_anchor(v))
+                api_fields.setdefault(_norm_anchor(v), set()).update(fields)
+    table_fields = set()
+    for t in data.get("tables", []):
+        tname = str(t.get("name") or "").strip()
+        for f in t.get("fields") or []:
+            fname = str(f.get("name") or "").strip()
+            if tname and fname:
+                table_fields.add(f"{tname}.{fname}")
+    for pi, p in enumerate(data.get("pages", [])):
+        where = f"pages[{pi}]({p.get('name')})"
+        for ci, c in enumerate(p.get("table_columns") or []):
+            af = str(c.get("api_field") or "").strip()
+            if af:
+                m = re.match(r"^§([0-9]+(?:\.[0-9]+)+)\s+(\S+)$", af)
+                if not m:
+                    errors.append(
+                        f"{where}.table_columns[{ci}]({c.get('field')}).api_field={af!r} 格式非法"
+                        f"（须为 `§x.y.z 字段名`，如 `§3.2.1 records[].recordNo`）"
+                    )
+                else:
+                    anc, fld = m.group(1), m.group(2)
+                    if anc not in api_fields:
+                        errors.append(
+                            f"{where}.table_columns[{ci}]({c.get('field')}).api_field 锚点 §{anc} "
+                            f"不在 apis[] 中（链路断链——列→接口→表必须闭环）"
+                        )
+                    elif fld not in api_fields[anc]:
+                        errors.append(
+                            f"{where}.table_columns[{ci}]({c.get('field')}).api_field 字段 {fld!r} "
+                            f"不在 §{anc} 的请求/响应字段中（链路断链）"
+                        )
+            src = str(c.get("source") or "").strip()
+            if src and src != "—" and src not in table_fields:
+                errors.append(
+                    f"{where}.table_columns[{ci}]({c.get('field')}).source={src!r} "
+                    f"不在 tables[].name/fields[] 中（链路断链——落库字段必须真实存在；无落表写 —）"
+                )
+        for ci, c in enumerate(p.get("form_controls") or []):
+            sa = str(c.get("submit_api") or "").strip()
+            if sa and sa != "—" and _norm_anchor(sa) not in api_fields:
+                errors.append(
+                    f"{where}.form_controls[{ci}]({c.get('field')}).submit_api={sa!r} "
+                    f"不在 apis[].anchor/detail_anchor 中（链路断链——控件→接口必须闭环）"
+                )
+            tf = str(c.get("target_field") or "").strip()
+            if tf and tf != "—" and tf not in table_fields:
+                errors.append(
+                    f"{where}.form_controls[{ci}]({c.get('field')}).target_field={tf!r} "
+                    f"不在 tables[].name/fields[] 中（链路断链——落库字段必须真实存在；无落表写 —）"
+                )
+        for di, d in enumerate(p.get("dialogs") or []):
+            name = (d.get("name") or "").strip()
+            api = (d.get("api") or "").strip()
+            if api == "—":
+                continue
+            refs = re.findall(r"§([0-9]+(?:\.[0-9]+)+)", api)
+            if not refs:
+                errors.append(
+                    f"{where}.dialogs[{di}]({name}): api={api!r} 未包含 §x.y.z 接口锚点且非 —"
+                    f"（弹窗/抽屉必须挂在接口证据位上；无接口交互显式写 —）"
+                )
+                continue
+            for r in refs:
+                if r not in api_anchors:
+                    errors.append(
+                        f"{where}.dialogs[{di}]({name}): api 锚点 §{r} 不在 apis[].anchor/detail_anchor 中"
+                        f"（弹窗接口引用断链——§7.2 弹窗/抽屉表与 §3.2 接口定义必须闭环）"
+                    )
+
+
+def _doc_table_blocks(text):
+    """v3.27.9(F2)：把小节正文切成独立 Markdown 表格块（连续 | 行），返回
+    [[行单元格…]] 列表——同一小节内多张表按块区分，供表头判型。"""
+    blocks, cur = [], []
+    for ln in (text or "").splitlines():
+        s = ln.strip()
+        if s.startswith("|"):
+            cur.append(s)
+        elif cur:
+            blocks.append(cur)
+            cur = []
+    if cur:
+        blocks.append(cur)
+    out = []
+    for b in blocks:
+        rows = _section_table_rows("\n".join(b))
+        if rows:
+            out.append(rows)
+    return out
+
+
+def check_page_specs_doc(data, errors, doc_path):
+    """v3.27.9(F2)；v3.27.15 合并 §7.3 + 链路列：pages[] 规格 ↔ §7.2 正文对账（提供即对账）。
+
+    - table_columns 字段必须出现在 §7.2.* 「表格列规格」表（表头含「列标题」）首列；
+      api_field/source 提供时须出现在同一行（链路列与 JSON 同源）；
+    - form_controls 字段必须出现在 §7.2.* 「表单控件规格」表（表头含「控件」+「校验」）首列；
+      submit_api/target_field 提供时须出现在同一行；
+    - dialogs.name/component/api 必须落在 §7.2.* 「弹窗/抽屉」表（表头含「组件」）对应行
+      （原 §7.3 映射表已并入 §7.2）；清单可见性由 check_page_list_doc 对账。
+    """
+    doc = Path(doc_path)
+    if not doc.exists():
+        return
+    sections, _raw = _doc_sections(doc)
+    col_rows, form_rows, dialog_rows = {}, {}, []
+    for key, text in sections.items():
+        if key == "7.2" or key.startswith("7.2."):
+            for rows in _doc_table_blocks(text):
+                header = " ".join(rows[0])
+                body = rows[1:]
+                if "列标题" in header:
+                    for r in body:
+                        if r and r[0]:
+                            col_rows.setdefault(r[0], " | ".join(r))
+                elif "控件" in header and "校验" in header:
+                    for r in body:
+                        if r and r[0]:
+                            form_rows.setdefault(r[0], " | ".join(r))
+                elif "组件" in header and "交互" in header:
+                    dialog_rows.extend(body)
+    for pi, p in enumerate(data.get("pages", [])):
+        missing = [
+            c.get("field") for c in (p.get("table_columns") or [])
+            if c.get("field") and c.get("field") not in col_rows
+        ]
+        if missing:
+            errors.append(
+                f"pages[{pi}]({p.get('name')}) 表格列字段未出现在 §7.2 表格列规格表首列: "
+                f"{missing[:5]}（JSON 与正文冲突——同字段双正本必须一致）"
+            )
+        for ci, c in enumerate(p.get("table_columns") or []):
+            row_text = col_rows.get(str(c.get("field") or "").strip(), "")
+            for key, label in (("api_field", "接口字段"), ("source", "落库字段")):
+                v = str(c.get(key) or "").strip()
+                if v and v != "—" and row_text and v not in row_text:
+                    errors.append(
+                        f"pages[{pi}]({p.get('name')}).table_columns[{ci}]({c.get('field')}): "
+                        f"{label} {v!r} 未出现在 §7.2 表格列规格表对应行（JSON 与正文冲突——链路列必须同源）"
+                    )
+        missing = [
+            c.get("field") for c in (p.get("form_controls") or [])
+            if c.get("field") and c.get("field") not in form_rows
+        ]
+        if missing:
+            errors.append(
+                f"pages[{pi}]({p.get('name')}) 表单控件字段未出现在 §7.2 表单控件规格表首列: "
+                f"{missing[:5]}（JSON 与正文冲突——同字段双正本必须一致）"
+            )
+        for ci, c in enumerate(p.get("form_controls") or []):
+            row_text = form_rows.get(str(c.get("field") or "").strip(), "")
+            for key, label in (("submit_api", "提交接口"), ("target_field", "落库字段")):
+                v = str(c.get(key) or "").strip()
+                if v and v != "—" and row_text and v not in row_text:
+                    errors.append(
+                        f"pages[{pi}]({p.get('name')}).form_controls[{ci}]({c.get('field')}): "
+                        f"{label} {v!r} 未出现在 §7.2 表单控件规格表对应行（JSON 与正文冲突——链路列必须同源）"
+                    )
+        for di, d in enumerate(p.get("dialogs") or []):
+            name = (d.get("name") or "").strip()
+            comp = (d.get("component") or "").strip()
+            hit = next((row for row in dialog_rows if row and name in row[0]), None)
+            if hit is None:
+                errors.append(
+                    f"pages[{pi}]({p.get('name')}).dialogs[{di}]({name}): §7.2 弹窗/抽屉表"
+                    f"首列（交互）未找到该交互——JSON 与正文冲突"
+                )
+                continue
+            row_text = " | ".join(hit)
+            if comp and comp != "—" and comp not in row_text:
+                errors.append(
+                    f"pages[{pi}]({p.get('name')}).dialogs[{di}]({name}): §7.2 弹窗/抽屉表对应行未包含"
+                    f"组件路径 {comp!r}（JSON 与正文冲突——组件列必须同源）"
+                )
+            api = (d.get("api") or "").strip()
+            if api and api != "—":
+                for ref in re.findall(r"§([0-9]+(?:\.[0-9]+)+)", api):
+                    if f"§{ref}" not in row_text:
+                        errors.append(
+                            f"pages[{pi}]({p.get('name')}).dialogs[{di}]({name}): §7.2 弹窗/抽屉表对应行未包含"
+                            f"接口锚点 §{ref}（JSON 与正文冲突——接口列必须同源）"
+                        )
+
+
+def check_page_list_doc(data, errors, doc_path):
+    """v3.27.12：§7.1 页面清单表 ↔ pages[] 对账（pages 非空即要求清单表存在）。
+
+    pages[].route/component/page_type 是 JSON 必填字段，但此前正文清单表可缺可漂移；
+    本检查要求 §7.1 存在含「路径/组件」表头的页面清单表，且页面名/路由/组件/权限
+    逐一出现在表中（— 占位豁免；纯任务页）。
+    v3.27.15：**全部弹窗/抽屉进表**——pages[].dialogs 的每一项 name/component 也必须
+    出现在 §7.1 清单表（§7.1 是全部 UI 面的唯一清单）。"""
+    pages = data.get("pages") or []
+    if not pages:
+        return
+    doc = Path(doc_path)
+    if not doc.exists():
+        return
+    sections, _raw = _doc_sections(doc)
+    text = sections.get("7.1")
+    if text is None:
+        errors.append(
+            "§7.1 页面清单缺失（pages 非空时必须提供 §7.1 页面清单表：页面|路径|组件|类型|权限）"
+        )
+        return
+    header_ok = False
+    cells = set()
+    for rows in _doc_table_blocks(text):
+        header = " ".join(rows[0])
+        if "路径" in header and "组件" in header:
+            header_ok = True
+            for r in rows[1:]:
+                cells.update(c.strip() for c in r if c and c.strip())
+    if not header_ok:
+        errors.append("§7.1 页面清单表缺表头（须含「路径」「组件」列——页面清单唯一正本）")
+        return
+    for pi, p in enumerate(pages):
+        for key, label in (("name", "页面名"), ("route", "路由"), ("component", "组件"), ("permission", "权限")):
+            v = str(p.get(key) or "").strip()
+            if v and v != "—" and v not in cells:
+                errors.append(
+                    f"pages[{pi}]({p.get('name')}): {label} {v!r} 未出现在 §7.1 页面清单表"
+                    f"（JSON 与正文冲突——页面清单表必须与 pages[] 同源）"
+                )
+        for di, d in enumerate(p.get("dialogs") or []):
+            for key, label in (("name", "交互名"), ("component", "组件")):
+                v = str(d.get(key) or "").strip()
+                if v and v != "—" and v not in cells:
+                    errors.append(
+                        f"pages[{pi}]({p.get('name')}).dialogs[{di}]({d.get('name')}): {label} {v!r} "
+                        f"未出现在 §7.1 页面清单表（v3.27.15：全部弹窗/抽屉进 §7.1——"
+                        f"§7.1 是全部 UI 面的唯一清单）"
+                    )
 
 
 def check_prd_sources(data, errors, criteria_path=None, workspace=""):
@@ -827,6 +1171,12 @@ def check_business_operations(data, errors):
                 f"{where}: 有状态操作必须同时声明 source_state 与 target_state"
                 f"（无状态场景用 stateless=true 显式声明，不强制虚构状态机）"
             )
+        # v3.27.11：测试场景至少 1 条非空（schema 必填但允许空数组——空场景等于无验证契约）
+        ts = [x for x in (o.get("test_scenarios") or []) if str(x).strip()]
+        if not ts:
+            errors.append(
+                f"{where}: test_scenarios 为空（每个业务操作至少 1 个可执行测试场景）"
+            )
     missing = [i for i in ids if i not in covered]
     if ops and missing:
         errors.append(
@@ -863,6 +1213,7 @@ def check_baseline(data, errors, workspace=""):
     entries = base.get("entries", [])
     ws = _workspace_effective(workspace)
     bop_ids = {o.get("id") for o in data.get("business_operations", [])}
+    acc_ids = {a.get("id") for a in data.get("acceptance", [])}
     if not entries:
         if not _zero_declared(data, "baseline.entries"):
             errors.append(
@@ -881,6 +1232,11 @@ def check_baseline(data, errors, workspace=""):
             if rop not in bop_ids:
                 errors.append(
                     f"{where}.related_operations: 业务操作 {rop!r} 不在 business_operations[] 中（悬空引用）"
+                )
+        for rac in e.get("related_acceptance", []):
+            if rac not in acc_ids:
+                errors.append(
+                    f"{where}.related_acceptance: 验收点 {rac!r} 不在 acceptance[].id 中（悬空引用）"
                 )
         if decision in ("REUSE", "MODIFY", "DELETE"):
             if not (e.get("existing_contract") or "").strip():
@@ -925,7 +1281,7 @@ def _ref_list(v):
     return []
 
 
-def check_design(data, errors, criteria_path=None, doc_path=None, workspace="", scope_ids=None):
+def check_design(data, errors, criteria_path=None, doc_path=None, workspace="", scope_ids=None, doc_mode=None):
     acceptance = data.get("acceptance", [])
     pages = {p.get("anchor") for p in data.get("pages", [])}
     apis = {a.get("anchor") for a in data.get("apis", [])}
@@ -967,6 +1323,12 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace="", 
                 f"（L-P2-004：接口概览已删除概览锚点列、详细定义前置——anchor 必须直接登记 §3.2.N，"
                 f"不得再写概览级 §3.1）"
             )
+
+    # 0c. constraints[]（P0 硬约束引用位）：同一硬约束只登记一次；与冻结集合的对账在 s2 §2b 完成
+    _cids = [c.get("id") for c in data.get("constraints", [])]
+    _cdup = sorted({x for x in _cids if x and _cids.count(x) > 1})
+    if _cdup:
+        errors.append(f"constraints[].id 存在重复: {_cdup}（同一硬约束只登记一次）")
 
     # 1. 验收点 ID 唯一
     ids = [a.get("id") for a in acceptance]
@@ -1123,6 +1485,9 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace="", 
     # 9. 接口概览 ↔ 详细定义闭环（含文档双向对账）
     check_api_detail_closure(data, errors, doc_path=doc_path)
 
+    # 9a. 页面规格闭环（v3.27.9 F2）：弹窗接口锚点必须闭环到 apis[]
+    check_page_specs(data, errors)
+
     # 9b. 全锚点文档对账（v3.19.0 P1-4）+ v3.24.0(A05) 设计包范围过滤：
     # 总分模式一份 feature 级 JSON 对应多份分/总文档——提供 --scope-ids（该文档的
     # 验收子集，来自设计包清单）时，文档对账只针对本子集引用到的对象；
@@ -1153,10 +1518,25 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace="", 
             doc_view["operations"] = []
             doc_view["integrations"] = []
             doc_view["configs"] = []
+        if doc_mode == "total":
+            # v3.27.10(H1)：总文档只做全局口径校验——页面/表/接口/规则/业务操作/旅途等
+            # 模块级对象的锚点与正文明细由分文档承担（总文档模板不含这些章节；此前
+            # 总文档校验会把模块级锚点当缺失拦截，导致 total+前端项目无法通过）。
+            doc_view = dict(doc_view)
+            for _k in ("pages", "tables", "apis", "rules", "business_operations",
+                       "resources", "operations", "integrations", "configs"):
+                doc_view[_k] = []
+            _client = dict(doc_view.get("client") or {})
+            _client.pop("journeys", None)
+            doc_view["client"] = _client
         check_doc_anchors(doc_view, errors, doc_path)
         # v3.24.0(A03/A04)：嵌套锚点闭环 + JSON↔正文事实对账（字段/类型/约束冲突、空壳小节、WHEN 逐字契约）
         check_nested_anchors(doc_view, errors, doc_path)
         check_doc_content_agreement(doc_view, errors, doc_path)
+        # v3.27.9(F2)：页面规格（表格列/表单控件/弹窗映射）与 §7.2 正文对账
+        check_page_specs_doc(doc_view, errors, doc_path)
+        # v3.27.12：§7.1 页面清单表 ↔ pages[] 对账
+        check_page_list_doc(doc_view, errors, doc_path)
         # v3.27.1(L-P2-004 续)：三处模板引导升级为硬校验
         check_design_doc_specificity(doc_view, errors, doc_path)
 
@@ -1168,6 +1548,46 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace="", 
 
 
 # ---------- verification 跨字段检查 ----------
+
+
+_SEMANTIC_ANCHORS = {
+    "data-model", "api-contracts", "business-rules", "business-operations",
+    "acceptance-traceability", "implementation-handoff", "design-decisions",
+    "component-reuse", "common-extraction", "standards-compliance",
+}
+
+
+def check_execution_plan(data, errors):
+    """v3.27.11：执行契约切片完整性——task_ids 必须闭环到 tasks[]，components 不得空串。
+
+    v3.27.15：design_refs 锚点闭环——格式 `anchor: <语义锚点>[ §x.y|R{n}]`，
+    锚点名必须在语义锚点集合内（悬空锚点 = 设计→任务追溯断链）。此前为零校验字段。"""
+    task_ids = {t.get("task_id") for t in data.get("tasks", [])}
+    for i, sl in enumerate(data.get("slices", []) or []):
+        where = f"slices[{i}]({sl.get('slice_id')})"
+        for j, tid in enumerate(sl.get("task_ids") or []):
+            if tid not in task_ids:
+                errors.append(
+                    f"{where}.task_ids[{j}]: 任务 {tid!r} 不在 tasks[].task_id 中（悬空引用）"
+                )
+        for j, c in enumerate(sl.get("components") or []):
+            if not str(c).strip():
+                errors.append(f"{where}.components[{j}]: 组件名不得为空")
+    ref_re = re.compile(r"^anchor:\s*([a-z][a-z0-9-]*)(?:\s+\S+)?$")
+    for i, t in enumerate(data.get("tasks", [])):
+        where = f"tasks[{i}]({t.get('task_id')})"
+        for j, ref in enumerate(t.get("design_refs") or []):
+            m = ref_re.match(str(ref).strip())
+            if not m:
+                errors.append(
+                    f"{where}.design_refs[{j}]: {ref!r} 格式非法"
+                    f"（须为 `anchor: <语义锚点>[ §x.y|R{{n}}]`，如 `anchor: api-contracts §3.2.1`）"
+                )
+            elif m.group(1) not in _SEMANTIC_ANCHORS:
+                errors.append(
+                    f"{where}.design_refs[{j}]: 锚点 {m.group(1)!r} 不在语义锚点集合"
+                    f"（{', '.join(sorted(_SEMANTIC_ANCHORS))}）——设计→任务追溯断链"
+                )
 
 
 def check_verification(data, errors, baseline_path=None, exec_record_path=None, workspace=".", frontend_scope=None):
@@ -1689,7 +2109,7 @@ def check_review(data, errors, kind):
 
 def check_design_doc_specificity(data, errors, doc_path):
     """v3.27.1(L-P2-004 续)：三处模板引导升级为硬校验——
-    ① §7.3 页组小节数 ≥ 页面数（关键页面交互必须覆盖 §7.1 全部页面）；
+    ① §7.2 页组小节数 ≥ 页面数（关键页面交互必须覆盖 §7.1 全部页面，并逐组列出调用接口）；
     ② 规则锚点禁止单一化（全部规则堆在同一 § 锚点即失去导航价值）；
     ③ §3.2 每个详细定义小节标题下首行含 '> 说明：方法 路径｜权限：'（标题只写编号+名称）。"""
     p = Path(doc_path)
@@ -1710,20 +2130,24 @@ def check_design_doc_specificity(data, errors, doc_path):
             heads.add(m.group(1))
     pages = data.get("pages", [])
     if pages:
-        n_groups = sum(1 for h in heads if re.match(r"^7\.3\.\d+$", h))
+        n_groups = sum(1 for h in heads if re.match(r"^7\.2\.\d+$", h))
         if n_groups < len(pages):
             errors.append(
-                f"§7.3 页组小节 {n_groups} 个 < 页面数 {len(pages)}"
-                f"（L-P2-004：§7.3 关键页面交互设计必须覆盖 §7.1 全部页面，每页一组 7.3.N；"
+                f"§7.2 页组小节 {n_groups} 个 < 页面数 {len(pages)}"
+                f"（L-P2-004：§7.2 关键页面交互设计必须覆盖 §7.1 全部页面，每页一组 7.2.N 并在组内列出调用接口；"
                 f"确无独立交互的页面可合并说明但须逐页点名）")
     rules = data.get("rules", [])
     if len(rules) >= 5:
         r_anchors = {r.get("anchor") for r in rules if r.get("anchor")}
         if len(r_anchors) == 1:
-            errors.append(
-                f"rules[] 锚点单一化：{len(rules)} 条规则全部落在 {next(iter(r_anchors))!r}"
-                f"（L-P2-004：规则锚点应落到所属小节 §2.2.N/§3.2.N/§6.2.N…，"
-                f"并把 WHEN 行逐字注入锚点小节——全堆在同一锚点即失去导航价值）")
+            _only = next(iter(r_anchors))
+            # v3.27.15：页面规则按页组聚合（多条规则同锚 §7.2.N）是设计口径——
+            # 仅当共同锚点是通用级（<3 段，如 §5）才视为"全堆一处"失去导航价值。
+            if len(_norm_anchor(_only).split(".")) < 3:
+                errors.append(
+                    f"rules[] 锚点单一化：{len(rules)} 条规则全部落在 {_only!r}"
+                    f"（L-P2-004：规则锚点应落到所属小节 §2.2.N/§3.2.N/§6.2.N/§7.2.N…，"
+                    f"并把 WHEN 行逐字注入锚点小节——全堆在同一通用锚点即失去导航价值）")
     apis = data.get("apis", [])
     if apis:
         sections_raw = _doc_sections(p)[1]
@@ -1768,6 +2192,57 @@ def check_tech_selection(data, errors, constraints_path=None, workspace=""):
             f"decision.chosen={decision.get('chosen')!r} 不在候选方案中"
             f"（选定方案必须来自 Step 2 淘汰后的候选集合）"
         )
+    # 详设文档结构决策（v3.27.7：从 P2 上移至 P1 记录，P2 只按冻结结果选模板）
+    dds = data.get("design_doc_structure") or {}
+    dds_mode = dds.get("mode")
+    if dds_mode not in ("monolith", "total"):
+        errors.append(
+            f"design_doc_structure.mode={dds_mode!r} 非法"
+            f"（详设文档结构必须在 P1 选型时决策：monolith=单文档 / total=总分文档）"
+        )
+    docs = dds.get("planned_docs") or []
+    if dds_mode == "total":
+        if not docs:
+            errors.append(
+                "design_doc_structure.mode=total 但 planned_docs 为空"
+                "（总分模式必须登记总文档+分文档计划清单，P2 据此冻结 design-package.json）"
+            )
+        doc_ids, has_total = [], False
+        for i, d in enumerate(docs):
+            where = f"design_doc_structure.planned_docs[{i}]"
+            if d.get("id") == "TOTAL":
+                has_total = True
+                if d.get("doc_mode") != "total":
+                    errors.append(f"{where}: id=TOTAL 的文档 doc_mode 必须为 total")
+            elif d.get("doc_mode") != "sub":
+                errors.append(f"{where}({d.get('id')}): 分文档 doc_mode 必须为 sub")
+            doc_ids.append(d.get("id"))
+            if not (d.get("path") or "").strip():
+                errors.append(f"{where}({d.get('id')}): 缺 path（计划文档必须给出相对仓库根路径）")
+        dupes = {x for x in doc_ids if doc_ids.count(x) > 1}
+        if dupes:
+            errors.append(f"design_doc_structure.planned_docs id 重复: {sorted(dupes)}")
+        if docs and not has_total:
+            errors.append("design_doc_structure.planned_docs 缺少 id=TOTAL 的总文档登记")
+    elif dds_mode == "monolith" and docs:
+        errors.append(
+            f"design_doc_structure.mode=monolith 但 planned_docs 登记了 {len(docs)} 项"
+            f"（单文档模式无总分文档清单；如确为多模块应改 mode=total）"
+        )
+    # 脚手架重合度审计（v3.27.14 接线铁律 18）：逐功能域一行；裁剪项处置动作必须写明
+    audit = data.get("scaffold_audit") or []
+    domains = [a.get("domain") for a in audit]
+    dup_domains = sorted({x for x in domains if x and domains.count(x) > 1})
+    if dup_domains:
+        errors.append(f"scaffold_audit[].domain 存在重复: {dup_domains}（每个功能域一行，二分裁决不留模糊态）")
+    for i, a in enumerate(audit):
+        if a.get("verdict") == "裁剪":
+            action = (a.get("action") or "").strip()
+            if not any(k in action for k in ("删", "下线", "移除", "清理")):
+                errors.append(
+                    f"scaffold_audit[{i}]({a.get('domain')}): verdict=裁剪 的处置动作未写明具体裁剪动作"
+                    f"（须含 删除/下线/移除/清理 等落点——禁止只写「裁剪」二字）"
+                )
     if data.get("user_confirmed") not in ("已确认", "YES"):
         errors.append(
             f"user_confirmed={data.get('user_confirmed')!r} 非用户批准值"
@@ -2267,6 +2742,8 @@ def main():
     ap.add_argument("--workspace", default=None, help="相对路径解析根（默认当前目录；design 全仓反查仅在显式传入时启用）")
     ap.add_argument("--scope-ids", dest="scope_ids", default=None,
                     help="design: 设计包验收子集（逗号分隔 M-ID）——提供时文档对账只针对本子集引用到的对象（总分多文档模式）")
+    ap.add_argument("--doc-mode", dest="doc_mode", default=None, choices=("monolith", "total", "sub"),
+                    help="design: 当前被校验文档的角色（v3.27.10）——mode=total 时模块级对象（页面/表/接口/规则/业务操作/旅途）不在总文档做锚点与正文明细对账，只保留全局口径（模块级对账由分文档承担）")
     ap.add_argument("--frontend-scope", default=None, dest="frontend_scope",
                     help="verification: P0 冻结的前端范围（对账声明与 CLIENT_EXEMPT 不可覆盖冻结值）")
     ap.add_argument("--max-errors", type=int, default=100, help="最多输出的错误条数")
@@ -2286,11 +2763,16 @@ def main():
         # v3.17.3(B-6): schema 自身不合法时输出结构化错误而非裸 traceback
         print(f"  ✗ schema 不合法: {e}")
         sys.exit(2)
+    warnings = []
     ws = args.workspace or ""
     if args.kind == "design":
         scope = [s.strip() for s in (args.scope_ids or "").replace("，", ",").split(",") if s.strip()] or None
         check_design(data, errors, criteria_path=args.criteria, doc_path=args.doc,
-                     workspace=ws, scope_ids=scope)
+                     workspace=ws, scope_ids=scope, doc_mode=args.doc_mode)
+        # v3.27.15：表名/字段名保留字分层扫描（fail→errors；warn→warnings）
+        check_reserved_words(data, errors, warnings)
+        # v3.27.15：规则错误码全局唯一 + 正文出现（提供 --doc 时）
+        check_error_codes(data, errors, doc_path=args.doc)
     elif args.kind == "verification":
         check_verification(data, errors, baseline_path=args.baseline,
                            exec_record_path=args.exec_record, workspace=ws or ".",
@@ -2300,6 +2782,7 @@ def main():
         check_generic(data, errors, schema)
         _KIND_CHECKS = {
             "clarification": lambda: check_clarification(data, errors),
+            "execution-plan": lambda: check_execution_plan(data, errors),
             "acceptance": lambda: check_acceptance(data, errors, workspace=ws),
             "constraints": lambda: check_constraints(data, errors),
             "prd-review": lambda: check_review(data, errors, "prd-review"),
@@ -2338,6 +2821,11 @@ def main():
         print(f"\n校验失败：共 {n} 处不合规。")
         print("  df_pipeline.py 已中止，不渲染文档——先修复 JSON 再重跑。")
         sys.exit(1)
+
+    if warnings:
+        for w in warnings[: args.max_errors]:
+            print("  ⚠", w)
+        print(f"  （{len(warnings)} 条警告：高风险软关键字建议规避，不阻断校验）")
 
     print(f"校验通过：{args.kind} JSON 符合 schema 约束与全部跨字段检查。")
     sys.exit(0)

@@ -1,12 +1,320 @@
 ---
 name: changelog
-version: "3.27.4"
+version: "3.27.15"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.27.4 Migration Guide
+# Changelog — devflow v1 → v3.27.15
+
+## v3.27.15 (2026-09-18) — 详设结构改版：§7 合并 / 附属文档拆分 / 保留字与错误码机检 / 下游对账接线
+
+来源：§7.2 页面与接口映射与 §7.3 关键页面交互设计是同一信息的两处正本（接口清单 + 交互要点），
+评审需来回对照。合并为单节：接口调用随页组下沉，页组内直接列「调用接口」；其后小节顺移。
+
+- **模板**：完整版 / 总分分 §7.2 改为「关键页面交互设计」（页组新增「调用接口」条目，
+  逐项列 §3.2.x / §5.3.x 方法与用途；接口封装、弹窗入口、错误行为交叉引用小节）；
+  原 §7.4 弹窗/抽屉映射 → §7.3、权限契约 → §7.4、异步与错误交互 → §7.5、
+  路由/状态/API 封装 → §7.6、复用组件 → §7.7、菜单 Seed → §7.8；总文档模板中
+  「分文档 §7.6」同步改 §7.5；写作铁律第 13 条 §7.3 页组改 §7.2 且要求逐组列接口。
+- **df_validate**：页组覆盖检查（check_design_doc_specificity）由 §7.3.N 改 §7.2.N；
+  pages[] 规格对账（check_page_specs_doc）表格列/表单控件改扫 §7.2.*、弹窗映射改 §7.3；
+  弹窗接口锚点闭环与错误信息同步新编号；新增 **§7.2 操作 ↔ §7.3 弹窗闭环**——
+  pages[].dialogs 的交互名必须被 §7.2 页组正文引用（操作触发弹窗/抽屉须写明
+  「→ §7.3 页面·交互」），负向回归覆盖。
+- **check_design_doc_quality**：DQ-003 接口消费闭环改为聚合 §7.2 锚点节 + 全部 §7.2.N 子小节
+  扫描（接口下沉后只看父节正文会误报未消费）；负向回归用例改为嵌套子小节形态。
+- **文档链**：phases/02、commands/spec、design.schema.json 描述、gen-domain-checklist、
+  lessons-learned、examples/structured/design.skeleton.md 同步新编号与「调用接口」示例；
+  黄金样本 design.md 重生成。
+- **保留字机检接线（v3.27.15）**：`references/db-reserved-words.md` 新增
+  `DEVFLOW:RESERVED-TIERS` 契约块（fail=真保留字 / warn=高风险软关键字，清单唯一正本）；
+  df_validate 对 `tables[].name` / `tables[].fields[].name` 分层扫描（精确匹配，fail→FAIL，
+  warn→⚠ 警告不阻断；新增 warnings 输出机制）；完整版模板 §2.2 补「关键字规避规则」块、
+  两份模板示例字段 `status/name` 改 `config_status/record_name/record_status`（消除反向示范）；
+  phases/02 同步机检口径；fail/warn 负向+警告回归 2 例。
+- **下游对账接线（v3.27.15）**：新增 `scripts/design_parse_lib.sh`，p4_prd_vs_code 与
+  p3_completion_gate 共用——接口解析兼容渲染块（`详细定义|方法|路径`）与旧版方法首列概览表，
+  表解析优先 table-index 块、回退 CREATE TABLE 字面量；此前结构化详设（渲染版式）在两道 Gate
+  都解析为 0 而静默 skip，现渲染版式端到端回归钉住。开发/评审/文档链的过期章节引用统一为
+  「锚点 + 完整版/分文档双编号」（phases/02b、phases/03、02a、commands/docs|performance|
+  audit-completeness|design-review、subagents/completeness-reviewer、references/concepts-detail、
+  playbook-miniprogram）；模板 §3.1/§5.2 表头约定与数据来源列同步渲染器实际列序与
+  `record_name/record_status`。
+- **完整版补 §14 异常处理、安全与性能设计（v3.27.15）**：与分文档 §14 对齐的压缩版
+  （异常/事务边界、认证授权敏感数据审计、容量热点缓存基线）；原 §14/§15 实现交接/变更历史
+  顺移为 §15/§16，`templates/详细设计-模板.md` 必含章节、`commands/plan.md` 示例、
+  design-review 引用同步。
+- **错误码结构化（v3.27.15）**：schema `rules[].error_codes[]`（code/meaning/http_status；
+  code 大写下划线、全局唯一）；df_validate `--doc` 要求每个码出现在正文（规则列或 §7.5 行为表）；
+  rule-index 渲染新增「错误码」列；模板 §5 增错误码契约注；样例/骨架同步
+  REFUND_AMOUNT_EXCEEDED；回归覆盖重复/格式/正文缺失。
+- **执行契约 design_refs 闭环（v3.27.15）**：df_validate 校验 `anchor: <语义锚点>[ §x.y|R{n}]`
+  格式且锚点名必须在语义锚点集合（此前该字段零校验，悬空锚点可过 Gate）。
+- **菜单 seed 与新增页判定对齐（v3.27.15）**：模板 §7.8 统一 `V*__seed_{feature}_menus.sql`
+  （文件名必须含 feature）；p3_completion_gate 增 `*seed_*_menus*.sql` 兜底（命中给 p1 改名提示），
+  页面不落 `src/views/<feature>/` 约定路径时按 design.json baseline 前端 ADD/MODIFY 目标判定新增页。
+- **§7.2 调用接口/操作改表格（v3.27.15）**：两份模板与示例骨架把「调用接口」「操作」从
+  条目改为表格（调用接口：接口|方法|路径|用途与触发时机；操作：操作|类型|权限点|触发弹窗/抽屉）
+  ——接口表行可被 `design_parse_lib`/p4 正文解析复用，操作表的弹窗引用仍在 §7.2 正文闭环；
+  黄金样本重生成。
+- **详设结构 v2（v3.27.15）**：① §8/§2.4 与总文档 §7 数据库迁移删除、§2.3/§13/总文档 §9.5
+  DDR 移出详设——新建 `templates/数据库设计决策-模板.md`（`docs/详细设计/<feature>-数据库设计决策.md`，
+  含 DDR+迁移；design.json `decisions[]`/`migrations` 仍为正本，`df_pipeline design --db-doc`
+  渲染 `ddr-index`/`ddr-matrix`）；渲染块分角色（详设 11 块、数据库设计决策 2 块；渲染器对存量
+  详设中的 ddr 块保留刷新兼容）。② §3.2/§5.3 接口说明行合并为
+  `> 说明：METHOD 路径｜权限：xxx｜功能：一句话说明`。③ §5 业务规则下沉：页面相关规则写入
+  §7.2「页面交互设计」页组「业务规则」表（R 编号+WHEN 逐字），§5（分文档 §3）只留无页面场景
+  规则；rule-index 块移入 §7 开头；页组结构=布局/查询区/调用接口/操作/业务规则/状态矩阵/降级，
+  规格表按页面形态给（列表页→表格列规格、表单页→表单控件规格，混合页两组都写）。
+  s2 的 R 编号检测放宽为任意表格单元格。
+- **追溯与实现交接拆出（v3.27.15）**：§11 需求追溯与覆盖率基线 → 独立《需求追溯》文档
+  （`docs/详细设计/<feature>-需求追溯.md`，`anchor: acceptance-traceability`，管线 `--trace-doc`
+  渲染 trace-matrix；零结果声明留详设 §11 零结果声明）；§15 实现交接 → 独立《实现交接》文档
+  （`<feature>-实现交接.md`，`anchor: implementation-handoff`，手写施工图 + design.json baseline
+  对账；/plan、/build、backend/frontend/sql-dev 改读该文档）。渲染块分角色：详设 10 块、
+  数据库设计决策 2 块、需求追溯 1 块；s2/p2a 的语义锚点与追溯行改为"详设或同名附属文档自动
+  发现"（存量兼容：未建附属文档时回退读详设正文）；s2 monolith 必含章节同步（去 §8/§15，
+  §11=零结果声明）；三份模板、router、phases/02、plan/build、子代理输入契约同步；黄金样本
+  新增 `traceability.md`。
+- **零结果声明节与配置键表删除（v3.27.15）**：详设 §11 零结果声明（分文档 §9、总文档 §9.2）删除，
+  `zero-results` 渲染块从必需注册表移除（存量详设仍有 marker 时渲染器顺手刷新，块生成保留）；
+  §10.2 外部依赖的「配置键」表删除——`integrations-configs` 块只渲染外部集成表；
+  design.json `zero_results[]` / `configs[]` 的机检契约保留（空集合声明的机器证据不变）。
+  三份模板、骨架、s2 必含章节、phases/02 块清单（详设 9 块）同步；黄金样本重生成。
+- **页面清单口径与完整性（v3.27.15）**：§7.1 增**页面判定口径**（有独立路由且可直达的视图才算页；
+  页内区域/抽屉/弹窗不计页；PRD 称"XX页/详情页"但设计为页内区域的必须写明判定理由）与
+  **完整性三向对账**（菜单 seed × `client.journeys` × UI 验收点，每个可见菜单必须有页面归属）；
+  模板示例标注"2 行仅占位、禁止照抄规模"；phases/02 与 gen-domain-checklist 同步探针。
+- **§7 结构 v4（v3.27.15）**：① §7.1 页面清单改为**全部 UI 面唯一清单**——页面 + **全部弹窗/抽屉**
+  （含确认类），机检 `pages[].dialogs` 的 name/component 必须进表；② §7.2 与 §7.3 弹窗映射表
+  合二为一：逐交互单元写 布局/查询区（有/无）/列表（有/无）/表单（有/无）/调用接口/操作/
+  业务规则/弹窗抽屉表/状态矩阵/降级，规格表按形态给；原 §7.3 删除（弹窗对账改扫 §7.2.*），
+  §7.4–§7.8 顺移为 §7.3–§7.7；操作引用改「→ 弹窗/抽屉：{交互名}」。
+- **§13 规范遵循移入技术选型报告（v3.27.15）**：`tech-selection.json` 新增必填 `standards[]`
+  （domain/standard/version/landing/deviation）→ 渲染《规范遵循》章节（`anchor: standards-compliance`）；
+  详设删 §13（分文档 §12、总文档 §9.4）；p2a 规范锚点检查改指选型报告；s1 增渲染对账；
+  模板/评审/探针/样例/黄金同步。
+- **§7 全链串联（v3.27.15）**：页面元素 → 接口 → 表 → 规则/操作 显式成链——表格列规格增
+  「接口字段（§x.y.z 字段）/落库字段（表.字段）」、表单控件规格增「提交接口/落库字段」、
+  操作表增「调用接口/业务操作 BOP-n/规则 Rn」、调用接口表增「涉及表/业务操作」；
+  schema `table_columns[].api_field/source`、`form_controls[].submit_api/target_field`
+  （提供即对账）；df_validate 悬空机检（接口锚点/字段 ∈ apis[]；落库字段 ∈ tables[]）
+  + 文档行同源对账；模板/骨架/黄金/正负回归同步。
+- **§7 可读性优化（v3.27.15 结构 v5）**：调用接口表 6→4 列（删方法/路径——§3.1 概览与 §3.2/§5.3 详定义
+  已有，p4 解析走渲染块不受影响）；操作表 7→5 列（三列链路合并为「关联」：`§x.y.z · BOP-n · Rn`）；
+  表格列规格 5→4 列、表单控件规格 7→6 列（链路两列合并为「链路」：`§x.y.z 字段 ←/→ 表.字段`，
+  JSON `api_field/source/submit_api/target_field` 拆字段不变、行内对账照常命中）；
+  §7.1/§7.2 指引 blockquote 由 7 段巨型段落压缩为 4 段（判定口径/完整性/结构/链路各一段）。
+- **评审串联断点修复（v3.27.15）**：① biz-ops 渲染索引加 **BOP 编号列**——§7.2 操作表关联列
+  `BOP-n` 直达 §6 具体小节（此前需按操作名模糊匹配再翻锚点）；② §6 小节标题**带 BOP 编号**
+  （如 `### 6.1 新增流程（BOP-1）`）；③ §7.2.N 页组标题**尾注覆盖页面名**（如「组织与用户管理页组
+  （覆盖：组织架构管理页）」）；④ §2.2/§2.3 表结构节加 DDR **交叉引用**指引（设计理由在数据库设计决策文档）。
+- **详设结构 v6 + 设计决策记录改版（v3.27.15）**：
+  ① 技术选型报告改名**设计决策记录**（模板/Schema/渲染器/路径后缀/状态脚本/全套文档引用同步，
+  输出文件名 `<feature>-技术选型.md` → `<feature>-设计决策.md`）；
+  ② Schema 新增 `design_tradeoffs[]`（DT-N 编号/topic/context/scope/chosen/alternatives/reason/anchor），
+  渲染器输出《设计取舍》章节——接口/页面/架构层的备选方案对比显式记录（Google SWE Book 最佳实践）；
+  ③ §1.4 拆为**假设/约束/Non-Goals** 三块（"不做也是决策"，防范围蔓延）；
+  ④ §1 尾部新增可选**术语表**节（跨团队评审友好）；
+  ⑤ §14.3 性能设计增加"验收方式：观测指标与 P8 监控配置对齐"行。
+- **详设结构 v7：读者视图 + 章节号连续（v3.27.15）**：
+  ① **写作指令渗漏清理**——正文中面向 AI 的版本号注记（v3.x.x / L-P2-004 / A0N）、Gate 机制说明
+  （df_validate / Gate FAIL / 机检 / 悬空即 FAIL / 占位符检查）、JSON 字段名直接引用（design.json xxx 对账 /
+  提供即对账）全部剥离或改写为评审者视角；保留对评审者有价值的口径（并发口径、错误码三层、状态矩阵、
+  链路列、页面判定口径、先找轮子原则、按钮隐藏非安全控制）；渲染块描述行（"由 design.json 自动生成…"）
+  的版本尾注同步删除。
+  ② **章节号连续化**——完整版 0-12（§8 验收/§9 依赖/§10 组件复用/§11 异常安全性能/§12 变更历史）、
+  分文档 0-11、总文档 0-9；三份模板 s2 必含章节、评审指引、router 同步。
+  ③ **锚点去重**——§10.1(原§12.1) component-reuse 锚点重复出现两次，删除第一个。
+- **测试**：design-contract-hardening / structured-artifacts / phase-gates / design-package-modes
+  夹具同步 §7.2.N；全量 25 组回归（新版本尚未发布时不要求 manifest）。
+
+**升级注意**：存量详设需删去 §7.2 页面与接口映射表，将其并入 §7.3 关键页面交互设计
+（整节改号为 §7.2），每个页组内列「调用接口」、操作触发弹窗/抽屉的写清「→ §7.3 页面·交互」；
+并把 §7.4–§7.9 顺移一位——df_validate 按新编号与 §7.2↔§7.3 闭环硬校验。
+**升级注意（完整版）**：新增 §14 异常处理、安全与性能设计（旧 §14/§15 实现交接/变更历史
+顺移为 §15/§16）——存量完整版详设需补该章并同步编号，否则 s2 模板章节对齐 P0；
+`rules[].error_codes[]` 登记的错误码必须出现在详设正文（规则「约束/错误处理」列或 §7.5 行为表）。
+**升级注意（详设结构 v2）**：存量详设需把 DDR 与迁移迁到数据库设计决策文档（详见模板）、
+把页面相关规则按页组下沉到 §7.2 并合并接口说明行；迁移期间渲染器仍会刷新详设中的存量 ddr 块，
+但 s2 模板章节对齐以新模板（不含 §2.3/§8）为准——迁移完成前先按旧模板冻结或在途项目回 P2 补齐。
+**升级注意（详设结构 v3）**：存量详设需把 §11 追溯矩阵迁到 `<feature>-需求追溯.md`、§15 实现交接
+迁到 `<feature>-实现交接.md`（分文档/总文档同理；总文档跨模块影响面索引并入实现交接文档第 4 节）。
+s2/p2a 会自动发现同目录同名附属文档；未建时回退读详设正文（兼容期），但新项目必须按新模板拆分。
+**升级注意（零结果/配置键）**：存量详设删除 §11（分文档 §9、总文档 §9.2）零结果声明节；
+配置键表随渲染器更新自动消失（§10.2 只保留外部集成表）。`zero_results`/`configs` 的 JSON 登记与机检不变。
+**升级注意（§7 结构 v4 / 规范遵循）**：存量详设把全部弹窗/抽屉补进 §7.1 清单表（name/component
+逐项出现）、把 §7.3 映射表并入 §7.2 各页组「弹窗/抽屉」表并顺移后续小节（§7.4–§7.8 → §7.3–§7.7）；
+§13 规范遵循从详设删除（分文档 §12、总文档 §9.4），内容迁到技术选型报告（重跑 tech-selection 管线
+渲染《规范遵循》，`standards[]` 必填）。
+**升级注意（§7 全链）**：新设计必须填链路列（列/控件→接口→表；接口→表/BOP）；存量详设可逐步补，
+未提供链路字段不报错，一旦提供（`api_field/source/submit_api/target_field`）悬空即 FAIL。
+
+## v3.27.14 (2026-09-18) — 脚手架重合度审计接线（铁律 18 在结构化流程落地）
+
+来源：对 3.27.13 的全量验证——文档声称「模板节锚点为机器对账位」，但 scaffold 清单无 schema 字段、
+无渲染器输出、无校验、零测试；技术选型报告为整篇 JSON 渲染，手写该章节会被管线重渲染覆盖，
+结构化流程下无法产出。
+
+- **schema**：`tech-selection.schema.json` 新增 `scaffold_audit[]`
+  （domain / scaffold_state / verdict[裁剪|复用|新建] / action / bearing；登记即须 ≥1 行，`minItems=1`；
+  非脚手架项目省略）。启用本项目采用"提供即对账"语义。
+- **df_render**：据 `scaffold_audit` 渲染报告《脚手架重合度审计》章节（5 列判定清单）；
+  无登记则省略（存量产物输出不变）。顺带修正《风险与应对》章节归属——此前误挂在
+  「详设文档结构决策」H2 之下。
+- **df_validate**：功能域重复拦截；`verdict=裁剪` 的处置动作必须含 删除/下线/移除/清理 落点
+  （禁止只写"裁剪"二字）。
+- **s1 Gate**：`tech-selection.json` 登记 scaffold_audit 时，报告必须含该章节与判定清单表
+  （防手写/陈旧渲染覆盖结构化产物）。
+- **文档链**：`phases/01` 改为「scaffold_audit 登记 → 渲染 → s1 对账」；`技术选型报告-模板.md`
+  标注由 JSON 渲染、非脚手架项目省略；`test-contracts` 增加 --scaffold 参数与铁律 18/19 契约断言。
+- **测试**：scaffold_audit 空表 / 裁剪缺动作 / 功能域重复 三个负向 + 渲染章节断言 + s1 拦截负向；
+  黄金样本重生成（tech-selection）。
+
+## v3.27.13 (2026-09-18) — 脚手架重合审计与输入物料优先（M-01 结构返工教训）
+
+- **铁律 18 · Scaffold Overlap Audit（脚手架重合审计与裁剪）**：输入含脚手架/存量代码时，P1 必须先做
+  功能重合度审计并产出「裁剪/复用清单」（二分裁决：**重合 → 裁剪脚手架对应实现并由本次设计重新实现，
+  宜独立新模块承载；不重合 → 复用脚手架既有能力**）；禁止同一功能域新旧双实现并存；清单被 P2 baseline
+  （DELETE/MODIFY/REUSE/ADD）承接。红旗新增两条（未审计直接开工 / 双实现并存）。
+- **铁律 19 · Input-Material Precedence（输入物料优先）**：提供原型图/设计规则/UI 规范/交互稿时，
+  物料为设计硬约束（原则 12 同源），P2 详设与 P3 实现必须遵循，不得以脚手架默认样式/交互/信息架构
+  覆盖物料；优先级：输入物料 > 脚手架既有设计 > 团队默认习惯；冲突 `BLOCKED` 回用户裁决。
+  红旗新增一条（物料被脚手架默认设计覆盖）。
+- **`/devflow` 参数扩展**：新增 `--scaffold=<path>`（触发 P1 强制重合度审计）、
+  `--prototype=<path>`、`--ui-spec=<path>`、`--design-rules=<path>`（设计硬约束输入）。
+- **阶段承接**：P0 增补「输入物料冻结」（脚手架/原型/UI 规范/设计规则登记为事实源）；
+  P1 新增「第零步：脚手架重合度审计」操作步骤与硬性规则；P2 新增「输入物料优先」「脚手架裁剪承接」
+  两节（baseline 三向对账，P2a/P4b 逐项核验）。
+- **模板**：`技术选型报告-模板.md` 新增《脚手架重合度审计》章节（裁剪/复用清单表骨架）。
+
+## v3.27.12 (2026-09-18) — 结构稳定性加固（黄金样本 / schema 守卫 / H2 全名对齐 / §7.1 清单对账）
+
+- **渲染黄金样本回归**：新增 `tests/test-golden-renders.sh` + `tests/golden/`——21 个结构化 kind
+  渲染输出、small-change 三件套（md/env/scan）、design 骨架块拼接，共 24 份逐字节基线；渲染器
+  任何非预期改动（章节/表头/机器行/文案）即测试失败。有意变更用 `bash tests/test-golden-renders.sh --regen`
+  重生成（黄金样本不含版本号，升版不影响）。
+- **schema 契约守卫**：新增 `tests/test-schema-guards.sh`——① template.id 悬空守卫（schema const /
+  sample 值必须对应 `templates/<id>.md`，白名单：execution-plan 的「执行契约」产物名）；② 样例模板
+  身份（sample.template.id == schema const；sample.template.version == SKILL 版本）；③ 死字段守卫
+  （schema 属性在 scripts/ 零消费者必须登记白名单——防"空转契约"复发，现有白名单：page_type /
+  preconditions / related_objects / repo_root / side_effects）；④ 模板 frontmatter name == 文件名。
+- **s2 §8 章节对齐升级**：H2 比对从"前 4 字前缀"升级为**规范化全名**（去编号前缀/空白/括号尾注），
+  可拦截"前 4 字相同但正文改名"的章节漂移。升级项目若产物 H2 与模板命名/尾注不一致，需同步产物。
+- **§7.1 页面清单表对账**：pages 非空时强制 §7.1 页面清单表存在（表头含「路径/组件」），页面名/
+  路由/组件/权限必须与 `pages[]` 同源（`—` 占位豁免）；骨架与 phase-gates / sub 夹具同步
+  （foo 页面锚点 §7 → §7.1、新增权限码登记事实源矩阵）。
+- **测试**：测试组从 23 增至 25（渲染黄金样本、schema 契约守卫）。
+
+## v3.27.11 (2026-09-18) — 全产物审计第二轮（悬空模板契约 / 过期编号 / 惰性字段接线）
+
+来源：对 schema×模板×渲染器的全量对照审计（design 之外的 21 个 kind）。
+
+- **悬空模板契约修复**：补建 4 份缺失模板——`原型确认-模板` / `性能审计-模板` / `安全审计-模板` / `知识分享`
+  （demo-signoff / performance / security / sharing 的 schema `template.id` const 与 sample 此前指向
+  git 中从未存在的文件），并登记 `references/RESOURCE-REGISTRY.md`（release-audit 资源完整性门禁）。
+- **过期编号纠正**：`INDEX-章节锚点.md`（§3 数据模型 / §6 接口 / §7 流程 → 现行完整版 §2/§3/§6、
+  分文档 §2/§5/§4；三个标题去掉过期 § 号）、`INDEX-表.md`（§3 → 数据模型节）、`INDEX-接口.md`
+  （§6 → 接口设计节）；`验收点-模板.md` 3 处「P2 §9 追溯源」→ 详设追溯矩阵（§11.1/§9.1）；
+  `详细设计评审报告-模板.md`「§9 设计中 ID 数」→ 详设追溯矩阵；`详细设计-模板.md` 路由器第 5 条
+  显式标注完整版章节。**升级注意**：升级项目需同步 `docs/详细设计/INDEX-章节锚点.md` 的三个标题
+  （去掉 §3/§6/§7 前缀），否则 s1 模板章节对齐会报缺章节。
+- **语义参考模板横幅**：10 份已结构化模板补「章节结构以渲染产物为准（历史章节不再逐一对齐）」——
+  结构化后模板章节与渲染产物存在历史差异的指引风险已显式化。
+- **惰性字段接线（此前有契约无消费者）**：
+  - `design` 响应字段 `always`（恒出性）纳入 JSON↔正文对账（与类型列同源比对）；
+  - `baseline.entries[].related_acceptance` 悬空引用闭环（对齐 related_operations）；
+  - `business_operations[].test_scenarios` 至少 1 条非空（schema `minItems=1` + 跨字段校验）；
+  - `execution-plan.slices[]`：`task_ids` 必须闭环到 `tasks[]`、`components` 非空
+    （新增 `check_execution_plan`，此前零校验、渲染器也不输出 components）；
+  - `baseline.repo_root` 语义写入完整版 §14 / 分文档 §15 机器契约注记。
+- **测试**：新增恒出性冲突、related_acceptance 悬空、空 test_scenarios、切片 task_id 悬空与空组件用例。
+
+## v3.27.10 (2026-09-18) — 详设模板×JSON 全量审计修复（总分前端阻塞 / 契约接线 / 文案错位）
+
+来源：对详设模板、`design.schema.json`、`df_validate`、`df_render`、s2 的全量一致性审计
+（16 项发现；本版修复 P0+P1+P2，低优先级展示项未动）。
+
+- **H1 总分模式 + 前端页面/旅程不再卡死**：`df_validate` 新增 `--doc-mode`（s2 透传 `--mode`；
+  `df_pipeline design` 自动从 `design-package.json` 解析当前文档角色）——总文档只做全局口径
+  对账，页面/表/接口/规则/业务操作/旅程等模块级锚点与正文明细由分文档承担。此前 total+UI
+  项目的总文档必然失败（页面锚点不在总文档、acceptance.page=— 又仅限空集合）；
+  新增回归：total 夹具注入页面+旅程后管线与 Gate 全绿。
+- **H2 写作铁律口径统一**：完整版/分文档第 2 条改为具体锚点（§7.1.N / §2.2.N / §2.3.N），
+  与第 13 条及 `df_validate` 硬校验一致（旧「§7.1-{n} / §2.2 表名」写法会被 Gate 拦截）。
+- **模板纠偏**：完整版第 7 条改依赖明细单一正本（单体 §10.1 / 分文档 §0.3）；分文档 §0.5
+  章节归属表编号纠偏（原 §4-§7 与实际章节错位，并补权限/前端行）；分文档 §9.2 覆盖率检查
+  改 COMPLETE 口径（原 `✅ 已设计/❌ 待补` 标记已废弃）；完整版 §8 / 分文档 §2.4 补
+  `migrations` 机器契约说明；§7.1 补 `client.journeys` 登记说明；分文档补渲染块「全局口径」澄清。
+- **契约接线（空转字段）**：s2 §2c 对账 `design.json.template.{id,version,mode}` 与模板/`--mode`
+  （双正本漂移即 P0）；s2 §2b 对账 `design.json.constraints[]` 与冻结约束集合（越界即 P0，
+  重复由 df_validate 拦截）；`request/response.anchor` 改为可选（默认随 detail_anchor——
+  sample 中退款单 request.anchor 错值同步修正）。
+- **渲染文案**：permission-matrix「接口说明=§3.2」硬编码改为「接口详细定义」（分文档接口
+  在 §5.3，旧文案错位）。
+- **测试**：新增 total+UI 回归、`template.mode` 漂移拒止、`constraints[]` 越界拒止用例；
+  修复并发会话在 tests/test-chinese-paths.sh 引入的未花括号变量（静态扫描）。
+
+## v3.27.9 (2026-09-18) — 前端页面规格结构化（§7.3 表格列/表单控件 + §7.4 弹窗映射入 JSON）
+
+来源：参考详设《基础能力模块》§3 前端页面设计实践。把逐页交互里的**表格列规格**
+（字段|列标题|渲染说明）与**表单控件规格**（字段|标签|控件|校验与提示|候选来源）从
+"文字约定"升级为结构化契约，连同页面清单字段与弹窗/抽屉映射一并落入 design.json。
+
+- **schema `page_def`**：`route`/`component`/`page_type` 升为必填（§7.1 路径/组件/类型列正本；
+  后台任务类页面写 — 并在 page_type 标明）；新增可选 `table_columns[]`、`form_controls[]`、
+  `dialogs[]`（name/component/api/state）。
+- **df_validate**：
+  - `check_page_specs`：`dialogs[].api` 锚点闭环到 `apis[].anchor/detail_anchor`，无接口交互写 —；
+  - `check_page_specs_doc`（提供即对账）：`table_columns`/`form_controls` 字段必须出现在
+    §7.3.* 「表格列规格」/「表单控件规格」表首列（表头判型）；`dialogs` 的 name/component
+    及接口锚点必须与 §7.4 映射表对应行同源。总分模式经 `--scope-ids` 随设计包范围过滤。
+- **模板**：完整版与总分分 §7.3 增加两张规格表（含表头契约与示例），§7.1/§7.4 标注 JSON 正本，
+  写作铁律第 3 条补充 pages 规格闭环；`phases/02-详细设计.md` 前端契约条目与
+  `commands/spec.md` P2.2 检查清单同步。
+- **样例/测试**：design.sample.json、design.skeleton.md 升级为含规格表与弹窗行；
+  新增负向用例（缺 route / 弹窗锚点断链 / 字段与正文漂移 / 组件行漂移）。
+- **存量迁移**：在途 design.json 的 pages[] 补 `route`/`component`/`page_type` 三个字段即可
+  （无规格数组不强制）；已有 §7.3/§7.4 正文愿继续手写则不受影响，仅当 JSON 声明规格时对账。
+
+## v3.27.8 (2026-09-18) — SKILL.md 词数收口（≤500 词契约）
+
+- 并发会话的 P6 文案扩写使 SKILL.md 达 502 词，超出 test-contracts 的 ≤500 词契约
+  （v3.27.7 已生成不可变 manifest，树变更按规则升版收口）。
+- 两处等价措辞压缩（`冻结 baseline 全等 + FAIL=0` → `冻结基线全等、FAIL=0`），
+  语义不变；当前 498 词。新版本 manifest 由 release.sh 在测试通过后生成。
+
+## v3.27.7 (2026-09-18) — 详设文档结构决策从 P2 上移至 P1 技术选型
+
+- **决策位置变更**：「详设写单文档还是总分文档」不再作为 P2 详细设计阶段的决策环节；
+  决策在 P1 技术选型完成并冻结，P2 只按冻结结果取模板（`--mode` 对账），禁止在详设中
+  重写总分/单体决策表或决策矩阵；结构不适用回 P1 走变更。
+- **P1 结构化契约**：`tech-selection.schema.json` 新增必填 `design_doc_structure`
+  （`mode=monolith|total` + `reason`；total 时 `planned_docs` 必含 id=TOTAL 总文档与
+  M-NN 分文档的 path/mode）；`df_validate` 跨字段强制（total 无清单/monolith 带清单/
+  id 重复/缺 path 均拦截）；`df_render` 渲染《详设文档结构决策》小节与
+  `design_doc_structure_mode=` 机检行。
+- **Gate**：s1 §1b 新增机检行断言（存量手写报告缺失先 WARN，有小节无机器行 FAIL）；
+  s2 新增 §2b2——`--mode` 与选型报告冻结 mode 对账，total↔monolith 错配 P0，
+  报告不可定位/缺机检行 WARN（兼容在途项目）。
+- **模板**：`详细设计-完整版-模板.md` §0 决策表/决策矩阵/章节分布表全删，缩为结构引用；
+  `详细设计-总分总文档-模板.md` §0 删决策表与决策矩阵，保留文档关系图（0.3）与分文档
+  清单（0.4，与 design-package.json 对齐）；`详细设计-总分分文档-模板.md` §0 加来源说明，
+  保留模块定位事实；`详细设计-模板.md`（路由器）模式表改为「来源 P1」。
+- **阶段文件**：`commands/spec.md` P2.1 改为执行说明（模式→模板映射 + 总分设计包契约），
+  P2 Gate 第 9 项改为「文档结构来源 P1」；`phases/01-技术选型.md` 新增第五轮 Q5 与
+  验收项；`phases/02-详细设计.md` 第 2 步改为「按 P1 冻结结构取模板」。
+- **在途项目迁移**：重跑 `df_pipeline.py tech-selection` 补登 `design_doc_structure` 即可；
+  旧详设产物随模板版本 bump 重渲染（仅 §0 区域变化，13 个结构化块不受影响）。
+
+## v3.27.6 (2026-09-18) — 并发更新收口（版本同步 + ShellCheck + audit-receipts 修复）
+
+- 全局版本同步 3.27.4/5→3.27.6（110 md + 21 samples + 9 banners）
+- （新）SC2034 + 未花括号修复
+-  SC2044 find→glob + 未定义 → + 版本检查恢复 FAIL 语义
+- 、（并发会话新增）纳入发布树 Migration Guide
 
 ## v3.27.4 (2026-09-17) — /plan 结构化 JSON + contract-consistency linter + perf-track
 
@@ -2539,3 +2847,20 @@ grep -c 双输出全库清零（含两个 review hook 零命中崩溃）、pytho
 ---
 
 更早历史：v3.9.0-v3.9.5 与 v1-v3.8 迁移记录已随 `_archive/` 移除（v3.23.0 瘦身），如需追溯见 git 历史。
+
+## v3.27.5 (2026-09-18)— M-01 实战六项固化（FB-20260918-001~005）
+
+源自 m01-foundation 全流程实战复盘（详见 concepts/lessons-learned.md L-M01 系列）。
+
+### 修复（代码级）
+1. **df_render.py design --out 覆盖守卫**：目标文件含锚点块外手写内容时拒绝整篇覆盖（M-01 v1.0 渲染事故根因），指引改用 --doc 拼接。
+2. **p3_security_perf_gate.sh full 模式**：签发 P3cd 后自动删除被取代的 P3c/P3d 子收据（含 docs 镜像）——消除"full 重渲染共享报告 → 子收据证据树必然失配"的死循环。
+3. **p4_validation_gate.sh**：统一接受 2 列（ID/STATUS）与 4 列（acceptance_id/code_paths/test_paths/status）两种结果表——消除 p4/p4b 同文件格式冲突。
+4. **audit-receipts.sh**：版本一致性从"全链对齐当前版本"改为"链内混用才 FAIL"——交付中途 skill 升级不再迫使全链收据重刷（同版本非当前仅 WARN）。
+5. **p6_credential_gate.sh**：新增 `_环境与账号.md` 占位符扫描（{dialect}/{component}/{port}/{purpose} 未填即阻断）——堵住铁律 6 事实源的门禁漏洞。
+
+### 文档
+6. **lessons-learned.md**：新增 L-M01-001~010（MP 逻辑删除×生命周期、FQCN 实体、updateById 空值陷阱、渲染器重建、模式互斥、格式冲突、版本漂移、占位符逃逸、接口文档独立性）。
+7. **architecture-pitfalls.md**：新增 PITFALL-M01-01~04。
+8. **phases/01-技术选型.md**：新增"基线编译冒烟"强制步骤（存量工作区 mvn compile + pnpm typecheck）。
+9. **phases/09-文档更新.md**：新增"完备性硬要求"（接口文档独立成文/事实源填实/git 初始化/auto 索引刷新）。

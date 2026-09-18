@@ -2,8 +2,8 @@
   "feature": "demo-pay",
   "generated_at": "2026-09-16T10:20:00Z",
   "template": {
-    "id": "技术选型报告-模板",
-    "version": "3.27.4"
+    "id": "设计决策记录-模板",
+    "version": "3.27.15"
   },
   "feature_name": "演示支付",
   "date": "2026-09-16",
@@ -106,6 +106,27 @@
     "chosen": "A",
     "reason": "加权合计 A=470 领先；集成兼容性与功能覆盖证据充分（POC + 官方文档），维护成本可接受"
   },
+  "design_doc_structure": {
+    "mode": "monolith",
+    "reason": "支付能力为单模块内聚增强，无跨服务拆分，1 个团队交付，单文档可完整承载",
+    "planned_docs": []
+  },
+  "scaffold_audit": [
+    {
+      "domain": "F01 支付单管理",
+      "scaffold_state": "module-scaffold 已有 PayController + pay_order 表 + 菜单 101 + 前端支付页面",
+      "verdict": "裁剪",
+      "action": "删除脚手架 PayController/Service/Entity 与前端页面路由、下线菜单 101、迁移清理引用",
+      "bearing": "module-pay 重新实现"
+    },
+    {
+      "domain": "F02 用户与权限",
+      "scaffold_state": "脚手架 common 提供鉴权过滤器与 UserContext",
+      "verdict": "复用",
+      "action": "REUSE 既有鉴权过滤器与 UserContext，不重复实现",
+      "bearing": "common-auth（复用）"
+    }
+  ],
   "user_confirmed": "已确认",
   "risks": [
     {
@@ -147,5 +168,53 @@
       "date": "2026-09-16"
     }
   ],
-  "zero_results": []
+  "zero_results": [],
+  "standards": [
+    {
+      "domain": "命名规范",
+      "standard": "阿里巴巴 Java 开发手册",
+      "version": "黄山版",
+      "landing": "详设 §2.2 表名/字段名小写蛇形；Java 类名 UpperCamel"
+    },
+    {
+      "domain": "开发规范",
+      "standard": "阿里巴巴 Java 开发手册",
+      "version": "黄山版",
+      "landing": "分层/异常/日志按手册；偏离见四方言契约说明"
+    },
+    {
+      "domain": "注释规范",
+      "standard": "阿里巴巴 Java 开发手册 + Javadoc",
+      "version": "黄山版",
+      "landing": "公开接口与复杂规则 Javadoc"
+    },
+    {
+      "domain": "数据库规范",
+      "standard": "阿里巴巴 Java 开发手册（MySQL 章）",
+      "version": "黄山版",
+      "deviation": "方言专有写法以四方言一致性契约为准"
+    }
+  ],
+  "design_tradeoffs": [
+    {
+      "id": "DT-1",
+      "topic": "分页方案",
+      "context": "列表页数据量增长后 offset 分页性能退化",
+      "scope": "接口 §3.2.1",
+      "chosen": "cursor 分页（基于 create_time + id）",
+      "alternatives": "offset 分页（简单但大偏移量慢）",
+      "reason": "预估数据量 > 100 万，offset 分页 P95 超 500ms",
+      "anchor": "§3.2.1"
+    },
+    {
+      "id": "DT-2",
+      "topic": "删除策略",
+      "context": "物理删除导致审计与恢复需求无法满足",
+      "scope": "表 §2.2.2 / 接口 §3.2.5",
+      "chosen": "逻辑删除（deleted=1 + 版本号递增）",
+      "alternatives": "物理删除 + 回收站表",
+      "reason": "逻辑删除可与乐观锁共用 version 列，减少一张回收站表",
+      "anchor": "§3.2.5"
+    }
+  ]
 }

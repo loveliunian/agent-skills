@@ -1,6 +1,6 @@
 ---
 name: spec
-version: "3.27.4"
+version: "3.27.15"
 description: Use when a user asks to clarify a PRD, produce field-level detailed design, design a database or legacy mapping, or complete /spec without implementing code.
 paths: [docs/PRD/**, docs/需求/**, docs/详细设计/**]
 disable-model-invocation: false
@@ -141,25 +141,24 @@ Load `phases/02-详细设计.md`. The design must contain:
 
 If the project has no approved `docs/templates/详细设计-模板.md`, initialize from `$SKILL_ROOT/templates/详细设计-模板.md`; do not invent a weaker structure.
 
-### P2.1 架构决策：总分 vs 单体
+### P2.1 文档结构：执行 P1 冻结决策（本阶段不再决策）
 
-> **AI 自主决策**：根据功能复杂度、模块独立性、团队规模决定文档结构
+> **决策已在 P1 技术选型完成**：详设写单文档（monolith）还是总分文档（total），
+> 记录在设计决策记录《详设文档结构决策》（JSON 字段 `design_doc_structure`，机检行
+> `design_doc_structure_mode=`）。P2 只读取该冻结结论并选对应模板，**禁止在详设里
+> 重新做总分/单体决策或再写决策矩阵**；认为结论不适用时回到 P1 走变更，不得在 P2 自行改结构。
 
-**决策矩阵：**
+**按冻结结构取模板**（结构、章节与写作细则一律以模板为正本）：
 
-| 条件 | 推荐结构 | 说明 |
+| P1 冻结 mode | 模板 | Gate |
 |------|----------|------|
-| 模块数 ≥ 5 且跨服务 | **总分** | 总文档定义全局架构，分文档专注模块内设计 |
-| 单模块复杂度高（如引擎类） | **总分** | 分文档可独立演进，总文档索引 |
-| 简单 CRUD 模块 | **单体** | 单文档覆盖全模块 |
-| 多团队并行开发 | **总分** | 分文档减少合并冲突 |
-| 独立模块无跨域依赖 | **单体或总分** | 视复杂度由 AI 决策 |
+| `monolith`（单文档，默认） | `templates/详细设计-完整版-模板.md` | `--mode=monolith` |
+| `total`（总分）· 总文档 | `templates/详细设计-总分总文档-模板.md` | `--mode=total` |
+| `total`（总分）· 分文档 | `templates/详细设计-总分分文档-模板.md` | `--mode=sub` |
 
-**结构、章节与写作细则一律以模板为正本**（本章不重复内嵌示例，避免与模板结构漂移）：
-按选定模式全文复制 `templates/详细设计-完整版-模板.md` / `详细设计-总分总文档-模板.md` /
-`详细设计-总分分文档-模板.md` 作为起点；产物必须替换 `{{template_version}}` 为所用模板 frontmatter 的 version。
+按选定模式全文复制对应模板作为起点；产物必须替换 `{{template_version}}` 为所用模板 frontmatter 的 version。
 
-**总分模式设计包（v3.24.0/A05）**：选择总分结构时，必须在 P2 冻结
+**总分模式设计包（v3.24.0/A05）**：P1 冻结为 total 时，必须在 P2 冻结
 `.devflow/<feature>/design-package.json`（`docs[].path/mode/acceptance_ids`）——分文档按自己的
 验收子集对账，子集**并集必须与 P0 冻结分母全等**，缺文档或并集不全等即 P2 Gate FAIL；
 跨模块引用以语义锚点解析。
@@ -171,17 +170,18 @@ If the project has no approved `docs/templates/详细设计-模板.md`, initiali
 - Six-column request and response contracts.
 - Numbered rules and `WHEN` pseudo-code for core write paths.
 - Page/background-task to API, permission, rule, and test mappings.
+- Frontend page specs backed by `pages[]`: route/component/page_type (required), table-column specs (`table_columns`), form-control specs (`form_controls`: control, validation, candidate source), dialog/drawer mappings (`dialogs`, API anchor closed to `apis[]`), reconciled with §7.2 when provided.
 - Explicit errors, idempotency, transactions, failure and fallback behavior.
 - Implementation handoff: existing-implementation baseline, planned ADD/MODIFY/DELETE targets, invariants.
 
 Chapter numbers are not authoritative; semantic anchors are the machine contract:
-`data-model` / `api-contracts` / `business-rules` / `acceptance-traceability` / `implementation-handoff`
+`data-model` / `api-contracts` / `business-rules`（详设正文）/ `acceptance-traceability`（`<feature>-需求追溯.md`）/ `implementation-handoff`（`<feature>-实现交接.md`）
 （详见 `phases/02-详细设计.md`）。
 
 ### P2 Gate Check
 
 ```bash
-EXPECT_DATA=1 EXPECT_API=1 bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/详细设计/<feature>-详细设计.md docs/需求/<feature>-验收点.md
+EXPECT_DATA=1 EXPECT_API=1 bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/详细设计/<feature>-详细设计.md docs/需求/<feature>-验收点.md --mode=<P1 冻结 mode: monolith|total|sub>
 bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category config
 bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category api
 ```
@@ -198,8 +198,8 @@ bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category api
 | 6 | 规则编号 | 存在 `R[0-9]+.` 格式编号 |
 | 7 | 无占位符 | `grep -cE 'TODO\|TBD\|待补充\|REPLACE_WITH'` = 0 |
 | 8 | 设计覆盖率公式 | 存在 `设计覆盖率.*100%` 文本 |
-| 9 | 架构决策 | 存在总分/单体决策记录 |
-| 10 | 实现交接 | 存在 `anchor: implementation-handoff` 节（基线/变更/不变量） |
+| 9 | 文档结构来源 P1 | 设计决策记录含详设文档结构决策（`design_doc_structure_mode=` 机检行）；详设不内嵌总分/单体决策矩阵，s2 `--mode` 与 P1 冻结 mode 一致 |
+| 10 | 实现交接 | `<feature>-实现交接.md` 存在 `anchor: implementation-handoff`（基线/变更/不变量） |
 
 **P2 Pseudo-code Keywords (at least one present in core write paths):**
 

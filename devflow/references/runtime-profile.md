@@ -1,6 +1,6 @@
 ---
 name: runtime-profile
-version: "3.27.4"
+version: "3.27.15"
 description: 技术栈无关的 Runtime Profile 契约——P3 前必须解析并冻结，核心流程不得假设具体框架。
 ---
 
@@ -84,7 +84,7 @@ SECURITY_GATE = PASS
 | `java-spring-flyway` | `references/profiles/java-spring-flyway.md` | Java/Spring/Flyway 四方言参考实现 |
 | `generic` | `references/profiles/generic.md` | 无栈假设模板，全部 adapter 需项目解析 |
 
-新增技术栈时按本契约新增 `references/profiles/<id>.md`，并在 P1 技术选型报告中登记 `PROFILE_ID` 与能力位命令；不得修改 Core 流程去适配单一技术栈。
+新增技术栈时按本契约新增 `references/profiles/<id>.md`，并在 P1 设计决策记录中登记 `PROFILE_ID` 与能力位命令；不得修改 Core 流程去适配单一技术栈。
 
 ## 5. 实现状态（v3.27.1）
 

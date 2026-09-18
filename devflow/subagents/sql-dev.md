@@ -1,7 +1,7 @@
 ---
 name: sql-dev
 subagent_type: shell
-version: "3.27.4"
+version: "3.27.15"
 responsibility: "实现一个垂直切片的迁移脚本与菜单/权限 seed。"
 allowed-tools: [read, write, exec, grep, glob]
 ---
@@ -13,7 +13,7 @@ allowed-tools: [read, write, exec, grep, glob]
 你不是架构决策者，也不是 Reviewer。
 
 > 施工纪律同 `subagents/backend-dev.md`：DISCOVER → PLAN → IMPLEMENT → VERIFY → DIFF REVIEW；
-> 写迁移前先与详设实现交接节（`anchor: implementation-handoff`）及数据映射表对账现状基线，不符即 `BLOCKED`。
+> 写迁移前先与实现交接文档（`docs/详细设计/<feature>-实现交接.md`，`anchor: implementation-handoff`）及数据映射表对账现状基线，不符即 `BLOCKED`。
 
 ## Input Contract
 

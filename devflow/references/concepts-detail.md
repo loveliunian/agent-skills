@@ -24,8 +24,8 @@
 | `_环境与账号.md` | 手维护 | 主 Agent | 每次新环境时 |
 | `_菜单Seed索引.md` | 手维护 | 主 Agent | 每次新增菜单时 |
 | `INDEX-章节锚点.md` | 手维护 | 主 Agent | 详设模板冻结时 |
-| `INDEX-表.md` | 手维护 | 主 Agent | 详设 §3 冻结时 |
-| `INDEX-接口.md` | 手维护 | 主 Agent | 详设 §6 冻结时 |
+| `INDEX-表.md` | 手维护 | 主 Agent | 详设数据模型（`anchor: data-model`）冻结时 |
+| `INDEX-接口.md` | 手维护 | 主 Agent | 详设接口契约（`anchor: api-contracts`）冻结时 |
 | `_ER图索引.md` | auto | `scripts/generate-er-index.sh` | 每次 Flyway 变更后 |
 | `_Schema变更日志.md` | auto | `scripts/generate-schema-changelog.sh` | 每次 Flyway 变更后 |
 | `INDEX-表-auto.md` | auto | `scripts/generate-table-index.sh` | 每次 DDL 变更后 |

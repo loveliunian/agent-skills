@@ -59,7 +59,7 @@ get_template_for_phase() {
   case "$phase" in
     P0)       echo "需求澄清-模板.md" ;;
     P0b)      echo "PRD评审-模板.md" ;;
-    P1)       echo "技术选型报告-模板.md" ;;
+    P1)       echo "设计决策记录-模板.md" ;;
     P2)       echo "详细设计-完整版-模板.md" ;;
     P3b)      echo "代码审查报告-模板.md" ;;
     P4|P4b)   echo "PRD验证报告-模板.md" ;;

@@ -53,6 +53,13 @@ else
     exit 1
   else
     gate_pass "测试报告无盲猜密码"
+
+# v3.27.5（FB-20260918-005）：事实源占位符扫描——_环境与账号.md 是铁律 6 凭据
+# 追溯第一入口，骨架占位符（{dialect} 等）未填即凭证链不完整。
+ENV_ACCT="docs/详细设计/_环境与账号.md"
+[ -f "$ENV_ACCT" ] && { grep -qE "\{dialect\}|\{component\}|\{port\}|\{purpose\}" "$ENV_ACCT" \
+  && { echo "  [FAIL] $ENV_ACCT 含未填占位符（{dialect}/{component}/{port}/{purpose}）——事实源骨架必须填实"; exit 1; } \
+  || gate_pass "环境与账号事实源已填实"; }
   fi
 fi
 

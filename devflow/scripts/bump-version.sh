@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bump-version.sh · 版本升级唯一入口（v3.27.4 审查报告 P0-1 配套）
+# bump-version.sh · 版本升级唯一入口（v3.27.15 审查报告 P0-1 配套）
 # 用法: bash scripts/bump-version.sh <new-version>
 # 覆盖: SKILL.md + commands/phases/subagents/references/concepts/templates 前matter+标题
 #       + scripts banner + structured samples template.version + agents/devflow.md
@@ -8,6 +8,10 @@ NEW_VER="${1:?用法: bump-version.sh <new-version>}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
 OLD_VER=$(sed -n 's/^version: "\([0-9.]*\)"/\1/p; s/^  version: "\([0-9.]*\)"/\1/p' "$ROOT/SKILL.md" | head -1)
 [ -n "$OLD_VER" ] || { echo "[FAIL] 无法解析当前版本"; exit 1; }
+if [ "$OLD_VER" = "$NEW_VER" ]; then
+  echo "[SKIP] 版本未变化（${OLD_VER}）——无操作"
+  exit 0
+fi
 echo "bump: $OLD_VER → $NEW_VER"
 
 python3 - "$ROOT" "$OLD_VER" "$NEW_VER" <<'PYEOF'
@@ -34,14 +38,16 @@ for path in sorted(glob.glob(f"{root}/examples/structured/*.sample.json")):
     tpl = d.get("template", {})
     if tpl.get("version") == old:
         tpl["version"] = new
-        json.dump(d, open(path, "w"), ensure_ascii=False, indent=2)
-        count += 1
+        new_text = json.dumps(d, ensure_ascii=False, indent=2)
+        if open(path, encoding="utf-8").read() != new_text:
+            open(path, "w", encoding="utf-8").write(new_text)
+            count += 1
 print(f"  bumped {count} files")
 PYEOF
 
-# scripts banner（前 3 行）
-for f in "$ROOT"/scripts/check-copies.sh "$ROOT"/scripts/install.sh "$ROOT"/scripts/release.sh "$ROOT"/scripts/secret-scan.sh; do
-  [ -f "$f" ] || continue
-  sed -i '' "s/v${OLD_VER}/v${NEW_VER}/g" "$f" 2>/dev/null || sed -i "s/v${OLD_VER}/v${NEW_VER}/g" "$f"
-done
+# scripts/checks/maintenance banner（前 3 行身份版本；v3.27.11：由固定 4 文件改为全量扫描，
+# 与 check-skill-version.sh 的 banner 扫描口径对齐——此前漏更即触发版本门禁漂移）
+while IFS= read -r f; do
+  sed -i '' "2,3s/v${OLD_VER}/v${NEW_VER}/g" "$f" 2>/dev/null || sed -i "2,3s/v${OLD_VER}/v${NEW_VER}/g" "$f"
+done < <(find "$ROOT/scripts" "$ROOT/checks" "$ROOT/maintenance" -maxdepth 1 -name '*.sh' 2>/dev/null)
 echo "done"

@@ -19,6 +19,8 @@ set -o pipefail
 # 迁移到 -euo 前须全量回归审计（存量清单见 script-conventions.md）。
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+# v3.27.15: 详设正文解析共用库（渲染块 + 旧版手写两类版式）
+source "$SCRIPT_DIR/design_parse_lib.sh"
 
 # ---------- 参数解析 ----------
 FEATURE="${1:-}"
@@ -76,9 +78,9 @@ if [ -z "$PRD" ]; then
   PRD="docs/PRD/$FEATURE.md"; [ -f "$PRD" ] || PRD="docs/prd/$FEATURE.md"
 fi
 [ -n "$DESIGN" ]   || DESIGN="$(df_resolve_doc "$FEATURE" design .md design)"
-[ -n "$DESIGN" ]   || DESIGN="docs/detailed-design/$FEATURE-design.md"
+[ -n "$DESIGN" ]   || DESIGN="docs/详细设计/$FEATURE-详细设计.md"
 [ -n "$CRITERIA" ] || CRITERIA="$(df_resolve_doc "$FEATURE" acceptance .md requirements)"
-[ -n "$CRITERIA" ] || CRITERIA="docs/requirements/$FEATURE-acceptance-criteria.md"
+[ -n "$CRITERIA" ] || CRITERIA="docs/需求/$FEATURE-验收点.md"
 # implementation-evidence.tsv 为机器解析 TSV（表头契约），保留英文名，仅目录双语
 if [ -z "$EVIDENCE" ]; then
   EVIDENCE="docs/测试/$FEATURE-implementation-evidence.tsv"; [ -f "$EVIDENCE" ] || EVIDENCE="docs/test/$FEATURE-implementation-evidence.tsv"
@@ -180,13 +182,9 @@ echo "=== §2 API 接口逐项对比 ==="
 
 # 从详设中解析接口表（格式: | Method | Path | 描述 |）
 parse_design_apis() {
-  local design_file="$1"
-  # v3.15.5: sed 正则的 \s 全部改 [[:space:]]——BSD sed（macOS 默认）不支持 \s，
-  # 旧写法在 macOS 上替换零命中，design_apis_raw 恒空 → §2 静默 skip（虚假通过）。
-  grep -E '^\|[[:space:]]*(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)' "$design_file" 2>/dev/null \
-    | grep -vE '^\|[[:space:]]*-+[[:space:]]*\|' \
-    | sed -E 's/^\|[[:space:]]*([A-Z\/]+)[[:space:]]*\|[[:space:]]*([^[:space:]|]+)[^|]*\|.*/\1|\2/' \
-    | grep -v '^|' || true
+  # v3.27.15: 统一走 design_parse_lib.sh——渲染块（详细定义|方法|路径）与
+  # 手写方法首列概览表都能解析；此前只认方法首列，结构化项目会静默 skip。
+  design_apis_from_doc "$1"
 }
 
 # 从代码中解析已实现的接口（Method + Path）
@@ -267,10 +265,8 @@ echo ""
 echo "=== §3 数据库表逐项对比 ==="
 
 parse_design_tables() {
-  local design_file="$1"
-  grep -hiE 'CREATE TABLE[[:space:]]+(IF NOT EXISTS[[:space:]]+)?[`"]?([a-z_][a-z0-9_]*)[`"]?' "$design_file" 2>/dev/null \
-    | sed -E 's/.*CREATE TABLE[[:space:]]+(IF NOT EXISTS[[:space:]]+)?[`"]?([a-z_][a-z0-9_]*)[`"]?.*/\2/' \
-    | sort -u || true
+  # v3.27.15: 优先解析 table-index 渲染块，回退旧版 CREATE TABLE 字面量（design_parse_lib.sh）
+  design_tables_from_doc "$1"
 }
 
 parse_flyway_tables() {

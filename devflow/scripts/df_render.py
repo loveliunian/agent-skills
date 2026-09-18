@@ -7,8 +7,9 @@
   语义层（AI）：设计判断、证据结论——已在 JSON 中，本脚本只做忠实呈现。
 
 design 模式（拼接）：文档骨架中的 `<!-- df:begin:KEY -->` … `<!-- df:end:KEY -->`
-块由本脚本整体重写（KEY ∈ summary/trace-matrix/table-index/api-index/
-permission-matrix/rule-index/client-scope/zero-results/ddr-index/ddr-matrix）。
+块由本脚本整体重写（KEY ∈ summary/table-index/api-index/permission-matrix/
+rule-index/biz-ops/client-scope/resource-operations/integrations-configs；
+DDR/追溯在附属文档——--db-doc/--trace-doc）。
 骨架缺块即报错退出，不静默跳过——防止"渲染成功但确定性层缺失"的假绿。
 
 verification 模式（整文档）：渲染终验报告，绑定命令、退出码、报告 SHA-256、
@@ -34,13 +35,18 @@ if hasattr(sys.stdout, "reconfigure"):
 # 旧表只声明 10 块，而 render_design_blocks 实际产出 12 块（resource-operations、
 # integrations-configs 未列入声明）——按提示词声明的 10 块搭骨架会触发
 # ValueError 拼接崩溃。现在缺块检查直接以渲染块集合为准，新增块自动纳入强制。
-# v3.24.0(A01)：新增 biz-ops（业务操作契约索引），共 13 块。
+# v3.24.0(A01)：新增 biz-ops（业务操作契约索引）。
+# v3.27.15：DDR/迁移、需求追溯、实现交接从详设正文移出——块按文档角色分组：
+#   详设正文 = _DESIGN_BLOCKS；数据库设计决策文档 = _DB_BLOCKS（--db-doc）；
+#   需求追溯文档 = _TRACE_BLOCKS（--trace-doc）；实现交接文档无渲染块（手写施工图，JSON 对账）。
 _DESIGN_BLOCKS = [
-    "summary", "trace-matrix", "table-index", "api-index",
+    "summary", "table-index", "api-index",
     "permission-matrix", "rule-index", "biz-ops", "client-scope",
-    "zero-results", "ddr-index", "ddr-matrix", "resource-operations",
-    "integrations-configs",
+    "resource-operations", "integrations-configs",
 ]
+_DB_BLOCKS = ["ddr-index", "ddr-matrix"]
+_TRACE_BLOCKS = ["trace-matrix"]
+_ALL_DESIGN_BLOCKS = _DESIGN_BLOCKS + _DB_BLOCKS + _TRACE_BLOCKS
 
 
 def _sha256(path):
@@ -135,20 +141,23 @@ def render_design_blocks(data):
           len((a.get("response") or {}).get("fields", []))] for a in apis],
     )
 
-    # v3.27.1(L-P2-004 续): 权限矩阵拆菜单/接口两块；接口块增"接口说明"列（=§3.2 详细定义名称）；锚点列前置
+    # v3.27.1(L-P2-004 续): 权限矩阵拆菜单/接口两块；接口块增"接口说明"列（=接口详细定义名称）；锚点列前置
     perm_page_rows = [[p.get("anchor"), p.get("name"), p.get("permission")] for p in pages]
     perm_api_rows = [[a.get("anchor"), a.get("method"), a.get("path"), a.get("name"), a.get("permission")] for a in apis]
     blocks["permission-matrix"] = (
         "**页面/菜单权限矩阵：**\n\n"
         + _table(["§锚点", "页面/菜单", "所需权限"], perm_page_rows)
-        + "\n\n**接口权限矩阵（接口说明=§3.2 详细接口定义名称）：**\n\n"
+        + "\n\n**接口权限矩阵（接口说明=接口详细定义名称）：**\n\n"
         + _table(["§锚点", "方法", "路径", "接口说明", "所需权限"], perm_api_rows)
         + "\n\n> 每个页面和接口都标注了所需的权限；完全公开的对象在该列标注 public。"
     )
 
-    # v3.27.1(L-P2-004 续): 规则索引锚点列前置
+    # v3.27.1(L-P2-004 续): 规则索引锚点列前置；v3.27.15: 错误码列（rules[].error_codes）
     blocks["rule-index"] = _table(
-        ["§锚点", "规则", "摘要"], [[r.get("anchor"), r.get("id"), r.get("summary")] for r in rules],
+        ["§锚点", "规则", "摘要", "错误码"],
+        [[r.get("anchor"), r.get("id"), r.get("summary"),
+          "、".join(str(ec.get("code") or "") for ec in (r.get("error_codes") or [])) or "—"]
+         for r in rules],
     )
 
     # v3.24.0(A01)：业务操作契约索引——以业务命名（非固定 CRUD 枚举），
@@ -158,8 +167,8 @@ def render_design_blocks(data):
         blocks["biz-ops"] = (
             _table(
                 # v3.26.10(L-P2-004): §锚点列前置——业务操作表按锚点定位 6.2.N 小节
-                ["§锚点", "操作", "触发者/触发", "源状态→目标状态", "事务/并发", "结果/失败", "验收点"],
-                [[o.get("anchor", "—"), o.get("name"),
+                ["BOP", "§锚点", "操作", "触发者/触发", "源状态→目标状态", "事务/并发", "结果/失败", "验收点"],
+                [[o.get("id", "—"), o.get("anchor", "—"), o.get("name"),
                   f"{o.get('actor', '—')}｜{o.get('trigger', '—')}",
                   "无状态（已声明）" if o.get("stateless") else f"{o.get('source_state', '?')} → {o.get('target_state', '?')}",
                   o.get("concurrency", "—"),
@@ -220,24 +229,17 @@ def render_design_blocks(data):
               "「永不释放」「不涉及」必须写明理由，沉默视为设计缺失。"
         )
 
-    if not integrations and not configs:
-        blocks["integrations-configs"] = "本设计不涉及外部集成与配置键。"
+    if not integrations:
+        blocks["integrations-configs"] = "本设计不涉及外部集成。"
     else:
-        parts = []
-        if integrations:
-            parts.append(_table(
-                ["集成", "方向", "端点", "超时", "幂等", "失败路径", "降级/兜底"],
-                [[i.get("name"), "出向" if i.get("direction") == "outbound" else "入向",
-                  i.get("endpoint", "—"), i.get("timeout"), i.get("idempotency"),
-                  i.get("failure_path"), i.get("fallback", "—")] for i in integrations]))
-        if configs:
-            parts.append(_table(
-                ["配置键", "值格式", "生效消费点", "失败路径", "置信级"],
-                [[c.get("key"), c.get("value_format"),
-                  sum(1 for pt in c.get("consumption_points", []) if pt.get("status") == "active"),
-                  c.get("failure_path"), c.get("confidence")] for c in configs]))
-        blocks["integrations-configs"] = "\n\n".join(parts)
+        blocks["integrations-configs"] = _table(
+            ["集成", "方向", "端点", "超时", "幂等", "失败路径", "降级/兜底"],
+            [[i.get("name"), "出向" if i.get("direction") == "outbound" else "入向",
+              i.get("endpoint", "—"), i.get("timeout"), i.get("idempotency"),
+              i.get("failure_path"), i.get("fallback", "—")] for i in integrations])
 
+    # v3.27.15：zero-results 块保留生成（存量详设升级期仍有 marker 时顺手刷新），
+    # 但已从必需块注册表移除——新模板不再展示零结果声明（JSON 机检保留）。
     zeros = data.get("zero_results", [])
     blocks["zero-results"] = (
         "以下内容已确认为空，并非遗漏：\n\n"
@@ -249,13 +251,16 @@ def render_design_blocks(data):
     return blocks
 
 
-def _splice(doc_path, blocks):
+def _splice(doc_path, blocks, required_keys):
     """整体重写骨架中的 df:begin/end 块；缺块或重复块即失败关闭。
 
     v3.24.0(A07)：缺块检查以本次渲染的 blocks 键集合为正本（= _DESIGN_BLOCKS），
-    不再依赖可能过期的平行清单。"""
+    不再依赖可能过期的平行清单。
+    v3.27.15：按文档角色传入 required_keys（详设=_DESIGN_BLOCKS；数据库设计决策
+    文档=_DB_BLOCKS）；骨架中额外存在的注册块（如老详设里的 ddr 块）一并刷新，
+    存量文档升级期不失效。"""
     text = Path(doc_path).read_text(encoding="utf-8")
-    required = [k for k in _DESIGN_BLOCKS if k in blocks] or list(_DESIGN_BLOCKS)
+    required = [k for k in required_keys if k in blocks]
     missing = [k for k in required if f"<!-- df:begin:{k} -->" not in text]
     if missing:
         print(f"  ✗ 骨架缺少确定性层锚点块: {missing}", file=sys.stderr)
@@ -275,7 +280,15 @@ def _splice(doc_path, blocks):
     if orphan_end:
         print(f"  ✗ 锚点块 begin/end 不成对: {orphan_end}", file=sys.stderr)
         sys.exit(1)
-    for key, content in blocks.items():
+    # 非必需但骨架中成对存在的块：一并刷新（存量详设 ddr 块升级期兼容）
+    extra = []
+    for k in blocks:
+        if k in required:
+            continue
+        if f"<!-- df:begin:{k} -->" in text and f"<!-- df:end:{k} -->" in text:
+            extra.append(k)
+    for key in required + extra:
+        content = blocks[key]
         begin, end = f"<!-- df:begin:{key} -->", f"<!-- df:end:{key} -->"
         pre, rest = text.split(begin, 1)
         _, post = rest.split(end, 1)
@@ -287,21 +300,23 @@ def _init_doc(doc_path):
     """v3.24.0(A07)：初始化入口——按块注册表生成含全量锚点块的骨架。
 
     模板、schema 与块注册表来自同一契约：此入口保证「声明的块 = 渲染器要写的块」。
-    文档已存在时拒绝（防覆盖在途产物），并列出缺失块供手工补齐。"""
+    文档已存在时拒绝（防覆盖在途产物），并列出缺失块供手工补齐。
+    v3.27.15：仍生成全量 13 块（含 DDR）以兼容存量初始化路径；新流程请直接用
+    详设模板 + 数据库设计决策模板。"""
     p = Path(doc_path)
     if p.exists():
         text = p.read_text(encoding="utf-8")
-        missing = [k for k in _DESIGN_BLOCKS if f"<!-- df:begin:{k} -->" not in text]
+        missing = [k for k in _ALL_DESIGN_BLOCKS if f"<!-- df:begin:{k} -->" not in text]
         print(f"  ✗ 文档已存在，拒绝初始化: {doc_path}", file=sys.stderr)
         if missing:
             print(f"    该文档缺少锚点块: {missing}", file=sys.stderr)
         sys.exit(1)
     p.parent.mkdir(parents=True, exist_ok=True)
-    parts = ["# 设计文档骨架（由 df_render 块注册表生成，13 个确定性层锚点块）", ""]
-    for k in _DESIGN_BLOCKS:
+    parts = [f"# 设计文档骨架（由 df_render 块注册表生成，{len(_ALL_DESIGN_BLOCKS)} 个确定性层锚点块）", ""]
+    for k in _ALL_DESIGN_BLOCKS:
         parts.append(f"<!-- df:begin:{k} -->\n<!-- df:end:{k} -->")
     p.write_text("\n".join(parts) + "\n", encoding="utf-8")
-    print(f"骨架已初始化: {doc_path}（{_DESIGN_BLOCKS.__len__()} 个锚点块；"
+    print(f"骨架已初始化: {doc_path}（{_ALL_DESIGN_BLOCKS.__len__()} 个锚点块；"
           f"语义层内容按模板补写后经 df_pipeline.py 渲染）")
 
 
@@ -794,7 +809,7 @@ def render_tech_selection(data, input_path):
     decision = data.get("decision", {})
     chosen = next((c for c in candidates if c.get("id") == decision.get("chosen")), {})
     lines = [
-        f"# 技术选型报告 - {data.get('feature_name')}",
+        f"# 设计决策记录 - {data.get('feature_name')}",
         "",
         f"> 选型日期：{data.get('date')}　选型人：{data.get('selector')}　评审人：{data.get('reviewer')}",
         _audit("tech-selection", input_path),
@@ -846,6 +861,74 @@ def render_tech_selection(data, input_path):
         _table(["风险", "影响", "应对措施"],
                [[r.get("risk"), r.get("impact"), r.get("mitigation")] for r in data.get("risks", [])]),
         "",
+    ]
+    dds = data.get("design_doc_structure") or {}
+    dds_mode = dds.get("mode")
+    mode_label = {"monolith": "monolith（单文档）", "total": "total（总分文档）"}.get(dds_mode, str(dds_mode))
+    lines += [
+        "## 详设文档结构决策",
+        "",
+        "> 文档结构（单文档/总分）在 P1 选型时决策并冻结；P2 详细设计只按本结论选模板，不再重复决策。",
+        "",
+        f"design_doc_structure_mode={dds_mode}（P1/P2 Gate 机检行；s2 --mode 与此一致）",
+        "",
+        _table(["决策项", "结论"], [
+            ["文档结构", mode_label],
+            ["决策依据", dds.get("reason")],
+        ]),
+        "",
+    ]
+    dds_docs = dds.get("planned_docs") or []
+    if dds_docs:
+        lines += [
+            "### 计划文档清单（总分模式；P2 据此冻结 design-package.json）",
+            "",
+            _table(["#", "ID", "文档", "路径", "mode"],
+                   [[i + 1, d.get("id"), d.get("name"), d.get("path"), d.get("doc_mode")]
+                    for i, d in enumerate(dds_docs)]),
+            "",
+        ]
+    audit = data.get("scaffold_audit") or []
+    if audit:
+        lines += [
+            "## 脚手架重合度审计",
+            "",
+            "> 铁律 18：输入含脚手架/存量代码时逐功能域二分裁决——重合 → 裁剪并由本次设计重新实现"
+            "（宜独立新模块承载）；不重合 → 复用既有能力。禁止同一功能域新旧双实现并存；"
+            "裁剪/复用/新建项由 P2 baseline（DELETE/MODIFY/REUSE/ADD）承接。",
+            "",
+            _table(["功能域", "脚手架现状（代码/菜单/页面/表）", "判定（裁剪/复用/新建）", "处置动作", "新实现承载位置"],
+                   [[a.get("domain"), a.get("scaffold_state"), a.get("verdict"),
+                     a.get("action"), a.get("bearing")] for a in audit]),
+            "",
+        ]
+    tradeoffs = data.get("design_tradeoffs") or []
+    if tradeoffs:
+        lines += [
+            "## 设计取舍",
+            "",
+            _table(["ID", "决策点", "背景", "选定方案", "备选（被否决）", "理由", "关联"],
+                   [[td.get("id"), td.get("topic"), td.get("context"),
+                     td.get("chosen"), td.get("alternatives"), td.get("reason"),
+                     td.get("anchor", "—")] for td in tradeoffs]),
+            "",
+        ]
+    std = data.get("standards") or []
+    if std:
+        lines += [
+            "## 规范遵循",
+            "",
+            "<!-- anchor: standards-compliance -->",
+            "",
+            "> v3.27.15 起从详设 §13 移入：命名/开发/注释/数据库等规范域基线；偏离须列明理由"
+            "（规范依据是 DDR 与 P2a 评审的引用正本）。",
+            "",
+            _table(["规范域", "采用规范", "版本/链接", "本设计落点/偏离说明"],
+                   [[s.get("domain"), s.get("standard"), s.get("version", "—"),
+                     s.get("deviation") or s.get("landing") or "无偏离"] for s in std]),
+            "",
+        ]
+    lines += [
         "## 硬约束绑定（机器契约；Gate 按 此块 判定合规）",
         "",
         "<!-- DEVFLOW:CONSTRAINT-BINDINGS", bind_body, "DEVFLOW:END -->",
@@ -1824,6 +1907,10 @@ def main():
     ap.add_argument("kind", choices=["design", "verification"] + list(_REPORT_RENDERERS) + ["small-change"])
     ap.add_argument("--input", required=True)
     ap.add_argument("--doc", default=None, help="design: 拼接目标文档（须含 df:begin/end 锚点块）")
+    ap.add_argument("--db-doc", dest="db_doc", default=None, metavar="PATH",
+                    help="design: 数据库设计决策文档（DDR/迁移已移出详设；须含 ddr-index/ddr-matrix 锚点块，v3.27.15）")
+    ap.add_argument("--trace-doc", dest="trace_doc", default=None, metavar="PATH",
+                    help="design: 需求追溯文档（追溯矩阵已移出详设；须含 trace-matrix 锚点块，v3.27.15）")
     ap.add_argument("--init-doc", dest="init_doc", default=None, metavar="PATH",
                     help="design: 按块注册表初始化骨架（文档须不存在；存在时列出缺失块后退出 1）")
     ap.add_argument("--out", default=None, help="输出路径（verification/各阶段报告必填）")
@@ -1842,9 +1929,38 @@ def main():
             sys.exit(0)
         blocks = render_design_blocks(data)
         if args.doc:
-            _splice(args.doc, blocks)
-            print(f"渲染完成：确定性层已拼接至 {args.doc}（{len(blocks)} 个锚点块）")
+            _splice(args.doc, blocks, _DESIGN_BLOCKS)
+            print(f"渲染完成：确定性层已拼接至 {args.doc}（{len(_DESIGN_BLOCKS)} 个锚点块）")
+            if args.db_doc:
+                if not Path(args.db_doc).is_file():
+                    print(f"  ✗ --db-doc 文档不存在: {args.db_doc}"
+                          f"（先复制 templates/数据库设计决策-模板.md）", file=sys.stderr)
+                    sys.exit(1)
+                _splice(args.db_doc, blocks, _DB_BLOCKS)
+                print(f"渲染完成：数据库设计决策块已拼接至 {args.db_doc}（{len(_DB_BLOCKS)} 个锚点块）")
+            if args.trace_doc:
+                if not Path(args.trace_doc).is_file():
+                    print(f"  ✗ --trace-doc 文档不存在: {args.trace_doc}"
+                          f"（先复制 templates/需求追溯-模板.md）", file=sys.stderr)
+                    sys.exit(1)
+                _splice(args.trace_doc, blocks, _TRACE_BLOCKS)
+                print(f"渲染完成：追溯矩阵已拼接至 {args.trace_doc}（{len(_TRACE_BLOCKS)} 个锚点块）")
         elif args.out:
+            # v3.27.5（FB-20260918-001/M-01 渲染事故）：--out 目标已存在且含锚点块外
+            # 手写内容时拒绝整篇覆盖——防止手写章节被骨架静默销毁。
+            # 全新骨架生成请删除目标文件后重试；既有文档一律走 --doc 拼接模式。
+            out_path = Path(args.out)
+            if out_path.exists():
+                existing = out_path.read_text(encoding="utf-8")
+                residue = re.sub(
+                    r"<!-- df:begin:.*?-->.*?<!-- df:end:.*?-->\n?", "", existing, flags=re.DOTALL
+                )
+                residue_lines = [l for l in residue.splitlines() if l.strip()]
+                if residue_lines:
+                    print(f"  ✗ --out 目标已存在且含 {len(residue_lines)} 行锚点块外内容（手写章节）", file=sys.stderr)
+                    print("    整篇覆盖会销毁手写内容（M-01 v1.0 渲染事故，v3.27.5 固化守卫）。", file=sys.stderr)
+                    print("    既有文档请改用 --doc <同路径> 做锚点块拼接；确要放弃请先删除目标文件。", file=sys.stderr)
+                    sys.exit(1)
             Path(args.out).write_text(
                 "\n\n".join(f"<!-- df:begin:{k} -->\n{v}\n<!-- df:end:{k} -->" for k, v in blocks.items()),
                 encoding="utf-8",

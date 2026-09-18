@@ -84,6 +84,28 @@ if command -v python3 >/dev/null 2>&1; then
 fi
 [ -f "$CRITERIA" ] || { p0 "criteria file not found: $CRITERIA"; exit 1; }
 
+# ---------- v3.27.15：附属文档自动发现（需求追溯 / 实现交接已移出详设） ----------
+# 约定：与详设同目录同 stem——<feature>-需求追溯.md / <feature>-实现交接.md。
+# 存在即以其为正本；否则回退详设正文（存量兼容）。
+_S2_DIR=$(dirname "$DESIGN")
+_S2_BASE=$(basename "$DESIGN")
+case "$_S2_BASE" in
+  *-详细设计.md) _S2_STEM="${_S2_BASE%-详细设计.md}" ;;
+  *-design.md)   _S2_STEM="${_S2_BASE%-design.md}" ;;
+  *)             _S2_STEM="${_S2_BASE%.md}" ;;
+esac
+TRACE_DOC="$_S2_DIR/${_S2_STEM}-需求追溯.md"
+HANDOFF_DOC="$_S2_DIR/${_S2_STEM}-实现交接.md"
+TRACE_SRC="$DESIGN"
+[ -f "$TRACE_DOC" ] && TRACE_SRC="$TRACE_DOC"
+_find_anchor() { # <anchor-name>：详设或附属文档任一存在即通过
+  local a="$1"
+  grep -q "anchor: $a" "$DESIGN" 2>/dev/null && return 0
+  [ -f "$TRACE_DOC" ] && grep -q "anchor: $a" "$TRACE_DOC" 2>/dev/null && return 0
+  [ -f "$HANDOFF_DOC" ] && grep -q "anchor: $a" "$HANDOFF_DOC" 2>/dev/null && return 0
+  return 1
+}
+
 # ---------- §1 验收点解析 ----------
 echo ""
 echo "=== §1 验收点解析 ==="
@@ -96,7 +118,7 @@ TOTAL=$(printf '%s\n' "$ATOMIC_IDS" | grep -c . || true)
 CRITERIA_IDS_FILE=$(mktemp -t devflow-criteria.XXXXXX)
 DESIGN_IDS_FILE=$(mktemp -t devflow-design.XXXXXX)
 printf '%s\n' "$ATOMIC_IDS" | sed '/^$/d' | sort -u > "$CRITERIA_IDS_FILE"
-grep -oE 'M-?[0-9]{2}-F[0-9]{2}-A[0-9]{2}' "$DESIGN" 2>/dev/null | sort -u > "$DESIGN_IDS_FILE"
+grep -oE 'M-?[0-9]{2}-F[0-9]{2}-A[0-9]{2}' "$TRACE_SRC" 2>/dev/null | sort -u > "$DESIGN_IDS_FILE"
 MISSING_IDS=$(comm -23 "$CRITERIA_IDS_FILE" "$DESIGN_IDS_FILE" || true)
 EXTRA_IDS=$(comm -13 "$CRITERIA_IDS_FILE" "$DESIGN_IDS_FILE" || true)
 [ -z "$MISSING_IDS" ] && pass "design acceptance-ID set has no missing IDs" || { p0 "design missing acceptance IDs: $(printf '%s' "$MISSING_IDS" | tr '\n' ' ')"; }
@@ -109,7 +131,7 @@ COMPLETE=0
 INCOMPLETE=0
 while IFS= read -r id; do
   [ -z "$id" ] && continue
-  if grep -E "\|[[:space:]]*${id}[[:space:]]*\|" "$DESIGN" 2>/dev/null | grep -qE '\|[[:space:]]*COMPLETE[[:space:]]*\|'; then
+  if grep -E "\|[[:space:]]*${id}[[:space:]]*\|" "$TRACE_SRC" 2>/dev/null | grep -qE '\|[[:space:]]*COMPLETE[[:space:]]*\|'; then
     COMPLETE=$((COMPLETE + 1))
   else
     p0 "acceptance $id missing COMPLETE design row"
@@ -123,7 +145,7 @@ done <<< "$ATOMIC_IDS"
 TRACE_BAD=0
 while IFS= read -r id; do
   [ -n "$id" ] || continue
-  row=$(grep -E "^\\|[[:space:]]*${id}[[:space:]]*\\|" "$DESIGN" 2>/dev/null | head -1 || true)
+  row=$(grep -E "^\\|[[:space:]]*${id}[[:space:]]*\\|" "$TRACE_SRC" 2>/dev/null | head -1 || true)
   fields=$(printf '%s\n' "$row" | awk -F'|' '{print NF}')
   [ "${fields:-0}" -ge 9 ] || { p0 "acceptance $id trace row has incomplete columns"; TRACE_BAD=$((TRACE_BAD+1)); continue; }
       # 列布局：$2=ID $3=PRD锚点 $4=页面/任务 $5=接口 $6=数据字段 $7=规则 $8=测试用例 $9=状态
@@ -152,6 +174,7 @@ rm -f "$CRITERIA_IDS_FILE" "$DESIGN_IDS_FILE"
 # ---------- §2b 技术硬约束引用 (v3.16.26 NEW) ----------
 echo ""
 echo "=== §2b 技术硬约束引用 ==="
+DESIGN_JSON="${STATE_DIR:-.devflow}/${EFF_FEATURE}/design.json"
 if [ -n "${TECH_CONSTRAINTS_FILE:-}" ]; then
   TC_PATH="$TECH_CONSTRAINTS_FILE"
 else
@@ -177,6 +200,44 @@ else
   else
     pass "no hard constraints declared (NONE)"
   fi
+  # v3.27.10：design.json constraints[] 使用时必须与冻结集合闭环（此前为无消费者的
+  # 空转字段）——非空时逐条反查冻结约束；重复由 df_validate 拦截。
+  if [ -f "$DESIGN_JSON" ] && command -v python3 >/dev/null 2>&1; then
+    JC_IDS=$(_python3 -c 'import json,sys
+try: print("\n".join(c.get("id","") for c in json.load(open(sys.argv[1])).get("constraints",[])))
+except Exception: pass' "$DESIGN_JSON" 2>/dev/null || true)
+    if [ -n "$JC_IDS" ]; then
+      JC_BAD=0
+      while IFS= read -r cid; do
+        [ -n "$cid" ] || continue
+        if ! printf '%s\n' "$CID_LIST" | grep -qxF "$cid"; then
+          p0 "design.json constraints[] 登记了冻结集合之外的约束 ${cid}（P0 硬约束引用位必须与冻结契约一致）"
+          JC_BAD=$((JC_BAD+1))
+        fi
+      done <<< "$JC_IDS"
+      [ "$JC_BAD" -eq 0 ] && pass "design.json constraints[] reconciles with frozen constraint set"
+    fi
+  fi
+fi
+
+# ---------- §2b2 文档结构与 P1 冻结决策对账 (v3.27.7 NEW) ----------
+# 单文档/总分的决策已从 P2 上移至 P1 技术选型（机检行 design_doc_structure_mode=）。
+# s2 --mode 必须与 P1 冻结 mode 一致；选型报告存在但缺机检行 → WARN（存量项目补登窗口），
+# mode 错配 → P0（禁止详设自行改结构）；报告无法定位时 WARN（非标准目录布局）。
+echo ""
+echo "=== §2b2 文档结构与 P1 冻结决策对账 ==="
+TECH_REPORT_S2="$(df_resolve_doc "$EFF_FEATURE" tech_selection .md design 2>/dev/null)"
+[ -n "$TECH_REPORT_S2" ] || TECH_REPORT_S2="docs/详细设计/${EFF_FEATURE}-技术选型.md"
+if [ ! -f "$TECH_REPORT_S2" ]; then
+  warn "tech selection report not found ($TECH_REPORT_S2)——无法对账 design_doc_structure；v3.27.7 起文档结构须在 P1 决策"
+elif P1_MODE=$(grep -oE 'design_doc_structure_mode=(monolith|total)' "$TECH_REPORT_S2" | head -1 | cut -d= -f2); [ -z "$P1_MODE" ]; then
+  warn "tech selection report 缺 design_doc_structure_mode 机检行（v3.27.7 起单文档/总分在 P1 决策；重跑 tech-selection 管线补登后，P2 --mode 以其为准）: $TECH_REPORT_S2"
+elif [ "$P1_MODE" = "total" ] && [ "$MODE" = "monolith" ]; then
+  p0 "P1 冻结 design_doc_structure_mode=total，但 s2 以 --mode=monolith 运行——详设文档结构以 P1 选型决策为准，不得在 P2 自行改回单文档（如确需变更回 P1 走选型变更）"
+elif [ "$P1_MODE" = "monolith" ] && [ "$MODE" != "monolith" ]; then
+  p0 "P1 冻结 design_doc_structure_mode=monolith（单文档），但 s2 以 --mode=$MODE 运行——总分结构未在 P1 决策登记，回 P1 选型变更并补 planned_docs 后再跑 P2"
+else
+  pass "s2 --mode=${MODE} 与 P1 冻结文档结构一致（${TECH_REPORT_S2}）"
 fi
 
 # ---------- §2c 结构化产物层 design.json (v3.17.0 NEW; v3.17.1 升级为必填) ----------
@@ -184,7 +245,6 @@ fi
 # 详细定义闭环/DDR↔字段一一对应全部失去机器校验，实测正是详设缺漏的根源）。
 echo ""
 echo "=== §2c 结构化产物层 (design.json) ==="
-DESIGN_JSON="${STATE_DIR:-.devflow}/${EFF_FEATURE}/design.json"
 if [ ! -f "$DESIGN_JSON" ]; then
   p0 "design.json 缺失: ${DESIGN_JSON}——P2 必须产出结构化业务产物层（契约 schemas/design.schema.json，管线 df_pipeline.py design，见 phases/02-详细设计.md §结构化产物层）"
 elif ! command -v python3 >/dev/null 2>&1; then
@@ -194,8 +254,31 @@ else
   # 接口详细定义标题、JSON detail_anchor 指向不存在 §99.9.9 仍 exit=0（分文档
   # 跳过正文锚点对账）。总分模式 JSON 为 feature 级，但对账目标是对应的分/总文档。
   # --workspace .：仓库标志存在时启用基线/配置全仓反查（A02）。
-  V_ARGS=(--kind design --input "$DESIGN_JSON" --workspace . --doc "$DESIGN")
+  # v3.27.10：--doc-mode 透传——mode=total 时模块级锚点/正文明细不在总文档对账。
+  V_ARGS=(--kind design --input "$DESIGN_JSON" --workspace . --doc "$DESIGN" --doc-mode "$MODE")
   [ -n "$CRITERIA" ] && V_ARGS+=(--criteria "$CRITERIA")
+  # v3.27.10：design.json template 身份与当前模板/模式对账（此前为无消费者的空转字段——
+  # JSON 可声明 monolith 而 Gate 以 total 运行，双正本漂移无感）。
+  TPL_VER_S2=$(sed -n 's/^version: "\([0-9.]*\)"/\1/p' "$TEMPLATES_DIR/$TEMPLATE_NAME" 2>/dev/null | head -1)
+  JTPL_OUT=$(_python3 -c 'import json,sys
+try:
+    t = json.load(open(sys.argv[1])).get("template") or {}
+    print("|".join(str(t.get(k, "")) for k in ("id", "version", "mode")))
+except Exception:
+    print("PARSE_ERROR")' "$DESIGN_JSON" 2>/dev/null || true)
+  JTPL_ID=${JTPL_OUT%%|*}
+  JTPL_REST=${JTPL_OUT#*|}
+  JTPL_VER=${JTPL_REST%%|*}
+  JTPL_MODE=${JTPL_REST#*|}
+  if [ "$JTPL_MODE" != "$MODE" ]; then
+    p0 "design.json template.mode=${JTPL_MODE:-空} 与 Gate --mode=$MODE 不一致（JSON 模板身份必须与当前文档角色一致——total/sub 家族漂移即双正本冲突）"
+  elif [ "$JTPL_ID" != "${TEMPLATE_NAME%.md}" ]; then
+    p0 "design.json template.id=${JTPL_ID:-空} 与当前模式模板 ${TEMPLATE_NAME%.md} 不一致"
+  elif [ -n "$TPL_VER_S2" ] && [ "$JTPL_VER" != "$TPL_VER_S2" ]; then
+    p0 "design.json template.version=${JTPL_VER:-空} 与模板文件版本 $TPL_VER_S2 不一致（skill 升版后须同步产物头与 JSON）"
+  else
+    pass "design.json template identity matches ($JTPL_ID v$JTPL_VER, mode=$JTPL_MODE)"
+  fi
   # v3.24.0(A05)：设计包清单——总分模式必填；子集并集=冻结分母、缺文档即失败；
   # 当前文档按其验收子集做范围过滤的文档对账（--scope-ids）。
   PKG_FILE="${STATE_DIR:-.devflow}/${EFF_FEATURE}/design-package.json"
@@ -308,7 +391,8 @@ echo ""
 echo "=== §6 WHEN 准伪代码 + R 编号 ==="
 WHEN_COUNT=$(grep -cE '^WHEN[[:space:]]+' "$DESIGN" 2>/dev/null || true)
 # v3.14.10: 同时接受行首 R1. 与表格 | R1 | 两种格式
-RULE_COUNT=$(grep -cE '(^R[0-9]+\.)|^\| *R[0-9]+ *\|' "$DESIGN" 2>/dev/null || true)
+# v3.27.15: 规则下沉到 §7.2 页组表后，R 编号可能不在首列（如 | §7.2.1 | R1 | 摘要 |）——放宽为任意单元格
+RULE_COUNT=$(grep -cE '(^R[0-9]+\.)|(\|[[:space:]]*R[0-9]+[[:space:]]*\|)' "$DESIGN" 2>/dev/null || true)
 [ "$WHEN_COUNT" -gt 0 ] && pass "WHEN clauses: $WHEN_COUNT" || p0 "WHEN clauses missing"
 [ "$RULE_COUNT" -gt 0 ] && pass "numbered rules R1.-R$((RULE_COUNT)).: $RULE_COUNT" || p0 "R 编号规则缺失"
 # v3.24.0(A01)：模板要求每个关键流程 WHEN 伪代码与时序图成对——旧 Gate 只查全文
@@ -408,6 +492,22 @@ else
   warn "skip §6c: python3 或 content_sufficiency_probes.py 缺失"
 fi
 
+# ---------- §6d 权限码双口径一致性（v3.27.11；L-P0-001 自动化接线） ----------
+echo ""
+echo "=== §6d P0b↔P2 权限码双口径一致性 ==="
+PERM_CONS="$SKILL_ROOT/scripts/check-perm-consistency.sh"
+S2_CLAR="$(df_resolve_doc "$EFF_FEATURE" clarification .md requirements 2>/dev/null || true)"
+if [ -f "$PERM_CONS" ] && [ -n "$S2_CLAR" ] && [ -f "$S2_CLAR" ]; then
+  if bash "$PERM_CONS" "$S2_CLAR" "$DESIGN" >/dev/null 2>&1; then
+    pass "P0b↔P2 权限码双口径一致"
+  else
+    p0 "权限码双口径不一致——P0b 冻结权限码与 P2 权限矩阵必须全等（检查器：${PERM_CONS}；无权限码项目自动 SKIP）"
+    bash "$PERM_CONS" "$S2_CLAR" "$DESIGN" 2>&1 | grep -E '^\[FAIL\]|^  [+-]' | head -6 | sed 's/^/    /'
+  fi
+else
+  warn "skip §6d: 澄清文件缺失（${S2_CLAR:-未解析}）或 check-perm-consistency.sh 缺失"
+fi
+
 # ---------- §7 占位符 ----------
 echo ""
 echo "=== §7 占位符 ==="
@@ -443,14 +543,31 @@ TEMPLATE_FILE="$TEMPLATES_DIR/$TEMPLATE_NAME"
 if [ ! -f "$TEMPLATE_FILE" ]; then
   warn "skip template alignment: template not found"
 else
-  TEMPLATE_H2=$(grep -E '^## ' "$TEMPLATE_FILE" 2>/dev/null | sed 's/^## //' | sort)
   PRODUCT_H2=$(cat "$DESIGN" 2>/dev/null | grep -E '^## ' | sed 's/^## //' | sort)
 
   # v3.9.1: 前缀匹配容忍"§6 关键流程"vs"§6 关键流程（WHEN 准伪代码）"类别名
-  TEMPLATE_PREFIX=$(printf '%s\n' "$TEMPLATE_H2" | awk '{gsub(/^([0-9]+\. |§[0-9]+ )/, ""); print substr($0,1,4)}' | sort -u)
-  PRODUCT_PREFIX=$(printf '%s\n' "$PRODUCT_H2" | awk '{gsub(/^([0-9]+\. |§[0-9]+ )/, ""); print substr($0,1,4)}' | sort -u)
-
-  MISSING=$(comm -23 <(printf '%s\n' "$TEMPLATE_PREFIX") <(printf '%s\n' "$PRODUCT_PREFIX") | grep -v '^$')
+  # v3.27.12: 升级为规范化全名比对——去掉编号前缀/空白/括号尾注后逐字比较，
+  # 能拦截"前 4 字相同但正文改名"的章节漂移（旧前缀法漏报）。
+  MISSING=$(_python3 - "$TEMPLATE_FILE" "$DESIGN" <<'PYEOF'
+import re, sys
+from pathlib import Path
+def h2s(p):
+    out=[]
+    for ln in Path(p).read_text(encoding="utf-8", errors="replace").splitlines():
+        if ln.startswith("## "):
+            out.append(ln[3:].strip())
+    return out
+def norm(s):
+    s = re.sub(r"^§?[0-9]+(?:\.[0-9]+)*\s*", "", s)   # 去编号前缀（§6 / 6. / 6）
+    s = re.sub(r"[（(][^（）()]*[）)]", "", s)          # 去括号尾注
+    s = re.sub(r"[\s：:。．.]+", "", s)                 # 去空白与尾标点
+    return s or s
+tpl = {norm(x) for x in h2s(sys.argv[1]) if x}
+prod = {norm(x) for x in h2s(sys.argv[2]) if x}
+for x in sorted(tpl - prod):
+    print(x)
+PYEOF
+)
   MISSING_COUNT=$(echo "$MISSING" | grep -c . || true)
 
   if [ "$MISSING_COUNT" -gt 0 ]; then
@@ -458,23 +575,23 @@ else
     echo "$MISSING" | sed 's/^/    - /'
     echo "    参考模板: $TEMPLATE_FILE"
   else
-    pass "design.md 章节与模板对齐"
+    pass "design.md 章节与模板对齐（规范化全名）"
   fi
 
-  # 需求追溯语义锚点：§编号仅用于展示，Gate 只认 anchor: acceptance-traceability（或同义 H2）
-  if grep -q 'anchor: acceptance-traceability' "$DESIGN" 2>/dev/null \
-     || echo "$PRODUCT_H2" | grep -q '需求追溯'; then
+  # 需求追溯语义锚点：§编号仅用于展示，Gate 只认 anchor: acceptance-traceability（或同义 H2）；
+  # v3.27.15：追溯矩阵移出详设后锚点在《需求追溯》文档中，_find_anchor 自动发现。
+  if _find_anchor acceptance-traceability || echo "$PRODUCT_H2" | grep -q '需求追溯'; then
     pass "design.md 需求追溯锚点存在 (acceptance-traceability)"
   else
-    p0 "design.md 缺少需求追溯锚点: <!-- anchor: acceptance-traceability -->（章节号仅用于展示，语义锚点为唯一机器契约）"
+    p0 "design.md 缺少需求追溯锚点: <!-- anchor: acceptance-traceability -->（在详设或 <feature>-需求追溯.md；章节号仅用于展示，语义锚点为唯一机器契约）"
   fi
 
   # v3.23.0: 语义锚点契约扩展——data-model / api-contracts / business-rules / implementation-handoff。
-  # 前三个为历史必含章节，缺失锚点时按同义 H2 标题回退（兼容在途产物）；实现交接为新增必含节。
+  # 前三个为历史必含章节，缺失锚点时按同义 H2 标题回退（兼容在途产物）；实现交接为新增必含节
+  # （v3.27.15：实现交接移出详设后在 <feature>-实现交接.md，_find_anchor 自动发现）。
   check_semantic_anchor() {
     local anchor="$1" h2pat="$2" label="$3"
-    if grep -q "anchor: $anchor" "$DESIGN" 2>/dev/null \
-       || echo "$PRODUCT_H2" | grep -qE "$h2pat"; then
+    if _find_anchor "$anchor" || echo "$PRODUCT_H2" | grep -qE "$h2pat"; then
       pass "design.md 语义锚点存在: ${anchor}（${label}）"
     else
       p0 "design.md 缺少语义锚点: <!-- anchor: ${anchor} -->（${label}；章节编号仅展示，锚点是 /plan、/build 与评审的定位正本）"
@@ -486,8 +603,9 @@ else
   check_semantic_anchor "implementation-handoff" '实现交接' "实现交接（施工图：基线/变更/不变量）"
 
   # 必含章节（核心，仅单体模式强制——总分模式的章节契约由上方模板对齐检查覆盖）
+  # v3.27.15：§8 数据库迁移 / §15 实现交接 已移出、§11 只留零结果声明——按当前模板结构要求
   if [ "$MODE" = "monolith" ]; then
-    REQUIRED=("§1 功能概述" "§2 数据模型" "§3 接口设计" "§4 权限矩阵" "§5 业务规则" "§6 关键流程" "§7 前端页面" "§8 数据库迁移" "§9 验收标准" "§11 需求追溯与覆盖率基线" "§14 实现交接")
+    REQUIRED=("§1 功能概述" "§2 数据模型" "§3 接口设计" "§4 权限矩阵" "§5 业务规则" "§6 关键流程" "§7 前端页面" "§8 验收标准" "§9 依赖项" "§10 组件复用与公共抽取" "§11 异常处理、安全与性能设计")
     for sec in "${REQUIRED[@]}"; do
       # v3.9.1: 直接在产物 H2 里 grep 该章节前 5 字符（容忍"§6 关键流程（WHEN...）"）
       SEC_PREFIX="${sec:0:5}"

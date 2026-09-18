@@ -56,11 +56,11 @@ fi
 # v3.22.0: 文档层中文化（中文优先、英文回退）
 source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
 REPORT_PATH="$(df_resolve_doc "$FEATURE" code_review_report .md review)"
-[ -n "$REPORT_PATH" ] || REPORT_PATH="docs/review/${FEATURE}-code-review-report.md"
+[ -n "$REPORT_PATH" ] || REPORT_PATH="docs/评审/${FEATURE}-代码审查报告.md"
 DESIGN_PATH="$(df_resolve_doc "$FEATURE" design .md design)"
-[ -n "$DESIGN_PATH" ] || DESIGN_PATH="docs/detailed-design/${FEATURE}-design.md"
+[ -n "$DESIGN_PATH" ] || DESIGN_PATH="docs/详细设计/${FEATURE}-详细设计.md"
 CRITERIA_PATH="$(df_resolve_doc "$FEATURE" acceptance .md requirements)"
-[ -n "$CRITERIA_PATH" ] || CRITERIA_PATH="docs/requirements/${FEATURE}-acceptance-criteria.md"
+[ -n "$CRITERIA_PATH" ] || CRITERIA_PATH="docs/需求/${FEATURE}-验收点.md"
 # v3.16.11（P1-4）: SERVICE 白名单 = backend 真实服务目录名集合——封堵
 # 路径穿越（PoC：传入 ../clean → 扫描 backend/../clean/src/main/java，
 # 真实服务的 TODO 被绕过，P3B_EXIT=0）。SERVICE 必须是 backend/*/src/main/java

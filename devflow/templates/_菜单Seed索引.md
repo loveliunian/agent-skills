@@ -1,6 +1,6 @@
 ---
 name: _菜单Seed索引
-version: "3.27.4"
+version: "3.27.15"
 description: 菜单 Seed 索引骨架（前端菜单↔后端 seed）
 ---
 

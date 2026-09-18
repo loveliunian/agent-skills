@@ -81,6 +81,8 @@ cat > "$TMP/docs/detailed-design/foo-tech-selection.md" <<'EOF'
 | 成本 | 4 | 4 |
 ## 决策结论
 用户确认: YES
+## 详设文档结构决策
+design_doc_structure_mode=monolith
 ## 硬约束绑定
 <!-- DEVFLOW:CONSTRAINT-BINDINGS
 constraint_id=TC-TECH-001
@@ -95,8 +97,8 @@ cat > "$TMP/docs/detailed-design/foo-design.md" <<'EOF'
 # Foo 详细设计
 > 模板 ID：`详细设计-完整版-模板`
 > 模板版本：`__TEMPLATE_VERSION__`
-## §0 总分架构决策
-单体 fixture，边界由 foo 模块负责。
+## §0 文档结构
+单体 fixture，边界由 foo 模块负责（结构经 P1 选型决策：design_doc_structure_mode=monolith）。
 ## §1 功能概述
 分页查询 foo 数据。
 ## §2 数据模型
@@ -149,32 +151,41 @@ sequenceDiagram
     Service-->>前端: 200 OK
 ```
 ## §7 前端页面
+
+### 7.1 页面清单
+
+| # | 子域/分组 | 页面 | 路径 | 组件（真实路径） | 类型 | 权限 |
+|---|---|---|---|---|---|---|
+| 1 | foo | foo-list | /foo/list | views/foo/FooList.vue | 列表页 | foo:view |
+
 foo-list.vue；列表可达。
 
-### 7.3.1 列表页交互
+### 7.2.1 列表页交互
 
-列表交互说明（页组覆盖 §7 全部页面）。
+列表交互说明（页组覆盖 §7.1 全部页面，调用接口 §3.2.1）。
 ## §8 数据库迁移
 V1001__foo.sql 四方言。
 ## §9 验收标准
 | 验收点ID | PRD原文锚点 | 页面/任务 | 接口契约 | 数据字段 | 规则/准伪代码 | 测试用例 | 设计状态 |
 |---|---|---|---|---|---|---|---|
-| M-01-F01-A01 | docs/prd/foo.md#L2 | §7 | §3.2.1 | §2 | R1 | TC-foo-001 | COMPLETE |
+| M-01-F01-A01 | docs/prd/foo.md#L2 | §7.1 | §3.2.1 | §2 | R1 | TC-foo-001 | COMPLETE |
 ## §10 依赖项
 TC-TECH-001：数据库使用 postgresql 16。
-## §11 需求追溯与覆盖率基线
+## §8 验收标准（零结果）（追溯矩阵在存量位置，s2 回退读取）
 <!-- anchor: acceptance-traceability -->
 设计覆盖率 = 100%
-## §12 组件复用与公共抽取
+## §10 组件复用与公共抽取
 成熟组件复用清单：hibernate-validator；公共抽取登记：分页契约复用。
-## §13 规范遵循
+## §9 依赖项（规范）
 命名/开发/注释规范：阿里巴巴 Java 开发手册；无偏离。
-## §14 实现交接（Implementation Handoff）
+## §11 异常处理、安全与性能设计
+沿用平台统一异常/认证/性能基线；本模块无额外事务与缓存决策。
+## §12 实现交接（Implementation Handoff）
 <!-- anchor: implementation-handoff -->
 | 文件/符号 | ADD/MODIFY/DELETE | 设计依据 | 验收点 |
 |---|---|---|---|
 | `FooController#list` | MODIFY | anchor: api-contracts §3 | M-01-F01-A01 |
-## §15 变更历史
+## §12 变更历史
 v1 fixture。
 ## 设计决策记录（DDR）
 BIGINT 用于主键以覆盖长期增长；INT 用于页码因其业务上限明确。
@@ -193,7 +204,7 @@ cat > "$TMP/.devflow/foo/design.json" <<EOF
   "generated_at": "2026-01-01T00:00:00Z",
   "template": {"id": "详细设计-完整版-模板", "version": "__TEMPLATE_VERSION__", "mode": "monolith"},
   "acceptance": [
-    {"id": "M-01-F01-A01", "prd_anchor": "docs/prd/foo.md#L2", "page": "§7", "api": "§3.2.1",
+    {"id": "M-01-F01-A01", "prd_anchor": "docs/prd/foo.md#L2", "page": "§7.1", "api": "§3.2.1",
      "data": "§2", "rule": "R1", "test_case": "TC-foo-001", "status": "COMPLETE"}
   ],
   "tables": [
@@ -210,7 +221,7 @@ cat > "$TMP/.devflow/foo/design.json" <<EOF
      "response": {"anchor": "§3.2.1", "fields": [
        {"name": "id", "type": "Long", "always": "是", "rule": "主键", "source": "foo.id", "masking": "否"}]}}
   ],
-  "pages": [{"anchor": "§7", "name": "foo-list", "permission": "foo:view"}],
+  "pages": [{"anchor": "§7.1", "name": "foo-list", "permission": "foo:view", "route": "/foo/list", "component": "views/foo/FooList.vue", "page_type": "列表页"}],
   "rules": [
     {"id": "R1", "anchor": "§5", "summary": "page 必须大于等于 1"},
     {"id": "R2", "anchor": "§5", "summary": "name 非空且 <=128 字符", "unreferenced_reason": "写入路径边界校验，查询主流程不直接引用"}
@@ -239,6 +250,11 @@ for f in _commons.md _权限矩阵.md _环境与账号.md _菜单Seed索引.md I
 | status | frozen |
 EOF
 done
+
+# v3.27.12：§7.1 页面清单表引入权限码后，须在事实源矩阵登记（L-P2-008 探针）
+cat >> "$TMP/docs/detailed-design/_权限矩阵.md" <<'EOF'
+| foo:view | 查询 |
+EOF
 
 cat > "$TMP/docs/数据映射/foo-映射.md" <<'EOF'
 | 目标对象/字段 | 来源系统 | 来源对象/字段 | 转换规则 | 空值/默认策略 | 主键/引用映射 | 敏感处理 | 验证SQL/方法 |
@@ -295,7 +311,29 @@ mk_acceptance_json foo "$TMP"   # v3.25.1(P1-a): 结构化验收点正本（缺�
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/s0_acceptance_gate.sh" foo); then ok "P0 fixture"; else bad "P0 fixture"; fi
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/devflow-state.sh" constraints-freeze foo >/dev/null 2>&1); then :; else bad "constraints-freeze fixture"; fi
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/s1_fact_sources_gate.sh" docs/detailed-design); then ok "P1 fixture"; else bad "P1 fixture"; fi
+# v3.27.14：scaffold_audit 登记但报告缺《脚手架重合度审计》章节 → s1 拦截（铁律 18 接线）
+printf '{"feature":"foo","scaffold_audit":[{"domain":"F01","verdict":"裁剪"}]}\n' > "$TMP/.devflow/foo/tech-selection.json"
+if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/s1_fact_sources_gate.sh" docs/detailed-design >/dev/null 2>&1); then
+  bad "scaffold_audit 登记但报告缺章节未被拦截"
+else
+  ok "scaffold_audit 登记但报告缺章节被拦截（v3.27.14）"
+fi
+rm -f "$TMP/.devflow/foo/tech-selection.json"
 if (cd "$TMP" && bash "$ROOT/scripts/s2_design_coverage_gate.sh" docs/detailed-design/foo-design.md docs/requirements/foo-acceptance-criteria.md); then ok "P2 fixture"; else bad "P2 fixture"; fi
+# v3.27.11：响应恒出性 JSON↔正文对账（foo 夹具 §3.2.1 响应表恒出性=是）
+python3 - "$TMP" <<'PYEOF'
+import json, sys
+p = sys.argv[1] + "/.devflow/foo/design.json"
+d = json.load(open(p))
+d["apis"][0]["response"]["fields"][0]["always"] = "否"
+json.dump(d, open(sys.argv[1] + "/.devflow/foo/d-always.json", "w"), ensure_ascii=False)
+PYEOF
+if (cd "$TMP" && python3 "$ROOT/scripts/df_validate.py" --kind design --input .devflow/foo/d-always.json \
+     --criteria docs/requirements/foo-acceptance-criteria.md --doc docs/detailed-design/foo-design.md >/dev/null 2>&1); then
+  bad "response 恒出性与正文冲突未被拦截"
+else
+  ok "response 恒出性 JSON↔正文对账生效（v3.27.11）"
+fi
 if (cd "$TMP" && bash "$ROOT/scripts/s3_migration_mapping_gate.sh" C docs/数据映射/foo-映射.md 2); then ok "P2 migration fixture"; else bad "P2 migration fixture"; fi
 
 if (cd "$TMP" && bash "$ROOT/scripts/s4_first_pass_snapshot.sh" freeze foo docs/requirements/foo-acceptance-criteria.md docs/detailed-design/foo-design.md); then ok "P4 freeze fixture"; else bad "P4 freeze fixture"; fi
@@ -425,9 +463,13 @@ for dialect in h2 postgresql oracle kingbase; do
   printf 'CREATE TABLE foo (id BIGINT PRIMARY KEY, page INT);\n' > "$TMP/backend/x/src/main/resources/db/migration/$dialect/V1001__foo.sql"
 done
 # v3.16.26: p3_detail_diff.sh 已并入 p3_completion_gate.sh（不再孤立存在）
+# v3.27.15: 正文解析统一到 design_parse_lib.sh（渲染块优先 + CREATE TABLE 回退）
 if [ ! -f "$ROOT/scripts/p3_detail_diff.sh" ] \
    && grep -q 'design declares tables missing in Flyway' "$ROOT/scripts/p3_completion_gate.sh" \
-   && grep -qF 'CREATE[[:space:]]+TABLE' "$ROOT/scripts/p3_completion_gate.sh"; then
+   && grep -q 'design_tables_from_doc' "$ROOT/scripts/p3_completion_gate.sh" \
+   && grep -qF 'seed_*_menus' "$ROOT/scripts/p3_completion_gate.sh" \
+   && grep -qF '(views|pages)/' "$ROOT/scripts/p3_completion_gate.sh" \
+   && grep -qF 'CREATE TABLE' "$ROOT/scripts/design_parse_lib.sh"; then
   ok "P3 design-to-Flyway diff merged into p3_completion_gate"
 else
   bad "P3 design-to-Flyway diff merged into p3_completion_gate"
@@ -441,6 +483,42 @@ if (cd "$TMP" && bash "$ROOT/scripts/p4_prd_vs_code.sh" foo --prd docs/prd/foo.m
 else
   cat "$TMP/p4-green.out"
   bad "P4 accepts exact evidence"
+fi
+
+# v3.27.15：渲染版式（api-index 详细定义首列 / table-index 块）必须可解析——不再静默 skip
+python3 - "$TMP" <<'PYEOF'
+import sys
+from pathlib import Path
+base = Path(sys.argv[1])
+t = (base / "docs/detailed-design/foo-design.md").read_text(encoding="utf-8")
+t = t.replace(
+    "| GET | /api/foo/list | 分页列表 |",
+    "<!-- df:begin:api-index -->\n"
+    "| 详细定义 | 方法 | 路径 | 接口名称 | 权限 | 请求字段 | 响应字段 |\n"
+    "|---|---|---|---|---|---|---|\n"
+    "| §3.2.1 | GET | /api/foo/list | 分页列表 | foo:view | 1 | 1 |\n"
+    "<!-- df:end:api-index -->", 1)
+t = t.replace(
+    "CREATE TABLE foo (id BIGINT PRIMARY KEY, page INT);",
+    "<!-- df:begin:table-index -->\n"
+    "| 锚点 | 表名 | 字段数 |\n"
+    "|---|---|---|\n"
+    "| §2 | foo | 2 |\n"
+    "<!-- df:end:table-index -->", 1)
+assert "df:begin:api-index" in t and "df:begin:table-index" in t
+(base / "docs/detailed-design/foo-design-rendered.md").write_text(t, encoding="utf-8")
+PYEOF
+if (cd "$TMP" && bash "$ROOT/scripts/p4_prd_vs_code.sh" foo --prd docs/prd/foo.md --design docs/detailed-design/foo-design-rendered.md --criteria docs/requirements/foo-acceptance-criteria.md --evidence docs/test/foo-implementation-evidence.tsv --service x >p4-rendered.out 2>&1); then
+  if grep -q '详设接口数: 1' "$TMP/p4-rendered.out" \
+     && grep -q '所有详设接口已在代码中实现 (1/1)' "$TMP/p4-rendered.out" \
+     && grep -q '所有详设表的四方言 Flyway 脚本已生成' "$TMP/p4-rendered.out"; then
+    ok "P4 parses rendered api-index/table-index layout (v3.27.15)"
+  else
+    bad "P4 rendered-layout assertions missing: $(grep -E '详设接口数|详设中无接口|详设表数|详设中无' "$TMP/p4-rendered.out" | tr '\n' ' ')"
+  fi
+else
+  cat "$TMP/p4-rendered.out"
+  bad "P4 rejects rendered api-index/table-index layout (v3.27.15)"
 fi
 
 # v3.15.11: 负回归钉住——flag 吞参守卫（--prd --design x 必须拒绝而非把 --design 吞为值）
