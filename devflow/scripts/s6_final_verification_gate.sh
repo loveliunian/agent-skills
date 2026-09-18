@@ -27,6 +27,8 @@ source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
 source "$(cd "$(dirname "$0")" && pwd)/devflow_receipt.sh"
 # v3.22.0: 文档层中文化（中文优先、英文回退）
 source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
+source "$(cd "$(dirname "$0")" && pwd)/perf-track.sh"
+perf_start "P6-final"
 
 FAIL=0; PASS=0; WARN=0
 P6F_STARTED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -575,4 +577,5 @@ elif [ "$CLIENT_EXEMPT" = "1" ]; then
 else
   echo "P6-FINAL GATE: PASS（验收点 FAIL=0 + unit/integration/client/load/staging 证据齐备）"
 fi
+perf_end "P6-final"
 exit 0

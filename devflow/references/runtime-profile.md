@@ -1,6 +1,6 @@
 ---
 name: runtime-profile
-version: "3.26.9"
+version: "3.27.3"
 description: 技术栈无关的 Runtime Profile 契约——P3 前必须解析并冻结，核心流程不得假设具体框架。
 ---
 
@@ -85,3 +85,18 @@ SECURITY_GATE = PASS
 | `generic` | `references/profiles/generic.md` | 无栈假设模板，全部 adapter 需项目解析 |
 
 新增技术栈时按本契约新增 `references/profiles/<id>.md`，并在 P1 技术选型报告中登记 `PROFILE_ID` 与能力位命令；不得修改 Core 流程去适配单一技术栈。
+
+## 5. 实现状态（v3.27.1）
+
+- `PROFILE_ID` 经 `devflow-state.sh init --profile=<id>` 冻结到
+  `state.scope.profile_id`（须存在 `references/profiles/<id>.md`；未指定的历史
+  项目按参考实现 `java-spring-flyway` 处理）。
+- **命令位 Gate 化尚未完成**：P3 完成度（`p3_completion_gate.sh`）、P3-build
+  （`build-watchdog.sh`）、P4b（`p4_prd_vs_code.sh`）的 build/test/coverage/
+  flyway/orm-mapping 命令位当前只有 `java-spring-flyway` 实现。其他 profile 在
+  这三个 Gate 上 `BLOCKED(MISSING_CAPABILITY)`（`scripts/devflow_profile.sh`），
+  不会静默运行错误技术栈的命令；P1/P2 的选型描述层与 P5/P6 的运行器白名单
+  本身是栈无关的。
+- 长期路线：把上述 Gate 的字面命令抽为 Profile 声明的命令位
+  （`BUILD_CMD`/`TEST_CMD`/`COVERAGE_CMD`/…），由 Gate 读取冻结 PROFILE_ID
+  解析执行——完成后本节相应收缩。

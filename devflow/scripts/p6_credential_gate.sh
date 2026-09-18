@@ -11,6 +11,7 @@ FEATURE="${1:-}"
 [ -z "$FEATURE" ] && echo "Usage: $0 <feature>" && exit 1
 # v3.15.5: feature 白名单共享校验（devflow_feature.sh）——封堵路径穿越（../evil 写穿项目外）与 grep -E 正则注入
 source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
+source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
 devflow_feature_validate "$FEATURE" || exit 2
 STATE_DIR="${STATE_DIR:-.devflow}"
 STATE_FILE="$STATE_DIR/${FEATURE}.state.json"
@@ -36,7 +37,7 @@ gate_warn() { echo "  [WARN] $1"; WARN_COUNT=$((WARN_COUNT+1)); }
 # v3.22.0: 目录中英双语（docs/测试报告 优先，回退 docs/tests）
 REPORT=""
 P6_REPORT_DIRS=()
-for _d in docs/测试报告 docs/tests; do [ -d "$_d" ] && P6_REPORT_DIRS+=("$_d"); done
+for _d in "$(df_zh_dir tests)" "$(df_en_dir tests)"; do [ -d "$_d" ] && P6_REPORT_DIRS+=("$_d"); done
 if [ "${#P6_REPORT_DIRS[@]}" -gt 0 ]; then
   REPORT=$(find "${P6_REPORT_DIRS[@]}" \( -name "${FEATURE}-*测试报告*.md" -o -name "${FEATURE}-*-report.md" \) 2>/dev/null | head -1 || true)
 fi
@@ -58,7 +59,7 @@ fi
 # 2. 测试用例文档"前置条件"必须含凭证三要素
 # v3.22.0: 目录中英四目录双语
 CASE_DIRS=""
-for d in docs/测试用例 docs/test-cases docs/测试报告 docs/tests; do
+for d in "$(df_zh_dir testcases)" "$(df_en_dir testcases)" "$(df_zh_dir tests)" "$(df_en_dir tests)"; do
   if [ -d "$d" ]; then CASE_DIRS="$CASE_DIRS $d"; fi
 done
 CASES=""

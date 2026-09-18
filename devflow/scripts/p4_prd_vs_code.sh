@@ -14,11 +14,22 @@
 # =============================================================================
 set -u
 set -o pipefail
+# 错误处理模式（v3.27.2，见 references/script-conventions.md）：本脚本有意采用
+# 显式 exit code 检查（不走 -e）——各检查项需聚合 PASS/FAIL 计数输出确定性报告；
+# 迁移到 -euo 前须全量回归审计（存量清单见 script-conventions.md）。
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 # ---------- 参数解析 ----------
 FEATURE="${1:-}"
+# v3.27.1: Runtime Profile 能力门禁——P4b 的 backend 路径/注解匹配/pom 检查当前
+# 仅 java-spring-flyway 实现；其他 profile 在此 BLOCKED(MISSING_CAPABILITY)。
+source "$SCRIPT_DIR/devflow_profile.sh"
+source "$SCRIPT_DIR/perf-track.sh"
+perf_start "P4b"
+if ! STATE_DIR="${STATE_DIR:-.devflow}" devflow_profile_require_impl "$FEATURE" "P4b"; then
+  exit 1
+fi
 # v3.15.10: 旧 `shift 2>/dev/null || true` 实为 shift-by-1（2> 是 fd-2 重定向）——功能正确
 # 但极易被误读成 shift 2 而"修正"坏；改显式 shift
 shift || true
@@ -721,4 +732,5 @@ if [ "$PASS" -eq 0 ] && [ "$WARN" -gt 0 ]; then
 fi
 
 echo "P4 GATE: PASS"
+perf_end "P4b"
 exit 0

@@ -12,6 +12,8 @@ EFF_FEATURE="$(devflow_feature "${FEATURE:-}")" || { echo "[FATAL] feature 推�
 # P2 设计覆盖率 Gate (v3.9.1 · 含模板-产物对齐检查)
 # =============================================================================
 set -uo pipefail
+# 错误处理模式（v3.27.2，见 references/script-conventions.md）：有意显式 rc 检查
+# （§6 多探针聚合计数），暂不启用 -e；迁移前须全量回归审计。
 LC_ALL=C
 export LC_ALL
 # v3.20.2: python 子进程剥离 LC_ALL——C locale 下含非 ASCII site 配置的解释器
@@ -410,7 +412,7 @@ fi
 echo ""
 echo "=== §7 占位符 ==="
 PLACEHOLDERS=0
-for pattern in 'TODO' 'TBD' '待补充' 'REPLACE_WITH' '占位' '暂定'; do
+for pattern in 'TODO' 'TBD([^-0-9A-Za-z]|$)' '待补充' 'REPLACE_WITH' '占位([^符图]|$)' '暂定'; do
   COUNT=$(grep -iE "$pattern" "$DESIGN" 2>/dev/null | grep -c . || true)
   if [ "$COUNT" -gt 0 ]; then
     p0 "placeholder '$pattern': $COUNT"

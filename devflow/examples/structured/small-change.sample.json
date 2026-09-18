@@ -1,7 +1,10 @@
 {
   "feature": "c-sort-default",
   "generated_at": "2026-09-16T11:10:00Z",
-  "template": { "id": "小需求变更-模板", "version": "3.25.0" },
+  "template": {
+    "id": "小需求变更-模板",
+    "version": "3.27.3"
+  },
   "change_id": "c-sort-default",
   "request": "把列表默认排序改成按更新时间倒序，用户想最快看到刚改过的记录",
   "subject": "列表默认排序改为更新时间倒序",
@@ -9,8 +12,12 @@
   "old_behavior": "列表默认按创建时间倒序",
   "new_behavior": "列表默认按更新时间倒序",
   "target": "merge-ready",
-  "surfaces": ["ui"],
-  "paths": ["frontend/src/views/pay/List.vue"],
+  "surfaces": [
+    "ui"
+  ],
+  "paths": [
+    "frontend/src/views/pay/List.vue"
+  ],
   "scan": {
     "db": "MISS",
     "domain": "MISS",

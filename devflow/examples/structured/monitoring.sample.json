@@ -1,7 +1,10 @@
 {
   "feature": "demo-pay",
   "generated_at": "2026-09-16T10:55:00Z",
-  "template": { "id": "监控配置-模板", "version": "3.25.0" },
+  "template": {
+    "id": "监控配置-模板",
+    "version": "3.27.3"
+  },
   "feature_name": "演示支付",
   "date": "2026-09-16",
   "configurer": "运维-吴九",
@@ -14,32 +17,111 @@
     "alert_test_output": "docs/监控/demo-pay-alert-test.txt"
   },
   "metrics": [
-    { "name": "pay_request_total", "type": "Counter", "desc": "支付请求总数", "unit": "次" },
-    { "name": "pay_request_duration_seconds", "type": "Histogram", "desc": "支付请求耗时", "unit": "秒" },
-    { "name": "pay_error_total", "type": "Counter", "desc": "支付错误总数", "unit": "次" }
+    {
+      "name": "pay_request_total",
+      "type": "Counter",
+      "desc": "支付请求总数",
+      "unit": "次"
+    },
+    {
+      "name": "pay_request_duration_seconds",
+      "type": "Histogram",
+      "desc": "支付请求耗时",
+      "unit": "秒"
+    },
+    {
+      "name": "pay_error_total",
+      "type": "Counter",
+      "desc": "支付错误总数",
+      "unit": "次"
+    }
   ],
   "dashboards": [
-    { "panel": "请求量趋势", "source": "Prometheus", "refresh": "10s" },
-    { "panel": "响应时间 P95", "source": "Prometheus", "refresh": "10s" },
-    { "panel": "错误率", "source": "Prometheus", "refresh": "10s" }
+    {
+      "panel": "请求量趋势",
+      "source": "Prometheus",
+      "refresh": "10s"
+    },
+    {
+      "panel": "响应时间 P95",
+      "source": "Prometheus",
+      "refresh": "10s"
+    },
+    {
+      "panel": "错误率",
+      "source": "Prometheus",
+      "refresh": "10s"
+    }
   ],
   "alerts": [
-    { "name": "服务不可用", "level": "P0", "condition": "up == 0", "duration": "1m", "notify": "电话+短信" },
-    { "name": "错误率飙升", "level": "P0", "condition": "error_rate > 5%", "duration": "5m", "notify": "电话+短信" },
-    { "name": "响应慢", "level": "P1", "condition": "p95_latency > 2s", "duration": "10m", "notify": "钉钉" }
+    {
+      "name": "服务不可用",
+      "level": "P0",
+      "condition": "up == 0",
+      "duration": "1m",
+      "notify": "电话+短信"
+    },
+    {
+      "name": "错误率飙升",
+      "level": "P0",
+      "condition": "error_rate > 5%",
+      "duration": "5m",
+      "notify": "电话+短信"
+    },
+    {
+      "name": "响应慢",
+      "level": "P1",
+      "condition": "p95_latency > 2s",
+      "duration": "10m",
+      "notify": "钉钉"
+    }
   ],
   "log_standards": [
-    { "scene": "关键业务操作", "level": "INFO", "fields": "traceId, userId, operation, result" },
-    { "scene": "系统异常", "level": "ERROR", "fields": "traceId, userId, exception, stackTrace" }
+    {
+      "scene": "关键业务操作",
+      "level": "INFO",
+      "fields": "traceId, userId, operation, result"
+    },
+    {
+      "scene": "系统异常",
+      "level": "ERROR",
+      "fields": "traceId, userId, exception, stackTrace"
+    }
   ],
   "checklist": [
-    { "item": "prometheus 端点", "cmd": "curl /actuator/prometheus", "expected": "200", "actual": "200", "status": "PASS" },
-    { "item": "业务指标有数据", "cmd": "curl prometheus | grep pay_", "expected": "有数据", "actual": "pay_request_total 12", "status": "PASS" },
-    { "item": "告警规则文件", "cmd": "test -f rules/demo-pay-alerts.yml", "expected": "存在", "actual": "存在", "status": "PASS" }
+    {
+      "item": "prometheus 端点",
+      "cmd": "curl /actuator/prometheus",
+      "expected": "200",
+      "actual": "200",
+      "status": "PASS"
+    },
+    {
+      "item": "业务指标有数据",
+      "cmd": "curl prometheus | grep pay_",
+      "expected": "有数据",
+      "actual": "pay_request_total 12",
+      "status": "PASS"
+    },
+    {
+      "item": "告警规则文件",
+      "cmd": "test -f rules/demo-pay-alerts.yml",
+      "expected": "存在",
+      "actual": "存在",
+      "status": "PASS"
+    }
   ],
   "signoffs": [
-    { "role": "配置人", "name": "吴九", "date": "2026-09-16" },
-    { "role": "运维负责人", "name": "郑十", "date": "2026-09-16" }
+    {
+      "role": "配置人",
+      "name": "吴九",
+      "date": "2026-09-16"
+    },
+    {
+      "role": "运维负责人",
+      "name": "郑十",
+      "date": "2026-09-16"
+    }
   ],
   "zero_results": []
 }

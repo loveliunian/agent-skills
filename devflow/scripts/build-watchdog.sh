@@ -213,6 +213,30 @@ case "$MODE" in
     WATCH_LOG="$STATE_DIR/$FEATURE/build-watchdog.log"
     GATE_VER=$(sed -n 's/^version: "\([0-9.]*\)"/\1/p; s/^  version: "\([0-9.]*\)"/\1/p' "$(cd "$SCRIPT_DIR/.." && pwd)/SKILL.md" 2>/dev/null | head -1)
     [ -n "$GATE_VER" ] || { echo "[FATAL] 版本源读取失败，拒绝产出收据"; exit 2; }
+    # v3.27.1: Runtime Profile 能力门禁——非 java-spring-flyway profile 在此
+    # BLOCKED(MISSING_CAPABILITY) 并出 BLOCKED 收据（供 checkpoint/audit 消费）。
+    source "$SCRIPT_DIR/devflow_profile.sh"
+    PROFILE_BLOCK_MSG=""
+    if ! devflow_profile_require_impl "$FEATURE" "P3-build"; then
+      PROFILE_BLOCK_MSG="MISSING_CAPABILITY (PROFILE_ID=$(devflow_profile_of "$FEATURE"))"
+    fi
+    if [ -n "$PROFILE_BLOCK_MSG" ]; then
+      cat > "$RECEIPT" <<EOF
+VERSION=p3-build@$GATE_VER
+SKILL_TREE=$(bash "$SCRIPT_DIR/gate-skill-tree.sh" 2>/dev/null || echo unknown)
+PHASE=P3-build
+GATE=P3-build
+FEATURE=$FEATURE
+AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+EXIT_CODE=1
+PASS=
+WARN=
+FAIL=$PROFILE_BLOCK_MSG
+EOF
+      echo "[BUILD-WATCHDOG-GATE] ⛔ P3-build BLOCKED — $RECEIPT"
+      mkdir -p "docs/$FEATURE/gates/P3-build" 2>/dev/null && cp "$RECEIPT" "docs/$FEATURE/gates/P3-build/" 2>/dev/null
+      exit 1
+    fi
     run_all_checks 2>&1 | tee "$WATCH_LOG"
     WATCH_RC=${PIPESTATUS[0]}
     {

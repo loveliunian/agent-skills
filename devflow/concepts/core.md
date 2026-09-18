@@ -2,7 +2,7 @@
 name: devflow-concepts-core
 description: devflow 不可违背的铁律（true north）；规划、评审与全部 phase/command/subagent 的最高约束。
 metadata:
-  version: "3.26.9"
+  version: "3.27.3"
 ---
 
 # Concepts — True North（不可违背的铁律）
@@ -40,7 +40,7 @@ PRD → P0 需求澄清 → P0b PRD评审 → P1 技术选型 → P2 详细设�
 **铁律**：按功能垂直切片执行，不要按层级（后端→前端）水平执行。
 
 ```
-切片1 = 一组表 + 后端 API + 客户端页面 + 单测 + 平台导航/发布证据
+切片1 = 一组可独立验证的行为闭环（数据/服务/客户端/单测/可达性按 Runtime Profile 能力位组合，无客户端/持久化时可为纯逻辑切片）
 切片2 = 下一组功能...
 ```
 
@@ -55,7 +55,7 @@ PRD → P0 需求澄清 → P0b PRD评审 → P1 技术选型 → P2 详细设�
 |------|--------|-----------|
 | `backend-dev` | 写 Entity / Service / Controller / 单测 | 自评代码 |
 | `frontend-dev` | 写 PC Web、小程序或 APP 客户端与 API 调用 | 自评 |
-| `sql-dev` | 写 Flyway DDL + 菜单 seed | 自评 |
+| `sql-dev` | 写数据库迁移 DDL + 菜单 seed | 自评 |
 | `completeness-auditor` | 运行 P3-P10 gate 自检 | 写代码 |
 | `code-reviewer` | 找 P0 缺陷 | 自评 |
 | `test-engineer` | 写测试用例 / 执行测试 | 自评 |

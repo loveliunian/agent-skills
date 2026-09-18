@@ -40,6 +40,13 @@ STATE_DIR="${STATE_DIR:-.devflow}"
 API_REQUIRED="${API_REQUIRED:-1}"
 PERSISTENCE_REQUIRED="${PERSISTENCE_REQUIRED:-1}"
 COVERAGE_THRESHOLD="${COVERAGE_THRESHOLD:-80}"
+# v3.27.1: Runtime Profile 能力门禁（SKILL.md 原则 13）——build/test/coverage/
+# flyway/orm-mapping 命令位当前仅 java-spring-flyway 实现；其他 profile 在此
+# BLOCKED(MISSING_CAPABILITY)，不得静默运行错误技术栈的命令。
+source "$SCRIPT_DIR/devflow_profile.sh"
+if ! devflow_profile_require_impl "$FEATURE" "p3_completion"; then
+  exit 1
+fi
 PASS=0
 FAIL=0
 

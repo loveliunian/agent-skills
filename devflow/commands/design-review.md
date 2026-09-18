@@ -1,6 +1,6 @@
 ---
 name: design-review
-version: "3.26.9"
+version: "3.27.3"
 description: Use when reviewing a detailed design through the independent five-role P2a committee.
 paths: [docs/详细设计/**, docs/评审/**]
 allowed-tools: [read, write, exec, glob, grep, task]
@@ -27,7 +27,7 @@ allowed-tools: [read, write, exec, glob, grep, task]
 
 ## 独立评审收据（强制，v3.16.26）
 
-编排器必须两阶段产生收据（`scripts/review-receipt.sh begin` 于 spawn 前——报告文件必须尚不存在；`complete` 于各角色产物落盘后；AUTHOR + 5 角色），
+编排器必须两阶段产生收据（`scripts/review-receipt.sh begin` 于 spawn 返回 agent_id 后、报告产出前——报告文件必须尚不存在；`complete` 于各角色产物落盘后；AUTHOR + 5 角色），
 Gate 通过 `verify` 校验收据的输入/输出 SHA、时间窗与评审者独立性——**报告自报的 ID 不作为独立性证据**。
 语义调用约定见 `references/agent-runtime-adapter.md`。
 

@@ -1,17 +1,50 @@
 {
   "feature": "demo-pay",
   "generated_at": "2026-09-16T10:15:00Z",
-  "template": { "id": "PRD评审-模板", "version": "3.25.0" },
+  "template": {
+    "id": "PRD评审-模板",
+    "version": "3.27.3"
+  },
   "feature_name": "演示支付",
   "prd_doc": "docs/PRD/demo-pay.md",
   "date": "2026-09-16",
   "host": "李四",
-  "reviewers": ["业务-李四", "后端-张三", "前端-赵六", "测试-王五", "安全-钱七"],
+  "reviewers": [
+    "业务-李四",
+    "后端-张三",
+    "前端-赵六",
+    "测试-王五",
+    "安全-钱七"
+  ],
   "probes": [
-    { "id": "P1", "name": "对抗场景走查", "owner": "全员（见 AW 清单）", "executed": true, "output": "§对抗场景走查（AW-1/AW-2）" },
-    { "id": "P2", "name": "边界与极端值枚举", "owner": "测试+后端", "executed": true, "output": "§边界条件枚举（B-01/B-02）" },
-    { "id": "P4", "name": "跨产物一致性核对", "owner": "业务+测试", "executed": true, "output": "PRD↔验收点↔老系统口径差异清单已核对，支付关闭口径一致" },
-    { "id": "P5", "name": "决策 Why 链", "owner": "业务专家", "executed": true, "output": "支付渠道选型依据：费率 0.38% vs 0.6%（量化数据）" }
+    {
+      "id": "P1",
+      "name": "对抗场景走查",
+      "owner": "全员（见 AW 清单）",
+      "executed": true,
+      "output": "§对抗场景走查（AW-1/AW-2）"
+    },
+    {
+      "id": "P2",
+      "name": "边界与极端值枚举",
+      "owner": "测试+后端",
+      "executed": true,
+      "output": "§边界条件枚举（B-01/B-02）"
+    },
+    {
+      "id": "P4",
+      "name": "跨产物一致性核对",
+      "owner": "业务+测试",
+      "executed": true,
+      "output": "PRD↔验收点↔老系统口径差异清单已核对，支付关闭口径一致"
+    },
+    {
+      "id": "P5",
+      "name": "决策 Why 链",
+      "owner": "业务专家",
+      "executed": true,
+      "output": "支付渠道选型依据：费率 0.38% vs 0.6%（量化数据）"
+    }
   ],
   "ambiguity_terms": [
     {
@@ -26,15 +59,29 @@
   ],
   "no_ambiguity_evidence": "",
   "boundary_enums": [
-    { "id": "B-01", "object": "amount 字段", "values": "0/负数/小数点后 3 位/超长", "prd_defined": false, "df_ref": "DF-01" },
-    { "id": "B-02", "object": "同一订单重复创建支付单", "values": "并发重复提交", "prd_defined": true, "df_ref": "" }
+    {
+      "id": "B-01",
+      "object": "amount 字段",
+      "values": "0/负数/小数点后 3 位/超长",
+      "prd_defined": false,
+      "df_ref": "DF-01"
+    },
+    {
+      "id": "B-02",
+      "object": "同一订单重复创建支付单",
+      "values": "并发重复提交",
+      "prd_defined": true,
+      "df_ref": ""
+    }
   ],
   "aw": [
     {
       "id": "AW-1",
       "scenario": "支付回调在中途失败（网络抖动）",
       "path": "渠道回调→支付服务处理→回写支付单→返回应答失败→渠道重试",
-      "df_refs": ["DF-01"],
+      "df_refs": [
+        "DF-01"
+      ],
       "evidence_anchor": ""
     },
     {
@@ -61,7 +108,13 @@
     }
   ],
   "sf": [
-    { "id": "SF-01", "title": "文案错别字", "role": "测试", "doc_anchor": "§1.2", "suggestion": "「支付单」统一写法" }
+    {
+      "id": "SF-01",
+      "title": "文案错别字",
+      "role": "测试",
+      "doc_anchor": "§1.2",
+      "suggestion": "「支付单」统一写法"
+    }
   ],
   "zero_df_roles": [
     {
@@ -93,11 +146,25 @@
   "leftovers": [],
   "conclusion_passed": true,
   "signoffs": [
-    { "role": "产品经理", "name": "李四", "date": "2026-09-16" },
-    { "role": "开发负责人", "name": "张三", "date": "2026-09-16" }
+    {
+      "role": "产品经理",
+      "name": "李四",
+      "date": "2026-09-16"
+    },
+    {
+      "role": "开发负责人",
+      "name": "张三",
+      "date": "2026-09-16"
+    }
   ],
   "zero_results": [
-    { "path": "risks", "reason": "评审未识别到需登记的项目级风险" },
-    { "path": "leftovers", "reason": "全部 DF 已闭环，无遗留项" }
+    {
+      "path": "risks",
+      "reason": "评审未识别到需登记的项目级风险"
+    },
+    {
+      "path": "leftovers",
+      "reason": "全部 DF 已闭环，无遗留项"
+    }
   ]
 }

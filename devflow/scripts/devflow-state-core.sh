@@ -381,6 +381,9 @@ cmd_init() {
   shift
   local frontend_scope="pc-web"
   local frontend_dir="frontend"
+  # v3.27.1: Runtime Profile 冻结（未指定时缺省参考实现 java-spring-flyway，
+  # 向后兼容历史项目；须存在 references/profiles/<id>.md，fail-closed）
+  local profile_id="java-spring-flyway"
   for arg in "$@"; do
     case "$arg" in
       --frontend=required|--frontend=web|--frontend=pc-web) frontend_scope="pc-web" ;;
@@ -388,7 +391,17 @@ cmd_init() {
       --frontend=app) frontend_scope="app"; frontend_dir="app" ;;
       --frontend=not-applicable) frontend_scope="not-applicable"; frontend_dir="" ;;
       --frontend-dir=*) frontend_dir="${arg#--frontend-dir=}" ;;
-      *) error "init 参数无效: ${arg}（--frontend=pc-web|mini-program|app|not-applicable；可选 --frontend-dir=<path>）"; return 2 ;;
+      --profile=*)
+        profile_id="${arg#--profile=}"
+        case "$profile_id" in
+          ''|*[!A-Za-z0-9._-]*) error "init 参数无效: --profile=<id>（id 须为 [A-Za-z0-9._-]）"; return 2 ;;
+        esac
+        if [ ! -f "$SKILL_ROOT/references/profiles/${profile_id}.md" ]; then
+          error "--profile=$profile_id 不存在对应 Profile 文件（references/profiles/${profile_id}.md）；可用: $(cd "$SKILL_ROOT/references/profiles" 2>/dev/null && ls *.md 2>/dev/null | sed 's/\.md$//' | tr '\n' ' ')"
+          return 2
+        fi
+        ;;
+      *) error "init 参数无效: ${arg}（--frontend=pc-web|mini-program|app|not-applicable；可选 --frontend-dir=<path>、--profile=<id>）"; return 2 ;;
     esac
   done
   if [ "$frontend_scope" = "not-applicable" ] && [ -n "$frontend_dir" ]; then
@@ -456,6 +469,7 @@ cmd_init() {
   "scope": {
     "frontend": "FRONTEND_SCOPE_PLACEHOLDER",
     "frontend_dir": "FRONTEND_DIR_PLACEHOLDER",
+    "profile_id": "PROFILE_PLACEHOLDER",
     "client_manifest_sha256": null
   },
   
@@ -480,12 +494,13 @@ JEOF
 
   # 替换占位符 (jq 方式,跨平台兼容,无 .bak 残留)
   # 注:链式 | 后 . 会变为子元素;采用"重新赋值子结构"方式,避免路径变更
-  jq --arg feature "$feature" --arg now "$now" --arg frontend_scope "$frontend_scope" --arg frontend_dir "$frontend_dir" --arg ver "$(devflow_version)" \
+  jq --arg feature "$feature" --arg now "$now" --arg frontend_scope "$frontend_scope" --arg frontend_dir "$frontend_dir" --arg ver "$(devflow_version)" --arg profile "$profile_id" \
      '.version = $ver | .feature = $feature
      | .created_at = $now
      | .updated_at = $now
      | .scope.frontend = $frontend_scope
      | .scope.frontend_dir = $frontend_dir
+     | .scope.profile_id = $profile
      | .phases = (.phases | to_entries
          | map(.value.started_at = (if .value.started_at == "NOW_PLACEHOLDER" then $now else .value.started_at end))
          | from_entries)
@@ -534,6 +549,7 @@ JEOF
   echo "  状态文件: $state_file"
   echo "  Gate 目录: $STATE_DIR/${feature}/gates/"
   echo "  前端范围: $frontend_scope"
+  echo "  Runtime Profile: $profile_id"
   [ -n "$frontend_dir" ] && echo "  客户端目录: $frontend_dir"
   return 0
 }

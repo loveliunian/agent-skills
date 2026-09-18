@@ -29,6 +29,9 @@ perm_extract_codes() { # <file> -> stdout 每行一个
   [ -f "$1" ] || return 0
   grep -oE 'perm:[a-zA-Z0-9_:.-]+' "$1" 2>/dev/null | sed 's/^perm://' || true
   grep -oE '`[a-zA-Z][a-zA-Z0-9_-]*:[a-zA-Z][a-zA-Z0-9_-]*:[a-zA-Z][a-zA-Z0-9_-]*`' "$1" 2>/dev/null | tr -d '`' || true
+  # v3.27.1(L-EFF-001): 两段式反引号码也纳入对账——此前静默忽略导致"澄清有码/矩阵无码"
+  # 类漂移只剩单侧可见，排查多轮。两段/三段各自闭合匹配，互不误吞。
+  grep -oE '`[a-zA-Z][a-zA-Z0-9_-]*:[a-zA-Z][a-zA-Z0-9_-]*`' "$1" 2>/dev/null | tr -d '`' || true
 }
 
 perm_matrix_declared_not_applicable() { # <clarify> -> rc0 当且仅当显式声明

@@ -1,0 +1,73 @@
+{
+  "feature": "demo-pay",
+  "generated_at": "2026-09-17T10:00:00Z",
+  "template": {
+    "id": "执行契约",
+    "version": "3.27.3"
+  },
+  "tasks": [
+    {
+      "task_id": "T-01",
+      "acceptance_ids": [
+        "M-01-F01-A01"
+      ],
+      "design_refs": [
+        "anchor: api-contracts §3.2.1",
+        "anchor: business-rules R1"
+      ],
+      "target": "PayController#create",
+      "action": "MODIFY",
+      "invariants": "响应结构不得变化；幂等键校验不得移除",
+      "verify": "PayControllerTest#create",
+      "risk": "MEDIUM",
+      "depends_on": []
+    },
+    {
+      "task_id": "T-02",
+      "acceptance_ids": [
+        "M-01-F01-A01"
+      ],
+      "design_refs": [
+        "anchor: data-model §2.2.1"
+      ],
+      "target": "PayMapper.xml#insert",
+      "action": "MODIFY",
+      "invariants": "不得引入 N+1",
+      "verify": "PayMapperTest#insert",
+      "risk": "LOW",
+      "depends_on": []
+    },
+    {
+      "task_id": "T-03",
+      "acceptance_ids": [
+        "M-01-F01-A01"
+      ],
+      "design_refs": [
+        "anchor: implementation-handoff §14.2"
+      ],
+      "target": "PayControllerTest",
+      "action": "ADD",
+      "verify": "PayControllerTest",
+      "risk": "LOW",
+      "depends_on": [
+        "T-01"
+      ]
+    }
+  ],
+  "slices": [
+    {
+      "slice_id": "S-01",
+      "task_ids": [
+        "T-01",
+        "T-02",
+        "T-03"
+      ],
+      "description": "支付创建行为闭环（API + Mapper + Test）",
+      "components": [
+        "backend",
+        "test"
+      ]
+    }
+  ],
+  "report_path": "任务/执行契约.md"
+}

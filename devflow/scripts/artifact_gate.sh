@@ -136,7 +136,7 @@ case "$PHASE" in
             gsub(/[- \t:]/, "", r)
             gsub(/\302\247/, "", r)
             gsub(/\357\274\232/, "", r)
-            if (r ~ /^[0-9]+\.[0-9]+$/) floc=0
+            if (r ~ /^[0-9]+(\.[0-9]+)*$/) floc=0
           }
         }
         END { if (inblock && (fsce || fimp || fsug || fver || floc)) { bad++ }; print bad }

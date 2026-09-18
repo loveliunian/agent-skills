@@ -1,7 +1,10 @@
 {
   "feature": "demo-pay",
   "generated_at": "2026-09-16T10:30:00Z",
-  "template": { "id": "完成度自检报告-模板", "version": "3.25.0" },
+  "template": {
+    "id": "完成度自检报告-模板",
+    "version": "3.27.3"
+  },
   "feature_name": "演示支付",
   "phase": "P3",
   "phase_name": "规范实现",
@@ -49,9 +52,16 @@
     }
   ],
   "signoffs": [
-    { "role": "completeness-auditor", "name": "审计代理", "date": "2026-09-16" }
+    {
+      "role": "completeness-auditor",
+      "name": "审计代理",
+      "date": "2026-09-16"
+    }
   ],
   "zero_results": [
-    { "path": "unfixed", "reason": "无未修复 P1/P2 项" }
+    {
+      "path": "unfixed",
+      "reason": "无未修复 P1/P2 项"
+    }
   ]
 }

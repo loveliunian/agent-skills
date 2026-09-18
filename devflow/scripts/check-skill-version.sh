@@ -105,5 +105,15 @@ else
   echo "[PASS] 模板正文版本字面量无漂移"
 fi
 
+# v3.27.2: sample template.version 对齐——structured samples 的 template.version 必须等于当前版本
+for _sf in "$ROOT"/examples/structured/*.sample.json; do
+  [ -f "$_sf" ] || continue
+  _sv=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('template',{}).get('version',''))" "$_sf" 2>/dev/null || echo "")
+  if [ -n "$_sv" ] && [ "$_sv" != "$EXPECTED" ]; then
+    echo "[FAIL] sample template.version 漂移: ${_sf#$ROOT/} ($_sv != $EXPECTED)"
+    FAIL=$((FAIL + 1))
+  fi
+done
+
 echo "VERSION GATE: expected=$EXPECTED fail=$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

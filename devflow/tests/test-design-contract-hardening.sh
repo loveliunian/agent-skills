@@ -141,7 +141,7 @@ python3 - <<'PYEOF'
 from pathlib import Path
 t = Path("doc.md").read_text(encoding="utf-8")
 table = "\n| 字段名 | 类型 | 约束 | 默认值 | 口径说明 |\n|---|---|---|---|---|\n| order_no | BOOLEAN | PK | — | 冲突类型 |\n"
-t = t.replace("### 2.1 支付订单表（pay_order）\n", "### 2.1 支付订单表（pay_order）\n" + table, 1)
+t = t.replace("### 2.2.1 支付订单表（pay_order）\n", "### 2.2.1 支付订单表（pay_order）\n" + table, 1)
 Path("doc-typeconflict.md").write_text(t, encoding="utf-8")
 PYEOF
 assert_out "冲突" "JSON type vs doc table type conflict rejected (A03)" \
@@ -160,8 +160,8 @@ python3 - <<'PYEOF'
 import re
 from pathlib import Path
 t = Path("doc.md").read_text(encoding="utf-8")
-t = re.sub(r"(### 2\.1 支付订单表（pay_order）\n)(.*?)(### 2\.2)", r"\1\3", t, flags=re.S)
-t = re.sub(r"(### 7\.1 下单页\n)(.*?)(### 7\.2)", r"\1\3", t, flags=re.S)
+t = re.sub(r"(### 2\.2\.1 支付订单表（pay_order）\n)(.*?)(### 2\.2\.2)", r"\1\3", t, flags=re.S)
+t = re.sub(r"(### 7\.1\.1 下单页\n)(.*?)(### 7\.1\.2)", r"\1\3", t, flags=re.S)
 Path("doc-hollow.md").write_text(t, encoding="utf-8")
 PYEOF
 assert_out "空壳" "headings-only section rejected as hollow (A03)" \
@@ -183,8 +183,8 @@ assert_out "约束" "doc table constraint column conflict rejected (A03)" \
 python3 - <<'PYEOF'
 import json
 d = json.load(open("design.json"))
-d["acceptance"][0]["page"] = ["§7.1", "§7.2"]
-d["acceptance"][0]["api"] = ["§3.1"]
+d["acceptance"][0]["page"] = ["§7.1.1", "§7.1.2"]
+d["acceptance"][0]["api"] = ["§3.2.1"]
 json.dump(d, open("d-multiref.json", "w"), ensure_ascii=False)
 PYEOF
 check_rc 0 "acceptance row may reference multiple objects via arrays (A04)" \
@@ -192,7 +192,7 @@ check_rc 0 "acceptance row may reference multiple objects via arrays (A04)" \
 python3 - <<'PYEOF'
 import json
 d = json.load(open("design.json"))
-d["acceptance"][0]["page"] = ["§7.1", "§7.99"]
+d["acceptance"][0]["page"] = ["§7.1.1", "§7.99"]
 json.dump(d, open("d-multiref-bad.json", "w"), ensure_ascii=False)
 PYEOF
 assert_out "引用断链" "array reference with dangling element rejected (A04)" \
@@ -385,7 +385,7 @@ else
 fi
 printf '%s' "$S2_PURE" | grep -q "exempted" && ok "s2 reports five/six-column exemption (A06)" || bad "s2 exemption reporting missing"
 # 负向：冻结 frontend 漂移（state=not-applicable，design.json 声明 pc-web）→ P0
-python3 -c "import json; p='$WS2/.devflow/pure/design.json'; d=json.load(open(p)); d['client']={'scope':'pc-web','journeys':[{'name':'x','page':'§7.1','evidence':'真实浏览器'}]}; d['zero_results']=[z for z in d['zero_results'] if z['path']!='pages']; d['pages']=[{'anchor':'§7.1','name':'计算页','permission':'pure:view'}]; json.dump(d, open(p,'w'), ensure_ascii=False)"
+python3 -c "import json; p='$WS2/.devflow/pure/design.json'; d=json.load(open(p)); d['client']={'scope':'pc-web','journeys':[{'name':'x','page':'§7.1.1','evidence':'真实浏览器'}]}; d['zero_results']=[z for z in d['zero_results'] if z['path']!='pages']; d['pages']=[{'anchor':'§7.1.1','name':'计算页','permission':'pure:view'}]; json.dump(d, open(p,'w'), ensure_ascii=False)"
 printf '\n### 7.1 计算页\n计算页正文与权限说明。\n' >> "$WS2/docs/详细设计/pure-详细设计.md"
 S2_DRIFT=$(cd "$WS2" && bash "$ROOT/scripts/s2_design_coverage_gate.sh" docs/详细设计/pure-详细设计.md docs/需求/pure-验收点.md 2>&1 || true)
 printf '%s' "$S2_DRIFT" | grep -q "client scope drift" && ok "s2 rejects frozen frontend drift (A06)" || bad "s2 missed client scope drift (A06)"

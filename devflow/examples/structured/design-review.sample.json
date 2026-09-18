@@ -1,7 +1,10 @@
 {
   "feature": "demo-pay",
   "generated_at": "2026-09-16T10:25:00Z",
-  "template": { "id": "详细设计评审报告-模板", "version": "3.25.0" },
+  "template": {
+    "id": "详细设计评审报告-模板",
+    "version": "3.27.3"
+  },
   "feature_name": "演示支付",
   "design_doc": "docs/详细设计/demo-pay-详细设计.md",
   "prd_doc": "docs/PRD/demo-pay.md",
@@ -10,39 +13,162 @@
   "mode": "委员会评审",
   "run_id": "REV-20260916-001",
   "committee": [
-    { "role": "架构师", "reviewer": "老周", "org": "架构组" },
-    { "role": "后端专家", "reviewer": "张三", "org": "服务端组" },
-    { "role": "前端专家", "reviewer": "赵六", "org": "前端组" },
-    { "role": "测试开发", "reviewer": "王五", "org": "测试组" },
-    { "role": "DBA", "reviewer": "孙八", "org": "数据组" }
+    {
+      "role": "架构师",
+      "reviewer": "老周",
+      "org": "架构组"
+    },
+    {
+      "role": "后端专家",
+      "reviewer": "张三",
+      "org": "服务端组"
+    },
+    {
+      "role": "前端专家",
+      "reviewer": "赵六",
+      "org": "前端组"
+    },
+    {
+      "role": "测试开发",
+      "reviewer": "王五",
+      "org": "测试组"
+    },
+    {
+      "role": "DBA",
+      "reviewer": "孙八",
+      "org": "数据组"
+    }
   ],
   "receipts": [
-    { "role": "架构师", "reviewer_id": "rev-arch-001", "session_id": "REV-20260916-001", "conclusion": "✅" },
-    { "role": "后端专家", "reviewer_id": "rev-be-001", "session_id": "REV-20260916-001", "conclusion": "✅" },
-    { "role": "前端专家", "reviewer_id": "rev-fe-001", "session_id": "REV-20260916-001", "conclusion": "✅" },
-    { "role": "测试开发", "reviewer_id": "rev-qa-001", "session_id": "REV-20260916-001", "conclusion": "✅" },
-    { "role": "DBA", "reviewer_id": "rev-dba-001", "session_id": "REV-20260916-001", "conclusion": "✅" }
+    {
+      "role": "架构师",
+      "reviewer_id": "rev-arch-001",
+      "session_id": "REV-20260916-001",
+      "conclusion": "✅"
+    },
+    {
+      "role": "后端专家",
+      "reviewer_id": "rev-be-001",
+      "session_id": "REV-20260916-001",
+      "conclusion": "✅"
+    },
+    {
+      "role": "前端专家",
+      "reviewer_id": "rev-fe-001",
+      "session_id": "REV-20260916-001",
+      "conclusion": "✅"
+    },
+    {
+      "role": "测试开发",
+      "reviewer_id": "rev-qa-001",
+      "session_id": "REV-20260916-001",
+      "conclusion": "✅"
+    },
+    {
+      "role": "DBA",
+      "reviewer_id": "rev-dba-001",
+      "session_id": "REV-20260916-001",
+      "conclusion": "✅"
+    }
   ],
   "quality_four": [
-    { "element": "成熟组件复用（有轮子禁止自研）", "design_anchor": "§12.1", "owner_role": "架构师", "pass": true, "issue_ref": "" },
-    { "element": "公共服务/组件抽取登记", "design_anchor": "§12.2", "owner_role": "架构师", "pass": true, "issue_ref": "" },
-    { "element": "规范遵循（默认阿里巴巴 Java 开发手册）", "design_anchor": "§13", "owner_role": "后端专家", "pass": true, "issue_ref": "" },
-    { "element": "设计决策记录 DDR", "design_anchor": "§2.3", "owner_role": "DBA", "pass": true, "issue_ref": "" }
+    {
+      "element": "成熟组件复用（有轮子禁止自研）",
+      "design_anchor": "§12.1",
+      "owner_role": "架构师",
+      "pass": true,
+      "issue_ref": ""
+    },
+    {
+      "element": "公共服务/组件抽取登记",
+      "design_anchor": "§12.2",
+      "owner_role": "架构师",
+      "pass": true,
+      "issue_ref": ""
+    },
+    {
+      "element": "规范遵循（默认阿里巴巴 Java 开发手册）",
+      "design_anchor": "§13",
+      "owner_role": "后端专家",
+      "pass": true,
+      "issue_ref": ""
+    },
+    {
+      "element": "设计决策记录 DDR",
+      "design_anchor": "§2.3",
+      "owner_role": "DBA",
+      "pass": true,
+      "issue_ref": ""
+    }
   ],
   "ddr_questions": [
-    { "ddr_id": "DDR-1", "topic": "幂等键采用 order_no+渠道", "holds": true, "comment": "理由成立：重复回调率实测 0.7%（渠道月报），业务口径要求幂等" }
+    {
+      "ddr_id": "DDR-1",
+      "topic": "幂等键采用 order_no+渠道",
+      "holds": true,
+      "comment": "理由成立：重复回调率实测 0.7%（渠道月报），业务口径要求幂等"
+    }
   ],
   "probes": [
-    { "id": "P1", "name": "对抗场景走查", "owner": "全员", "executed": true, "output": "§对抗场景走查（AW-1~AW-3）" },
-    { "id": "P2", "name": "边界与极端值枚举", "owner": "后端+DBA+测试开发", "executed": true, "output": "§边界条件枚举（B-01/B-02）" },
-    { "id": "P3", "name": "状态机×异常分支矩阵", "owner": "测试开发+后端专家", "executed": true, "output": "状态机矩阵 5×4 全覆盖，见评审会议记录" },
-    { "id": "P4", "name": "跨产物一致性核对", "owner": "架构师牵头", "executed": true, "output": "详设↔PRD↔验收点三方一致" },
-    { "id": "P5", "name": "决策 Why 链", "owner": "DBA+架构师", "executed": true, "output": "§DBA 核问表（DDR-1 理由成立）" },
-    { "id": "P6", "name": "数据量与时间演化", "owner": "DBA+架构师", "executed": true, "output": "支付单年增量 200w，归档策略已写入 §14" },
-    { "id": "CODE-BASELINE", "name": "代码基线核验", "owner": "架构师+后端专家", "executed": false, "output": "", "not_applicable_reason": "详设基线全为 ADD（绿地模块），无 REUSE/MODIFY/DELETE 目标需核验" }
+    {
+      "id": "P1",
+      "name": "对抗场景走查",
+      "owner": "全员",
+      "executed": true,
+      "output": "§对抗场景走查（AW-1~AW-3）"
+    },
+    {
+      "id": "P2",
+      "name": "边界与极端值枚举",
+      "owner": "后端+DBA+测试开发",
+      "executed": true,
+      "output": "§边界条件枚举（B-01/B-02）"
+    },
+    {
+      "id": "P3",
+      "name": "状态机×异常分支矩阵",
+      "owner": "测试开发+后端专家",
+      "executed": true,
+      "output": "状态机矩阵 5×4 全覆盖，见评审会议记录"
+    },
+    {
+      "id": "P4",
+      "name": "跨产物一致性核对",
+      "owner": "架构师牵头",
+      "executed": true,
+      "output": "详设↔PRD↔验收点三方一致"
+    },
+    {
+      "id": "P5",
+      "name": "决策 Why 链",
+      "owner": "DBA+架构师",
+      "executed": true,
+      "output": "§DBA 核问表（DDR-1 理由成立）"
+    },
+    {
+      "id": "P6",
+      "name": "数据量与时间演化",
+      "owner": "DBA+架构师",
+      "executed": true,
+      "output": "支付单年增量 200w，归档策略已写入 §14"
+    },
+    {
+      "id": "CODE-BASELINE",
+      "name": "代码基线核验",
+      "owner": "架构师+后端专家",
+      "executed": false,
+      "output": "",
+      "not_applicable_reason": "详设基线全为 ADD（绿地模块），无 REUSE/MODIFY/DELETE 目标需核验"
+    }
   ],
   "boundary_enums": [
-    { "id": "B-01", "object": "pay_order.amount", "values": "0/负数/两位小数/超长", "prd_defined": true, "df_ref": "" }
+    {
+      "id": "B-01",
+      "object": "pay_order.amount",
+      "values": "0/负数/两位小数/超长",
+      "prd_defined": true,
+      "df_ref": ""
+    }
   ],
   "aw": [
     {
@@ -63,7 +189,9 @@
       "id": "AW-3",
       "scenario": "越权关闭他人支付单",
       "path": "伪造 close 请求→鉴权层校验 pay:close→403",
-      "df_refs": ["DF-01"],
+      "df_refs": [
+        "DF-01"
+      ],
       "evidence_anchor": ""
     }
   ],
@@ -84,26 +212,83 @@
   ],
   "sf": [],
   "zero_df_roles": [
-    { "role": "前端专家", "scope": "核查了支付表单校验与防重复提交交互", "evidence_anchor": "§7.1", "verify": "走查 AW-2 已覆盖并发提交" },
-    { "role": "测试开发", "scope": "核查了状态机矩阵与异常分支可测性", "evidence_anchor": "§9", "verify": "P3 探针输出：每分支均有验证方式" },
-    { "role": "后端专家", "scope": "核查了幂等实现与事务边界", "evidence_anchor": "§3.2", "verify": "走查 AW-1 回调重投场景已被幂等键拦截" },
-    { "role": "DBA", "scope": "核查了索引设计与数据量演化", "evidence_anchor": "§14", "verify": "P6 探针输出：年增 200w 归档策略已声明" }
+    {
+      "role": "前端专家",
+      "scope": "核查了支付表单校验与防重复提交交互",
+      "evidence_anchor": "§7.1",
+      "verify": "走查 AW-2 已覆盖并发提交"
+    },
+    {
+      "role": "测试开发",
+      "scope": "核查了状态机矩阵与异常分支可测性",
+      "evidence_anchor": "§9",
+      "verify": "P3 探针输出：每分支均有验证方式"
+    },
+    {
+      "role": "后端专家",
+      "scope": "核查了幂等实现与事务边界",
+      "evidence_anchor": "§3.2",
+      "verify": "走查 AW-1 回调重投场景已被幂等键拦截"
+    },
+    {
+      "role": "DBA",
+      "scope": "核查了索引设计与数据量演化",
+      "evidence_anchor": "§14",
+      "verify": "P6 探针输出：年增 200w 归档策略已声明"
+    }
   ],
   "severity_revisions": [],
-  "traceability": { "criteria_total": 3, "design_ids": 3, "coverage_pct": 100 },
+  "traceability": {
+    "criteria_total": 3,
+    "design_ids": 3,
+    "coverage_pct": 100
+  },
   "leftovers": [],
   "conclusion_passed": true,
   "signoffs": [
-    { "role": "架构师", "name": "老周", "date": "2026-09-16" },
-    { "role": "后端专家", "name": "张三", "date": "2026-09-16" },
-    { "role": "前端专家", "name": "赵六", "date": "2026-09-16" },
-    { "role": "测试开发", "name": "王五", "date": "2026-09-16" },
-    { "role": "DBA", "name": "孙八", "date": "2026-09-16" },
-    { "role": "评审主持人", "name": "老周", "date": "2026-09-16" }
+    {
+      "role": "架构师",
+      "name": "老周",
+      "date": "2026-09-16"
+    },
+    {
+      "role": "后端专家",
+      "name": "张三",
+      "date": "2026-09-16"
+    },
+    {
+      "role": "前端专家",
+      "name": "赵六",
+      "date": "2026-09-16"
+    },
+    {
+      "role": "测试开发",
+      "name": "王五",
+      "date": "2026-09-16"
+    },
+    {
+      "role": "DBA",
+      "name": "孙八",
+      "date": "2026-09-16"
+    },
+    {
+      "role": "评审主持人",
+      "name": "老周",
+      "date": "2026-09-16"
+    }
   ],
   "zero_results": [
-    { "path": "sf", "reason": "本轮评审无表层发现" },
-    { "path": "leftovers", "reason": "DF-01 已修复闭环，无遗留项" },
-    { "path": "severity_revisions", "reason": "无严重性修订记录" }
+    {
+      "path": "sf",
+      "reason": "本轮评审无表层发现"
+    },
+    {
+      "path": "leftovers",
+      "reason": "DF-01 已修复闭环，无遗留项"
+    },
+    {
+      "path": "severity_revisions",
+      "reason": "无严重性修订记录"
+    }
   ]
 }

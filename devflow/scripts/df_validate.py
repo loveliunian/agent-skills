@@ -72,6 +72,7 @@ _DEFAULT_SCHEMAS = {
     "sharing": _SCHEMA_DIR / "sharing.schema.json",
     "demo-signoff": _SCHEMA_DIR / "demo-signoff.schema.json",
     "small-change": _SCHEMA_DIR / "small-change.schema.json",
+    "execution-plan": _SCHEMA_DIR / "execution-plan.schema.json",
 }
 
 
@@ -179,8 +180,13 @@ def validate(instance, schema, root, path="", errors=None):
 
 # ---------- 通用工具 ----------
 
+# v3.27.1(L-EFF-001)：占位话术误伤收敛——「移除授权需确认」「TBD-07 文档引用」「占位符」等
+# 合法中文/编号不再命中；保留明确占位语义（TODO/TBD/待补充/【待确认】/占位非符/暂定…）
 _PLACEHOLDER_RE = re.compile(
-    r"TODO|TBD|FIXME|待补充|待定|待确认|需确认|待验证|取决于数据|REPLACE_WITH|占位|暂定|XXX"
+    r"TODO(?![-0-9A-Za-z])|TBD(?![-0-9A-Za-z])|FIXME(?![-0-9A-Za-z])"
+    r"|待补充|REPLACE_WITH|占位(?!符|图)|暂定"
+    r"|【待确认|待确认】|待确认：|【待定|待定】|待定：|【需确认|需确认】|需确认："
+    r"|【待验证|待验证】|待验证：|XXX(?![-0-9A-Za-z])"
 )
 
 
@@ -937,6 +943,31 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace="", 
                 f"（同 § 下多表/多页并存合法，但同锚同名即同一对象被登记两次——证据位多义）"
             )
 
+    # 0b. 锚点具体化（v3.26.10 · L-P2-004）：m01-foundation 项目七问题复盘——
+    # 追溯矩阵页面/接口/数据列写通用锚点（§7.1/§3.1/§2.2）无法与上文具体条目对上；
+    # 表/页/接口必须各自持有独立编号锚点（§2.2.N/§7.1.N/§3.2.N），接口 anchor 必须
+    # 等于详细定义锚点（概览列已前置详细定义，不再有"概览锚点"位）。
+    for _coll in ("pages", "tables"):
+        _seen = {}
+        for _x in data.get(_coll, []):
+            _a = _x.get("anchor")
+            if _a:
+                _seen.setdefault(_a, []).append(_x.get("name") or _x.get("id") or "")
+        for _a, _names in sorted(_seen.items()):
+            if len(_names) > 1:
+                errors.append(
+                    f"{_coll}[] 锚点 {_a!r} 被 {len(_names)} 个条目共用: {sorted(_names)[:3]}…"
+                    f"（L-P2-004：每个页面/表必须有独立编号锚点 §7.1.N/§2.2.N——"
+                    f"追溯矩阵与表索引按锚点定位到具体条目，共用锚点即断链）"
+                )
+    for _i, _a in enumerate(data.get("apis", [])):
+        if _a.get("anchor") and _a.get("detail_anchor") and _a["anchor"] != _a["detail_anchor"]:
+            errors.append(
+                f"apis[{_i}]({_a.get('name')}).anchor={_a['anchor']!r} != detail_anchor={_a['detail_anchor']!r}"
+                f"（L-P2-004：接口概览已删除概览锚点列、详细定义前置——anchor 必须直接登记 §3.2.N，"
+                f"不得再写概览级 §3.1）"
+            )
+
     # 1. 验收点 ID 唯一
     ids = [a.get("id") for a in acceptance]
     dups = sorted({i for i in ids if ids.count(i) > 1})
@@ -1126,6 +1157,8 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace="", 
         # v3.24.0(A03/A04)：嵌套锚点闭环 + JSON↔正文事实对账（字段/类型/约束冲突、空壳小节、WHEN 逐字契约）
         check_nested_anchors(doc_view, errors, doc_path)
         check_doc_content_agreement(doc_view, errors, doc_path)
+        # v3.27.1(L-P2-004 续)：三处模板引导升级为硬校验
+        check_design_doc_specificity(doc_view, errors, doc_path)
 
     # 9c. PRD 来源存在性（v3.24.0 A04）
     check_prd_sources(data, errors, criteria_path=criteria_path, workspace=workspace)
@@ -1652,6 +1685,59 @@ def check_review(data, errors, kind):
                         f"{where}: 严重性 {rev.get('from')}→{rev.get('to')} 但缺修订理由或确认评委"
                         f"（无理由改轻视为绕过关闭义务）"
                     )
+
+
+def check_design_doc_specificity(data, errors, doc_path):
+    """v3.27.1(L-P2-004 续)：三处模板引导升级为硬校验——
+    ① §7.3 页组小节数 ≥ 页面数（关键页面交互必须覆盖 §7.1 全部页面）；
+    ② 规则锚点禁止单一化（全部规则堆在同一 § 锚点即失去导航价值）；
+    ③ §3.2 每个详细定义小节标题下首行含 '> 说明：方法 路径｜权限：'（标题只写编号+名称）。"""
+    p = Path(doc_path)
+    if not p.is_file():
+        return
+    lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+    heads = set()
+    infence = False
+    for ln in lines:
+        st = ln.strip()
+        if st.startswith("```") or st.startswith("~~~"):
+            infence = not infence
+            continue
+        if infence:
+            continue
+        m = _API_DETAIL_HEADING_RE.match(st)
+        if m:
+            heads.add(m.group(1))
+    pages = data.get("pages", [])
+    if pages:
+        n_groups = sum(1 for h in heads if re.match(r"^7\.3\.\d+$", h))
+        if n_groups < len(pages):
+            errors.append(
+                f"§7.3 页组小节 {n_groups} 个 < 页面数 {len(pages)}"
+                f"（L-P2-004：§7.3 关键页面交互设计必须覆盖 §7.1 全部页面，每页一组 7.3.N；"
+                f"确无独立交互的页面可合并说明但须逐页点名）")
+    rules = data.get("rules", [])
+    if len(rules) >= 5:
+        r_anchors = {r.get("anchor") for r in rules if r.get("anchor")}
+        if len(r_anchors) == 1:
+            errors.append(
+                f"rules[] 锚点单一化：{len(rules)} 条规则全部落在 {next(iter(r_anchors))!r}"
+                f"（L-P2-004：规则锚点应落到所属小节 §2.2.N/§3.2.N/§6.2.N…，"
+                f"并把 WHEN 行逐字注入锚点小节——全堆在同一锚点即失去导航价值）")
+    apis = data.get("apis", [])
+    if apis:
+        sections_raw = _doc_sections(p)[1]
+        for i, a in enumerate(apis):
+            key = (a.get("detail_anchor") or "").lstrip("§")
+            sec = sections_raw.get(key)
+            if sec is None:
+                continue  # 缺小节已由 check_api_detail_closure 报告
+            method = (a.get("method") or "").strip()
+            path = (a.get("path") or "").split("（")[0].strip()
+            if ("> 说明：" not in sec) or (method and method not in sec) or (path and path not in sec):
+                errors.append(
+                    f"apis[{i}]({a.get('name')}) 详细定义小节 §{key} 缺 '> 说明：方法 路径｜权限：' 首行"
+                    f"（L-P2-004：§3.2 标题只写编号+名称，方法/路径/权限必须放标题下说明行）")
 
 
 def check_tech_selection(data, errors, constraints_path=None, workspace=""):

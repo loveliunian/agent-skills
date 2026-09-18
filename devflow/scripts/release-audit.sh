@@ -303,6 +303,15 @@ done < <(find "$ROOT/scripts" "$ROOT/hooks" "$ROOT/tests" -type f -name '*.sh' !
 
 if bash "$ROOT/hooks/pre-commit-devflow.sh" --self-test >/dev/null 2>&1; then
   pass "pre-commit hook self-test"
+
+# v3.27.2: Contract Registry 一致性 linter（审查报告 P0-1——sample/probe/spawn/core 漂移自动拦截）
+if command -v python3 >/dev/null 2>&1; then
+  if python3 "$ROOT/scripts/check-contract-consistency.py" >/dev/null 2>&1; then
+    pass "contract consistency linter"
+  else
+    fail "contract consistency linter failed (run: python3 scripts/check-contract-consistency.py)"
+  fi
+fi
 else
   fail "pre-commit hook self-test failed"
 fi

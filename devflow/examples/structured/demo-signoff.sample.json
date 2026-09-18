@@ -1,7 +1,10 @@
 {
   "feature": "demo-pay",
   "generated_at": "2026-09-16T10:22:00Z",
-  "template": { "id": "原型确认-模板", "version": "3.25.0" },
+  "template": {
+    "id": "原型确认-模板",
+    "version": "3.27.3"
+  },
   "feature_name": "演示支付",
   "date": "2026-09-16",
   "prototype_refs": [
@@ -31,8 +34,16 @@
   "po_conclusion": "通过：三个关键旅程走查全部符合预期，原型可进入详细设计",
   "conclusion_passed": true,
   "signoffs": [
-    { "role": "PO（产品负责人）", "name": "李四", "date": "2026-09-16" },
-    { "role": "设计负责人", "name": "赵六", "date": "2026-09-16" }
+    {
+      "role": "PO（产品负责人）",
+      "name": "李四",
+      "date": "2026-09-16"
+    },
+    {
+      "role": "设计负责人",
+      "name": "赵六",
+      "date": "2026-09-16"
+    }
   ],
   "zero_results": []
 }

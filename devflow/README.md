@@ -1,10 +1,10 @@
 ---
 name: devflow-readme
-version: "3.26.9"
+version: "3.27.3"
 description: devflow 的非权威导航页。
 ---
 
-# devflow v3.26.9
+# devflow v3.27.3
 
 `SKILL.md` 是唯一权威入口；本文件只用于人工导航，不重复流程、Gate 或执行规则。
 
@@ -21,6 +21,14 @@ description: devflow 的非权威导航页。
 
 安装：见仓库根 `README.md`。Claude Code 为 `~/.claude/skills/devflow`；Codex 当前用户级目录为 `$HOME/.agents/skills/devflow`（旧的 `~/.codex/skills` 已过时）；
 也可用 `bash scripts/install.sh --platform <claude|codex|cursor|trae|trae-cn>`，再用 `bash scripts/doctor.sh` 体检依赖。
+
+两个前置依赖（首次使用前配置，避免中途 BLOCKED）：
+- **P2a 签名收据**（角色分离硬约束）：单人/无签名基础设施时先运行
+  `bash scripts/gen-review-keypair.sh <目录>` 并 `export REVIEW_ATTESTATION_PUBKEY=<目录>/attest-public.pem`，否则 P2a 将 BLOCKED。
+- **技术栈 Profile**：`devflow-state.sh init --profile=<id>` 声明技术栈（默认
+  `java-spring-flyway`）。当前 P3/P4b 的 build/test/coverage 命令位仅实现该参考
+  profile，其他 profile 在这些阶段 `BLOCKED(MISSING_CAPABILITY)`（见
+  `references/runtime-profile.md` 实现状态节）。
 
 ## 整体流程图
 

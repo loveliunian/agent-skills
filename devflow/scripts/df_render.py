@@ -127,23 +127,28 @@ def render_design_blocks(data):
 
     # v3.17.1: 方法必须在第一列（行首）——p4_prd_vs_code.sh parse_design_apis
     # 只识别首列为 HTTP 方法的表格行，概览列序与其解析契约保持一致。
+    # v3.26.10(L-P2-004): 详细定义列前置、删除概览锚点列——概览按锚点直接定位 §3.2.N 小节
     blocks["api-index"] = _table(
-        ["方法", "路径", "接口名称", "权限", "概览锚点", "详细定义", "请求字段", "响应字段"],
-        [[a.get("method"), a.get("path"), a.get("name"), a.get("permission"),
-          a.get("anchor"), a.get("detail_anchor"),
+        ["详细定义", "方法", "路径", "接口名称", "权限", "请求字段", "响应字段"],
+        [[a.get("detail_anchor"), a.get("method"), a.get("path"), a.get("name"), a.get("permission"),
           len((a.get("request") or {}).get("fields", [])),
           len((a.get("response") or {}).get("fields", []))] for a in apis],
     )
 
-    perm_rows = [[p.get("name"), p.get("anchor"), p.get("permission")] for p in pages]
-    perm_rows += [[f"{a.get('method')} {a.get('path')}", a.get("anchor"), a.get("permission")] for a in apis]
+    # v3.27.1(L-P2-004 续): 权限矩阵拆菜单/接口两块；接口块增"接口说明"列（=§3.2 详细定义名称）；锚点列前置
+    perm_page_rows = [[p.get("anchor"), p.get("name"), p.get("permission")] for p in pages]
+    perm_api_rows = [[a.get("anchor"), a.get("method"), a.get("path"), a.get("name"), a.get("permission")] for a in apis]
     blocks["permission-matrix"] = (
-        _table(["对象", "§锚点", "所需权限"], perm_rows)
+        "**页面/菜单权限矩阵：**\n\n"
+        + _table(["§锚点", "页面/菜单", "所需权限"], perm_page_rows)
+        + "\n\n**接口权限矩阵（接口说明=§3.2 详细接口定义名称）：**\n\n"
+        + _table(["§锚点", "方法", "路径", "接口说明", "所需权限"], perm_api_rows)
         + "\n\n> 每个页面和接口都标注了所需的权限；完全公开的对象在该列标注 public。"
     )
 
+    # v3.27.1(L-P2-004 续): 规则索引锚点列前置
     blocks["rule-index"] = _table(
-        ["规则", "§锚点", "摘要"], [[r.get("id"), r.get("anchor"), r.get("summary")] for r in rules],
+        ["§锚点", "规则", "摘要"], [[r.get("anchor"), r.get("id"), r.get("summary")] for r in rules],
     )
 
     # v3.24.0(A01)：业务操作契约索引——以业务命名（非固定 CRUD 枚举），
@@ -152,14 +157,14 @@ def render_design_blocks(data):
     if biz_ops:
         blocks["biz-ops"] = (
             _table(
-                ["操作", "触发者/触发", "源状态→目标状态", "事务/并发", "结果/失败", "验收点", "§锚点"],
-                [[o.get("name"),
+                # v3.26.10(L-P2-004): §锚点列前置——业务操作表按锚点定位 6.2.N 小节
+                ["§锚点", "操作", "触发者/触发", "源状态→目标状态", "事务/并发", "结果/失败", "验收点"],
+                [[o.get("anchor", "—"), o.get("name"),
                   f"{o.get('actor', '—')}｜{o.get('trigger', '—')}",
                   "无状态（已声明）" if o.get("stateless") else f"{o.get('source_state', '?')} → {o.get('target_state', '?')}",
                   o.get("concurrency", "—"),
                   f"{o.get('result', '—')}｜失败：{o.get('failure', '—')}",
-                  "、".join(o.get("acceptance_refs", [])) or "—",
-                  o.get("anchor", "—")] for o in biz_ops],
+                  "、".join(o.get("acceptance_refs", [])) or "—"] for o in biz_ops],
             )
             + "\n\n> 业务操作以业务命名，覆盖触发者、前置校验、状态迁移、事务/并发、结果与失败；"
               "冻结验收集合的每个验收点都必须被至少一个操作覆盖，无状态操作须显式声明。"
@@ -442,11 +447,16 @@ def _df_blocks(df_items, with_status=False):
     return "\n\n".join(out)
 
 
+# v3.27.1(L-EFF-001): 角色→Gate 可 grep 标签（业务专家/技术负责人/前端交互/测试开发/安全合规）
+_P2A_ROLE_LABEL = {"业务": "业务专家", "后端": "技术负责人", "前端": "前端交互",
+                   "测试": "测试开发", "安全": "安全合规"}
+
+
 def _zero_df_blocks(zero_roles):
     out = []
     for z in zero_roles or []:
         out.append(
-            f"#### ZERO-DF（{z.get('role')}）核查记录\n"
+            f"#### ZERO-DF（{_P2A_ROLE_LABEL.get(z.get('role'), z.get('role'))}）核查记录\n"
             f"- 核查范围：{z.get('scope')}\n"
             f"- 证据锚点：{z.get('evidence_anchor')}\n"
             f"- 验证方式：{z.get('verify')}"
@@ -692,9 +702,10 @@ def render_prd_review(data, input_path):
     if terms:
         lines.append(_table(
             ["#", "术语", "PRD 位置(§)", "歧义描述", "决议口径", "决议人", "状态"],
-            [[t.get("id"), t.get("term"), t.get("prd_anchor"), t.get("ambiguity"),
+            [[str(_i), f"{t.get('id')} {t.get('term')}", t.get("prd_anchor"), t.get("ambiguity"),
               t.get("resolution"), t.get("decider"),
-              "✅ 已决议" if t.get("resolved") else "⏳ 未决议"] for t in terms],
+              "✅ 已决议" if t.get("resolved") else "⏳ 未决议"]
+             for _i, t in enumerate(terms, 1)],
         ))
         lines += ["", f"歧义术语 {len(terms)} 个，已决议 {resolved} 个（必须全部决议才能通过）。"]
     else:
@@ -828,7 +839,7 @@ def render_tech_selection(data, input_path):
         "",
         f"选定方案 **{chosen.get('id')}：{chosen.get('name')}**（加权合计 {weighted.get(chosen.get('id'), 0)}）",
         "",
-        f"用户确认：{data.get('user_confirmed')}",
+        f"用户确认: {data.get('user_confirmed')}（Gate 机检行）",
         "",
         "### 决策理由", "", "```", decision.get("reason"), "```", "",
         "### 风险与应对", "",
@@ -1753,6 +1764,38 @@ def render_performance(data, input_path):
     return "\n".join(lines)
 
 
+def render_execution_plan(data, input_path):
+    tasks = data.get("tasks", [])
+    slices = data.get("slices", [])
+    lines = [
+        f"# {data.get('feature', '')} 执行契约",
+        "",
+        f"> 生成时间：{_gen_time(data)}　数据来源：execution-plan.json 结构化产物自动渲染",
+        _audit("execution-plan", input_path),
+        "",
+        "## 任务矩阵（Task = 切片；每行 = 一个 exact target）",
+        "",
+        "| Task | Acceptance | DesignRef | Target | Action | Invariants | Verify | Risk | 依赖 |",
+        "|------|-----------|-----------|--------|--------|------------|--------|------|------|",
+    ]
+    for t in tasks:
+        refs = "、".join(t.get("design_refs", []))
+        deps = "、".join(t.get("depends_on", [])) or "—"
+        inv = t.get("invariants", "—")
+        risk = t.get("risk", "—")
+        acc = "、".join(t.get("acceptance_ids", []))
+        lines.append(f"| {t['task_id']} | {acc} | {refs} | `{t.get('target', '')}` | {t.get('action', '')} | {inv} | {t.get('verify', '')} | {risk} | {deps} |")
+    if slices:
+        lines += ["", "## 切片分组", ""]
+        for sl in slices:
+            tids = "、".join(sl.get("task_ids", []))
+            desc = sl.get("description", "")
+            lines.append(f"- **{sl.get('slice_id', '')}**: {desc}（任务: {tids}）")
+    lines += ["", "## P3 完成度自检绑定", "",
+              "- 全部 T-* 任务完成后才能运行 `/audit-completeness P3 <feature>`", ""]
+    return "\n".join(lines)
+
+
 _REPORT_RENDERERS = {
     "security": render_security,
     "performance": render_performance,
@@ -1772,6 +1815,7 @@ _REPORT_RENDERERS = {
     "retrospective": render_retrospective,
     "sharing": render_sharing,
     "demo-signoff": render_demo_signoff,
+    "execution-plan": render_execution_plan,
 }
 
 

@@ -111,6 +111,9 @@ CREATE TABLE foo (id BIGINT PRIMARY KEY, page INT);
 <!-- anchor: api-contracts -->
 本模块对外提供分页查询接口，概览与详细定义一一对应。
 #### 3.2.1 分页列表
+
+> 说明：GET /api/foo/list ｜权限：foo:view
+
 | 方法 | 路径 | 接口 |
 |---|---|---|
 | GET | /api/foo/list | 分页列表 |
@@ -147,12 +150,16 @@ sequenceDiagram
 ```
 ## §7 前端页面
 foo-list.vue；列表可达。
+
+### 7.3.1 列表页交互
+
+列表交互说明（页组覆盖 §7 全部页面）。
 ## §8 数据库迁移
 V1001__foo.sql 四方言。
 ## §9 验收标准
 | 验收点ID | PRD原文锚点 | 页面/任务 | 接口契约 | 数据字段 | 规则/准伪代码 | 测试用例 | 设计状态 |
 |---|---|---|---|---|---|---|---|
-| M-01-F01-A01 | docs/prd/foo.md#L2 | §7 | §3 | §2 | R1 | TC-foo-001 | COMPLETE |
+| M-01-F01-A01 | docs/prd/foo.md#L2 | §7 | §3.2.1 | §2 | R1 | TC-foo-001 | COMPLETE |
 ## §10 依赖项
 TC-TECH-001：数据库使用 postgresql 16。
 ## §11 需求追溯与覆盖率基线
@@ -186,7 +193,7 @@ cat > "$TMP/.devflow/foo/design.json" <<EOF
   "generated_at": "2026-01-01T00:00:00Z",
   "template": {"id": "详细设计-完整版-模板", "version": "__TEMPLATE_VERSION__", "mode": "monolith"},
   "acceptance": [
-    {"id": "M-01-F01-A01", "prd_anchor": "docs/prd/foo.md#L2", "page": "§7", "api": "§3",
+    {"id": "M-01-F01-A01", "prd_anchor": "docs/prd/foo.md#L2", "page": "§7", "api": "§3.2.1",
      "data": "§2", "rule": "R1", "test_case": "TC-foo-001", "status": "COMPLETE"}
   ],
   "tables": [
@@ -196,7 +203,7 @@ cat > "$TMP/.devflow/foo/design.json" <<EOF
     ]}
   ],
   "apis": [
-    {"anchor": "§3", "detail_anchor": "§3.2.1", "name": "分页列表", "method": "GET", "path": "/api/foo/list",
+    {"anchor": "§3.2.1", "detail_anchor": "§3.2.1", "name": "分页列表", "method": "GET", "path": "/api/foo/list",
      "permission": "foo:view",
      "request": {"anchor": "§3.2.1", "fields": [
        {"name": "page", "type": "INT", "required": false, "rule": ">=1", "source": "请求", "masking": "否"}]},

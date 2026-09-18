@@ -52,6 +52,8 @@ source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
 # v3.22.0: 文档层中文化（中文优先、英文回退）
 source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
 devflow_feature_validate "$FEATURE" || exit 2
+source "$(cd "$(dirname "$0")" && pwd)/perf-track.sh"
+perf_start "P2a"
 
 DESIGN_PATH="$(df_resolve_doc "$FEATURE" design .md design)"
 [ -n "$DESIGN_PATH" ] || DESIGN_PATH="docs/detailed-design/${FEATURE}-design.md"
@@ -106,7 +108,7 @@ if [ -n "$REVIEW_SESSION_ID" ]; then
     done
   else
     while IFS= read -r line; do p0 "$line"; done < "$RR_OUT"
-    p0 "independent review receipts invalid/missing — 编排器必须在 spawn 前 begin、产物落盘后 complete（review-receipt.sh 两阶段，见 phases/02a）"
+    p0 "independent review receipts invalid/missing — 编排器必须在 spawn 返回 agent_id 后 begin、产物落盘后 complete（review-receipt.sh 两阶段，见 phases/02a）"
   fi
   rm -f "$RR_OUT"
 else
@@ -304,7 +306,7 @@ DF_BAD=$(LC_ALL=C awk 'BEGIN{bad=0}
       gsub(/[- \t:]/, "", r)
       gsub(/\302\247/, "", r)
       gsub(/\357\274\232/, "", r)
-      if (r ~ /^[0-9]+\.[0-9]+$/) floc=0
+      if (r ~ /^[0-9]+(\.[0-9]+)*$/) floc=0
     }
   }
   END { if (inblock && (fsce || fimp || fsug || fver || floc)) { bad++ }; print bad }
@@ -594,5 +596,6 @@ if [ "$FAIL" -eq 0 ]; then
   exit 0
 else
   echo "❌ P2a 设计评审 Gate 失败（FAIL=${FAIL}）"
+perf_end "P2a"
   exit 1
 fi

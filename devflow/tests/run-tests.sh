@@ -36,9 +36,31 @@ SUITES=(
   "test-report-regressions.sh:报告回归"
   "test-p6-hardening.sh:P6 硬化"
   "test-version-hardening.sh:历史版本硬化（v3.20.3/v3.21.1/v3.21.2）"
-  "test-dev-hardening.sh:开发面硬化（v3.26.3-v3.26.9）"
+  "test-dev-hardening.sh:开发面硬化（v3.26.3-v3.27.0）"
   "test-release.sh:发布审计"
 )
+
+# v3.27.3: RUN_TESTS_GROUPS 选择性运行（性能分析报告 优化2）——
+# 只跑逗号分隔的脚本名（不含 .sh）；发布仍跑全量不受影响。
+# 用法: RUN_TESTS_GROUPS="test-phase-gates,test-state" bash tests/run-tests.sh
+RUN_TESTS_GROUPS="${RUN_TESTS_GROUPS:-}"
+if [ -n "$RUN_TESTS_GROUPS" ]; then
+  _FILTERED=()
+  IFS=',' read -ra _wanted <<< "$RUN_TESTS_GROUPS"
+  for entry in "${SUITES[@]}"; do
+    _script="${entry%%:*}"
+    for w in "${_wanted[@]}"; do
+      _w_trimmed=$(printf '%s' "$w" | tr -d ' ')
+      [ "$_script" = "${_w_trimmed}.sh" ] && _FILTERED+=("$entry") && break
+    done
+  done
+  if [ "${#_FILTERED[@]}" -eq 0 ]; then
+    echo "[run-tests] RUN_TESTS_GROUPS='$RUN_TESTS_GROUPS' 无匹配组——退出 1"
+    exit 1
+  fi
+  echo "[run-tests] 选择性运行 ${#_FILTERED[@]}/${#SUITES[@]} 组: $RUN_TESTS_GROUPS"
+  SUITES=("${_FILTERED[@]}")
+fi
 
 LOG_ROOT="$TEST_DIR/logs/$(date +%Y%m%d-%H%M%S)-$$"
 mkdir -p "$LOG_ROOT" || { echo "[FAIL] 无法创建日志目录: $LOG_ROOT"; exit 2; }

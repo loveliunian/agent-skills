@@ -502,4 +502,55 @@ python3 "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W1
   && ok "state-matrix 未声明字段必 FAIL" \
   || bad "state-matrix 未声明字段被放行（rc=${rc}）"
 
+# ---------- 13. Runtime Profile 能力门禁 + keypair 工具（v3.27.1） ----------
+W13="$TMP/prof"; mkdir -p "$W13"
+( cd "$W13" && bash "$S/devflow-state.sh" init g1 --frontend=not-applicable --profile=generic >/dev/null 2>&1 )
+jq -r '.scope.profile_id' "$W13/.devflow/g1.state.json" 2>/dev/null | grep -q generic \
+  && ok "init --profile=generic 冻结到 state" || bad "init --profile 未冻结"
+in_dir "$W13" bash "$S/build-watchdog.sh" gate g1
+rc=$IN_RC
+if [ "$rc" -ne 0 ] && grep -q "MISSING_CAPABILITY" "$W13/.devflow/g1/gates/P3-build/receipt.txt" 2>/dev/null; then
+  ok "build-watchdog generic BLOCKED（收据 EXIT_CODE=1 + MISSING_CAPABILITY）"
+else
+  bad "build-watchdog generic 未 BLOCKED（rc=${rc}）"
+fi
+in_dir "$W13" bash "$S/p3_completion_gate.sh" g1 g1
+out="$(last_out)"
+IN_RC=$IN_RC
+printf '%s' "$out" | grep -q "MISSING_CAPABILITY" \
+  && ok "p3_completion generic BLOCKED（早期清晰反馈）" \
+  || bad "p3_completion generic 未 BLOCKED"
+( cd "$W13" && bash "$S/devflow-state.sh" init j1 --frontend=not-applicable --profile=java-spring-flyway >/dev/null 2>&1 )
+in_dir "$W13" bash "$S/build-watchdog.sh" gate j1
+rc=$IN_RC
+if [ "$rc" -eq 0 ] && grep -q "^EXIT_CODE=0$" "$W13/.devflow/j1/gates/P3-build/receipt.txt" 2>/dev/null; then
+  ok "java-spring-flyway 正常通过（无栈目录时全跳过）"
+else
+  bad "java-spring-flyway 正向被误拦（rc=${rc}）"
+fi
+bash "$S/devflow-state.sh" init p9 --frontend=not-applicable --profile=nope >/dev/null 2>&1; rc=$?
+[ "$rc" -ne 0 ] && ok "未知 profile 拒绝（fail-closed）" || bad "未知 profile 被接受"
+
+# keypair 工具
+in_dir "$TMP" bash "$S/gen-review-keypair.sh" "$TMP/keys"
+rc=$IN_RC
+if [ "$rc" -eq 0 ] && [ -f "$TMP/keys/attest-private.pem" ] && [ -f "$TMP/keys/attest-public.pem" ]; then
+  ok "gen-review-keypair 生成 RSA 密钥对"
+else
+  bad "gen-review-keypair 失败（rc=${rc}）"
+fi
+in_dir "$TMP" bash "$S/gen-review-keypair.sh" "$TMP/keys"
+rc=$IN_RC
+[ "$rc" -ne 0 ] && ok "keypair 重复生成拒绝（防误覆盖）" || bad "keypair 已存在未拒绝"
+
+# p5 中文验收点路径（发现 3——旧版纯英文硬编码到 P5 必失败）
+W13b="$TMP/p5zh"; mkdir -p "$W13b/docs/需求" "$W13b/docs/测试用例"
+printf '## 验收点\n| M-01-F01-A01 | 登录 |\n' > "$W13b/docs/需求/p5z-验收点.md"
+printf '## 用例\n| TC-1 | M-01-F01-A01 | 登录 | x | y | z | 边界:空 |\n' > "$W13b/docs/测试用例/p5z-测试用例.md"
+in_dir "$W13b" bash "$S/p5_test_cases_gate.sh" p5z >/dev/null 2>&1
+out="$(last_out)"
+printf '%s' "$out" | grep -q "验收点全覆盖" \
+  && ok "p5 中文命名验收点可解析（旧版只认英文路径）" \
+  || bad "p5 中文验收点解析失败（$(printf '%s' "$out" | grep -E '验收点' | head -1)）"
+
 finish "test-dev-hardening"

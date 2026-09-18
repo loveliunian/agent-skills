@@ -3,17 +3,54 @@
   "generated_at": "2026-09-12T11:00:00Z",
   "environment": "staging",
   "acceptance_results": [
-    {"id": "M01-F01-A01", "status": "PASS", "evidence": "report-integration.html#M01-F01-A01"},
-    {"id": "M01-F01-A02", "status": "PASS", "evidence": "report-integration.html#M01-F01-A02"},
-    {"id": "M01-F02-A01", "status": "PASS", "evidence": "report-staging.html#M01-F02-A01"}
+    {
+      "id": "M01-F01-A01",
+      "status": "PASS",
+      "evidence": "report-integration.html#M01-F01-A01"
+    },
+    {
+      "id": "M01-F01-A02",
+      "status": "PASS",
+      "evidence": "report-integration.html#M01-F01-A02"
+    },
+    {
+      "id": "M01-F02-A01",
+      "status": "PASS",
+      "evidence": "report-staging.html#M01-F02-A01"
+    }
   ],
   "evidence": {
-    "unit": {"cmd": "pytest -q", "exit_code": 0, "report_path": "report-unit.txt", "report_sha256": "795d7e526d662001d072f0dfc9b3afa2f2bd9b73901cf0c61925da45c7592059", "log_path": "unit.log"},
-    "integration": {"cmd": "mvn verify", "exit_code": 0, "report_path": "report-integration.txt"},
-    "client": {"cmd": "npm run test:e2e", "exit_code": 0, "report_path": "report-client.txt"},
-    "load": {"cmd": "jmeter -n -t plan.jmx", "exit_code": 0, "report_path": "report-load.txt"},
-    "staging": {"cmd": "./scripts/smoke.sh staging", "exit_code": 0, "report_path": "report-staging.txt"}
+    "unit": {
+      "cmd": "pytest -q",
+      "exit_code": 0,
+      "report_path": "report-unit.txt",
+      "report_sha256": "795d7e526d662001d072f0dfc9b3afa2f2bd9b73901cf0c61925da45c7592059",
+      "log_path": "unit.log"
+    },
+    "integration": {
+      "cmd": "mvn verify",
+      "exit_code": 0,
+      "report_path": "report-integration.txt"
+    },
+    "client": {
+      "cmd": "npm run test:e2e",
+      "exit_code": 0,
+      "report_path": "report-client.txt"
+    },
+    "load": {
+      "cmd": "jmeter -n -t plan.jmx",
+      "exit_code": 0,
+      "report_path": "report-load.txt"
+    },
+    "staging": {
+      "cmd": "./scripts/smoke.sh staging",
+      "exit_code": 0,
+      "report_path": "report-staging.txt"
+    }
   },
-  "client_not_applicable": {"declared": false, "frontend_scope": "pc-web"},
+  "client_not_applicable": {
+    "declared": false,
+    "frontend_scope": "pc-web"
+  },
   "zero_results": []
 }

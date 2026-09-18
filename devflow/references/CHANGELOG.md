@@ -1,12 +1,125 @@
 ---
 name: changelog
-version: "3.26.9"
+version: "3.27.3"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.26.9 Migration Guide
+# Changelog — devflow v1 → v3.27.3 Migration Guide
+
+## v3.27.3 (2026-09-17) — 性能监控 + 选择性测试 + 实测基线
+
+来源：性能分析报告（devflow-性能分析与优化建议.md）。该报告的耗时数据为估算值
+（未实测）；本轮以实测数据校准后，实施其可落地项、拒绝有害项。
+
+**实测基线（本轮建立，240-1204 Java 文件夹具）**：
+
+| 阶段 | 报告估算 | 实测 | 偏差 |
+|---|---|---|---|
+| P4b PRD-vs-Code | 60-180s | **0.73-0.83s**（1204 文件 0.56-0.61s） | 偏高 100-200 倍 |
+| P2a 五角色评审 | 45-90s | 收据生命周期测试全程 **8-9s**（含多次 p2a） | 偏高 5-10 倍 |
+| 测试套件 | "当前串行" 189s | **并行默认** 155-213s（v3.27.0 起） | 报告分析基于过时版本 |
+
+基于实测结论：P4b find 合并 / 四方言并行 / P2a 预解析的实际收益 <1s，
+不值得对 730 行手写 rc Gate 做重构（回归风险 >> 收益）——**不实施**。
+
+**实施项（有实际收益且零风险）**：
+
+- **perf-track.sh**（新）：Gate 耗时监控——`DF_PERF=1` 时写
+  `.devflow/perf-metrics.csv`，未设置时零开销；已接入 P4b/P6-final/P2a；
+  `perf_report` 按 phase 聚合 avg/max/n。后续优化决策以此为数据源。
+- **`RUN_TESTS_GROUPS` 选择性测试**：`RUN_TESTS_GROUPS="test-phase-gates,test-state"`
+  只跑指定组（开发反馈周期从全量 155s 降至 5-7s）；发布全量不受影响。
+- **P6-final 智能复用（报告第二波）**：不实施——与原则 1（真实运行证据）冲突，
+  报告自身也标注"不能跳过真实执行"。
+
+## v3.27.2 (2026-09-17) — 复查报告收尾：L-P2-004 夹具/样例适配 + set -e 约定 + 模板表锚点
+
+来源：v3.27.0 复查报告（devflow-v3.27.0-复查报告.md）的收尾事项。核心修复 1-3
+已确认到位，本版解决其遗留：
+
+- **测试夹具适配 L-P2-004 新校验**（复查报告"测试结果分析"）：锚点具体化规则
+  使 5 个设计相关测试组失败——本轮完成配套适配：
+  - `test-design-contract-hardening`：A03/A04/A15 变异目标对齐新编号锚点
+    （2.1→2.2.1、7.1/7.2→7.1.1/7.1.2、§3.1→§3.2.1）；
+  - `test-design-package-modes`：A05 删除正则、A06 适用性夹具、A07 sub 夹具
+    （apis anchor==detail_anchor、9 条规则锚点按所属小节分配、journey 对齐）；
+  - `test-phase-gates`：P2/P4b 夹具 apis anchor 对齐 + 说明行 + §7.3 页组；
+  - `examples/structured/design.skeleton.md`：表/页锚点编号化 + §3.2 说明行 +
+    §7.3.1/7.3.2 页组小节；
+  - `templates/详细设计-总分分文档-模板.md`：表标题编号化（2.3.1/2.3.2）。
+- **发现 4 收尾（中期建议二选一）**：`p4_prd_vs_code.sh` 与
+  `s2_design_coverage_gate.sh` 头注释明确"有意采用显式 exit code 检查模式、
+  暂不启用 -e"（与 `references/script-conventions.md` 存量清单互链）。
+- `review-attest-init.sh` 未花括号多字节缺陷修复（v3140 扫描拦截）。
+
+## v3.27.1 (2026-09-17) — 运行时摩擦治理（L-EFF-001：m01-foundation 全程复盘）
+
+- **P0b 三方对齐**：`df_render.py` ZERO-DF 标题映射为 Gate 可 grep 标签（业务专家/技术负责人/前端交互/测试开发/安全合规）；歧义术语表行首改数字（Gate 按 `|数字|` 解析已决议行）；`artifact_gate.sh`/`p2a_design_review_gate.sh` DF「文档位置」接受 1~N 段锚点。
+- **占位话术误伤收敛**：`_PLACEHOLDER_RE` 与 s2 §7 同口径收敛——「删除需确认」「TBD-07 文档引用」「占位图/占位符」等合法内容不再命中；保留明确占位语义（TODO/TBD/待补充/【待确认】/暂定…）。
+- **权限码两段式可见化**：`perm_reconcile_lib.sh` 补两段式反引号码提取（此前静默忽略只剩单侧漂移可见）；`需求澄清-模板.md` 写入三段式命名规范。
+- **P2a 证明引导**：新增 `scripts/review-attest-init.sh`（keygen/begin-all/complete-all/verify 一行命令，含 begin 先于报告的协议守卫）。
+- **机检行**：`df_render.py` 技术选型「用户确认: …」改半角冒号（LC_ALL=C 下 BSD grep 全角冒号不匹配）。
+- **doctor 预检**：新增 skill 树双采样稳定性、澄清权限码三段式、技术选型机检行、ZERO-DF 标签可识别、歧义表行首数字五项管线格式预检。
+- 背景：m01-foundation 从 PRD 到 P2a 全程复盘，契约摩擦约占 25-30% 时长，本版消除复发路径。
+
+## v3.27.0 (2026-09-17) — 审查报告落地：Runtime Profile 能力门禁 + P2a 降门槛 + 路径统一
+
+来源：外部深度审查报告（devflow-skill-审查报告-2026-09-17.md）七项发现的处置。
+逐项核实全部属实后实施（发现 6 为用户流程取舍不改；发现 7 为诚实自述记录在案）。
+
+**发现 1（高）"栈无关"承诺与 P3/P4b 硬编码矛盾——文档诚实化 + 能力门禁落地**：
+
+- 文档：SKILL.md 原则 13 注记"现仅 java-spring-flyway 实现"；`runtime-profile.md`
+  新增"§5 实现状态"节（命令位 Gate 化尚未完成、BLOCKED 语义、长期路线=命令位抽象）。
+- 门禁：新增 `scripts/devflow_profile.sh`；`devflow-state.sh init --profile=<id>`
+  冻结 `state.scope.profile_id`（须存在 `references/profiles/<id>.md`，未知 id
+  fail-closed；未指定的历史项目按参考实现 `java-spring-flyway` 处理）。
+  `p3_completion_gate` / `build-watchdog(gate)` / `p4_prd_vs_code` 三处早期
+  `BLOCKED(MISSING_CAPABILITY)`，build-watchdog 出 BLOCKED 收据供 checkpoint/audit
+  消费——非该栈项目不再静默跑错命令。
+- 命令位抽象（BUILD_CMD/TEST_CMD/COVERAGE_CMD）记入 runtime-profile 长期路线。
+
+**发现 2（高）P2a 签名设施无指引——降门槛**：
+
+- 新增 `scripts/gen-review-keypair.sh`（RSA-2048，与 attestation 验证同口径；
+  已存在拒绝覆盖须 --force；打印 export 行）。
+- README 30 秒上手补两条前置依赖提示；doctor 未配置 REVIEW_ATTESTATION_PUBKEY
+  时给出指向性 WARN。
+
+**发现 3（中）路径解析不统一——修 bug + 统一**：
+
+- `p5_test_cases_gate` 验收点路径改走 `df_resolve_doc`（中文优先、英文回退）——
+  旧版纯英文硬编码，中文命名项目到 P5 必失败；p5/p6 的内联双语目录遍历统一换
+  `df_zh_dir/df_en_dir`。
+
+**发现 4（中）set -e 不一致——立约定 + 清单，批量迁移延后**：
+
+- 新增 `references/script-conventions.md`（新增/重写一律 `set -euo pipefail`、
+  容错显式化、存量清单与逐个审计迁移策略）——盲加 `-e` 到手写 rc 的大脚本风险
+  大于收益，不在本轮批量转换。
+
+**发现 5/7**：历史误报回归已由 test-dev-hardening 承接（本轮 53 用例）；原则 15
+为诚实自述，记录在案。**发现 6**：small-change 摩擦属用户流程取舍，skill 不改。
+
+回归：test-dev-hardening 扩至 53 用例（profile BLOCKED 双 Gate + java 正向 +
+未知 profile 拒绝 + keypair 冒烟/防覆盖 + p5 中文路径）。
+
+## v3.26.10 (2026-09-17) — 详设锚点具体化（L-P2-004 七问题）
+
+- `df_render.py`：接口概览列序改为「详细定义|方法|路径|接口名称|权限|请求字段|响应字段」（删除概览锚点列）；业务操作表 §锚点列前置并去除行尾重复——概览/操作表均可按锚点直取小节。
+- `df_validate.py`（design）：pages/tables 锚点被多条目共用即 FAIL；apis anchor≠detail_anchor 即 FAIL（L-P2-004 提示）。
+- 三份详设模板 + `phases/02-详细设计.md` + `design.sample.json` 同步：表样例编号 2.2.N、§3.2 标题只写编号+名称（说明行承载方法/路径/权限）、§7.1 页面独立小节、§7.3 页组全覆盖、追溯矩阵三列具体化。
+- `concepts/lessons-learned.md` 新增 L-P2-004（七问题清单与预防）。
+- 背景：m01-foundation P2a 后用户复核发现七类锚点通用化问题，追溯矩阵无法定位具体条目。
+
+
+**同期并入（m01-foundation 复盘 L-P2-004：详设锚点具体化七问题）**：
+- `df_render.py`：接口概览列序=详细定义|方法|路径|接口名称|权限|请求字段|响应字段（删概览锚点列）；业务操作表 §锚点列前置；§4 权限矩阵拆页面/接口两块（接口块含"接口说明"列=§3.2 名称）；§5 规则索引锚点列前置。
+- `df_validate.py`（design）：pages/tables 锚点共用即 FAIL；apis anchor≠detail_anchor 即 FAIL。
+- 三份详设模板/`phases/02`/`design.sample.json`：表编号 2.2.N、§3.2 标题只留编号+名称、§7.1 页面独立小节、§7.3 页组全覆盖、追溯矩阵三列具体化；`lessons-learned.md` 新增 L-P2-004。
+- `df_validate.py`（check_design_doc_specificity）：§7.3.N 小节数 < 页面数、规则锚点单一化、§3.2 详细定义缺「> 说明：」首行——三处模板引导升级为硬校验（负向回归 3/3）。
 
 ## v3.26.9 (2026-09-17) — 自然句式提取 + 组合字段面 + 发布树对齐
 

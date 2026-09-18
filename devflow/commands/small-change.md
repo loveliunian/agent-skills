@@ -1,6 +1,6 @@
 ---
 name: small-change
-version: "3.26.9"
+version: "3.27.3"
 description: Use when a user requests a bounded change to an existing project, such as a local UI behavior, configuration, bugfix, optional API addition, validation/default adjustment, or additive persistence update.
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
@@ -37,7 +37,7 @@ bash "$SKILL_ROOT/scripts/small-change-gate.sh" classify <change-id>
 ## MICRO 验证
 
 1. 用 `templates/小需求变更-模板.md` 冻结主题、影响面、受影响文件、验收条件和验证命令。
-2. 对现有垂直切片做最小实现；持久化改动仍须四方言 Flyway。
+2. 对现有垂直切片做最小实现；持久化改动仍须按 Runtime Profile 的 MIGRATION_ADAPTER 执行。
 3. 执行：
 
 ```bash

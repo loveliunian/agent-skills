@@ -54,6 +54,12 @@ if command -v shellcheck >/dev/null 2>&1; then
 else
   warn "shellcheck 缺失（release.sh 第 5 步硬门禁，发布前必须安装）"
 fi
+# v3.27.1: P2a 签名收据前置依赖指引（审查报告发现 2——隐藏高成本依赖应尽早可见）
+if [ -n "${REVIEW_ATTESTATION_PUBKEY:-}" ] && [ -f "${REVIEW_ATTESTATION_PUBKEY}" ]; then
+  ok "REVIEW_ATTESTATION_PUBKEY 已配置（P2a 评审签名收据可用）"
+else
+  warn "REVIEW_ATTESTATION_PUBKEY 未配置——P2a 评审将 BLOCKED；生成密钥对: bash scripts/gen-review-keypair.sh <目录>"
+fi
 
 # ---- 可选依赖（按 Runtime Profile 需要） ----
 command -v java >/dev/null 2>&1 && ok "java 可用（java-spring-flyway profile）" || warn "java 缺失（仅 java-spring-flyway profile 需要）"
@@ -126,6 +132,37 @@ if [ "$PROJECT_MODE" -eq 1 ]; then
         warn "audit-receipts 对账未通过: ${feature}（详情: audit-receipts.sh ${feature} ${STATE_DIR} docs）"
       fi
     done
+  fi
+
+  # ④ skill 树稳定性（L-EFF-001：瞬时写入会使两次采样不一致——收据树漂移前兆）
+  T1="$(bash "$ROOT/scripts/gate-skill-tree.sh" 2>/dev/null || true)"
+  T2="$(bash "$ROOT/scripts/gate-skill-tree.sh" 2>/dev/null || true)"
+  if [ -n "$T1" ] && [ "$T1" = "$T2" ]; then
+    ok "skill 树稳定: ${T1:0:12}…"
+  else
+    warn "skill 树两次采样不一致（skill 目录正被并发写入/同步——稍后重跑 migrate-tree + 受影响 Gate）"
+  fi
+
+  # ⑤ 管线格式预检（L-EFF-001：历史上靠试错对齐的格式雷区，跑 Gate 前先静态扫）
+  _clar="$(ls docs/需求/*-需求澄清.md docs/requirements/*-clarification.md 2>/dev/null | head -1)"
+  if [ -n "$_clar" ]; then
+    _twoseg=$(grep -oE '`[a-zA-Z][a-zA-Z0-9_-]*:[a-zA-Z][a-zA-Z0-9_-]*`' "$_clar" 2>/dev/null | grep -cvE ':.*:' || true)
+    [ "${_twoseg:-0}" -gt 0 ] && warn "澄清文档存在两段式权限码 ${_twoseg} 处（规范=三段式 module:resource:action，两段式不参与对账）"                              || ok "澄清权限码均为三段式口径"
+  fi
+  _tech="$(ls docs/详细设计/*-技术选型.md docs/detailed-design/*-tech-selection.md 2>/dev/null | head -1)"
+  if [ -n "$_tech" ]; then
+    grep -qE '用户确认[[:space:]]*:[[:space:]]*(YES|已确认|CONFIRMED|true)' "$_tech" 2>/dev/null \
+      && ok "技术选型含机检确认行（半角冒号）" \
+      || warn "技术选型缺半角「用户确认: …」机检行（LC_ALL=C 下全角冒号过不了 Gate）"
+  fi
+  for _rev in docs/评审/*-设计评审报告.md docs/需求/*-PRD评审.md; do
+    [ -f "$_rev" ] || continue
+    _bad=$(grep -oE '#### ZERO-DF（[^）]*）' "$_rev" 2>/dev/null | grep -cvE '业务专家|技术负责人|前端交互|测试开发|安全合规' || true)
+    [ "${_bad:-0}" -gt 0 ] && warn "$_rev 存在 ${_bad} 个 Gate 不可识别的 ZERO-DF 标签（须为 业务专家/技术负责人/前端交互/测试开发/安全合规）"                            || ok "评审报告 ZERO-DF 标签可识别: $_rev"
+  done
+  _amb="$(ls docs/需求/*-PRD评审.md 2>/dev/null | head -1)"
+  if [ -n "$_amb" ] && grep -q '歧义术语' "$_amb" && ! grep -q '无歧义术语' "$_amb"; then
+    grep -qE '^\| *[0-9]' "$_amb" && ok "歧义术语表行首为数字（Gate 契约）"       || warn "歧义术语表行首非数字（Gate 按 |数字| 解析已决议行）"
   fi
 fi
 

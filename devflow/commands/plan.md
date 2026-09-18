@@ -1,6 +1,6 @@
 ---
 name: plan
-version: "3.26.9"
+version: "3.27.3"
 description: >-
   Use when decomposing a detailed design into actionable tasks, mentions
   "/plan", "任务分解", "任务清单", "分解任务", "break down", "task list", or "work items".
@@ -76,6 +76,17 @@ test -f ".devflow/<feature>/gates/P2a/receipt.txt" && grep -q '^EXIT_CODE=0$' ".
 
 bugfix、缓存、定时任务、纯算法、纯 UI、配置变更等都不需要凑齐 CRUD 五件套；禁止按层级切分
 （"先写所有 Service 再写 Controller"），那是瀑布模式。
+
+### 3.5 结构化产物层（v3.27.3）
+
+任务矩阵先落结构化 JSON 正本，再由管线校验+渲染为 Markdown（失败关闭）：
+
+1. 按 `schemas/execution-plan.schema.json` 填 `.devflow/<feature>/execution-plan.json`：
+   `tasks[]`（task_id/acceptance_ids/design_refs/target/action/invariants/verify/depends_on）、
+   `slices[]`（切片分组）、`report_path`；
+2. 渲染：`python3 "$SKILL_ROOT/scripts/df_pipeline.py" execution-plan \
+   --input .devflow/<feature>/execution-plan.json --out 任务/执行契约.md`（校验失败不渲染）；
+3. 渲染产物 `任务/执行契约.md` 是人类视图；JSON 正本供 /build 与审计程序消费。
 
 ### 4. 输出任务清单
 

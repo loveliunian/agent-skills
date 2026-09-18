@@ -78,13 +78,13 @@ cat > criteria.md <<'EOF'
 | M01-F02-A01 | x |
 EOF
 mkdir -p docs/requirements && cp criteria.md docs/requirements/demo-pay-acceptance-criteria.md
-# doc-sub.md：只保留 A01/A02 引用的对象（删掉 A03 的 §2.2 与 §7.2 小节）
+# doc-sub.md：只保留 A01/A02 引用的对象（删掉 A03 的 §2.2.2 与 §7.1.2 小节）
 python3 - <<'PYEOF'
 import re
 from pathlib import Path
 t = Path("doc.md").read_text(encoding="utf-8")
-t = re.sub(r"(### 2\.2 退款单表（pay_refund）\n)(.*?)(## §3)", r"\1\3", t, flags=re.S)
-t = re.sub(r"(### 7\.2 退款页\n)(.*?)(## §11)", r"\1\3", t, flags=re.S)
+t = re.sub(r"(### 2\.2\.2 退款单表（pay_refund）\n)(.*?)(## §3)", r"\1\3", t, flags=re.S)
+t = re.sub(r"(### 7\.1\.2 退款页\n)(.*?)(### 7\.3\.1)", r"\1\3", t, flags=re.S)
 Path("doc-sub.md").write_text(t, encoding="utf-8")
 PYEOF
 check_rc 1 "full reconciliation fails when doc lacks module-B sections" \
@@ -109,6 +109,8 @@ end = next(i for i, ln in enumerate(lines[start + 1:], start + 1) if ln.strip() 
 t = "\n".join(lines[:start] + lines[end + 1:])          # 移除铁律注释块
 t = re.sub(r"> 模板版本：.*", f"> 模板版本：`{ver}`", t)                       # 模板身份
 t = re.sub(r"\{[^{}\n]{1,24}\}", "示例", t)                      # 其余占位统一最小合法填充
+t = t.replace("#### 5.3.1 分页查询\n", "#### 5.3.1 分页查询\n\n> 说明：GET /api/demo/page ｜权限：demo:view\n", 1)
+t = t.replace("#### 5.3.2 新增\n", "#### 5.3.2 新增\n\n> 说明：POST /api/demo ｜权限：demo:add\n", 1)
 # 概览裁到与详细定义一一对应（模板示例只展开 5.3.1/5.3.2 两个接口）
 t = t.replace("""| GET | /api/示例/{id} | 详情查询 | 示例:view |
 | POST | /api/示例 | 新增 | 示例:add |
@@ -130,7 +132,7 @@ EOF
 import json, sys
 d = sys.argv[1]
 tbl_cfg = {
-    "anchor": "§2.3", "name": "示例_config", "fields": [
+    "anchor": "§2.3.1", "name": "示例_config", "fields": [
         {"name": "id", "type": "bigint", "constraint": "PK, AUTO_INCREMENT", "default": "—", "note": "主键", "ddr": ["DDR-1"]},
         {"name": "config_key", "type": "varchar(64)", "constraint": "NOT NULL, UNIQUE", "default": "—", "note": "配置键", "ddr": ["DDR-1"]},
         {"name": "config_value", "type": "text", "constraint": "NULL", "default": "NULL", "note": "配置值", "ddr": ["DDR-1"]},
@@ -146,7 +148,7 @@ tbl_cfg = {
         {"name": "update_by", "type": "bigint", "constraint": "NULL", "default": "NULL", "note": "更新人", "ddr": ["DDR-1"]},
     ]}
 tbl_rec = {
-    "anchor": "§2.3", "name": "示例_record", "fields": [
+    "anchor": "§2.3.2", "name": "示例_record", "fields": [
         {"name": "id", "type": "bigint", "constraint": "PK, AUTO_INCREMENT", "default": "—", "note": "主键", "ddr": ["DDR-1"]},
         {"name": "record_no", "type": "varchar(32)", "constraint": "NOT NULL, UNIQUE", "default": "—", "note": "业务编号", "ddr": ["DDR-1"]},
         {"name": "name", "type": "varchar(128)", "constraint": "NOT NULL", "default": "—", "note": "名称", "ddr": ["DDR-1"]},
@@ -159,7 +161,7 @@ tbl_rec = {
         {"name": "update_by", "type": "bigint", "constraint": "NULL", "default": "NULL", "note": "更新人", "ddr": ["DDR-1"]},
     ]}
 api_page = {
-    "anchor": "§5.2", "detail_anchor": "§5.3.1", "name": "分页查询", "method": "GET",
+    "anchor": "§5.3.1", "detail_anchor": "§5.3.1", "name": "分页查询", "method": "GET",
     "path": "/api/demo/page", "permission": "demo:view",
     "request": {"anchor": "§5.3.1", "fields": [
         {"name": "pageNum", "type": "integer", "required": True, "rule": ">=1", "source": "请求参数", "masking": "否"},
@@ -174,7 +176,7 @@ api_page = {
         {"name": "records[].status", "type": "string", "always": "是", "rule": "状态枚举", "source": "demo_record.status", "masking": "否"},
         {"name": "records[].createTime", "type": "datetime", "always": "是", "rule": "创建时间", "source": "demo_record.create_time", "masking": "否"}]}}
 api_create = {
-    "anchor": "§5.2", "detail_anchor": "§5.3.2", "name": "新增", "method": "POST",
+    "anchor": "§5.3.2", "detail_anchor": "§5.3.2", "name": "新增", "method": "POST",
     "path": "/api/demo", "permission": "demo:add",
     "request": {"anchor": "§5.3.2", "fields": [
         {"name": "name", "type": "string", "required": True, "rule": "trim 后 1~128；唯一范围在本模块内明确", "source": "请求体", "masking": "否"},
@@ -183,17 +185,22 @@ api_create = {
         {"name": "id", "type": "long", "always": "是", "rule": "新增记录主键", "source": "INSERT 返回主键", "masking": "否"},
         {"name": "recordNo", "type": "string", "always": "是", "rule": "按 R1 生成", "source": "demo_record.record_no", "masking": "否"}]}}
 rules = [
-    {"id": f"R{i}", "anchor": "§3", "summary": s} for i, s in enumerate(
-        ["record_no 自动生成，同日唯一", "name trim 后非空", "status 缺省默认值",
-         "已删除记录不允许更新", "不可变字段禁止修改", "乐观锁版本控制",
-         "逻辑删除原子设置", "存在有效关联数据时拒绝删除", "删除后 record_no 永不复用"], start=1)]
+    {"id": "R1", "anchor": "§5.3.2", "summary": "record_no 自动生成，同日唯一"},
+    {"id": "R2", "anchor": "§2.3.2", "summary": "name trim 后非空"},
+    {"id": "R3", "anchor": "§2.3.2", "summary": "status 缺省默认值"},
+    {"id": "R4", "anchor": "§4.3", "summary": "已删除记录不允许更新"},
+    {"id": "R5", "anchor": "§4.2", "summary": "不可变字段禁止修改"},
+    {"id": "R6", "anchor": "§2.3.2", "summary": "乐观锁版本控制"},
+    {"id": "R7", "anchor": "§4.3", "summary": "逻辑删除原子设置"},
+    {"id": "R8", "anchor": "§4.3", "summary": "存在有效关联数据时拒绝删除"},
+    {"id": "R9", "anchor": "§4.3", "summary": "删除后 record_no 永不复用"}]
 for _r in rules[1:]:
     _r["unreferenced_reason"] = "写入路径边界校验，主流程不直接引用"
 design = {
     "feature": "subf", "generated_at": "2026-09-17T00:00:00Z",
     "template": {"id": "详细设计-总分分文档-模板", "version": "SET_BY_SHELL", "mode": "sub"},
     "acceptance": [{"id": "M-01-F01-A01", "prd_anchor": "docs/需求/subf-prd.md#L1",
-                    "page": ["§7.1"], "api": ["§5.2"], "data": ["§2.3"],
+                    "page": ["§7.1"], "api": ["§5.3.1", "§5.3.2"], "data": ["§2.3.1", "§2.3.2"],
                     "rule": "R1", "test_case": "TC-SUB-001", "status": "COMPLETE"}],
     "tables": [tbl_cfg, tbl_rec], "apis": [api_page, api_create],
     "pages": [{"anchor": "§7.1", "name": "列表页", "permission": "demo:view"}],
@@ -351,7 +358,7 @@ import json, sys
 name = sys.argv[1]
 d = json.load(open("design.json"))
 d["feature"] = name
-_acc_page = "§7.1" if name != "mq-consumer" else "—"
+_acc_page = "§7.1.1" if name != "mq-consumer" else "—"
 d["acceptance"] = [dict(d["acceptance"][0], id="M01-F01-A01", page=_acc_page, api="—", data="—")]
 d["tables"] = []
 d["apis"] = []
@@ -378,11 +385,11 @@ if name in ("pure-ui", "mini-app-ui", "app-ui"):
         {"path": "integrations", "reason": "无外部调用"},
         {"path": "configs", "reason": "无新增配置键"}]
     if name == "pure-ui":
-        d["client"] = {"scope": "pc-web", "journeys": [{"name": "列表查看", "page": "§7.1", "evidence": "真实浏览器"}]}
+        d["client"] = {"scope": "pc-web", "journeys": [{"name": "列表查看", "page": "§7.1.1", "evidence": "真实浏览器"}]}
     elif name == "mini-app-ui":
-        d["client"] = {"scope": "mini-program", "journeys": [{"name": "列表查看", "page": "§7.1", "evidence": "微信开发者工具"}]}
+        d["client"] = {"scope": "mini-program", "journeys": [{"name": "列表查看", "page": "§7.1.1", "evidence": "微信开发者工具"}]}
     else:
-        d["client"] = {"scope": "app", "journeys": [{"name": "列表查看", "page": "§7.1", "evidence": "真机"}]}
+        d["client"] = {"scope": "app", "journeys": [{"name": "列表查看", "page": "§7.1.1", "evidence": "真机"}]}
 else:
     d["migrations"] = {"applicable": True, "dialects": ["h2", "postgresql", "oracle", "kingbase"]}
     d["pages"] = []

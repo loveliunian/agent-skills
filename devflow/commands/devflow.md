@@ -1,6 +1,6 @@
 ---
 name: devflow-command
-version: "3.26.9"
+version: "3.27.3"
 description: Use when running the complete devflow lifecycle or resuming a checkpoint.
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
@@ -15,7 +15,7 @@ allowed-tools: [read, write, exec, glob, grep, task]
 /devflow <prd-path> [--mode=new|change|extend|small-change]
          --frontend=pc-web|mini-program|app|not-applicable
          [--frontend-dir=<path>] [--service=<service>]
-         [--migration=A|B|C] [--source-count=<n>]
+         [--migration=A|B|C] [--source-count=<n>] [--profile=<id>]
          [--design-only] [--skip=<phase>]
 ```
 
@@ -24,6 +24,10 @@ allowed-tools: [read, write, exec, glob, grep, task]
 - `small-change` 先加载 `commands/small-change.md` 扫描项目并分类；结果为 FULL 时自动回到 `change`，不得继续快速路径。
 - `--design-only` 在 **P2a 评审 Gate 通过后**停止（设计完成 = P2 内容校验 + P2a 实施可行性评审，v3.24.0 与 /spec、/plan、/build 统一口径）；只能声明设计完成。
 - 小程序或 APP 在 P2 后必须生成并冻结 `devflow-client.json`；PC Web 也推荐使用同一契约。
+- `--profile=<id>` 冻结 Runtime Profile 到 `state.scope.profile_id`（须存在
+  `references/profiles/<id>.md`；缺省 `java-spring-flyway`）。当前 P3/P4b 的
+  build/test/coverage 命令位仅实现该参考 profile，其他 profile 在这些阶段
+  `BLOCKED(MISSING_CAPABILITY)`（见 `references/runtime-profile.md` 实现状态节）。
 
 ## Required load order
 

@@ -1,7 +1,10 @@
 {
   "feature": "demo-pay",
   "generated_at": "2026-09-16T10:50:00Z",
-  "template": { "id": "部署记录-模板", "version": "3.25.0" },
+  "template": {
+    "id": "部署记录-模板",
+    "version": "3.27.3"
+  },
   "feature_name": "演示支付",
   "date": "2026-09-16",
   "deployer": "运维-吴九",
@@ -12,32 +15,82 @@
     "path": "backend/pay/target/pay-1.0.0.jar",
     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   },
-  "health": { "url": "https://staging.demo.example.com/actuator/health", "status": 200 },
+  "health": {
+    "url": "https://staging.demo.example.com/actuator/health",
+    "status": 200
+  },
   "build_info_url": "https://staging.demo.example.com/actuator/info",
   "release_evidence_path": "docs/发布/demo-pay-release-run.md",
   "prechecks": {
     "services": [
-      { "service": "pay-service", "status": "运行中", "owner": "吴九" }
+      {
+        "service": "pay-service",
+        "status": "运行中",
+        "owner": "吴九"
+      }
     ],
     "db_backup": [
-      { "database": "pay", "time": "2026-09-16 09:50", "file": "backups/pay-20260916.sql.gz", "by": "吴九" }
+      {
+        "database": "pay",
+        "time": "2026-09-16 09:50",
+        "file": "backups/pay-20260916.sql.gz",
+        "by": "吴九"
+      }
     ],
     "dependencies": [
-      { "name": "PostgreSQL", "version": "15", "ok": true },
-      { "name": "Redis", "version": "7", "ok": true }
+      {
+        "name": "PostgreSQL",
+        "version": "15",
+        "ok": true
+      },
+      {
+        "name": "Redis",
+        "version": "7",
+        "ok": true
+      }
     ]
   },
   "steps": [
-    { "name": "数据库迁移", "cmd": "flyway -url=jdbc:postgresql://… migrate", "exit_code": 0, "evidence": "Successfully applied 2 migrations" },
-    { "name": "后端滚动更新", "cmd": "kubectl rollout status deployment/pay-service", "exit_code": 0, "evidence": "successfully rolled out" }
+    {
+      "name": "数据库迁移",
+      "cmd": "flyway -url=jdbc:postgresql://… migrate",
+      "exit_code": 0,
+      "evidence": "Successfully applied 2 migrations"
+    },
+    {
+      "name": "后端滚动更新",
+      "cmd": "kubectl rollout status deployment/pay-service",
+      "exit_code": 0,
+      "evidence": "successfully rolled out"
+    }
   ],
   "post_checks": [
-    { "item": "后端健康", "cmd": "curl /actuator/health", "expected": "UP", "actual": "{\"status\":\"UP\"}", "status": "PASS" },
-    { "item": "Prometheus", "cmd": "curl /actuator/prometheus", "expected": "200", "actual": "200", "status": "PASS" }
+    {
+      "item": "后端健康",
+      "cmd": "curl /actuator/health",
+      "expected": "UP",
+      "actual": "{\"status\":\"UP\"}",
+      "status": "PASS"
+    },
+    {
+      "item": "Prometheus",
+      "cmd": "curl /actuator/prometheus",
+      "expected": "200",
+      "actual": "200",
+      "status": "PASS"
+    }
   ],
   "function_checks": [
-    { "feature": "创建支付单", "method": "curl -X POST /api/pay/orders", "status": "PASS" },
-    { "feature": "关闭支付单", "method": "curl -X PUT /api/pay/orders/{no}/close", "status": "PASS" }
+    {
+      "feature": "创建支付单",
+      "method": "curl -X POST /api/pay/orders",
+      "status": "PASS"
+    },
+    {
+      "feature": "关闭支付单",
+      "method": "curl -X PUT /api/pay/orders/{no}/close",
+      "status": "PASS"
+    }
   ],
   "rollback_triggers": [
     "健康检查失败持续超过 5 分钟",
@@ -55,8 +108,16 @@
   "duration_minutes": 30,
   "problems": "无",
   "signoffs": [
-    { "role": "部署人", "name": "吴九", "date": "2026-09-16" },
-    { "role": "运维负责人", "name": "郑十", "date": "2026-09-16" }
+    {
+      "role": "部署人",
+      "name": "吴九",
+      "date": "2026-09-16"
+    },
+    {
+      "role": "运维负责人",
+      "name": "郑十",
+      "date": "2026-09-16"
+    }
   ],
   "zero_results": []
 }

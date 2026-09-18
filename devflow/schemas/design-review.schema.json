@@ -4,50 +4,168 @@
   "title": "devflow P2a 详设评审结构化产物（design-review.json）",
   "description": "P2a 详设评审的机器可读业务产物层。5 角色委员会 + 独立性收据 + 六类探针 + DF/AW 深度契约（AW ≥3）；P0/P1 级 DF 必须 CLOSED，严重性修订必须给理由与确认评委（不得靠改严重性绕过关闭义务）。渲染器派生 REVIEW_RUN_ID、收据表、DF 块（p2a_design_review_gate.sh 机械解析格式逐字段兼容）与 Gate 检查表（计数由 JSON 派生）。",
   "type": "object",
-  "x-unique": ["df[].id", "sf[].id", "aw[].id", "boundary_enums[].id"],
+  "x-unique": [
+    "df[].id",
+    "sf[].id",
+    "aw[].id",
+    "boundary_enums[].id"
+  ],
   "x-refs": [
-    { "from": "aw[].df_refs", "to": "df[].id", "label": "走查→DF" },
-    { "from": "boundary_enums[].df_ref", "to": "df[].id", "label": "边界枚举→DF" },
-    { "from": "severity_revisions[].df_id", "to": "df[].id", "label": "严重性修订→DF" }
+    {
+      "from": "aw[].df_refs",
+      "to": "df[].id",
+      "label": "走查→DF"
+    },
+    {
+      "from": "boundary_enums[].df_ref",
+      "to": "df[].id",
+      "label": "边界枚举→DF"
+    },
+    {
+      "from": "severity_revisions[].df_id",
+      "to": "df[].id",
+      "label": "严重性修订→DF"
+    }
   ],
-  "x-zeroable": ["leftovers", "sf", "boundary_enums", "ddr_questions", "severity_revisions"],
+  "x-zeroable": [
+    "leftovers",
+    "sf",
+    "boundary_enums",
+    "ddr_questions",
+    "severity_revisions"
+  ],
   "x-min-count": [
-    { "path": "probes", "min": 6, "why": "六类探针必做（P1–P6）；CODE-BASELINE 详设含基线时必答，可用 not_applicable_reason 豁免" },
-    { "path": "aw", "min": 3, "why": "对抗场景走查 ≥3 条——端到端走查是最有效的深挖探针" },
-    { "path": "receipts", "min": 5, "why": "5 角色独立性收据各一条" }
+    {
+      "path": "probes",
+      "min": 6,
+      "why": "六类探针必做（P1–P6）；CODE-BASELINE 详设含基线时必答，可用 not_applicable_reason 豁免"
+    },
+    {
+      "path": "aw",
+      "min": 3,
+      "why": "对抗场景走查 ≥3 条——端到端走查是最有效的深挖探针"
+    },
+    {
+      "path": "receipts",
+      "min": 5,
+      "why": "5 角色独立性收据各一条"
+    }
   ],
-  "required": ["feature", "generated_at", "template", "feature_name", "design_doc", "prd_doc", "date", "round", "mode", "run_id", "committee", "receipts", "quality_four", "ddr_questions", "probes", "boundary_enums", "aw", "df", "sf", "zero_df_roles", "severity_revisions", "traceability", "leftovers", "conclusion_passed", "signoffs", "zero_results"],
+  "required": [
+    "feature",
+    "generated_at",
+    "template",
+    "feature_name",
+    "design_doc",
+    "prd_doc",
+    "date",
+    "round",
+    "mode",
+    "run_id",
+    "committee",
+    "receipts",
+    "quality_four",
+    "ddr_questions",
+    "probes",
+    "boundary_enums",
+    "aw",
+    "df",
+    "sf",
+    "zero_df_roles",
+    "severity_revisions",
+    "traceability",
+    "leftovers",
+    "conclusion_passed",
+    "signoffs",
+    "zero_results"
+  ],
   "additionalProperties": false,
   "properties": {
-    "feature": { "type": "string", "minLength": 1 },
-    "generated_at": { "type": "string", "minLength": 1 },
+    "feature": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1
+    },
     "template": {
       "type": "object",
-      "required": ["id", "version"],
+      "required": [
+        "id",
+        "version"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": { "const": "详细设计评审报告-模板" },
-        "version": { "type": "string", "minLength": 1 }
+        "id": {
+          "const": "详细设计评审报告-模板"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
-    "feature_name": { "type": "string", "minLength": 1 },
-    "design_doc": { "type": "string", "minLength": 1, "description": "详设文档路径" },
-    "prd_doc": { "type": "string", "minLength": 1 },
-    "date": { "type": "string", "minLength": 1 },
-    "round": { "type": "integer", "minimum": 1 },
-    "mode": { "type": "string", "minLength": 2, "description": "委员会评审 / 专项评审" },
-    "run_id": { "type": "string", "minLength": 4, "description": "本轮评审唯一 ID（REVIEW_RUN_ID）——独立评审可追溯凭据；收据 session 必须一致" },
+    "feature_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "design_doc": {
+      "type": "string",
+      "minLength": 1,
+      "description": "详设文档路径"
+    },
+    "prd_doc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "date": {
+      "type": "string",
+      "minLength": 1
+    },
+    "round": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "mode": {
+      "type": "string",
+      "minLength": 2,
+      "description": "委员会评审 / 专项评审"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 4,
+      "description": "本轮评审唯一 ID（REVIEW_RUN_ID）——独立评审可追溯凭据；收据 session 必须一致"
+    },
     "committee": {
       "type": "array",
       "minItems": 5,
       "items": {
         "type": "object",
-        "required": ["role", "reviewer", "org"],
+        "required": [
+          "role",
+          "reviewer",
+          "org"
+        ],
         "additionalProperties": false,
         "properties": {
-          "role": { "enum": ["架构师", "后端专家", "前端专家", "测试开发", "DBA"] },
-          "reviewer": { "type": "string", "minLength": 1 },
-          "org": { "type": "string", "minLength": 1 }
+          "role": {
+            "enum": [
+              "架构师",
+              "后端专家",
+              "前端专家",
+              "测试开发",
+              "DBA"
+            ]
+          },
+          "reviewer": {
+            "type": "string",
+            "minLength": 1
+          },
+          "org": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -57,13 +175,38 @@
       "description": "独立性收据（每角色唯一）；session_id 必须与 run_id 一致（跨字段校验）",
       "items": {
         "type": "object",
-        "required": ["role", "reviewer_id", "session_id", "conclusion"],
+        "required": [
+          "role",
+          "reviewer_id",
+          "session_id",
+          "conclusion"
+        ],
         "additionalProperties": false,
         "properties": {
-          "role": { "enum": ["架构师", "后端专家", "前端专家", "测试开发", "DBA"] },
-          "reviewer_id": { "type": "string", "minLength": 1, "description": "每角色唯一，重复即拦截" },
-          "session_id": { "type": "string", "minLength": 1 },
-          "conclusion": { "enum": ["✅", "❌"] }
+          "role": {
+            "enum": [
+              "架构师",
+              "后端专家",
+              "前端专家",
+              "测试开发",
+              "DBA"
+            ]
+          },
+          "reviewer_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "每角色唯一，重复即拦截"
+          },
+          "session_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "conclusion": {
+            "enum": [
+              "✅",
+              "❌"
+            ]
+          }
         }
       }
     },
@@ -73,14 +216,34 @@
       "description": "设计质量四要素（成熟组件复用/公共抽取/规范遵循/DDR），每角色必查",
       "items": {
         "type": "object",
-        "required": ["element", "design_anchor", "owner_role", "pass", "issue_ref"],
+        "required": [
+          "element",
+          "design_anchor",
+          "owner_role",
+          "pass",
+          "issue_ref"
+        ],
         "additionalProperties": false,
         "properties": {
-          "element": { "type": "string", "minLength": 2 },
-          "design_anchor": { "type": "string", "pattern": "^§[0-9]+([.][0-9]+)*$" },
-          "owner_role": { "type": "string", "minLength": 1 },
-          "pass": { "type": "boolean" },
-          "issue_ref": { "type": "string", "description": "不通过时的问题编号；通过留空串" }
+          "element": {
+            "type": "string",
+            "minLength": 2
+          },
+          "design_anchor": {
+            "type": "string",
+            "pattern": "^§[0-9]+([.][0-9]+)*$"
+          },
+          "owner_role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "pass": {
+            "type": "boolean"
+          },
+          "issue_ref": {
+            "type": "string",
+            "description": "不通过时的问题编号；通过留空串"
+          }
         }
       }
     },
@@ -89,13 +252,29 @@
       "description": "DBA 对 DDR 的逐行核问；理由必须来自业务口径/规范条目/量化数据",
       "items": {
         "type": "object",
-        "required": ["ddr_id", "topic", "holds", "comment"],
+        "required": [
+          "ddr_id",
+          "topic",
+          "holds",
+          "comment"
+        ],
         "additionalProperties": false,
         "properties": {
-          "ddr_id": { "type": "string", "minLength": 1 },
-          "topic": { "type": "string", "minLength": 2 },
-          "holds": { "type": "boolean" },
-          "comment": { "type": "string", "minLength": 4 }
+          "ddr_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "topic": {
+            "type": "string",
+            "minLength": 2
+          },
+          "holds": {
+            "type": "boolean"
+          },
+          "comment": {
+            "type": "string",
+            "minLength": 4
+          }
         }
       }
     },
@@ -104,15 +283,49 @@
       "description": "探针执行记录；全部 executed=true 才能下结论；CODE-BASELINE 可用 not_applicable_reason 豁免",
       "items": {
         "type": "object",
-        "required": ["id", "name", "owner", "executed", "output"],
+        "required": [
+          "id",
+          "name",
+          "owner",
+          "executed",
+          "output"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "enum": ["P1", "P2", "P3", "P4", "P5", "P6", "CODE-BASELINE"] },
-          "name": { "type": "string", "minLength": 2 },
-          "owner": { "type": "string", "minLength": 1 },
-          "executed": { "type": "boolean" },
-          "output": { "type": "string", "description": "产出位置/结论；executed=true 时必填" },
-          "not_applicable_reason": { "type": "string", "description": "仅 CODE-BASELINE：详设无 REUSE/MODIFY/DELETE 基线（绿地）时的豁免理由" }
+          "id": {
+            "enum": [
+              "P1",
+              "P2",
+              "P3",
+              "P4",
+              "P5",
+              "P6",
+              "CODE-BASELINE",
+              "P4a",
+              "P4b",
+              "P4c",
+              "P7"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 2
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1
+          },
+          "executed": {
+            "type": "boolean"
+          },
+          "output": {
+            "type": "string",
+            "description": "产出位置/结论；executed=true 时必填"
+          },
+          "not_applicable_reason": {
+            "type": "string",
+            "description": "仅 CODE-BASELINE：详设无 REUSE/MODIFY/DELETE 基线（绿地）时的豁免理由"
+          }
         }
       }
     },
@@ -121,14 +334,33 @@
       "description": "边界与极端值枚举（P2 探针产出）；未定义行为登记为 DF",
       "items": {
         "type": "object",
-        "required": ["id", "object", "values", "prd_defined", "df_ref"],
+        "required": [
+          "id",
+          "object",
+          "values",
+          "prd_defined",
+          "df_ref"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string", "pattern": "^B-[0-9]{1,3}$" },
-          "object": { "type": "string", "minLength": 1 },
-          "values": { "type": "string", "minLength": 1 },
-          "prd_defined": { "type": "boolean" },
-          "df_ref": { "type": "string" }
+          "id": {
+            "type": "string",
+            "pattern": "^B-[0-9]{1,3}$"
+          },
+          "object": {
+            "type": "string",
+            "minLength": 1
+          },
+          "values": {
+            "type": "string",
+            "minLength": 1
+          },
+          "prd_defined": {
+            "type": "boolean"
+          },
+          "df_ref": {
+            "type": "string"
+          }
         }
       }
     },
@@ -137,14 +369,39 @@
       "description": "对抗场景走查；走查路径实例化为实际形态；结果必须以 DF 编号或 §锚点收尾",
       "items": {
         "type": "object",
-        "required": ["id", "scenario", "path", "df_refs", "evidence_anchor"],
+        "required": [
+          "id",
+          "scenario",
+          "path",
+          "df_refs",
+          "evidence_anchor"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string", "pattern": "^AW-[0-9]{1,3}$" },
-          "scenario": { "type": "string", "minLength": 4 },
-          "path": { "type": "string", "minLength": 4, "description": "触发→输入→处理→依赖→结果 的实例化步骤" },
-          "df_refs": { "type": "array", "items": { "type": "string", "pattern": "^DF-[0-9]{2}$" } },
-          "evidence_anchor": { "type": "string", "description": "详设真实章节（§x.y）" }
+          "id": {
+            "type": "string",
+            "pattern": "^AW-[0-9]{1,3}$"
+          },
+          "scenario": {
+            "type": "string",
+            "minLength": 4
+          },
+          "path": {
+            "type": "string",
+            "minLength": 4,
+            "description": "触发→输入→处理→依赖→结果 的实例化步骤"
+          },
+          "df_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^DF-[0-9]{2}$"
+            }
+          },
+          "evidence_anchor": {
+            "type": "string",
+            "description": "详设真实章节（§x.y）"
+          }
         }
       }
     },
@@ -153,20 +410,87 @@
       "description": "深层发现；五字段缺一 Gate 判无效；P0/P1 必须 CLOSED（跨字段校验）",
       "items": {
         "type": "object",
-        "required": ["id", "title", "role", "doc_anchor", "trigger_scene", "impact_chain", "root_cause", "suggestion", "verify", "severity", "status"],
+        "required": [
+          "id",
+          "title",
+          "role",
+          "doc_anchor",
+          "trigger_scene",
+          "impact_chain",
+          "root_cause",
+          "suggestion",
+          "verify",
+          "severity",
+          "status"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string", "pattern": "^DF-[0-9]{2}$" },
-          "title": { "type": "string", "minLength": 4 },
-          "role": { "enum": ["架构师", "后端专家", "前端专家", "测试开发", "DBA"] },
-          "doc_anchor": { "type": "string", "pattern": "^§[0-9]+([.][0-9]+)*$", "description": "详设位置（禁止「详见文档」）" },
-          "trigger_scene": { "type": "string", "minLength": 8 },
-          "impact_chain": { "type": "string", "minLength": 8 },
-          "root_cause": { "enum": ["缺失定义", "边界遗漏", "一致性冲突", "决策无依据", "可测性不足", "性能容量", "安全权限"] },
-          "suggestion": { "type": "string", "minLength": 4 },
-          "verify": { "type": "string", "minLength": 4 },
-          "severity": { "enum": ["P0", "P1", "P2"] },
-          "status": { "enum": ["OPEN", "CLOSED"] }
+          "id": {
+            "type": "string",
+            "pattern": "^DF-[0-9]{2}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 4
+          },
+          "role": {
+            "enum": [
+              "架构师",
+              "后端专家",
+              "前端专家",
+              "测试开发",
+              "DBA"
+            ]
+          },
+          "doc_anchor": {
+            "type": "string",
+            "pattern": "^§[0-9]+([.][0-9]+)*$",
+            "description": "详设位置（禁止「详见文档」）"
+          },
+          "trigger_scene": {
+            "type": "string",
+            "minLength": 8
+          },
+          "impact_chain": {
+            "type": "string",
+            "minLength": 8
+          },
+          "root_cause": {
+            "enum": [
+              "缺失定义",
+              "边界遗漏",
+              "一致性冲突",
+              "决策无依据",
+              "可测性不足",
+              "性能容量",
+              "安全权限"
+            ]
+          },
+          "suggestion": {
+            "type": "string",
+            "minLength": 4
+          },
+          "verify": {
+            "type": "string",
+            "minLength": 4
+          },
+          "severity": {
+            "enum": [
+              "P0",
+              "P1",
+              "P2",
+              "P4a",
+              "P4b",
+              "P4c",
+              "P7"
+            ]
+          },
+          "status": {
+            "enum": [
+              "OPEN",
+              "CLOSED"
+            ]
+          }
         }
       }
     },
@@ -175,14 +499,35 @@
       "description": "表层发现（单角色 ≤5 条）",
       "items": {
         "type": "object",
-        "required": ["id", "title", "role", "doc_anchor", "suggestion"],
+        "required": [
+          "id",
+          "title",
+          "role",
+          "doc_anchor",
+          "suggestion"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string", "pattern": "^SF-[0-9]{2}$" },
-          "title": { "type": "string", "minLength": 2 },
-          "role": { "type": "string", "minLength": 1 },
-          "doc_anchor": { "type": "string", "minLength": 1 },
-          "suggestion": { "type": "string", "minLength": 2 }
+          "id": {
+            "type": "string",
+            "pattern": "^SF-[0-9]{2}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 2
+          },
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "doc_anchor": {
+            "type": "string",
+            "minLength": 1
+          },
+          "suggestion": {
+            "type": "string",
+            "minLength": 2
+          }
         }
       }
     },
@@ -191,13 +536,35 @@
       "description": "零发现角色的核查记录（核查范围/证据锚点/验证方式，任一为空即空壳不构成证据）",
       "items": {
         "type": "object",
-        "required": ["role", "scope", "evidence_anchor", "verify"],
+        "required": [
+          "role",
+          "scope",
+          "evidence_anchor",
+          "verify"
+        ],
         "additionalProperties": false,
         "properties": {
-          "role": { "enum": ["架构师", "后端专家", "前端专家", "测试开发", "DBA"] },
-          "scope": { "type": "string", "minLength": 4 },
-          "evidence_anchor": { "type": "string", "minLength": 2 },
-          "verify": { "type": "string", "minLength": 4 }
+          "role": {
+            "enum": [
+              "架构师",
+              "后端专家",
+              "前端专家",
+              "测试开发",
+              "DBA"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 4
+          },
+          "evidence_anchor": {
+            "type": "string",
+            "minLength": 2
+          },
+          "verify": {
+            "type": "string",
+            "minLength": 4
+          }
         }
       }
     },
@@ -206,54 +573,141 @@
       "description": "严重性修订纪律（v3.24.0/A13）：修订后与原不同时，理由与确认评委必填",
       "items": {
         "type": "object",
-        "required": ["df_id", "from", "to", "reason", "confirmor"],
+        "required": [
+          "df_id",
+          "from",
+          "to",
+          "reason",
+          "confirmor"
+        ],
         "additionalProperties": false,
         "properties": {
-          "df_id": { "type": "string", "pattern": "^DF-[0-9]{2}$" },
-          "from": { "enum": ["P0", "P1", "P2"] },
-          "to": { "enum": ["P0", "P1", "P2"] },
-          "reason": { "type": "string", "description": "修订理由；from≠to 时必填（跨字段校验）" },
-          "confirmor": { "type": "string", "description": "确认评委；from≠to 时必填（跨字段校验）" }
+          "df_id": {
+            "type": "string",
+            "pattern": "^DF-[0-9]{2}$"
+          },
+          "from": {
+            "enum": [
+              "P0",
+              "P1",
+              "P2",
+              "P4a",
+              "P4b",
+              "P4c",
+              "P7"
+            ]
+          },
+          "to": {
+            "enum": [
+              "P0",
+              "P1",
+              "P2",
+              "P4a",
+              "P4b",
+              "P4c",
+              "P7"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "description": "修订理由；from≠to 时必填（跨字段校验）"
+          },
+          "confirmor": {
+            "type": "string",
+            "description": "确认评委；from≠to 时必填（跨字段校验）"
+          }
         }
       }
     },
     "traceability": {
       "type": "object",
-      "required": ["criteria_total", "design_ids", "coverage_pct"],
+      "required": [
+        "criteria_total",
+        "design_ids",
+        "coverage_pct"
+      ],
       "additionalProperties": false,
       "properties": {
-        "criteria_total": { "type": "integer", "minimum": 1, "description": "P0 验收点总数（追溯源分母）" },
-        "design_ids": { "type": "integer", "minimum": 1 },
-        "coverage_pct": { "type": "integer", "minimum": 0, "maximum": 100, "description": "必须 100%（跨字段结论联动）" }
+        "criteria_total": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "P0 验收点总数（追溯源分母）"
+        },
+        "design_ids": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "coverage_pct": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "必须 100%（跨字段结论联动）"
+        }
       }
     },
     "leftovers": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "item", "handling", "owner", "eta"],
+        "required": [
+          "id",
+          "item",
+          "handling",
+          "owner",
+          "eta"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string", "minLength": 1 },
-          "item": { "type": "string", "minLength": 2 },
-          "handling": { "type": "string", "minLength": 2 },
-          "owner": { "type": "string", "minLength": 1 },
-          "eta": { "type": "string", "minLength": 1 }
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "item": {
+            "type": "string",
+            "minLength": 2
+          },
+          "handling": {
+            "type": "string",
+            "minLength": 2
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1
+          },
+          "eta": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
-    "conclusion_passed": { "type": "boolean" },
+    "conclusion_passed": {
+      "type": "boolean"
+    },
     "signoffs": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["role", "name", "date"],
+        "required": [
+          "role",
+          "name",
+          "date"
+        ],
         "additionalProperties": false,
         "properties": {
-          "role": { "type": "string", "minLength": 1 },
-          "name": { "type": "string", "minLength": 1 },
-          "date": { "type": "string", "minLength": 1 }
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "date": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -261,11 +715,20 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["path", "reason"],
+        "required": [
+          "path",
+          "reason"
+        ],
         "additionalProperties": false,
         "properties": {
-          "path": { "type": "string", "minLength": 1 },
-          "reason": { "type": "string", "minLength": 1 }
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     }
