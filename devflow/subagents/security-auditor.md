@@ -1,7 +1,7 @@
 ---
 name: security-auditor
 subagent_type: generalPurpose
-version: "3.27.3"
+version: "3.27.4"
 responsibility: "/security 阶段独立审计。焦点:@PreAuthorize 覆盖、SQL 注入、密钥暴露、JWT 校验。必填独立 session。"
 description: >-
   Use when auditing security, mentions

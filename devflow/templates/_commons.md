@@ -1,6 +1,6 @@
 ---
 name: _commons
-version: "3.27.3"
+version: "3.27.4"
 description: 工程公约骨架（公共字段/错误码/缓存/幂等/2FA/审计等单一事实源）
 ---
 

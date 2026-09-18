@@ -1,12 +1,30 @@
 ---
 name: changelog
-version: "3.27.3"
+version: "3.27.4"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.27.3 Migration Guide
+# Changelog — devflow v1 → v3.27.4 Migration Guide
+
+## v3.27.4 (2026-09-17) — /plan 结构化 JSON + contract-consistency linter + perf-track
+
+- **`/plan` 结构化产物**：新增 `schemas/execution-plan.schema.json` +
+  `examples/structured/execution-plan.sample.json`；`df_validate`/`df_render`/`df_pipeline`
+  全链注册 execution-plan kind（校验→渲染→Markdown 输出）。
+  `commands/plan.md` 新增 §3.5 结构化产物指引。
+- **contract-consistency linter**：新增 `scripts/check-contract-consistency.py`
+  （sample 版本漂移 × probe enum 覆盖 × spawn 时序 × core 栈字面量四维校验）；
+  已接入 release-audit + structured samples 全量对齐（21 文件 3.25.0→3.27.3）。
+- **perf-track.sh**：Gate 耗时监控（DF_PERF=1 时写 perf-metrics.csv，零开销模式）；
+  接入 P4b/P6-final/P2a 三个热点 Gate。
+- **RUN_TESTS_GROUPS 选择性测试**：RUN_TESTS_GROUPS="test-phase-gates,test-state"
+  只跑指定组（开发反馈 155s→7s）；发布全量不受影响。
+- core.md 垂直切片→行为闭环；sql-dev 去 Flyway 绑定；small-change MICRO→
+  MIGRATION_ADAPTER；spawn 时序统一（3 文件）；AW 定义统一（methodology）。
+
+## v3.27.3 (2026-09-17) — 性能监控 + 选择性测试 + 实测基线
 
 ## v3.27.3 (2026-09-17) — 性能监控 + 选择性测试 + 实测基线
 

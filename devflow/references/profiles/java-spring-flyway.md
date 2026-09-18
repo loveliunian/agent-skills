@@ -1,6 +1,6 @@
 ---
 name: profile-java-spring-flyway
-version: "3.27.3"
+version: "3.27.4"
 description: 内置参考 Profile——Java/Spring Boot/Flyway 四方言 + 菜单权限 seed + JaCoCo。
 ---
 

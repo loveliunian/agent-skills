@@ -1,6 +1,6 @@
 ---
 name: phase-2b-demo-gate
-version: "3.27.3"
+version: "3.27.4"
 description: >-
   Demo gate——先原型确认再写正式代码。
   在 P2 详细设计后、P3 编码前插入"原型验证"门。
