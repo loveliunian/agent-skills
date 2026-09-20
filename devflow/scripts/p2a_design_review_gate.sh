@@ -57,7 +57,7 @@ perf_start "P2a"
 
 DESIGN_PATH="$(df_resolve_doc "$FEATURE" design .md design)"
 [ -n "$DESIGN_PATH" ] || DESIGN_PATH="docs/详细设计/${FEATURE}-详细设计.md"
-# v3.27.15：附属文档自动发现——需求追溯 / 实现交接 / 数据库设计决策（DDR+迁移）已移出详设
+# v3.28.1：附属文档自动发现——需求追溯 / 实现交接 / 数据库设计决策（DDR+迁移）已移出详设
 _P2A_DIR=$(dirname "$DESIGN_PATH")
 _P2A_BASE=$(basename "$DESIGN_PATH")
 case "$_P2A_BASE" in
@@ -92,8 +92,42 @@ echo "=== §0 基础产物存在性 ==="
 [ -f "$REVIEW_PATH" ] && pass "review report exists: $REVIEW_PATH" || p0 "review report missing"
 [ -f "$CRITERIA_PATH" ] && pass "acceptance criteria exists: $CRITERIA_PATH" || { p0 "acceptance missing"; exit 1; }
 
+# ---------- §0b PRD-to-Design 映射完备性前置检查 (v3.28.1 新增) ----------
+echo ""
+echo "=== §0b PRD-to-Design 映射完备性前置检查 ==="
+CLARIFICATION_JSON=".devflow/$FEATURE/clarification.json"
+DESIGN_JSON=".devflow/$FEATURE/design.json"
+MAPPING_SCRIPT="$SCRIPT_DIR/check_prd_design_mapping.py"
+
+if [ -f "$CLARIFICATION_JSON" ] && [ -f "$DESIGN_JSON" ]; then
+  if [ -f "$MAPPING_SCRIPT" ] && command -v python3 >/dev/null 2>&1; then
+    echo "执行 PRD-to-Design 映射检查..."
+    MAPPING_RESULT=$(python3 "$MAPPING_SCRIPT" "$CLARIFICATION_JSON" "$DESIGN_JSON" 2>&1 || true)
+    MAPPING_EXIT=$?
+    
+    echo "$MAPPING_RESULT"
+    
+    if [ $MAPPING_EXIT -eq 0 ]; then
+      pass "PRD-to-Design 映射完备性检查通过"
+    else
+      p0 "PRD-to-Design 映射不完备，详见上方输出"
+    fi
+  else
+    warn "映射检查脚本或 python3 不可用，跳过"
+  fi
+else
+  warn "clarification.json 或 design.json 不存在，跳过映射检查"
+fi
+
+if [ ! -f "$CLARIFICATION_JSON" ]; then
+    warn "clarification.json missing: $CLARIFICATION_JSON (PRD 映射检查跳过)"
+fi
+if [ ! -f "$DESIGN_JSON" ]; then
+    warn "design.json missing: $DESIGN_JSON (PRD 映射检查跳过)"
+fi
+
 if [ "$FAIL" -gt 0 ]; then
-  echo ""; echo "BLOCKED: 基础产物缺失"; exit 1
+  echo ""; echo "BLOCKED: 基础产物缺失或映射不完备"; exit 1
 fi
 
 # ---------- §1 评审报告非空 ----------
@@ -254,6 +288,56 @@ else
       p0 "领域专项清单有 ${DC_BADFMT} 项已勾选但缺证据：每项须附（证据：…）或 N-A+理由——防一键全勾走过场"
     else
       pass "domain checklist fully answered with evidence (${DC_DONE} items)"
+    fi
+  fi
+fi
+
+# ---------- §3f PRD-to-Design 映射完备性检查 (v3.28.1 新增) ----------
+echo ""
+echo "=== §3f PRD-to-Design 映射完备性 ==="
+CLARIFICATION_JSON=".devflow/${FEATURE}/clarification.json"
+DESIGN_JSON=".devflow/${FEATURE}/design.json"
+
+if [ ! -f "$CLARIFICATION_JSON" ]; then
+  p0 "clarification.json missing: $CLARIFICATION_JSON (required for mapping check)"
+elif [ ! -f "$DESIGN_JSON" ]; then
+  p0 "design.json missing: $DESIGN_JSON (required for mapping check)"
+else
+  # 执行 PRD-to-Design 映射检查
+  MAPPING_OUTPUT=$(python3 "$SCRIPT_DIR/check_prd_design_mapping.py" "$CLARIFICATION_JSON" "$DESIGN_JSON" 2>&1)
+  MAPPING_EXIT=$?
+  
+  if [ $MAPPING_EXIT -eq 0 ]; then
+    pass "PRD-to-Design mapping complete (entities→tables, operations→apis, constraints→implementations)"
+  else
+    echo "$MAPPING_OUTPUT" | sed 's/^/    /'
+    p0 "PRD-to-Design mapping incomplete (see details above)"
+  fi
+fi
+
+# ---------- §3g 设计一致性 Linter (v3.28.1 新增) ----------
+echo ""
+echo "=== §3g 设计一致性检查 ==="
+if [ ! -f "$DESIGN_JSON" ]; then
+  warn "design.json missing, skipping consistency check"
+else
+  CONVENTIONS_JSON=".devflow/${FEATURE}/design-conventions.json"
+  if [ -f "$CONVENTIONS_JSON" ]; then
+    LINTER_OUTPUT=$(python3 "$SCRIPT_DIR/design_consistency_linter.py" "$DESIGN_JSON" "$CONVENTIONS_JSON" 2>&1)
+  else
+    LINTER_OUTPUT=$(python3 "$SCRIPT_DIR/design_consistency_linter.py" "$DESIGN_JSON" 2>&1)
+  fi
+  LINTER_EXIT=$?
+  [ "$LINTER_EXIT" -eq 0 ] || warn "design_consistency_linter exit=${LINTER_EXIT}（一致性问题视为警告，不阻断）"
+
+  # 一致性问题视为警告，不阻断
+  if echo "$LINTER_OUTPUT" | grep -q "✅ 设计一致性检查通过"; then
+    pass "design consistency check passed"
+  else
+    echo "$LINTER_OUTPUT" | grep -E "^(⚠️|❌)" | head -10 | sed 's/^/    /'
+    ISSUES_COUNT=$(echo "$LINTER_OUTPUT" | grep -c "^⚠️" || true)
+    if [ "$ISSUES_COUNT" -gt 0 ]; then
+      warn "design consistency: $ISSUES_COUNT issues found (recommend fixing)"
     fi
   fi
 fi

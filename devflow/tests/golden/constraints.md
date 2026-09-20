@@ -3,7 +3,7 @@
 > 冻结日期：2026-09-16　确认人：用户　PRD：docs/PRD/demo-pay.md
 
 
-<!-- 审计指纹: constraints.json sha256=094dda76947e0c22fa2c256d2d1bf04b11c0bf0c6e14d4b20f973b2250eeb199（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: constraints.json sha256=bdd478d08265e0869233a9838203037d0262dbc605232584649e1413ef138ea5（由 df_render 自动生成，人工勿改） -->
 
 > 本文件是 P0 的冻结事实源。MUST_USE、MUST_NOT_USE 和固定版本属于硬约束，
 > 不能被 P1 的加权评分或 Agent 自主决策覆盖。Gate 只解析下方机器契约块。

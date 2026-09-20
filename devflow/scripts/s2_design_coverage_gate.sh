@@ -84,7 +84,7 @@ if command -v python3 >/dev/null 2>&1; then
 fi
 [ -f "$CRITERIA" ] || { p0 "criteria file not found: $CRITERIA"; exit 1; }
 
-# ---------- v3.27.15：附属文档自动发现（需求追溯 / 实现交接已移出详设） ----------
+# ---------- v3.28.1：附属文档自动发现（需求追溯 / 实现交接已移出详设） ----------
 # 约定：与详设同目录同 stem——<feature>-需求追溯.md / <feature>-实现交接.md。
 # 存在即以其为正本；否则回退详设正文（存量兼容）。
 _S2_DIR=$(dirname "$DESIGN")
@@ -391,7 +391,7 @@ echo ""
 echo "=== §6 WHEN 准伪代码 + R 编号 ==="
 WHEN_COUNT=$(grep -cE '^WHEN[[:space:]]+' "$DESIGN" 2>/dev/null || true)
 # v3.14.10: 同时接受行首 R1. 与表格 | R1 | 两种格式
-# v3.27.15: 规则下沉到 §7.2 页组表后，R 编号可能不在首列（如 | §7.2.1 | R1 | 摘要 |）——放宽为任意单元格
+# v3.28.1: 规则下沉到 §7.2 页组表后，R 编号可能不在首列（如 | §7.2.1 | R1 | 摘要 |）——放宽为任意单元格
 RULE_COUNT=$(grep -cE '(^R[0-9]+\.)|(\|[[:space:]]*R[0-9]+[[:space:]]*\|)' "$DESIGN" 2>/dev/null || true)
 [ "$WHEN_COUNT" -gt 0 ] && pass "WHEN clauses: $WHEN_COUNT" || p0 "WHEN clauses missing"
 [ "$RULE_COUNT" -gt 0 ] && pass "numbered rules R1.-R$((RULE_COUNT)).: $RULE_COUNT" || p0 "R 编号规则缺失"
@@ -402,6 +402,32 @@ if [ "$WHEN_COUNT" -gt 0 ] && [ "$SEQ_COUNT" -ge "$WHEN_COUNT" ]; then
   pass "WHEN/sequenceDiagram paired (${WHEN_COUNT}/${SEQ_COUNT})"
 else
   p0 "关键流程缺时序图：WHEN=${WHEN_COUNT} sequenceDiagram=${SEQ_COUNT}（每个关键流程必须 WHEN 伪代码 + Mermaid 时序图成对）"
+fi
+
+# ---------- §6a 设计一致性 Linter 检查 (v3.28.1 新增) ----------
+echo ""
+echo "=== §6a 设计一致性 Linter ==="
+CONVENTIONS_JSON=".devflow/$EFF_FEATURE/design-conventions.json"
+if [ -f "$DESIGN_JSON" ]; then
+  if command -v python3 >/dev/null 2>&1; then
+    if [ -f "$CONVENTIONS_JSON" ]; then
+      LINTER_RESULT=$("$SCRIPT_DIR/design_consistency_linter.py" "$DESIGN_JSON" "$CONVENTIONS_JSON" 2>&1 || true)
+      LINTER_EXIT=$?
+      
+      if [ $LINTER_EXIT -eq 0 ]; then
+        pass "设计一致性 Linter 检查通过（表/API/规则跨层对齐）"
+      else
+        echo "$LINTER_RESULT" | head -30
+        p0 "设计一致性检查失败（表-API 字段/状态枚举/外键关系不一致）"
+      fi
+    else
+      warn "design-conventions.json missing ($CONVENTIONS_JSON)，设计一致性检查跳过"
+    fi
+  else
+    warn "python3 not found, skipping design consistency linter"
+  fi
+else
+  warn "design.json missing ($DESIGN_JSON)，设计一致性检查跳过"
 fi
 
 # ---------- §6b 规则前置操作可达性（v3.26 NEW；L-P2-005 教训） ----------
@@ -579,7 +605,7 @@ PYEOF
   fi
 
   # 需求追溯语义锚点：§编号仅用于展示，Gate 只认 anchor: acceptance-traceability（或同义 H2）；
-  # v3.27.15：追溯矩阵移出详设后锚点在《需求追溯》文档中，_find_anchor 自动发现。
+  # v3.28.1：追溯矩阵移出详设后锚点在《需求追溯》文档中，_find_anchor 自动发现。
   if _find_anchor acceptance-traceability || echo "$PRODUCT_H2" | grep -q '需求追溯'; then
     pass "design.md 需求追溯锚点存在 (acceptance-traceability)"
   else
@@ -588,7 +614,7 @@ PYEOF
 
   # v3.23.0: 语义锚点契约扩展——data-model / api-contracts / business-rules / implementation-handoff。
   # 前三个为历史必含章节，缺失锚点时按同义 H2 标题回退（兼容在途产物）；实现交接为新增必含节
-  # （v3.27.15：实现交接移出详设后在 <feature>-实现交接.md，_find_anchor 自动发现）。
+  # （v3.28.1：实现交接移出详设后在 <feature>-实现交接.md，_find_anchor 自动发现）。
   check_semantic_anchor() {
     local anchor="$1" h2pat="$2" label="$3"
     if _find_anchor "$anchor" || echo "$PRODUCT_H2" | grep -qE "$h2pat"; then
@@ -603,7 +629,7 @@ PYEOF
   check_semantic_anchor "implementation-handoff" '实现交接' "实现交接（施工图：基线/变更/不变量）"
 
   # 必含章节（核心，仅单体模式强制——总分模式的章节契约由上方模板对齐检查覆盖）
-  # v3.27.15：§8 数据库迁移 / §15 实现交接 已移出、§11 只留零结果声明——按当前模板结构要求
+  # v3.28.1：§8 数据库迁移 / §15 实现交接 已移出、§11 只留零结果声明——按当前模板结构要求
   if [ "$MODE" = "monolith" ]; then
     REQUIRED=("§1 功能概述" "§2 数据模型" "§3 接口设计" "§4 权限矩阵" "§5 业务规则" "§6 关键流程" "§7 前端页面" "§8 验收标准" "§9 依赖项" "§10 组件复用与公共抽取" "§11 异常处理、安全与性能设计")
     for sec in "${REQUIRED[@]}"; do
@@ -640,6 +666,19 @@ echo "========================================"
 echo "P2 RESULT: PASS=$PASS FAIL=$FAIL WARN=$WARN"
 echo "========================================"
 echo "  Total: $TOTAL  COMPLETE: $COMPLETE  Coverage: ${COVERAGE_RATE}%"
+
+# ---------- §2c 设计一致性 Linter (v3.28.1 新增，建议性检查) ----------
+echo ""
+echo "=== §2c 设计一致性 Linter ==="
+LINTER_SCRIPT="$SCRIPT_DIR/design_consistency_linter.py"
+if [ -f "$DESIGN_JSON" ] && [ -f "$LINTER_SCRIPT" ] && command -v python3 >/dev/null 2>&1; then
+  LINTER_RESULT=$(python3 "$LINTER_SCRIPT" "$DESIGN_JSON" 2>&1 || true)
+  echo "$LINTER_RESULT"
+  # Linter 是建议性检查，不阻断 Gate（退出码始终为 0）
+  pass "设计一致性 Linter 完成（建议性检查，非强制阻断）"
+else
+  warn "design_consistency_linter.py or design.json missing, skipping consistency check"
+fi
 
 STATE_DIR="${STATE_DIR:-.devflow}"
 RECEIPT_DIR="$STATE_DIR/${EFF_FEATURE}/gates/P2"

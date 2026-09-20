@@ -588,7 +588,7 @@ MKEOF
   {
     printf 'UNIT_CMD=make test-report KIND=UNIT\nUNIT_EXIT=0\nUNIT_REPORT_PATH=.devflow/fx/reports/unit-report.txt\n'
     printf 'INTEGRATION_CMD=make test-report KIND=INTEGRATION\nINTEGRATION_EXIT=0\nINTEGRATION_REPORT_PATH=.devflow/fx/reports/integration-report.txt\n'
-    printf 'CLIENT_CMD=make test-report KIND=CLIENT\nCLIENT_EXIT=0\nCLIENT_REPORT_PATH=.devflow/fx/reports/client-report.txt\n'
+    printf 'CLIENT_CMD=make test-report KIND=CLIENT RUNNER=playwright\nCLIENT_EXIT=0\nCLIENT_REPORT_PATH=.devflow/fx/reports/client-report.txt\n'
     printf 'LOAD_CMD=make test-report KIND=LOAD\nLOAD_EXIT=0\nLOAD_REPORT_PATH=.devflow/fx/reports/load-report.txt\n'
     # v3.21.0: STAGING 须为真实容器执行（curl http(s) 探测）；date 追加使每轮报告
     # 内容变化，避免重复运行同一 workspace 时触发陈旧证据拒绝
@@ -623,7 +623,7 @@ W95Y="$TMP/v3210staging"; _mkfull "$W95Y"
 printf 'STAGING_CMD=make test-report KIND=STAGING\nSTAGING_EXIT=0\nSTAGING_REPORT_PATH=.devflow/fx/reports/staging-report.txt\n' > "$W95Y/.devflow/fx/test-evidence.env"
 printf 'UNIT_CMD=make test-report KIND=UNIT\nUNIT_EXIT=0\nUNIT_REPORT_PATH=.devflow/fx/reports/unit-report.txt\n' >> "$W95Y/.devflow/fx/test-evidence.env"
 printf 'INTEGRATION_CMD=make test-report KIND=INTEGRATION\nINTEGRATION_EXIT=0\nINTEGRATION_REPORT_PATH=.devflow/fx/reports/integration-report.txt\n' >> "$W95Y/.devflow/fx/test-evidence.env"
-printf 'CLIENT_CMD=make test-report KIND=CLIENT\nCLIENT_EXIT=0\nCLIENT_REPORT_PATH=.devflow/fx/reports/client-report.txt\n' >> "$W95Y/.devflow/fx/test-evidence.env"
+printf 'CLIENT_CMD=make test-report KIND=CLIENT RUNNER=playwright\nCLIENT_EXIT=0\nCLIENT_REPORT_PATH=.devflow/fx/reports/client-report.txt\n' >> "$W95Y/.devflow/fx/test-evidence.env"
 printf 'LOAD_CMD=make test-report KIND=LOAD\nLOAD_EXIT=0\nLOAD_REPORT_PATH=.devflow/fx/reports/load-report.txt\n' >> "$W95Y/.devflow/fx/test-evidence.env"
 printf 'ENVIRONMENT=staging\n' >> "$W95Y/.devflow/fx/test-evidence.env"
 _T28A3=$(cd "$W95Y" && bash "$ROOT/scripts/s6_final_verification_gate.sh" fx 2>&1; echo "rc=$?")

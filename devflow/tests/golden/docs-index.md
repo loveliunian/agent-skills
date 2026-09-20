@@ -3,7 +3,7 @@
 > 生成时间：2026-09-16 11:00:00（UTC）　数据来源：docs-index.json 结构化产物自动汇总
 
 
-<!-- 审计指纹: docs-index.json sha256=b489f234b658c26ef2e0483150ff8d434c067abbcb8a311d0ca370114a0d984d（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: docs-index.json sha256=93025cc08829efe21c1f18b9126d4aa8f96798f08859f2390800c82fd9d2ecba（由 df_render 自动生成，人工勿改） -->
 
 USER_DOC=docs/使用指南/demo-pay-使用指南.md
 USER_DOC_SHA256=0000000000000000000000000000000000000000000000000000000000000000

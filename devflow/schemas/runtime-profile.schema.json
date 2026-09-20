@@ -1,0 +1,536 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "devflow/schemas/runtime-profile.schema.json",
+  "title": "devflow Runtime Profile Schema",
+  "description": "技术栈无关的运行时配置档案契约——定义 build/test/migration/security 等能力位与 Gate 绑定。",
+  "type": "object",
+  "required": [
+    "profile_id",
+    "name",
+    "version",
+    "description",
+    "backend",
+    "authorization",
+    "persistence",
+    "client",
+    "security",
+    "gate_bindings"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "profile_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Profile 唯一标识（kebab-case）"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Profile 显示名称"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "语义化版本号"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Profile 详细描述"
+    },
+    "backend": {
+      "type": "object",
+      "required": ["language", "framework", "build_adapter", "test_adapter", "coverage_adapter"],
+      "additionalProperties": false,
+      "properties": {
+        "language": {
+          "type": "string",
+          "enum": ["java", "typescript", "javascript", "python", "go", "rust"]
+        },
+        "framework": {
+          "type": "string",
+          "minLength": 1
+        },
+        "build_adapter": {
+          "$ref": "#/definitions/command_adapter"
+        },
+        "test_adapter": {
+          "$ref": "#/definitions/command_adapter"
+        },
+        "lint_adapter": {
+          "$ref": "#/definitions/optional_command_adapter"
+        },
+        "coverage_adapter": {
+          "$ref": "#/definitions/coverage_adapter"
+        }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "required": ["required"],
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "verification_adapter": {
+          "$ref": "#/definitions/verification_adapter"
+        }
+      }
+    },
+    "persistence": {
+      "type": "object",
+      "required": ["required"],
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "migration_system": {
+          "type": "string",
+          "enum": ["flyway", "liquibase", "prisma", "alembic", "golang-migrate", "none"]
+        },
+        "dialects": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["h2", "postgresql", "mysql", "oracle", "kingbase", "sqlite"]
+          }
+        },
+        "migration_adapter": {
+          "$ref": "#/definitions/migration_adapter"
+        },
+        "seed_adapter": {
+          "$ref": "#/definitions/seed_adapter"
+        }
+      }
+    },
+    "client": {
+      "type": "object",
+      "required": ["scope_options"],
+      "additionalProperties": false,
+      "properties": {
+        "scope_options": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["pc-web", "mini-program", "app", "not-applicable"]
+          }
+        },
+        "pc-web": {
+          "$ref": "#/definitions/client_adapter"
+        },
+        "mini-program": {
+          "$ref": "#/definitions/client_adapter"
+        },
+        "app": {
+          "$ref": "#/definitions/client_adapter"
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "required": ["adapter"],
+      "additionalProperties": false,
+      "properties": {
+        "adapter": {
+          "$ref": "#/definitions/security_adapter"
+        }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "properties": {
+        "adapter": {
+          "$ref": "#/definitions/performance_adapter"
+        }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "properties": {
+        "health_check": {
+          "$ref": "#/definitions/health_check"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "environments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "monitoring": {
+      "type": "object",
+      "properties": {
+        "required_metrics": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "log_levels": {
+          "type": "object"
+        }
+      }
+    },
+    "coding_standards": {
+      "type": "object",
+      "properties": {
+        "mandatory_docs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "conventions": {
+          "type": "object"
+        }
+      }
+    },
+    "gate_bindings": {
+      "type": "object",
+      "required": ["P3-build", "P3-completion", "P6-coverage"],
+      "additionalProperties": true,
+      "properties": {
+        "P3-build": {
+          "type": "string"
+        },
+        "P3-completion": {
+          "oneOf": [
+            {"type": "string"},
+            {"type": "array", "items": {"type": "string"}}
+          ]
+        },
+        "P3c-security": {
+          "type": "string"
+        },
+        "P3d-performance": {
+          "type": "string"
+        },
+        "P5-migration": {
+          "type": "string"
+        },
+        "P6-coverage": {
+          "type": "string"
+        },
+        "P6-journey": {
+          "type": "string"
+        },
+        "P7-deploy": {
+          "type": "string"
+        }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "definitions": {
+    "command_adapter": {
+      "type": "object",
+      "required": ["command"],
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "working_dir": {
+          "type": "string"
+        },
+        "success_exit_code": {
+          "type": "integer",
+          "default": 0
+        },
+        "error_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "coverage_report_path": {
+          "type": "string"
+        }
+      }
+    },
+    "optional_command_adapter": {
+      "allOf": [
+        {"$ref": "#/definitions/command_adapter"},
+        {
+          "properties": {
+            "optional": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "coverage_adapter": {
+      "allOf": [
+        {"$ref": "#/definitions/command_adapter"},
+        {
+          "required": ["threshold"],
+          "properties": {
+            "threshold": {
+              "type": "object",
+              "required": ["core_business"],
+              "properties": {
+                "core_business": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "total": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            },
+            "report_parser": {
+              "type": "object",
+              "required": ["type", "path"],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["jacoco-html", "istanbul-lcov", "coverage-py-html", "go-cover"]
+                },
+                "path": {
+                  "type": "string"
+                },
+                "xpath_coverage": {
+                  "type": "string"
+                },
+                "json_summary": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "verification_adapter": {
+      "type": "object",
+      "required": ["command", "checks"],
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "description"],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "pattern": {
+                "type": "string"
+              },
+              "target_paths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "command": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "migration_adapter": {
+      "type": "object",
+      "required": ["command"],
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "working_dir": {
+          "type": "string"
+        },
+        "paths": {
+          "type": "object"
+        },
+        "validation": {
+          "type": "object",
+          "properties": {
+            "sync_check": {
+              "type": "boolean"
+            },
+            "version_pattern": {
+              "type": "string"
+            },
+            "schema_check": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "seed_adapter": {
+      "type": "object",
+      "required": ["command"],
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "working_dir": {
+          "type": "string"
+        },
+        "required_tables": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "client_adapter": {
+      "type": "object",
+      "required": ["framework", "build_adapter", "journey_adapter"],
+      "properties": {
+        "framework": {
+          "type": "string"
+        },
+        "build_adapter": {
+          "type": "object",
+          "required": ["command"],
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "working_dir": {
+              "type": "string"
+            },
+            "type_check": {
+              "type": "string"
+            }
+          }
+        },
+        "journey_adapter": {
+          "type": "object",
+          "required": ["command"],
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "working_dir": {
+              "type": "string"
+            },
+            "browser": {
+              "type": "string"
+            },
+            "simulator": {
+              "type": "string"
+            },
+            "emulator": {
+              "type": "string"
+            },
+            "report_path": {
+              "type": "string"
+            }
+          }
+        },
+        "route_registration_check": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "pattern": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "security_adapter": {
+      "type": "object",
+      "required": ["command", "checks", "blockers", "report_path"],
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["P0", "P1", "P2"]
+          }
+        },
+        "report_path": {
+          "type": "string"
+        }
+      }
+    },
+    "performance_adapter": {
+      "type": "object",
+      "required": ["command", "thresholds", "report_path"],
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "thresholds": {
+          "type": "object",
+          "properties": {
+            "api_p95_ms": {
+              "type": "integer"
+            },
+            "api_p99_ms": {
+              "type": "integer"
+            },
+            "db_query_p95_ms": {
+              "type": "integer"
+            }
+          }
+        },
+        "report_path": {
+          "type": "string"
+        }
+      }
+    },
+    "health_check": {
+      "type": "object",
+      "required": ["endpoint", "expected_status"],
+      "properties": {
+        "endpoint": {
+          "type": "string"
+        },
+        "expected_status": {
+          "type": "integer"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "default": 10
+        }
+      }
+    }
+  }
+}

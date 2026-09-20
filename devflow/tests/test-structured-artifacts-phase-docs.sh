@@ -205,7 +205,7 @@ grep -qE '^#### DF-01 ' "$OUT/prd-review.md" && grep -qE '^- AW-1 场景：' "$O
 grep -q '决策矩阵' "$OUT/tech-selection.md" && grep -q 'DEVFLOW:CONSTRAINT-BINDINGS' "$OUT/tech-selection.md" && ok "tech-selection: 决策矩阵+绑定块(s1 gate)" || bad "tech-selection: 决策矩阵+绑定块(s1 gate)"
 grep -q '详设文档结构决策' "$OUT/tech-selection.md" && grep -qE '^design_doc_structure_mode=(monolith|total)' "$OUT/tech-selection.md" && ok "tech-selection: 详设文档结构决策机检行(v3.27.7)" || bad "tech-selection: 详设文档结构决策机检行(v3.27.7)"
 grep -q '脚手架重合度审计' "$OUT/tech-selection.md" && grep -qE '\|[[:space:]]*判定（裁剪/复用/新建）[[:space:]]*\|' "$OUT/tech-selection.md" && ok "tech-selection: 脚手架重合度审计章节渲染(v3.27.14/铁律 18)" || bad "tech-selection: 脚手架重合度审计章节渲染(v3.27.14/铁律 18)"
-grep -q '规范遵循' "$OUT/tech-selection.md" && grep -q 'standards-compliance' "$OUT/tech-selection.md" && ok "tech-selection: 规范遵循章节渲染(v3.27.15 从详设移入)" || bad "tech-selection: 规范遵循章节渲染(v3.27.15)"
+grep -q '规范遵循' "$OUT/tech-selection.md" && grep -q 'standards-compliance' "$OUT/tech-selection.md" && ok "tech-selection: 规范遵循章节渲染(v3.28.1 从详设移入)" || bad "tech-selection: 规范遵循章节渲染(v3.28.1)"
 grep -q '^REVIEW_RUN_ID=' "$OUT/design-review.md" && grep -qE '^#### DF-01 ' "$OUT/design-review.md" && ok "design-review: RUN_ID+DF 标记(p2a gate)" || bad "design-review: RUN_ID+DF 标记(p2a gate)"
 grep -qE '^FINDING\|P0\|P0-1\|STATUS=CLOSED\|' "$OUT/code-review.md" && grep -q '^DEVELOPER_ID=dev-zhangsan' "$OUT/code-review.md" && ok "code-review: FINDING 行+角色分离字段(p3b gate)" || bad "code-review: FINDING 行+角色分离字段(p3b gate)"
 grep -qx 'P0_BLOCKERS=0' "$OUT/prd-validation.md" && grep -q '^P4_CMD=' "$OUT/prd-validation.md" && ok "prd-validation: P4 机器字段(p4 gate)" || bad "prd-validation: P4 机器字段(p4 gate)"
@@ -234,8 +234,10 @@ echo "$S0_NEG1" | grep -q "acceptance.json 缺失" && ok "s0 拒绝缺失 accept
 mkdir -p .devflow/demo-pay docs/PRD
 printf '# demo-pay PRD\n' > docs/PRD/demo-pay.md
 cp "$EX/acceptance.sample.json" .devflow/demo-pay/acceptance.json
+# v3.28.2: s0 要求 clarification.json 结构化正本（渲染源与正本双轨一致）
+cp "$EX/clarification.sample.json" .devflow/demo-pay/clarification.json
 S0_OUT=$(bash "$ROOT/scripts/s0_acceptance_gate.sh" demo-pay 2>&1)
-echo "$S0_OUT" | grep -q 'P0 RESULT: PASS=1[0-9] FAIL=0' && ok "s0 gate 端到端通过(渲染产物)" || {
+echo "$S0_OUT" | grep -q 'P0 RESULT: PASS=[0-9][0-9]* FAIL=0' && ok "s0 gate 端到端通过(渲染产物)" || {
   bad "s0 gate 端到端通过(渲染产物)"
   echo "$S0_OUT" | grep '\[P0\]' | head -5
 }

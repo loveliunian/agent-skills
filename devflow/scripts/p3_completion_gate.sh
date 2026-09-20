@@ -26,7 +26,7 @@ if [ -n "$FEATURE" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
-# v3.27.15: 详设正文解析共用库（渲染块 + 旧版手写两类版式）
+# v3.28.1: 详设正文解析共用库（渲染块 + 旧版手写两类版式）
 source "$SCRIPT_DIR/design_parse_lib.sh"
 # v3.22.0: 文档层中文化（中文优先、英文回退）
 source "$SCRIPT_DIR/devflow_paths.sh"
@@ -138,7 +138,7 @@ fi
 # ---------- 详设声明表 ↔ Flyway 实建表对账（原 p3_detail_diff.sh 并入 v3.16.26） ----------
 if [ -f "$DESIGN" ] && [ -d "backend/$SERVICE/src/main/resources/db/migration" ]; then
   DIFF_TMP=$(mktemp -d)
-  # v3.27.15: 优先解析 table-index 渲染块，回退旧版 CREATE TABLE 字面量（design_parse_lib.sh）
+  # v3.28.1: 优先解析 table-index 渲染块，回退旧版 CREATE TABLE 字面量（design_parse_lib.sh）
   design_tables_from_doc "$DESIGN" | tr '[:upper:]' '[:lower:]' | sort -u > "$DIFF_TMP/design-tables.txt" || true
   find "backend/$SERVICE/src/main/resources/db/migration" -type f -name 'V*.sql' -exec grep -hiE '^[[:space:]]*CREATE[[:space:]]+TABLE' {} + 2>/dev/null \
     | tr '[:upper:]' '[:lower:]' \
@@ -224,7 +224,7 @@ esac
 NEW_PAGES=0
 if [ "$FRONTEND_SCOPE" = "pc-web" ]; then
   NEW_PAGES=$(find "$CLIENT_DIR/src/views/$FEATURE" -name 'index.vue' -type f 2>/dev/null | wc -l | tr -d ' ' || true)
-  # v3.27.15: 页面不落在 src/views/<feature>/ 约定路径时，回退按施工图基线判定——
+  # v3.28.1: 页面不落在 src/views/<feature>/ 约定路径时，回退按施工图基线判定——
   # design.json baseline 里 ADD/MODIFY 的前端页面目标即新增/变更页。
   if [ "$NEW_PAGES" -eq 0 ] && [ -f "$STATE_DIR/$FEATURE/design.json" ]; then
     NEW_PAGES=$(jq -r '[.baseline.entries[]? | select((.decision=="ADD" or .decision=="MODIFY") and ((.target // "") | test("(^|/)(views|pages)/")))] | length' \
@@ -241,7 +241,7 @@ if [ "$NEW_PAGES" -gt 0 ]; then
     SEED=$(find "backend/$SERVICE/src/main/resources/db/migration/$vendor" -type f \
       \( -name "*seed_${FEATURE}_menus*.sql" -o -name "*${FEATURE}*menu*.sql" \) 2>/dev/null | head -1 || true)
     if [ -z "$SEED" ]; then
-      # v3.27.15: 历史项目按 module 命名（文件名不含 feature）——兜底命中但提示规范名
+      # v3.28.1: 历史项目按 module 命名（文件名不含 feature）——兜底命中但提示规范名
       SEED=$(find "backend/$SERVICE/src/main/resources/db/migration/$vendor" -type f \
         -name "*seed_*_menus*.sql" 2>/dev/null | head -1 || true)
       if [ -n "$SEED" ]; then

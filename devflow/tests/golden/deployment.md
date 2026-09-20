@@ -3,7 +3,7 @@
 > 部署日期：2026-09-16　部署人：运维-吴九　环境：staging　方式：滚动
 
 
-<!-- 审计指纹: deployment.json sha256=4cb02e0e5b66c41727711e0916acb5346f13886696388f080eee90b55ee73332（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: deployment.json sha256=e397e9f55458ee9243b90cb0317150929a61d99a5c3d0f7b54b1af18c74bd395（由 df_render 自动生成，人工勿改） -->
 
 <!-- P7 Gate 机器可读证据（由 df_render 从 JSON 派生，人工勿改） -->
 DEPLOYMENT_ID=dep-20260916-demo-pay-01

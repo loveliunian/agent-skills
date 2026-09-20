@@ -1,12 +1,55 @@
 ---
 name: changelog
-version: "3.27.15"
+version: "3.28.2"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.27.15
+# Changelog — devflow v1 → v3.28.2
+
+## v3.28.2 (2026-09-20) — 需求澄清深挖探针 + 门禁与夹具一致性修复
+
+- **深挖探针（新）**：`clarification.schema.json` 新增 `deep_probes[]`（8 种探针枚举 +
+  DP-N/severity/confirmed），`df_render.py` 渲染《深挖探针》章节，`phases/00-需求澄清.md`
+  增补探针指引与 blocking 处置口径，样例含 DP-1~DP-4。
+- **P0 结构化正本补齐**：s0 gate 明确要求 `clarification.json` / `acceptance.json` /
+  `constraints.json` 三件套 + 《需求澄清》H2 模板对齐 + 技术约束机器契约块 +
+  权限矩阵 not-applicable 声明；澄清 schema 放宽 conclusion（string|object）并恢复
+  `x-zeroable`（followups/exclusions）。
+- **P1 设计规范基线对齐**：s1 gate 字段名与 `design-conventions.schema.json` 同步
+  （api_conventions / data_conventions / state_machine_conventions），
+  `verify_case_conversion_rules.py` 支持 schema 的 `acronyms` 策略枚举（含 pascal 别名）。
+- **PRD-to-Design 映射接线**：p2a gate 调 `check_prd_design_mapping.py`，纯计算/无状态
+  夹具以空集合 + zero_results 完备声明放行。
+- **资源注册**：`templates/设计规范基线-模板.md` 登记进 RESOURCE-REGISTRY；
+  `phases/05-测试用例.md` 修复失衡代码围栏与孤儿片段；历史链接修正（01-技术选型）。
+- **脚本健壮性**：incremental_verify heredoc 参数传递修复；incremental_change_mode
+  函数定义顺序修复；gate-contract/p4/p5/incremental_verify 未花括号多字节缺陷清理；
+  shellcheck warning 归零。
+- **测试夹具统一**：新增 `tests/mk_p0_artifacts.sh` / `mk_design_conventions.sh` /
+  `mk_clarification_json.sh` 共享夹具；修复 testlib.sh 被破坏的 mk_acceptance_json
+  heredoc；全量 25/25 组 + 树锚点 OK。
+
+## v3.28.1 (2026-09-20) — 实战反馈落地：Gate 契约卡 + 四处门禁修复
+
+来源：FB-20260919-001（ch07-org-user 全流程复盘，363min 中约 35% 耗时来自门禁契约试错）。
+
+- **Gate 契约卡（新）**：`references/gate-contracts.md` + `scripts/gate-contract.sh <阶段>`——
+  把每个 gate 的隐式验收契约（机检行、禁用词、证据绑定、已知文件名劫持点）显式化；
+  SKILL.md 写作铁律第 7 条接线：写产物**前**先读契约卡，按契约一次写对。
+- **p5 文件名劫持修复**：docs/test-cases 同目录的「测试报告」按字典序排在「测试用例」之前
+  曾被选为用例正本（报 TC-* 缺失误报）。改为优先匹配 `*<f>*测试用例*.md`，无命中再回退 `${f}*.md`。
+- **P4↔P6 证据解耦**：p4_validation_gate 现将 VALIDATION_EVIDENCE 快照到
+  `.devflow/<f>/p4-evidence/` 并绑定副本——P6-final 重跑测试改写 target/surefire 报告后，
+  P4 证据树不再连锁失效（实测互踩点）。
+- **P7 重跑死锁自动回退**：artifact_gate P7/P8/P9 启动即清理旧收据；state 已标 completed
+  而收据被清理时 audit 死锁（completed 但无收据）。现自动回退 in_progress 允许重跑。
+- **P2a 证明失败可操作提示**：review-receipt attestation 校验失败时显式提示
+  `export REVIEW_ATTESTATION_PUBKEY=$PWD/.devflow/<f>/review-keys/attest.pub.pem`（实测高频踩点）。
+- **知识沉淀**：契约卡含「路径桥接」口径（详设 `:id` ↔ Spring `{id}` + design-form 注释行）、
+  P6 mvn/npm 须在仓库根可解析（根级 symlink pom.xml/package.json）、P10 phase 字段正则
+  （P3-build 不合法，用 P3b 别名 + skip_note）等实战坑位。
 
 ## v3.27.15 (2026-09-18) — 详设结构改版：§7 合并 / 附属文档拆分 / 保留字与错误码机检 / 下游对账接线
 
@@ -132,6 +175,23 @@ disable-model-invocation: false
   JSON 正本承载，不再渲染到详设正文）与 `#### 7.1.N` 页面小节示例（页面详情在 §7.2 页组中写）；
   §7.1 只保留页面清单一张表（页面 + 全部弹窗/抽屉 + 判定口径 + 完整性说明两行 blockquote）；
   渲染器从必需块注册表移除 client-scope（生成保留，存量兼容）。
+- **表单约束结构化（v3.27.15）**：`form_controls[]` 新增 `required`（boolean）/`max_length`（int）/
+  `format`（string）三个可选字段；模板指引明确「校验与提示」必须包含 **必填 Y/N + maxLength（文本控件必填）+
+  格式/范围 + 关联规则 R{n}**，禁止只写"合理校验"；df_validate 新增 **required 前后端对齐机检**——
+  `form_controls[].required` 提供时必须与对应接口请求字段的 `required` 一致（通过 submit_api 锚点+字段名匹配，
+  支持 snake_case/camelCase/嵌套路径），不一致即 FAIL。
+- **表单约束全量补齐（v3.27.15 续）**：`form_controls[]` 再增 5 字段——`min_length`（最小长度）/
+  `min_value`/`max_value`（数值范围）/ `default_value`（默认/预填值，含只读预填）/ `readonly`（只读，
+  设计决策须记理由）；模板指引同步扩展——「校验与提示」适用时还须写明：唯一性校验（服务端+防抖）、
+  条件显隐（如"临时部门=是时显示有效期"）、确认匹配（如密码确认）。
+- **表单约束紧凑写法（v3.27.15）**：「校验与提示」列统一  分隔紧凑格式——如
+  、、
+  ；每项为独立标签或 ；模板/骨架示例同步。
+- **CLIENT 浏览器签名校验（v3.27.15）**：s6 终验 Gate 的 CLIENT 类新增
+  `_validate_client_browser()`——命令必须包含 playwright/cypress/puppeteer/selenium/webdriver
+  或 `npm run test:e2e` 式 E2E 命名，vitest/jest 等组件单元测试冒充 CLIENT 被拒
+  （P6_CLIENT_NOT_BROWSER）；与 STAGING 容器签名校验对等。堵塞漏洞：此前
+  `CLIENT_CMD=npm run test`（纯单元测试）与 `CLIENT_CMD=npx playwright test` 在 Gate 等价。
 - **测试**：design-contract-hardening / structured-artifacts / phase-gates / design-package-modes
   夹具同步 §7.2.N；全量 25 组回归（新版本尚未发布时不要求 manifest）。
 

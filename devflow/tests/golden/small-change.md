@@ -3,7 +3,7 @@
 > 生成时间：2026-09-16 11:10:00（UTC）　数据来源：small-change.json 结构化产物自动汇总
 
 
-<!-- 审计指纹: small-change.json sha256=53ab8769e23863c0eccba53608a1771efa0a083c40abb262e2aaa9ed5be5e965（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: small-change.json sha256=2d8e3a55529ddfb9bcafd51d68dcebfc7377495b9ea7aaf2e87ee312de61249e（由 df_render 自动生成，人工勿改） -->
 
 ## 自然语言需求
 

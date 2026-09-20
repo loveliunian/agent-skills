@@ -1,0 +1,202 @@
+{
+  "$schema": "../schemas/runtime-profile.schema.json",
+  "profile_id": "node-express-prisma",
+  "name": "Node.js Express + Prisma ORM",
+  "version": "1.0.0",
+  "description": "Node.js 18+ / Express 4.x / Prisma ORM + TypeScript + Jest + Playwright E2E",
+  
+  "backend": {
+    "language": "typescript",
+    "framework": "express",
+    "build_adapter": {
+      "command": "npm run build",
+      "working_dir": "backend",
+      "success_exit_code": 0,
+      "error_patterns": [
+        "error TS\\d+:",
+        "Build failed"
+      ]
+    },
+    "test_adapter": {
+      "command": "npm test",
+      "working_dir": "backend",
+      "success_exit_code": 0,
+      "coverage_report_path": "coverage/lcov-report/index.html"
+    },
+    "lint_adapter": {
+      "command": "npm run lint",
+      "working_dir": "backend",
+      "optional": false
+    },
+    "coverage_adapter": {
+      "command": "npm run test:coverage",
+      "working_dir": "backend",
+      "threshold": {
+        "core_business": 0.80,
+        "total": 0.70
+      },
+      "report_parser": {
+        "type": "istanbul-lcov",
+        "path": "coverage/lcov-report/index.html",
+        "json_summary": "coverage/coverage-summary.json"
+      }
+    }
+  },
+
+  "authorization": {
+    "required": true,
+    "verification_adapter": {
+      "command": "bash scripts/verify-authorization.sh",
+      "checks": [
+        {
+          "name": "middleware_usage",
+          "description": "所有路由必须使用 auth middleware",
+          "pattern": "requireAuth|checkPermission",
+          "target_paths": ["backend/src/routes/**/*.ts"]
+        },
+        {
+          "name": "permission_matrix_alignment",
+          "description": "权限码与权限矩阵对账",
+          "command": "bash scripts/check-perm-matrix.sh"
+        }
+      ]
+    }
+  },
+
+  "persistence": {
+    "required": true,
+    "migration_system": "prisma",
+    "dialects": ["postgresql"],
+    "migration_adapter": {
+      "command": "npx prisma migrate deploy",
+      "working_dir": "backend",
+      "paths": {
+        "schema": "prisma/schema.prisma",
+        "migrations": "prisma/migrations"
+      },
+      "validation": {
+        "sync_check": true,
+        "schema_check": "npx prisma validate"
+      }
+    },
+    "seed_adapter": {
+      "command": "npx prisma db seed",
+      "working_dir": "backend",
+      "required_tables": [
+        "User",
+        "Role",
+        "Permission"
+      ]
+    }
+  },
+
+  "client": {
+    "scope_options": ["pc-web", "not-applicable"],
+    "pc-web": {
+      "framework": "react",
+      "build_adapter": {
+        "command": "npm run build",
+        "working_dir": "frontend",
+        "type_check": "npm run type-check"
+      },
+      "journey_adapter": {
+        "command": "npm run test:e2e",
+        "working_dir": "frontend",
+        "browser": "chromium",
+        "report_path": "playwright-report/index.html"
+      },
+      "route_registration_check": {
+        "command": "bash scripts/check-route-registration.sh",
+        "pattern": "path:\\s*['\"]/.+['\"]"
+      }
+    }
+  },
+
+  "security": {
+    "adapter": {
+      "command": "bash checks/security-scan.sh",
+      "checks": [
+        "sql-injection",
+        "xss-vulnerability",
+        "auth-bypass",
+        "sensitive-data-exposure",
+        "dependency-vulnerabilities"
+      ],
+      "tools": [
+        "npm audit",
+        "eslint-plugin-security"
+      ],
+      "blockers": ["P0"],
+      "report_path": "docs/review/{feature}-security-audit-report.md"
+    }
+  },
+
+  "performance": {
+    "adapter": {
+      "command": "bash checks/performance-scan.sh",
+      "thresholds": {
+        "api_p95_ms": 200,
+        "api_p99_ms": 500,
+        "db_query_p95_ms": 50
+      },
+      "report_path": "docs/review/{feature}-performance-audit-report.md"
+    }
+  },
+
+  "deployment": {
+    "health_check": {
+      "endpoint": "/health",
+      "expected_status": 200,
+      "timeout_seconds": 10
+    },
+    "artifacts": [
+      "backend/dist/",
+      "frontend/build/"
+    ],
+    "environments": ["dev", "staging", "prod"]
+  },
+
+  "monitoring": {
+    "required_metrics": [
+      "api_qps",
+      "api_latency_p95",
+      "error_rate",
+      "db_connection_pool"
+    ],
+    "log_levels": {
+      "dev": "debug",
+      "staging": "info",
+      "prod": "warn"
+    }
+  },
+
+  "coding_standards": {
+    "mandatory_docs": [],
+    "conventions": {
+      "naming": "camelCase for TypeScript, snake_case for database",
+      "comment_threshold": "复杂业务逻辑必须注释",
+      "type_safety": "strict TypeScript mode"
+    }
+  },
+
+  "gate_bindings": {
+    "P3-build": "backend.build_adapter",
+    "P3-completion": [
+      "backend.test_adapter",
+      "authorization.verification_adapter"
+    ],
+    "P3c-security": "security.adapter",
+    "P3d-performance": "performance.adapter",
+    "P5-migration": "persistence.migration_adapter",
+    "P6-coverage": "backend.coverage_adapter",
+    "P6-journey": "client.{scope}.journey_adapter",
+    "P7-deploy": "deployment.health_check"
+  },
+
+  "compatibility": {
+    "node_version": "18+",
+    "npm_version": "9+",
+    "typescript_version": "5.x",
+    "prisma_version": "5.x+"
+  }
+}

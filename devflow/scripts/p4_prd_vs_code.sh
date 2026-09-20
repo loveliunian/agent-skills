@@ -19,7 +19,7 @@ set -o pipefail
 # 迁移到 -euo 前须全量回归审计（存量清单见 script-conventions.md）。
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
-# v3.27.15: 详设正文解析共用库（渲染块 + 旧版手写两类版式）
+# v3.28.1: 详设正文解析共用库（渲染块 + 旧版手写两类版式）
 source "$SCRIPT_DIR/design_parse_lib.sh"
 
 # ---------- 参数解析 ----------
@@ -182,7 +182,7 @@ echo "=== §2 API 接口逐项对比 ==="
 
 # 从详设中解析接口表（格式: | Method | Path | 描述 |）
 parse_design_apis() {
-  # v3.27.15: 统一走 design_parse_lib.sh——渲染块（详细定义|方法|路径）与
+  # v3.28.1: 统一走 design_parse_lib.sh——渲染块（详细定义|方法|路径）与
   # 手写方法首列概览表都能解析；此前只认方法首列，结构化项目会静默 skip。
   design_apis_from_doc "$1"
 }
@@ -265,7 +265,7 @@ echo ""
 echo "=== §3 数据库表逐项对比 ==="
 
 parse_design_tables() {
-  # v3.27.15: 优先解析 table-index 渲染块，回退旧版 CREATE TABLE 字面量（design_parse_lib.sh）
+  # v3.28.1: 优先解析 table-index 渲染块，回退旧版 CREATE TABLE 字面量（design_parse_lib.sh）
   design_tables_from_doc "$1"
 }
 

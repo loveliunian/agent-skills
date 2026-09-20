@@ -154,7 +154,7 @@ cmd_begin() {
   input_sha=$(sha256 "$INPUT_F") || fail "cannot hash input: $INPUT_F"
   attestation_sha=$(bash "$(cd "$(dirname "$0")" && pwd)/review-attestation.sh" verify \
     --event begin --feature "$FEATURE" --session-id "$SESSION_ID" --role "$ROLE" --agent-id "$AGENT_ID" \
-    --input-sha "$input_sha" --output-sha "" --attestation "$ATTESTATION") || fail "begin attestation is invalid"
+    --input-sha "$input_sha" --output-sha "" --attestation "$ATTESTATION") || fail "begin attestation is invalid（常见原因：未 export REVIEW_ATTESTATION_PUBKEY，或证明文件与 review-keys/attest.pub.pem 不匹配；先运行 review-attest-init.sh keygen <feature> 并 export REVIEW_ATTESTATION_PUBKEY=$PWD/.devflow/<feature>/review-keys/attest.pub.pem）"
   mkdir -p "$dir/attestations" || fail "cannot create attestation directory"
   attestation_copy="$dir/attestations/${AGENT_ID}.begin.json"
   cp "$ATTESTATION" "$attestation_copy" || fail "cannot retain begin attestation"
@@ -263,7 +263,7 @@ cmd_complete() {
   [ "$input_sha_now" = "$r_input" ] || fail "input artifact changed since begin（评审基线漂移）: $INPUT_F"
   attestation_sha=$(bash "$(cd "$(dirname "$0")" && pwd)/review-attestation.sh" verify \
     --event complete --feature "$FEATURE" --session-id "$SESSION_ID" --role "$ROLE" --agent-id "$AGENT_ID" \
-    --input-sha "$input_sha_now" --output-sha "$output_sha" --attestation "$ATTESTATION") || fail "complete attestation is invalid"
+    --input-sha "$input_sha_now" --output-sha "$output_sha" --attestation "$ATTESTATION") || fail "complete attestation is invalid（常见原因：同 begin——须 export REVIEW_ATTESTATION_PUBKEY 指向 review-keys/attest.pub.pem，且证明文件为 begin 时同一密钥签名）"
   mkdir -p "$dir/attestations" || fail "cannot create attestation directory"
   attestation_copy="$dir/attestations/${AGENT_ID}.complete.json"
   cp "$ATTESTATION" "$attestation_copy" || fail "cannot retain complete attestation"

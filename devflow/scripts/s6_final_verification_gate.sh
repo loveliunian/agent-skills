@@ -152,6 +152,22 @@ _validate_staging_container() { # <command>
   return 1
 }
 
+_validate_client_browser() { # <command>
+  # v3.28.1（L-M01-011 续）：CLIENT 证据必须是真实浏览器 E2E——playwright/cypress/puppeteer/
+  # selenium 之一（或 npm script 引用它们）；vitest/jest 等组件单元测试不构成 CLIENT 证据。
+  local cmd="$1"
+  if printf '%s' "$cmd" | grep -qiE 'playwright|cypress|puppeteer|selenium|webdriver|browser.*(test|e2e)|e2e.*run|test.*e2e'; then
+    return 0
+  fi
+  # 兼容：npm run <script> 且 package.json 中该 script 引用了 E2E 框架——Gate 无法读 package.json，
+  # 但接受常见的 script 命名（test:e2e / e2e / e2e:test / browser-test）
+  if printf '%s' "$cmd" | grep -qiE 'npm[[:space:]]+run[[:space:]].*(e2e|e2e:|browser)'; then
+    return 0
+  fi
+  p0 "CLIENT 证据非真实浏览器 E2E: ${cmd} —— CLIENT 须为 playwright/cypress/puppeteer/selenium 级的浏览器自动化测试（含 npm run test:e2e）；vitest/jest 等组件单元测试不构成 CLIENT 证据（P6_CLIENT_NOT_BROWSER）"
+  return 1
+}
+
 _run_test_command() { # <kind> <command> <declared-exit>
   local kind="$1" command="$2" declared_exit="$3" log tmp_log actual started finished file_key first executable executable_before_sha executable_after_sha log_bytes
   file_key=$(_kind_file "$kind")
@@ -385,6 +401,7 @@ for kind in UNIT INTEGRATION CLIENT LOAD STAGING; do
         _validate_test_provenance "$kind" "$cmd"
         # v3.21.0: STAGING 额外要求真实容器签名（MockMvc 级命令在此被拒）
         if [ "$kind" = "STAGING" ]; then _validate_staging_container "$cmd" || true; fi
+        if [ "$kind" = "CLIENT" ] && [ "$CLIENT_EXEMPT" != "1" ]; then _validate_client_browser "$cmd" || true; fi
         _run_test_command "$kind" "$cmd" "$ext"
       elif [ ! -f "$EXEC_RECORD" ]; then
         p0 "${kind} 无法记录实际执行结果（执行记录未初始化）"

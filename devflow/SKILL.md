@@ -1,24 +1,21 @@
 ---
 name: devflow
 description: >-
-  Use this skill for repository-level software delivery: implementing a feature,
-  changing existing behavior, fixing a bug, modifying an API/UI/config/schema,
-  executing a PRD, reviewing an implementation, testing, deploying, or resuming
-  interrupted work. Applies to small bounded changes and full-lifecycle delivery
-  even when the user never says "devflow"; typical triggers include 开发这个功能,
-  实现需求, 加一个字段, 修改接口, 修复 bug, 补测试, 上线部署. Do not use for
-  conceptual Q&A that requires no repository changes.
+  Repository-level software delivery: implementing features, fixing bugs,
+  modifying API/UI/schema, executing PRDs, testing, deploying, or resuming
+  interrupted work. Triggers: 开发功能, 实现需求, 修改接口, 修复 bug, 补测试,
+  上线部署; also natural-language bugfix requests. Not for conceptual Q&A.
 license: MIT
-compatibility: Requires a repository workspace and command execution; stack-specific build, test, and migration commands are resolved from a frozen runtime profile.
+compatibility: Requires repo workspace and command execution; build/test/migration commands from frozen runtime profile.
 metadata:
   author: xingyunliushui
-  version: "3.27.15"
-  updated: "2026-09-17"
-  tags: "prd,detailed-design,development,migration,phase-gate,checkpoint-recovery,agent-skills"
+  version: "3.28.2"
+  updated: "2026-09-20"
+  tags: "prd,design,development,migration,phase-gate,recovery,test-generators"
 allowed-tools: read write exec glob grep task
 ---
 
-# devflow — PRD to production（v3.27.15）
+# devflow — PRD to production（v3.28.2）
 
 本文件是唯一权威入口。历史迁移只查 `references/CHANGELOG.md`；命令、阶段、角色和模板按需加载，不在入口重复。
 
@@ -36,8 +33,9 @@ allowed-tools: read write exec glob grep task
 - 服务端先按 `references/runtime-profile.md` 解析 Runtime Profile；`java-spring-flyway` 是内置参考 Profile，其他技术栈在 P1 冻结等价 adapter（build/test/security/migration），核心流程不假设具体框架。
 - 客户端覆盖 PC Web、微信小程序、APP 或明确的 `not-applicable` 前端范围。
 - PRD 到详设、实现、测试、部署、监控、文档、复盘，或从 checkpoint 恢复。
+- **测试生成器**（v3.28+）：P5 从 `design.json`/`acceptance.json` 生成 JUnit/Playwright 测试骨架。详见 `references/test-generators.md`。
 
-仅回答概念、只做独立代码审查或没有交付生命周期诉求时，不启动全流程。
+仅概念问答或独立代码审查，不启动全流程。
 
 ## 不可违背的原则
 
@@ -48,6 +46,7 @@ allowed-tools: read write exec glob grep task
 5. 适用 Flyway 时保持 h2、postgresql、oracle、kingbase 四方言一致；不适用需在冻结设计说明。
 6. 测试凭据只能从 seed 或配置事实源追溯，禁止猜测和记录明文秘密。
 7. 写产物前读对应模板，写后跑对应 Gate；模板与产物标题和字段契约一致。
+   写产物【前】先跑 `scripts/gate-contract.sh <阶段>` 读该阶段门禁契约卡（references/gate-contracts.md：机检行、禁用词、证据绑定、已知劫持点），按契约一次写对，避免试错返工。
 8. Gate 失败立即保存 checkpoint、记录证据并停止；修复后重跑同一 Gate。
 9. P10 教训先写入项目本地 feedback queue；修改已安装 skill 须获用户明确批准。
 10. 设计必须显式说明成熟组件复用、公共服务/组件抽取、命名/开发/注释规范及关键设计理由。
@@ -74,7 +73,7 @@ allowed-tools: read write exec glob grep task
 
 - 给人看的过程性文档默认用**中文名**：目录如 `docs/需求`、`docs/详细设计`、`docs/评审`、`docs/测试`、`docs/测试报告`、`docs/发布`、`docs/复盘`、`docs/知识沉淀`；文件如 `<feature>-需求澄清.md`、`<feature>-PRD验证报告.md`、`<feature>-单元测试报告.md`、`<feature>-集成测试报告.md`、`<feature>-客户端旅程报告.md`、`<feature>-压测报告.md`、`<feature>-预发布验证报告.md`、`<feature>-终验报告.md`、`<feature>-部署记录.md`、`<feature>-监控配置.md`、`<feature>-知识分享.md`；P7/P8 证据文件同理。完整中英映射见 `scripts/devflow_paths.sh`。
 - 所有 Gate **中文优先、英文回退**：历史英文路径（`docs/requirements/`、`<feature>-unit-report.md` 等）继续被接受，在途项目无需迁移。
-- 机器契约层**不翻译、不可改名**：`.devflow/` 下的 `receipt.txt`、`*.state.json`、`<kind>.json`（全阶段结构化产物，v3.25.2）、`*.tsv`、`*.env`、`skip-log.txt`、`feedback/`、`review-sessions/`、`gates/<PHASE>/`，以及 stage 名（P0–P10）与 ASCII feature 标识；证据型 `*-implementation-evidence.tsv`、`*-p4-results.tsv`、`*-unit-coverage.html`、`*-migration-evidence.env` 等同样保留英文。
+- 机器契约层**不翻译**：`.devflow/` 下 `receipt.txt`/`*.state.json`/`<kind>.json`/`*.tsv`/`*.env`/`gates/` 及 stage 名（P0-P10）、feature 标识保留英文。
 
 ### 全阶段结构化产物（v3.25.2）
 
@@ -91,7 +90,7 @@ Gate 强制矩阵（P0/P2/P3c/P3d/P6）见 `references/structured-artifacts.md`�
 | P2/P2a/P2b | 字段级详设、5 角色评审（DF/AW 深度契约）、原型 | `df_pipeline.py design`（design.json 结构化产物层，失败关闭）、`s2_design_coverage_gate.sh`（§2c 对账）、`df_pipeline.py design-review`、`p2a_design_review_gate.sh`、`p2b_demo_gate.sh` |
 | P3/P3b/P3c/P3d | 实现、代码审查、安全、性能 | `build-watchdog.sh gate`（P3-build）、`df_pipeline.py self-check`、`p3_completion_gate.sh`、`df_pipeline.py code-review`、`p3b_code_review_gate.sh`、`p3_security_perf_gate.sh` |
 | P4/P4b | PRD 验证与精确 PRD-vs-Code | `df_pipeline.py prd-validation`、`p4_validation_gate.sh`、`p4_prd_vs_code.sh` |
-| P5/P6 | 测试设计、执行、迁移、凭证、准确率 | `df_pipeline.py test-cases`、`p5_test_cases_gate.sh`(主)、`s5_migration_gate.sh`(B/C，P5-migration)、`s6_first_pass_accuracy.sh`、`p6_credential_gate.sh` |
+| P5/P6 | 测试设计、执行、迁移、凭证、准确率（**P5 自动生成测试骨架**） | `df_pipeline.py test-cases`、`p5_test_cases_gate.sh`(主)、`s5_migration_gate.sh`(B/C，P5-migration)、`s6_first_pass_accuracy.sh`、`p6_credential_gate.sh` |
 | P6 终验 | 部署前强制（定位：**交付把关而非缺陷发现**——只回答"功能已实现且真实可运行"，缺陷发现在 P3/P3b/P4）：验收点集合与冻结基线全等、FAIL=0；测出的问题必须**修复→重跑 Gate→循环直到测不出问题**，禁止带病交付或降断言换绿灯；Gate 实际执行五类测试命令并绑定报告、日志与真实退出码；verification.json 必填并对账冻结前端范围 | `s6_final_verification_gate.sh`（执行→校验→渲染报告→收据绑定 `gates/P6-final/`，缺失则 complete P6 拒绝） |
 | P7/P8/P9 | 部署、监控、文档 | `df_pipeline.py deployment/monitoring/docs-index`、`artifact_gate.sh P7/P8/P9` |
 | P10 | 复盘与项目反馈闭环 | `df_pipeline.py retrospective`、`p10_feedback_gate.sh` |

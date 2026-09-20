@@ -2,7 +2,7 @@
 name: devflow-concepts-core
 description: devflow 不可违背的铁律（true north）；规划、评审与全部 phase/command/subagent 的最高约束。
 metadata:
-  version: "3.27.15"
+  version: "3.28.2"
 ---
 
 # Concepts — True North（不可违背的铁律）

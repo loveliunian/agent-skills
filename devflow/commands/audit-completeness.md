@@ -1,6 +1,6 @@
 ---
 name: audit-completeness
-version: "3.27.15"
+version: "3.28.2"
 description: >-
   Use when checking Phase completion before transitioning to the next phase, mentions
   "/audit", "/audit-completeness", "检查完成度", "阶段门控", "P3 自检", or "gate self-check".

@@ -74,6 +74,211 @@ for fname in $FACT_FILES; do
   fi
 done
 
+# ---------- §1b P1 设计规范基线检查 (v3.27.16 新增) ----------
+echo ""
+echo "=== §1b P1 设计规范基线 (design-conventions.json) ==="
+CONVENTIONS_JSON=".devflow/$EFF_FEATURE/design-conventions.json"
+
+# 检查 design-conventions.json 存在性
+if [ -f "$CONVENTIONS_JSON" ]; then
+  pass "design-conventions.json exists"
+  
+  # 验证关键必填字段
+  if command -v jq >/dev/null 2>&1; then
+    HAS_NAMING=$(jq -e '.naming_conventions' "$CONVENTIONS_JSON" >/dev/null 2>&1 && echo 1 || echo 0)
+    HAS_API=$(jq -e '.api_conventions' "$CONVENTIONS_JSON" >/dev/null 2>&1 && echo 1 || echo 0)
+    HAS_DATA=$(jq -e '.data_conventions' "$CONVENTIONS_JSON" >/dev/null 2>&1 && echo 1 || echo 0)
+    HAS_STATE=$(jq -e '.state_machine_conventions' "$CONVENTIONS_JSON" >/dev/null 2>&1 && echo 1 || echo 0)
+    HAS_ERROR=$(jq -e '.error_handling_conventions' "$CONVENTIONS_JSON" >/dev/null 2>&1 && echo 1 || echo 0)
+
+    [ "$HAS_NAMING" = "1" ] && pass "naming_conventions 已定义" || p0 "naming_conventions 缺失"
+    [ "$HAS_API" = "1" ] && pass "api_conventions 已定义" || p0 "api_conventions 缺失"
+    [ "$HAS_DATA" = "1" ] && pass "data_conventions 已定义" || p0 "data_conventions 缺失"
+    [ "$HAS_STATE" = "1" ] && pass "state_machine_conventions 已定义" || p0 "state_machine_conventions 缺失"
+    [ "$HAS_ERROR" = "1" ] && pass "error_handling_conventions 已定义" || p0 "error_handling_conventions 缺失"
+  else
+    warn "jq 未安装，跳过 JSON 结构验证"
+  fi
+  
+  # 运行关键可选字段检查器（建议性，不阻断）
+  if [ -x "$SCRIPT_DIR/validate_design_conventions.py" ]; then
+    echo ""
+    echo "--- 关键可选字段检查（建议性） ---"
+    python3 "$SCRIPT_DIR/validate_design_conventions.py" "$CONVENTIONS_JSON" || true
+  fi
+  
+  # 运行命名转换规则验证器（如果定义了 case_conversion_rules）
+  if [ -x "$SCRIPT_DIR/verify_case_conversion_rules.py" ]; then
+    if command -v jq >/dev/null 2>&1 && jq -e '.case_conversion_rules' "$CONVENTIONS_JSON" >/dev/null 2>&1; then
+      echo ""
+      echo "--- 命名转换规则验证 ---"
+      if python3 "$SCRIPT_DIR/verify_case_conversion_rules.py" "$CONVENTIONS_JSON"; then
+        pass "命名转换规则稳定性验证通过"
+      else
+        warn "命名转换规则稳定性低，建议检查"
+      fi
+    fi
+  fi
+else
+  p0 "design-conventions.json missing (应在 P1 阶段产出)"
+fi
+
+if [ ! -f "$CONVENTIONS_JSON" ]; then
+  p0 "design-conventions.json missing: $CONVENTIONS_JSON (P1 强制冻结设计规范基线)"
+else
+  pass "design-conventions.json exists: $CONVENTIONS_JSON"
+  
+  if command -v python3 >/dev/null 2>&1; then
+    # 检查必需字段
+    REQUIRED_FIELDS="feature_name frozen_at naming_conventions api_conventions data_conventions state_machine_conventions error_handling_conventions"
+    for field in $REQUIRED_FIELDS; do
+      HAS_FIELD=$(python3 -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print('$field' in d)" 2>/dev/null || echo "False")
+      if [ "$HAS_FIELD" = "True" ]; then
+        pass "design-conventions.json has field: $field"
+      else
+        p0 "design-conventions.json missing required field: $field"
+      fi
+    done
+    
+    # 检查 JSON schema 有效性
+    SCHEMA_FILE="$SKILL_ROOT/schemas/design-conventions.schema.json"
+    if [ -f "$SCHEMA_FILE" ]; then
+      VALIDATION_RESULT=$(python3 -c "
+import json, sys
+from pathlib import Path
+try:
+    import jsonschema
+except ImportError:
+    print('jsonschema not installed, skipping validation')
+    sys.exit(0)
+
+schema = json.load(open('$SCHEMA_FILE'))
+data = json.load(open('$CONVENTIONS_JSON'))
+try:
+    jsonschema.validate(data, schema)
+    print('validation passed')
+    sys.exit(0)
+except jsonschema.ValidationError as e:
+    print(f'validation failed: {e.message}')
+    sys.exit(1)
+" 2>&1 || true)
+      
+      if echo "$VALIDATION_RESULT" | grep -q "validation passed"; then
+        pass "design-conventions.json schema validation passed"
+      elif echo "$VALIDATION_RESULT" | grep -q "jsonschema not installed"; then
+        warn "jsonschema not installed, skipping schema validation"
+      else
+        p0 "design-conventions.json schema validation failed"
+        echo "$VALIDATION_RESULT" | head -10
+      fi
+    fi
+    
+    # 检查规范内容完整性
+    echo ""
+    echo "=== §1c 设计规范内容完整性 ==="
+    
+    # 表命名规则
+    TABLE_PATTERN=$(python3 -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print(d.get('naming_conventions', {}).get('table_naming', {}).get('pattern', ''))" 2>/dev/null || echo "")
+    if [ -n "$TABLE_PATTERN" ]; then
+      pass "table naming pattern defined: $TABLE_PATTERN"
+    else
+      p0 "table naming pattern not defined"
+    fi
+    
+    # API 路由规则
+    API_PATTERN=$(python3 -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print(d.get('api_conventions', {}).get('routing_pattern', ''))" 2>/dev/null || echo "")
+    if [ -n "$API_PATTERN" ]; then
+      pass "API routing pattern defined: $API_PATTERN"
+    else
+      p0 "API routing pattern not defined"
+    fi
+    
+    # 状态机处理策略
+    STATE_STRATEGY=$(python3 -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print(d.get('state_machine_conventions', {}).get('storage_strategy', ''))" 2>/dev/null || echo "")
+    if [ -n "$STATE_STRATEGY" ]; then
+      pass "state machine strategy defined: $STATE_STRATEGY"
+    else
+      p0 "state machine strategy not defined"
+    fi
+    
+    # 错误处理策略
+    ERROR_STRATEGY=$(python3 -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print(d.get('error_handling_conventions', {}).get('exception_wrapper', ''))" 2>/dev/null || echo "")
+    if [ -n "$ERROR_STRATEGY" ]; then
+      pass "error handling strategy defined: $ERROR_STRATEGY"
+    else
+      p0 "error handling strategy not defined"
+    fi
+    
+    # v3.27.16: 关键可选字段检查（使用独立脚本）
+    echo ""
+    echo "=== §1d 关键可选字段检查 (v3.27.16) ==="
+    
+    VALIDATE_CONVENTIONS_SCRIPT="$SCRIPT_DIR/validate_design_conventions.py"
+    if [ -f "$VALIDATE_CONVENTIONS_SCRIPT" ]; then
+      VALIDATE_OUTPUT=$(mktemp -t s1-validate-conv.XXXXXX)
+      if python3 "$VALIDATE_CONVENTIONS_SCRIPT" "$CONVENTIONS_JSON" > "$VALIDATE_OUTPUT" 2>&1; then
+        pass "关键可选字段检查通过"
+        # 显示检查摘要
+        grep -E '(✅|⚠️|ℹ️)' "$VALIDATE_OUTPUT" | head -5 || true
+      else
+        warn "关键可选字段检查发现需要补充的字段（不阻断，仅为建议）"
+        grep -E '(⚠️)' "$VALIDATE_OUTPUT" | head -10 || true
+      fi
+      rm -f "$VALIDATE_OUTPUT"
+    else
+      warn "validate_design_conventions.py not found, skipping optional fields check"
+    fi
+    
+    # v3.27.16: 命名转换规则形式化检查
+    echo ""
+    echo "=== §1e 命名转换规则形式化验证 (v3.27.16) ==="
+    
+    VERIFY_CASE_SCRIPT="$SCRIPT_DIR/verify_case_conversion_rules.py"
+    if [ -f "$VERIFY_CASE_SCRIPT" ]; then
+      HAS_CASE_RULES=$(python3 -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print('yes' if 'case_conversion_rules' in d else 'no')" 2>/dev/null || echo "no")
+      
+      if [ "$HAS_CASE_RULES" = "yes" ]; then
+        VERIFY_OUTPUT=$(mktemp -t s1-verify-case.XXXXXX)
+        if python3 "$VERIFY_CASE_SCRIPT" "$CONVENTIONS_JSON" > "$VERIFY_OUTPUT" 2>&1; then
+          pass "命名转换规则形式化验证通过"
+          grep '稳定性分数' "$VERIFY_OUTPUT" || true
+        else
+          p0 "命名转换规则验证失败（转换示例不符合 acronyms 策略）"
+          grep -E '(❌|错误)' "$VERIFY_OUTPUT" | head -5 || true
+          echo "    建议：python3 $VERIFY_CASE_SCRIPT --generate-examples <strategy>"
+        fi
+        rm -f "$VERIFY_OUTPUT"
+      else
+        warn "case_conversion_rules not defined - recommend adding for consistent naming conversion"
+        echo "    生成示例: python3 $VERIFY_CASE_SCRIPT --generate-examples uppercase > case_rules.json"
+      fi
+    fi
+    
+  else
+    warn "python3 not found, skipping design conventions validation"
+  fi
+fi
+
+if [ ! -f "$CONVENTIONS_JSON" ]; then
+  p0 "design-conventions.json missing: $CONVENTIONS_JSON (P1 强制冻结设计规范)"
+else
+  pass "design-conventions.json exists: $CONVENTIONS_JSON"
+  
+  # 检查 JSON schema 有效性
+  if command -v python3 >/dev/null 2>&1; then
+    SCHEMA_FILE="$SKILL_ROOT/schemas/design-conventions.schema.json"
+    if [ -f "$SCHEMA_FILE" ]; then
+      if python3 "$SCRIPT_DIR/validate_json_schema.py" "$CONVENTIONS_JSON" "$SCHEMA_FILE" 2>/dev/null; then
+        pass "design-conventions.json schema validation passed"
+      else
+        p0 "design-conventions.json schema validation failed (check required fields: naming, api_conventions, state_management, error_handling, data_conventions)"
+      fi
+    else
+      warn "design-conventions schema not found: $SCHEMA_FILE"
+    fi
+  fi
+fi
+
 # ---------- §1a 事实源元数据：来源/时点/适用范围（v3.24.0/A14） ----------
 # 报告 A14：「事实文件存在不等于调查完成」——每份事实源应声明证据来源、调查时点
 # 与适用范围。机器块格式（init-fact-sources.sh 生成的模板已内嵌）：
@@ -171,12 +376,12 @@ if [ -f "$TECH_REPORT" ]; then
     fi
   fi
 
-  # v3.27.15：规范遵循结构化——tech-selection.json 登记 standards 时，报告必须含《规范遵循》章节
+  # v3.28.1：规范遵循结构化——tech-selection.json 登记 standards 时，报告必须含《规范遵循》章节
   # （详设 §13 已删除，规范基线唯一正本在设计决策记录）。
   if [ -f "$TS_JSON" ] && command -v jq >/dev/null 2>&1 \
      && jq -e '(.standards // []) | length > 0' "$TS_JSON" >/dev/null 2>&1; then
     if grep -qF '规范遵循' "$TECH_REPORT"; then
-      pass "standards section rendered (v3.27.15)"
+      pass "standards section rendered (v3.28.1)"
     else
       p0 "tech-selection.json 登记了 standards，但报告缺《规范遵循》章节——重跑 df_pipeline.py tech-selection 渲染"
     fi

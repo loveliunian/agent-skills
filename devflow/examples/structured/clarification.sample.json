@@ -3,10 +3,9 @@
   "generated_at": "2026-09-16T10:00:00Z",
   "template": {
     "id": "需求澄清-模板",
-    "version": "3.27.15"
+    "version": "3.28.2"
   },
   "feature_name": "演示支付",
-  "prd_doc": "docs/PRD/demo-pay.md",
   "date": "2026-09-16",
   "participants": [
     "产品-李四",
@@ -72,5 +71,174 @@
       "path": "exclusions",
       "reason": "PRD 无排除条款（不走/除外/手动输入类表述不存在）"
     }
-  ]
+  ],
+  "deep_probes": [
+    {
+      "probe": "logical_consistency",
+      "status": "findings",
+      "findings": [
+        {
+          "id": "DP-1",
+          "severity": "blocking",
+          "description": "PRD 功能 A 说「支付单关闭后不可重新支付」，功能 B 说「支持对关闭订单重新发起支付」",
+          "impact": "支付状态机语义矛盾——不确认无法设计状态转换",
+          "prd_anchor": "docs/PRD/demo.md#L45",
+          "proposed_resolution": "已关闭支付单不允许重新支付，必须新建",
+          "confirmed": true
+        }
+      ]
+    },
+    {
+      "probe": "state_completeness",
+      "status": "pass",
+      "findings": []
+    },
+    {
+      "probe": "data_flow_closure",
+      "status": "findings",
+      "findings": [
+        {
+          "id": "DP-2",
+          "severity": "major",
+          "description": "退款金额字段只在支付侧写入，退款侧只读——但退款侧需要更新退款状态，字段归属不清",
+          "impact": "影响表结构设计——退款状态字段应归属退款表而非支付表",
+          "proposed_resolution": "退款状态字段移到退款表，支付表仅存支付状态",
+          "confirmed": true
+        }
+      ]
+    },
+    {
+      "probe": "concurrency_conflict",
+      "status": "findings",
+      "findings": [
+        {
+          "id": "DP-3",
+          "severity": "major",
+          "description": "两个管理员同时编辑同一组织的名称，PRD 未说明冲突处理策略",
+          "impact": "影响接口设计——是否需要乐观锁（version 字段）或后写覆盖",
+          "proposed_resolution": "使用乐观锁，后提交者收到 VERSION_CONFLICT",
+          "confirmed": true
+        }
+      ]
+    },
+    {
+      "probe": "failure_chain",
+      "status": "pass",
+      "findings": []
+    },
+    {
+      "probe": "implicit_assumption",
+      "status": "findings",
+      "findings": [
+        {
+          "id": "DP-4",
+          "severity": "minor",
+          "description": "PRD 假设支付网关始终可用，未说明网关不可用时的行为",
+          "impact": "影响降级设计——是否需要队列重试或直接失败",
+          "proposed_resolution": "网关不可用时订单置「待支付异常」并告警，不阻塞主流程",
+          "confirmed": true
+        }
+      ]
+    },
+    {
+      "probe": "permission_boundary",
+      "status": "pass",
+      "findings": []
+    },
+    {
+      "probe": "acceptance_testability",
+      "status": "pass",
+      "findings": []
+    }
+  ],
+  "prd_path": "docs/PRD/demo-pay.md",
+  "acceptance_points": [
+    {
+      "id": "M-01-F01-A01",
+      "description": "查询支付订单列表",
+      "priority": "P0",
+      "testable": "API"
+    },
+    {
+      "id": "M-01-F02-A01",
+      "description": "创建退款单",
+      "priority": "P0",
+      "testable": "API"
+    }
+  ],
+  "entities": [
+    {
+      "id": "E1",
+      "name": "pay_order",
+      "description": "支付订单",
+      "key_fields": [
+        "order_no"
+      ],
+      "states": [],
+      "acceptance_refs": [
+        "M-01-F01-A01"
+      ]
+    },
+    {
+      "id": "E2",
+      "name": "pay_refund",
+      "description": "退款单",
+      "key_fields": [
+        "refund_no"
+      ],
+      "states": [],
+      "acceptance_refs": [
+        "M-01-F02-A01"
+      ]
+    }
+  ],
+  "operations": [
+    {
+      "id": "O1",
+      "name": "查询支付订单",
+      "description": "分页查询支付订单",
+      "actor": "用户",
+      "inputs": [
+        "pageNum",
+        "pageSize"
+      ],
+      "outputs": [
+        "total",
+        "records"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "acceptance_refs": [
+        "M-01-F01-A01"
+      ]
+    },
+    {
+      "id": "O2",
+      "name": "创建退款单",
+      "description": "对已支付订单发起退款",
+      "actor": "用户",
+      "inputs": [
+        "orderId",
+        "amount"
+      ],
+      "outputs": [
+        "refundId"
+      ],
+      "preconditions": [
+        "订单已支付"
+      ],
+      "postconditions": [
+        "退款单创建"
+      ],
+      "acceptance_refs": [
+        "M-01-F02-A01"
+      ]
+    }
+  ],
+  "constraints": [],
+  "risks": [],
+  "assumptions": [],
+  "out_of_scope": [],
+  "clarifications": [],
+  "clarified_at": "2026-09-16"
 }

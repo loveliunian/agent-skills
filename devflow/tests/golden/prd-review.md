@@ -4,7 +4,7 @@
 > PRD 文档：docs/PRD/demo-pay.md
 
 
-<!-- 审计指纹: prd-review.json sha256=67ba1e70e39b3eedc0b4d7ff57a31e1afb76c9ac8b4f3df79b4a6a9f16c382be（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: prd-review.json sha256=ce26a1eaf68c2e2843b6b93689f55f4ea05712e62a7dedcaad5c67c753cc5a7d（由 df_render 自动生成，人工勿改） -->
 
 ## 探针执行记录（v3.14.0 · P0b 必做四类，未执行不得下结论）
 

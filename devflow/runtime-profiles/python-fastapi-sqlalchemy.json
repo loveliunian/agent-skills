@@ -1,0 +1,202 @@
+{
+  "$schema": "../schemas/runtime-profile.schema.json",
+  "profile_id": "python-fastapi-sqlalchemy",
+  "name": "Python FastAPI + SQLAlchemy",
+  "version": "1.0.0",
+  "description": "Python 3.10+ / FastAPI / SQLAlchemy ORM + Alembic migrations + pytest + Playwright E2E",
+  
+  "backend": {
+    "language": "python",
+    "framework": "fastapi",
+    "build_adapter": {
+      "command": "python -m compileall .",
+      "working_dir": "backend",
+      "success_exit_code": 0,
+      "error_patterns": [
+        "SyntaxError",
+        "ImportError"
+      ]
+    },
+    "test_adapter": {
+      "command": "pytest tests/",
+      "working_dir": "backend",
+      "success_exit_code": 0,
+      "coverage_report_path": "htmlcov/index.html"
+    },
+    "lint_adapter": {
+      "command": "ruff check . && mypy .",
+      "working_dir": "backend",
+      "optional": false
+    },
+    "coverage_adapter": {
+      "command": "pytest --cov=app --cov-report=html tests/",
+      "working_dir": "backend",
+      "threshold": {
+        "core_business": 0.80,
+        "total": 0.70
+      },
+      "report_parser": {
+        "type": "coverage-py-html",
+        "path": "htmlcov/index.html",
+        "json_summary": ".coverage"
+      }
+    }
+  },
+
+  "authorization": {
+    "required": true,
+    "verification_adapter": {
+      "command": "bash scripts/verify-authorization.sh",
+      "checks": [
+        {
+          "name": "dependency_usage",
+          "description": "所有路由必须使用 Depends(check_permission)",
+          "pattern": "Depends\\(.*check_permission.*\\)",
+          "target_paths": ["backend/app/api/**/*.py"]
+        },
+        {
+          "name": "permission_matrix_alignment",
+          "description": "权限码与权限矩阵对账",
+          "command": "bash scripts/check-perm-matrix.sh"
+        }
+      ]
+    }
+  },
+
+  "persistence": {
+    "required": true,
+    "migration_system": "alembic",
+    "dialects": ["postgresql"],
+    "migration_adapter": {
+      "command": "alembic upgrade head",
+      "working_dir": "backend",
+      "paths": {
+        "config": "alembic.ini",
+        "migrations": "alembic/versions"
+      },
+      "validation": {
+        "sync_check": true,
+        "version_pattern": "^[0-9a-f]+_[a-z0-9_]+\\.py$"
+      }
+    },
+    "seed_adapter": {
+      "command": "python scripts/seed.py",
+      "working_dir": "backend",
+      "required_tables": [
+        "users",
+        "roles",
+        "permissions"
+      ]
+    }
+  },
+
+  "client": {
+    "scope_options": ["pc-web", "not-applicable"],
+    "pc-web": {
+      "framework": "vue3",
+      "build_adapter": {
+        "command": "npm run build",
+        "working_dir": "frontend",
+        "type_check": "npm run type-check"
+      },
+      "journey_adapter": {
+        "command": "npm run test:e2e",
+        "working_dir": "frontend",
+        "browser": "chromium",
+        "report_path": "test-results/e2e-report.html"
+      },
+      "route_registration_check": {
+        "command": "bash scripts/check-route-registration.sh",
+        "pattern": "path:\\s*['\"]/.+['\"]"
+      }
+    }
+  },
+
+  "security": {
+    "adapter": {
+      "command": "bash checks/security-scan.sh",
+      "checks": [
+        "sql-injection",
+        "xss-vulnerability",
+        "auth-bypass",
+        "sensitive-data-exposure",
+        "dependency-vulnerabilities"
+      ],
+      "tools": [
+        "bandit",
+        "safety check"
+      ],
+      "blockers": ["P0"],
+      "report_path": "docs/review/{feature}-security-audit-report.md"
+    }
+  },
+
+  "performance": {
+    "adapter": {
+      "command": "bash checks/performance-scan.sh",
+      "thresholds": {
+        "api_p95_ms": 200,
+        "api_p99_ms": 500,
+        "db_query_p95_ms": 50
+      },
+      "report_path": "docs/review/{feature}-performance-audit-report.md"
+    }
+  },
+
+  "deployment": {
+    "health_check": {
+      "endpoint": "/health",
+      "expected_status": 200,
+      "timeout_seconds": 10
+    },
+    "artifacts": [
+      "backend/",
+      "frontend/dist/"
+    ],
+    "environments": ["dev", "staging", "prod"]
+  },
+
+  "monitoring": {
+    "required_metrics": [
+      "api_qps",
+      "api_latency_p95",
+      "error_rate",
+      "db_connection_pool"
+    ],
+    "log_levels": {
+      "dev": "DEBUG",
+      "staging": "INFO",
+      "prod": "WARNING"
+    }
+  },
+
+  "coding_standards": {
+    "mandatory_docs": [],
+    "conventions": {
+      "naming": "snake_case for Python, snake_case for database",
+      "comment_threshold": "复杂业务逻辑必须注释",
+      "type_safety": "strict mypy type checking"
+    }
+  },
+
+  "gate_bindings": {
+    "P3-build": "backend.build_adapter",
+    "P3-completion": [
+      "backend.test_adapter",
+      "authorization.verification_adapter"
+    ],
+    "P3c-security": "security.adapter",
+    "P3d-performance": "performance.adapter",
+    "P5-migration": "persistence.migration_adapter",
+    "P6-coverage": "backend.coverage_adapter",
+    "P6-journey": "client.{scope}.journey_adapter",
+    "P7-deploy": "deployment.health_check"
+  },
+
+  "compatibility": {
+    "python_version": "3.10+",
+    "fastapi_version": "0.100+",
+    "sqlalchemy_version": "2.x",
+    "alembic_version": "1.x+"
+  }
+}

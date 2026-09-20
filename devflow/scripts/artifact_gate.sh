@@ -512,6 +512,17 @@ esac
 # 与内部/docs 镜像内容漂移（code02/code03 教训：audit-receipts 此前为孤儿工具无人调用）。
 if printf '%s' "$PHASE" | grep -qE '^P[789]$'; then
   SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+  # v3.28.1(FB-20260919-001): gate 重跑迭代先清理旧收据——若 state 已标 P<phase>=completed
+  # 而收据被清理，audit-receipts 会死锁（completed 但无收据）。自动回退 in_progress 允许重跑。
+  if command -v jq >/dev/null 2>&1 && [ -f "${STATE_DIR:-.devflow}/${FEATURE}.state.json" ]; then
+    _p7_st=$(jq -r --arg ph "$PHASE" '.phases[$ph].status // empty' "${STATE_DIR:-.devflow}/${FEATURE}.state.json" 2>/dev/null || true)
+    if [ "$_p7_st" = "completed" ] && [ ! -f "${STATE_DIR:-.devflow}/${FEATURE}/gates/${PHASE}/receipt.txt" ]; then
+      jq --arg ph "$PHASE" '.phases[$ph].status = "in_progress"' "${STATE_DIR:-.devflow}/${FEATURE}.state.json" \
+        > "${STATE_DIR:-.devflow}/${FEATURE}.state.json.tmp" 2>/dev/null \
+        && mv "${STATE_DIR:-.devflow}/${FEATURE}.state.json.tmp" "${STATE_DIR:-.devflow}/${FEATURE}.state.json" \
+        && echo "[INFO] state $PHASE=completed 但收据已被本轮清理——自动回退 in_progress 允许重跑"
+    fi
+  fi
   # v3.16.0: 本轮 PHASE 旧收据先清理（内部+镜像）——gate 重跑迭代证据后，上一轮
   # 收据的 EVIDENCE_SHA256 必然过时（audit 证据绑定重验会误报前置链失败）。
   # 当前 PHASE 收据由本次运行末尾重写；前置链收据不受影响。

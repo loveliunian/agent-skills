@@ -3,7 +3,7 @@
 > 选型日期：2026-09-16　选型人：张三　评审人：架构师-老周
 
 
-<!-- 审计指纹: tech-selection.json sha256=c561073c755df5f89106818c8cc7fa6103e4c3aed798f5019de9d53229b042ec（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: tech-selection.json sha256=4b03bd3d7a240212a4c55e6e62a72355c62ebd6955cc605d3972b15f77750d40（由 df_render 自动生成，人工勿改） -->
 
 ## Step 1 现有仓库与硬约束盘点
 
@@ -102,7 +102,7 @@ design_doc_structure_mode=monolith（P1/P2 Gate 机检行；s2 --mode 与此一�
 
 <!-- anchor: standards-compliance -->
 
-> v3.27.15 起从详设 §13 移入：命名/开发/注释/数据库等规范域基线；偏离须列明理由（规范依据是 DDR 与 P2a 评审的引用正本）。
+> v3.28.1 起从详设 §13 移入：命名/开发/注释/数据库等规范域基线；偏离须列明理由（规范依据是 DDR 与 P2a 评审的引用正本）。
 
 | 规范域 | 采用规范 | 版本/链接 | 本设计落点/偏离说明 |
 |---|---|---|---|

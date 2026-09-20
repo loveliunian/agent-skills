@@ -36,7 +36,7 @@ if hasattr(sys.stdout, "reconfigure"):
 # integrations-configs 未列入声明）——按提示词声明的 10 块搭骨架会触发
 # ValueError 拼接崩溃。现在缺块检查直接以渲染块集合为准，新增块自动纳入强制。
 # v3.24.0(A01)：新增 biz-ops（业务操作契约索引）。
-# v3.27.15：DDR/迁移、需求追溯、实现交接从详设正文移出——块按文档角色分组：
+# v3.28.1：DDR/迁移、需求追溯、实现交接从详设正文移出——块按文档角色分组：
 #   详设正文 = _DESIGN_BLOCKS；数据库设计决策文档 = _DB_BLOCKS（--db-doc）；
 #   需求追溯文档 = _TRACE_BLOCKS（--trace-doc）；实现交接文档无渲染块（手写施工图，JSON 对账）。
 _DESIGN_BLOCKS = [
@@ -152,7 +152,7 @@ def render_design_blocks(data):
         + "\n\n> 每个页面和接口都标注了所需的权限；完全公开的对象在该列标注 public。"
     )
 
-    # v3.27.1(L-P2-004 续): 规则索引锚点列前置；v3.27.15: 错误码列（rules[].error_codes）
+    # v3.27.1(L-P2-004 续): 规则索引锚点列前置；v3.28.1: 错误码列（rules[].error_codes）
     blocks["rule-index"] = _table(
         ["§锚点", "规则", "摘要", "错误码"],
         [[r.get("anchor"), r.get("id"), r.get("summary"),
@@ -238,7 +238,7 @@ def render_design_blocks(data):
               i.get("endpoint", "—"), i.get("timeout"), i.get("idempotency"),
               i.get("failure_path"), i.get("fallback", "—")] for i in integrations])
 
-    # v3.27.15：zero-results 块保留生成（存量详设升级期仍有 marker 时顺手刷新），
+    # v3.28.1：zero-results 块保留生成（存量详设升级期仍有 marker 时顺手刷新），
     # 但已从必需块注册表移除——新模板不再展示零结果声明（JSON 机检保留）。
     zeros = data.get("zero_results", [])
     blocks["zero-results"] = (
@@ -256,7 +256,7 @@ def _splice(doc_path, blocks, required_keys):
 
     v3.24.0(A07)：缺块检查以本次渲染的 blocks 键集合为正本（= _DESIGN_BLOCKS），
     不再依赖可能过期的平行清单。
-    v3.27.15：按文档角色传入 required_keys（详设=_DESIGN_BLOCKS；数据库设计决策
+    v3.28.1：按文档角色传入 required_keys（详设=_DESIGN_BLOCKS；数据库设计决策
     文档=_DB_BLOCKS）；骨架中额外存在的注册块（如老详设里的 ddr 块）一并刷新，
     存量文档升级期不失效。"""
     text = Path(doc_path).read_text(encoding="utf-8")
@@ -301,7 +301,7 @@ def _init_doc(doc_path):
 
     模板、schema 与块注册表来自同一契约：此入口保证「声明的块 = 渲染器要写的块」。
     文档已存在时拒绝（防覆盖在途产物），并列出缺失块供手工补齐。
-    v3.27.15：仍生成全量 13 块（含 DDR）以兼容存量初始化路径；新流程请直接用
+    v3.28.1：仍生成全量 13 块（含 DDR）以兼容存量初始化路径；新流程请直接用
     详设模板 + 数据库设计决策模板。"""
     p = Path(doc_path)
     if p.exists():
@@ -564,6 +564,38 @@ def render_clarification(data, input_path):
                         [[f.get("id"), f.get("item"), f.get("owner"), f.get("eta"), f.get("note")] for f in fups]
                         ) if fups else "无遗留项。")
     lines += ["", "## 签字确认", "", _signoffs_table(data.get("signoffs")), ""]
+
+    # v3.28.1：深挖探针
+    probes = data.get("deep_probes") or []
+    if probes:
+        PROBE_LABELS = {
+            "logical_consistency": "逻辑矛盾",
+            "state_completeness": "状态完整性",
+            "data_flow_closure": "数据流闭环",
+            "concurrency_conflict": "并发冲突",
+            "failure_chain": "失败链路",
+            "implicit_assumption": "隐含假设",
+            "permission_boundary": "权限边界",
+            "acceptance_testability": "验收完备性",
+        }
+        lines += ["", "## 深挖探针", "", "> 在拆分验收点之前系统性检查 PRD 的自洽性与完备性。发现的问题须在澄清记录中确认后方可进入 P2。", ""]
+        for pr in probes:
+            label = PROBE_LABELS.get(pr.get("probe"), pr.get("probe"))
+            status = pr.get("status", "?")
+            icon = {"pass": "✅", "findings": "🔍", "not_applicable": "—"}.get(status, "?")
+            lines += [f"### {icon} {label}：{status}"]
+            if status == "not_applicable" and pr.get("not_applicable_reason"):
+                lines += [f"> 不适用原因：{pr['not_applicable_reason']}"]
+            for f in pr.get("findings") or []:
+                sev = {"blocking": "🔴", "major": "🟡", "minor": "🟢"}.get(f.get("severity"), "?")
+                conf = "已确认" if f.get("confirmed") else "**待确认**"
+                lines += [f"- {sev} **{f.get('id')}** {f.get('description')}（{conf}）"]
+                if f.get("impact"):
+                    lines += [f"  - 影响：{f['impact']}"]
+                if f.get("proposed_resolution"):
+                    lines += [f"  - 建议口径：{f['proposed_resolution']}"]
+            lines += [""]
+
     return "\n".join(lines)
 
 
@@ -920,7 +952,7 @@ def render_tech_selection(data, input_path):
             "",
             "<!-- anchor: standards-compliance -->",
             "",
-            "> v3.27.15 起从详设 §13 移入：命名/开发/注释/数据库等规范域基线；偏离须列明理由"
+            "> v3.28.1 起从详设 §13 移入：命名/开发/注释/数据库等规范域基线；偏离须列明理由"
             "（规范依据是 DDR 与 P2a 评审的引用正本）。",
             "",
             _table(["规范域", "采用规范", "版本/链接", "本设计落点/偏离说明"],
@@ -1908,9 +1940,9 @@ def main():
     ap.add_argument("--input", required=True)
     ap.add_argument("--doc", default=None, help="design: 拼接目标文档（须含 df:begin/end 锚点块）")
     ap.add_argument("--db-doc", dest="db_doc", default=None, metavar="PATH",
-                    help="design: 数据库设计决策文档（DDR/迁移已移出详设；须含 ddr-index/ddr-matrix 锚点块，v3.27.15）")
+                    help="design: 数据库设计决策文档（DDR/迁移已移出详设；须含 ddr-index/ddr-matrix 锚点块，v3.28.1）")
     ap.add_argument("--trace-doc", dest="trace_doc", default=None, metavar="PATH",
-                    help="design: 需求追溯文档（追溯矩阵已移出详设；须含 trace-matrix 锚点块，v3.27.15）")
+                    help="design: 需求追溯文档（追溯矩阵已移出详设；须含 trace-matrix 锚点块，v3.28.1）")
     ap.add_argument("--init-doc", dest="init_doc", default=None, metavar="PATH",
                     help="design: 按块注册表初始化骨架（文档须不存在；存在时列出缺失块后退出 1）")
     ap.add_argument("--out", default=None, help="输出路径（verification/各阶段报告必填）")

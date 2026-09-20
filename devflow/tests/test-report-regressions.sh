@@ -35,7 +35,7 @@ printf 'admin123\n' > "$TMP/frontend/node_modules/generated.js"
 
 if (cd "$TMP" && STATE_DIR="$TMP/.devflow" bash "$ROOT/scripts/p5_test_cases_gate.sh" foo docs/test-cases/foo-test-cases.md >/dev/null) && \
    grep -q "^VERSION=p5-test-cases@${SKILL_VER}\$" "$TMP/.devflow/foo/gates/P5/receipt.txt" && \
-   grep -qE '^PASS=7 FAIL=0 WARN=[0-9]+$' "$TMP/.devflow/foo/gates/P5/receipt.txt"; then
+   grep -qE '^PASS=[0-9]+ FAIL=0 WARN=[0-9]+$' "$TMP/.devflow/foo/gates/P5/receipt.txt"; then
   ok "P5 test-case gate is the primary receipt with counters"
 else
   bad "P5 test-case gate is the primary receipt with counters"

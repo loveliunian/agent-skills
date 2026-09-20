@@ -93,6 +93,9 @@ evidence=backend/x/src/main/resources/application.yml
 DEVFLOW:END -->
 EOF
 
+# v3.28.2：设计决策记录改名，s1 按新名查找；保留旧名兼容
+cp "$TMP/docs/detailed-design/foo-tech-selection.md" "$TMP/docs/detailed-design/foo-设计决策.md"
+
 cat > "$TMP/docs/detailed-design/foo-design.md" <<'EOF'
 # Foo 详细设计
 > 模板 ID：`详细设计-完整版-模板`
@@ -307,7 +310,7 @@ EOF
 
 # v3.14.1: s 系 gate 拒绝无 state 运行（default 回退已移除），fixture 先建工作流
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/devflow-state.sh" init foo --frontend=not-applicable >/dev/null 2>&1); then :; else bad "phase-gates init fixture"; fi
-mk_acceptance_json foo "$TMP"   # v3.25.1(P1-a): 结构化验收点正本（缺失即 P0）
+bash "$ROOT/tests/mk_p0_artifacts.sh" foo "$TMP" >/dev/null 2>&1
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/s0_acceptance_gate.sh" foo); then ok "P0 fixture"; else bad "P0 fixture"; fi
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/devflow-state.sh" constraints-freeze foo >/dev/null 2>&1); then :; else bad "constraints-freeze fixture"; fi
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/s1_fact_sources_gate.sh" docs/detailed-design); then ok "P1 fixture"; else bad "P1 fixture"; fi
@@ -463,7 +466,7 @@ for dialect in h2 postgresql oracle kingbase; do
   printf 'CREATE TABLE foo (id BIGINT PRIMARY KEY, page INT);\n' > "$TMP/backend/x/src/main/resources/db/migration/$dialect/V1001__foo.sql"
 done
 # v3.16.26: p3_detail_diff.sh 已并入 p3_completion_gate.sh（不再孤立存在）
-# v3.27.15: 正文解析统一到 design_parse_lib.sh（渲染块优先 + CREATE TABLE 回退）
+# v3.28.1: 正文解析统一到 design_parse_lib.sh（渲染块优先 + CREATE TABLE 回退）
 if [ ! -f "$ROOT/scripts/p3_detail_diff.sh" ] \
    && grep -q 'design declares tables missing in Flyway' "$ROOT/scripts/p3_completion_gate.sh" \
    && grep -q 'design_tables_from_doc' "$ROOT/scripts/p3_completion_gate.sh" \
@@ -485,7 +488,7 @@ else
   bad "P4 accepts exact evidence"
 fi
 
-# v3.27.15：渲染版式（api-index 详细定义首列 / table-index 块）必须可解析——不再静默 skip
+# v3.28.1：渲染版式（api-index 详细定义首列 / table-index 块）必须可解析——不再静默 skip
 python3 - "$TMP" <<'PYEOF'
 import sys
 from pathlib import Path
@@ -512,13 +515,13 @@ if (cd "$TMP" && bash "$ROOT/scripts/p4_prd_vs_code.sh" foo --prd docs/prd/foo.m
   if grep -q '详设接口数: 1' "$TMP/p4-rendered.out" \
      && grep -q '所有详设接口已在代码中实现 (1/1)' "$TMP/p4-rendered.out" \
      && grep -q '所有详设表的四方言 Flyway 脚本已生成' "$TMP/p4-rendered.out"; then
-    ok "P4 parses rendered api-index/table-index layout (v3.27.15)"
+    ok "P4 parses rendered api-index/table-index layout (v3.28.1)"
   else
     bad "P4 rendered-layout assertions missing: $(grep -E '详设接口数|详设中无接口|详设表数|详设中无' "$TMP/p4-rendered.out" | tr '\n' ' ')"
   fi
 else
   cat "$TMP/p4-rendered.out"
-  bad "P4 rejects rendered api-index/table-index layout (v3.27.15)"
+  bad "P4 rejects rendered api-index/table-index layout (v3.28.1)"
 fi
 
 # v3.15.11: 负回归钉住——flag 吞参守卫（--prd --design x 必须拒绝而非把 --design 吞为值）

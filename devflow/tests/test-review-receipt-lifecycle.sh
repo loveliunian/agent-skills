@@ -49,6 +49,24 @@ make_attestation() { # event role agent feature session design report dest
 W="$WORK/ws"
 mkdir -p "$W/docs/需求" "$W/docs/详细设计" "$W/docs/评审" "$W/.devflow/pr"
 TPL_VER=$(sed -n 's/^version: "\([0-9.]*\)"/\1/p' "$ROOT/templates/详细设计-完整版-模板.md" | head -1)
+# v3.28.2：P2a 要求 clarification.json（PRD-to-Design 映射正本）。
+# 纯计算夹具无实体/操作/约束——空集合即完备映射（映射器对空集合提前返回）。
+cat > "$W/.devflow/pr/clarification.json" <<'CLAR_EOF'
+{
+  "feature": "pr",
+  "feature_name": "pr",
+  "prd_path": "docs/需求/pr-prd.md",
+  "entities": [],
+  "operations": [],
+  "constraints": [],
+  "acceptance_points": [],
+  "zero_results": [
+    {"path": "entities", "reason": "纯计算无持久化实体"},
+    {"path": "operations", "reason": "无跨请求状态操作"},
+    {"path": "constraints", "reason": "无约束条款"}
+  ]
+}
+CLAR_EOF
 cat > "$W/docs/需求/pr-验收点.md" <<'EOF'
 | M-01-F01-A01 | FROZEN |
 EOF

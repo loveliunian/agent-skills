@@ -81,9 +81,9 @@ def main():
     ap.add_argument("--schema", default=None, help="schema.json 路径（缺省用 skill 内置）")
     ap.add_argument("--doc", default=None, help="design: 拼接目标详设文档")
     ap.add_argument("--db-doc", dest="db_doc", default=None, metavar="PATH",
-                    help="design: 数据库设计决策文档（DDR/迁移移出详设后的渲染目标，v3.27.15；须含 ddr-index/ddr-matrix 锚点块）")
+                    help="design: 数据库设计决策文档（DDR/迁移移出详设后的渲染目标，v3.28.1；须含 ddr-index/ddr-matrix 锚点块）")
     ap.add_argument("--trace-doc", dest="trace_doc", default=None, metavar="PATH",
-                    help="design: 需求追溯文档（追溯矩阵移出详设后的渲染目标，v3.27.15；须含 trace-matrix 锚点块）")
+                    help="design: 需求追溯文档（追溯矩阵移出详设后的渲染目标，v3.28.1；须含 trace-matrix 锚点块）")
     ap.add_argument("--out", default=None, help="输出 Markdown（verification/各阶段报告必填）")
     ap.add_argument("--out-env", default=None, help="small-change: small-change.env 输出路径")
     ap.add_argument("--out-scan", default=None, help="small-change: project-scan.txt 输出路径")

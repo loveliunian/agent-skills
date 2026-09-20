@@ -48,6 +48,8 @@ d = {
     "signoffs": [{"role": "fixture", "name": "fixture", "date": "2026-09-17"}],
     "zero_results": [],
 }
+
+
 json.dump(d, open(out, "w", encoding="utf-8"), ensure_ascii=False)
 PY
 }

@@ -77,6 +77,18 @@ fi
 if [ -n "$EVIDENCE_PATH" ]; then
   EVIDENCE_RESOLVED=$(_receipt_norm_file "$EVIDENCE_PATH" 2>/dev/null || true)
   [ -n "$EVIDENCE_RESOLVED" ] && [ -f "$EVIDENCE_RESOLVED" ] && pass "raw validation evidence exists" || p0 "VALIDATION_EVIDENCE must resolve inside workspace: $EVIDENCE_PATH"
+  # v3.28.1(FB-20260919-001): 证据快照解耦——P6-final 重跑测试会改写 target/ 下的
+  # surefire 报告，活文件绑定曾使 P4 证据树在下游 gate 重跑后连锁失效（P4↔P6 互踩）。
+  # 绑定 .devflow/<feature>/p4-evidence/ 下的隔离副本。
+  if [ -n "$EVIDENCE_RESOLVED" ] && [ -f "$EVIDENCE_RESOLVED" ]; then
+    EV_SNAP_DIR="$STATE_DIR/${FEATURE}/p4-evidence"
+    mkdir -p "$EV_SNAP_DIR" 2>/dev/null || true
+    EV_SNAP="$EV_SNAP_DIR/$(basename "$EVIDENCE_RESOLVED")"
+    if cp "$EVIDENCE_RESOLVED" "$EV_SNAP" 2>/dev/null; then
+      EVIDENCE_PATH="$EV_SNAP"
+      pass "validation evidence snapshotted to ${EV_SNAP}（与 target/ 解耦）"
+    fi
+  fi
 fi
 
 TMP_IDS=$(mktemp "${TMPDIR:-/tmp}/devflow-p4-ids.XXXXXX" 2>/dev/null || true)

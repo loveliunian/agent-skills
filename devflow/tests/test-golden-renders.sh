@@ -52,7 +52,7 @@ else
   bad "render failed: small-change"
 fi
 
-# design：骨架 + 块拼接（确定性层整体重写；DDR/追溯在附属文档——v3.27.15）
+# design：骨架 + 块拼接（确定性层整体重写；DDR/追溯在附属文档——v3.28.1）
 cp "$ROOT/examples/structured/design.skeleton.md" "$TMP/design.md"
 cp "$ROOT/examples/structured/数据库设计决策.skeleton.md" "$TMP/数据库设计决策.md"
 cp "$ROOT/examples/structured/需求追溯.skeleton.md" "$TMP/需求追溯.md"

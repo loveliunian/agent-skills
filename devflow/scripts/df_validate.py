@@ -747,7 +747,7 @@ def check_doc_content_agreement(data, errors, doc_path):
 
 
 def _load_reserved_word_tiers():
-    """v3.27.15：保留字清单单一正本 = references/db-reserved-words.md 的
+    """v3.28.1：保留字清单单一正本 = references/db-reserved-words.md 的
     DEVFLOW:RESERVED-TIERS 契约块。fail=真保留字（FAIL）；warn=高风险软关键字（WARN）。"""
     fail, warn = set(), set()
     ref = Path(__file__).resolve().parent.parent / "references" / "db-reserved-words.md"
@@ -769,7 +769,7 @@ def _load_reserved_word_tiers():
 
 
 def check_reserved_words(data, errors, warnings):
-    """v3.27.15：表名/字段名数据库保留字扫描——fail 层记 errors，warn 层记 warnings。"""
+    """v3.28.1：表名/字段名数据库保留字扫描——fail 层记 errors，warn 层记 warnings。"""
     fail_words, warn_words = _load_reserved_word_tiers()
     if not (fail_words or warn_words):
         return
@@ -793,7 +793,7 @@ def check_reserved_words(data, errors, warnings):
 
 
 def check_error_codes(data, errors, doc_path=None):
-    """v3.27.15：rules[].error_codes[] 错误码契约——全局唯一 + 必须出现在详设正文。
+    """v3.28.1：rules[].error_codes[] 错误码契约——全局唯一 + 必须出现在详设正文。
 
     错误码此前只散落在规则「约束/错误处理」列与 §7.4 前端行为表（手写，易漂移）。
     登记即对账：重复码 FAIL；提供 --doc 时码必须出现在正文（规则列或行为表）。"""
@@ -825,11 +825,11 @@ def check_error_codes(data, errors, doc_path=None):
 def check_page_specs(data, errors):
     """v3.27.9(F2)：页面规格结构化——dialogs[].api 锚点闭环到 apis[]。
 
-    弹窗/抽屉映射（§7.2 弹窗/抽屉表，v3.27.15 由原 §7.3 并入）是写操作交互的
+    弹窗/抽屉映射（§7.2 弹窗/抽屉表，v3.28.1 由原 §7.3 并入）是写操作交互的
     接口证据位：api 必须引用真实存在的 §3.2.N 详细定义（apis[].anchor/detail_anchor），
     或显式 — 声明无接口交互。
 
-    链路闭环（v3.27.15）：table_columns[].api_field（`§x.y.z 字段`）/source（`表.字段`）、
+    链路闭环（v3.28.1）：table_columns[].api_field（`§x.y.z 字段`）/source（`表.字段`）、
     form_controls[].submit_api（`§x.y.z`）/target_field（`表.字段`）提供即对账——
     接口锚点必须存在、字段/落库列必须存在于 apis[] / tables[]（悬空即 FAIL）。"""
     api_anchors = set()
@@ -895,6 +895,37 @@ def check_page_specs(data, errors):
                     f"{where}.form_controls[{ci}]({c.get('field')}).target_field={tf!r} "
                     f"不在 tables[].name/fields[] 中（链路断链——落库字段必须真实存在；无落表写 —）"
                 )
+            # v3.28.1：required 与接口请求字段对齐
+            req = c.get("required")
+            sa = str(c.get("submit_api") or "").strip()
+            fld = str(c.get("field") or "").strip()
+            if req is not None and sa and sa != "—":
+                anc = _norm_anchor(sa)
+                api_fields = api_fields.get(anc, set())
+                # 找对应请求字段（field 名或 field 的驼峰形式）
+                import re as _re
+                camel = _re.sub(r'_([a-z])', lambda m: m.group(1).upper(), fld)
+                matched = None
+                for af in api_fields:
+                    if af == fld or af == camel or af.endswith("." + camel) or af.endswith("." + fld):
+                        matched = af
+                        break
+                if matched:
+                    # 在 apis 中找该字段的 required 值
+                    for a in data.get("apis", []):
+                        for k in ("anchor", "detail_anchor"):
+                            if _norm_anchor(a.get(k) or "") == anc:
+                                for rf in (a.get("request") or {}).get("fields") or []:
+                                    if rf.get("name") == matched:
+                                        api_req = rf.get("required")
+                                        if api_req is not None and bool(api_req) != bool(req):
+                                            errors.append(
+                                                f"{where}.form_controls[{ci}]({fld}).required={req} "
+                                                f"与接口 §{anc} 请求字段 {matched!r} 的 required={api_req} 不一致"
+                                                f"（前后端必填口径必须同源）"
+                                            )
+                                        break
+                                break
         for di, d in enumerate(p.get("dialogs") or []):
             name = (d.get("name") or "").strip()
             api = (d.get("api") or "").strip()
@@ -937,7 +968,7 @@ def _doc_table_blocks(text):
 
 
 def check_page_specs_doc(data, errors, doc_path):
-    """v3.27.9(F2)；v3.27.15 合并 §7.3 + 链路列：pages[] 规格 ↔ §7.2 正文对账（提供即对账）。
+    """v3.27.9(F2)；v3.28.1 合并 §7.3 + 链路列：pages[] 规格 ↔ §7.2 正文对账（提供即对账）。
 
     - table_columns 字段必须出现在 §7.2.* 「表格列规格」表（表头含「列标题」）首列；
       api_field/source 提供时须出现在同一行（链路列与 JSON 同源）；
@@ -1035,7 +1066,7 @@ def check_page_list_doc(data, errors, doc_path):
     pages[].route/component/page_type 是 JSON 必填字段，但此前正文清单表可缺可漂移；
     本检查要求 §7.1 存在含「路径/组件」表头的页面清单表，且页面名/路由/组件/权限
     逐一出现在表中（— 占位豁免；纯任务页）。
-    v3.27.15：**全部弹窗/抽屉进表**——pages[].dialogs 的每一项 name/component 也必须
+    v3.28.1：**全部弹窗/抽屉进表**——pages[].dialogs 的每一项 name/component 也必须
     出现在 §7.1 清单表（§7.1 是全部 UI 面的唯一清单）。"""
     pages = data.get("pages") or []
     if not pages:
@@ -1075,7 +1106,7 @@ def check_page_list_doc(data, errors, doc_path):
                 if v and v != "—" and v not in cells:
                     errors.append(
                         f"pages[{pi}]({p.get('name')}).dialogs[{di}]({d.get('name')}): {label} {v!r} "
-                        f"未出现在 §7.1 页面清单表（v3.27.15：全部弹窗/抽屉进 §7.1——"
+                        f"未出现在 §7.1 页面清单表（v3.28.1：全部弹窗/抽屉进 §7.1——"
                         f"§7.1 是全部 UI 面的唯一清单）"
                     )
 
@@ -1560,7 +1591,7 @@ _SEMANTIC_ANCHORS = {
 def check_execution_plan(data, errors):
     """v3.27.11：执行契约切片完整性——task_ids 必须闭环到 tasks[]，components 不得空串。
 
-    v3.27.15：design_refs 锚点闭环——格式 `anchor: <语义锚点>[ §x.y|R{n}]`，
+    v3.28.1：design_refs 锚点闭环——格式 `anchor: <语义锚点>[ §x.y|R{n}]`，
     锚点名必须在语义锚点集合内（悬空锚点 = 设计→任务追溯断链）。此前为零校验字段。"""
     task_ids = {t.get("task_id") for t in data.get("tasks", [])}
     for i, sl in enumerate(data.get("slices", []) or []):
@@ -2141,7 +2172,7 @@ def check_design_doc_specificity(data, errors, doc_path):
         r_anchors = {r.get("anchor") for r in rules if r.get("anchor")}
         if len(r_anchors) == 1:
             _only = next(iter(r_anchors))
-            # v3.27.15：页面规则按页组聚合（多条规则同锚 §7.2.N）是设计口径——
+            # v3.28.1：页面规则按页组聚合（多条规则同锚 §7.2.N）是设计口径——
             # 仅当共同锚点是通用级（<3 段，如 §5）才视为"全堆一处"失去导航价值。
             if len(_norm_anchor(_only).split(".")) < 3:
                 errors.append(
@@ -2769,9 +2800,9 @@ def main():
         scope = [s.strip() for s in (args.scope_ids or "").replace("，", ",").split(",") if s.strip()] or None
         check_design(data, errors, criteria_path=args.criteria, doc_path=args.doc,
                      workspace=ws, scope_ids=scope, doc_mode=args.doc_mode)
-        # v3.27.15：表名/字段名保留字分层扫描（fail→errors；warn→warnings）
+        # v3.28.1：表名/字段名保留字分层扫描（fail→errors；warn→warnings）
         check_reserved_words(data, errors, warnings)
-        # v3.27.15：规则错误码全局唯一 + 正文出现（提供 --doc 时）
+        # v3.28.1：规则错误码全局唯一 + 正文出现（提供 --doc 时）
         check_error_codes(data, errors, doc_path=args.doc)
     elif args.kind == "verification":
         check_verification(data, errors, baseline_path=args.baseline,

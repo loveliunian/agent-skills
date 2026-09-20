@@ -43,7 +43,7 @@ cp criteria.md docs/requirements/demo-pay-acceptance-criteria.md
 # 基线工作区隔离：样例 MODIFY 目标在本仓不存在 → 无工程标志时反查关闭
 check_rc 0 "baseline sample validates without workspace markers" python3 "$V" --kind design --input design.json --criteria criteria.md --doc doc.md
 
-# ---------- A07：块注册表同源（v3.27.15：详设 10 块 + DB 2 块 + 追溯 1 块） ----------
+# ---------- A07：块注册表同源（v3.28.1：详设 10 块 + DB 2 块 + 追溯 1 块） ----------
 DESIGN_BLOCKS="summary table-index api-index permission-matrix rule-index biz-ops resource-operations integrations-configs"
 DB_BLOCKS="ddr-index ddr-matrix"
 TRACE_BLOCKS="trace-matrix"

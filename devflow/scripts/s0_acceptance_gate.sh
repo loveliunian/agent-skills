@@ -78,6 +78,95 @@ echo ""
 echo "=== §1 原子验收点格式 (Mxx-Fyy-Azz) ==="
 TOTAL=0
 if [ ! -f "$CRITERIA_PATH" ]; then
+  p0 "acceptance criteria file missing, skipping format check"
+else
+  TOTAL=$(grep -cE 'M-[0-9]+-F[0-9]+-A[0-9]+' "$CRITERIA_PATH" || true)
+  if [ "$TOTAL" -eq 0 ]; then
+    p0 "no acceptance criteria found (pattern: Mxx-Fyy-Azz)"
+  else
+    pass "found $TOTAL acceptance criteria"
+  fi
+fi
+
+# ---------- §1b P0 结构化提取检查 (v3.28.1 新增) ----------
+echo ""
+echo "=== §1b P0 结构化提取 (entities/operations/constraints) ==="
+CLARIFICATION_JSON=".devflow/$EFF_FEATURE/clarification.json"
+if [ ! -f "$CLARIFICATION_JSON" ]; then
+  p0 "clarification.json missing: $CLARIFICATION_JSON (P0 强制结构化提取)"
+else
+  pass "clarification.json exists: $CLARIFICATION_JSON"
+  
+  if command -v python3 >/dev/null 2>&1; then
+    # 检查实体数 ≥ 1
+    ENTITY_COUNT=$(python3 -c "import json; d=json.load(open('$CLARIFICATION_JSON')); print(len(d.get('entities', [])))" 2>/dev/null || echo "0")
+    if [ "$ENTITY_COUNT" -ge 1 ]; then
+      pass "entities count = $ENTITY_COUNT (≥ 1)"
+    else
+      p0 "entities count = $ENTITY_COUNT (must ≥ 1)"
+    fi
+    
+    # 检查操作数 ≥ 1
+    OPERATION_COUNT=$(python3 -c "import json; d=json.load(open('$CLARIFICATION_JSON')); print(len(d.get('operations', [])))" 2>/dev/null || echo "0")
+    if [ "$OPERATION_COUNT" -ge 1 ]; then
+      pass "operations count = $OPERATION_COUNT (≥ 1)"
+    else
+      p0 "operations count = $OPERATION_COUNT (must ≥ 1)"
+    fi
+    
+    # 检查约束（可为空，但必须显式声明）
+    CONSTRAINT_COUNT=$(python3 -c "import json; d=json.load(open('$CLARIFICATION_JSON')); print(len(d.get('constraints', [])))" 2>/dev/null || echo "0")
+    pass "constraints count = $CONSTRAINT_COUNT"
+    
+    # 检查 JSON schema 有效性
+    SCHEMA_FILE="$SKILL_ROOT/schemas/clarification.schema.json"
+    if [ -f "$SCHEMA_FILE" ]; then
+      VALIDATE_SCRIPT="$SCRIPT_DIR/validate_json_schema.py"
+      if [ -f "$VALIDATE_SCRIPT" ]; then
+        if python3 "$VALIDATE_SCRIPT" "$CLARIFICATION_JSON" "$SCHEMA_FILE" 2>/dev/null; then
+          pass "clarification.json schema validation passed"
+        else
+          p0 "clarification.json schema validation failed (check feature_name, prd_path, entities≥1, operations≥1)"
+        fi
+      else
+        # 回退到内联验证
+        VALIDATION_RESULT=$(python3 -c "
+import json, sys
+from pathlib import Path
+try:
+    import jsonschema
+except ImportError:
+    print('jsonschema not installed, skipping validation')
+    sys.exit(0)
+
+schema = json.load(open('$SCHEMA_FILE'))
+data = json.load(open('$CLARIFICATION_JSON'))
+try:
+    jsonschema.validate(data, schema)
+    print('validation passed')
+    sys.exit(0)
+except jsonschema.ValidationError as e:
+    print(f'validation failed: {e.message}')
+    sys.exit(1)
+" 2>&1 || true)
+        
+        if echo "$VALIDATION_RESULT" | grep -q "validation passed"; then
+          pass "clarification.json schema validation passed"
+        elif echo "$VALIDATION_RESULT" | grep -q "jsonschema not installed"; then
+          warn "jsonschema not installed, skipping schema validation"
+        else
+          p0 "clarification.json schema validation failed"
+          echo "$VALIDATION_RESULT" | head -10
+        fi
+      fi
+    fi
+  else
+    warn "python3 not found, skipping structured extraction check"
+  fi
+fi
+
+# ---------- §2 歧义检查 ----------
+if [ ! -f "$CRITERIA_PATH" ]; then
   warn "skip format check: criteria missing"
 else
   ATOMIC_IDS=$(grep -oE 'M-?[0-9]{2}-F[0-9]{2}-A[0-9]{2}' "$CRITERIA_PATH" 2>/dev/null | sort -u)
@@ -98,9 +187,36 @@ fi
 # SKILL.md「全阶段结构化产物」契约的 P0 落地：JSON 缺失/校验失败/与 Markdown 分母
 # 不一致，任一即 P0——Markdown 与 JSON 互为双正本的矛盾在进 Gate 前拦截（A03 同款）。
 echo ""
-echo "=== §1b 结构化产物层 (acceptance.json) ==="
+echo "=== §1b 结构化产物层 (acceptance.json + clarification.json) ==="
 STATE_DIR_EARLY="${STATE_DIR:-.devflow}"
 ACCEPTANCE_JSON="${STATE_DIR_EARLY}/${EFF_FEATURE}/acceptance.json"
+CLARIFICATION_JSON="${STATE_DIR_EARLY}/${EFF_FEATURE}/clarification.json"
+
+# ---------- §1b-1 实体/操作提取稳定性检查（v3.27.16 新增） ----------
+if [ -f "$CLARIFICATION_JSON" ]; then
+  # 检查是否存在历史版本（用于稳定性对比）
+  CLARIFICATION_BASELINE="${STATE_DIR_EARLY}/${EFF_FEATURE}/clarification.baseline.json"
+  
+  if [ -f "$CLARIFICATION_BASELINE" ]; then
+    echo ""
+    echo "--- 实体/操作提取稳定性对比 ---"
+    if [ -x "$SCRIPT_DIR/compare_entity_extraction.py" ]; then
+      if python3 "$SCRIPT_DIR/compare_entity_extraction.py" "$CLARIFICATION_BASELINE" "$CLARIFICATION_JSON" 2>/dev/null; then
+        pass "实体/操作提取稳定（差异 < 10%）"
+      else
+        warn "实体/操作提取稳定性低（差异 >= 10%），建议人工 Review"
+        # 不阻断，仅警告
+      fi
+    fi
+  else
+    # 首次提取，创建 baseline
+    if [ -w "$(dirname "$CLARIFICATION_BASELINE")" ]; then
+      cp "$CLARIFICATION_JSON" "$CLARIFICATION_BASELINE" 2>/dev/null || true
+      pass "首次提取，已创建 baseline: clarification.baseline.json"
+    fi
+  fi
+fi
+
 if [ ! -f "$ACCEPTANCE_JSON" ]; then
   p0 "acceptance.json 缺失: ${ACCEPTANCE_JSON}——P0 必须产出结构化验收点（契约 schemas/acceptance.schema.json，管线 df_pipeline.py acceptance，见 phases/00-需求澄清.md §结构化产物层）"
 elif ! command -v python3 >/dev/null 2>&1; then

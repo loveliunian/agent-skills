@@ -229,6 +229,8 @@ compliance=PASS
 evidence=backend/pom.xml
 DEVFLOW:END -->
 EOF
+bash "$ROOT/tests/mk_design_conventions.sh" r25 "$W25" >/dev/null 2>&1
+bash "$ROOT/tests/mk_design_conventions.sh" r25 "$W25" >/dev/null 2>&1
 (cd "$W25" && bash "$ROOT/scripts/devflow-state.sh" constraints-freeze r25 >/dev/null 2>&1)
 if (cd "$W25" && bash "$ROOT/scripts/s1_fact_sources_gate.sh" docs/detailed-design >/dev/null 2>&1); then
   ok "P1 合规 MUST_NOT_USE（selected=camunda）放行——'未引入X'类自然语言不再参与判定"
@@ -702,6 +704,7 @@ compliance=PASS
 evidence=backend/pom.xml
 DEVFLOW:END -->
 EOF
+bash "$ROOT/tests/mk_design_conventions.sh" r25 "$W25" >/dev/null 2>&1
 (cd "$W25" && bash "$ROOT/scripts/devflow-state.sh" constraints-freeze r25 >/dev/null 2>&1)
 if (cd "$W25" && bash "$ROOT/scripts/s1_fact_sources_gate.sh" docs/detailed-design >/dev/null 2>&1); then
   ok "P1 合规 MUST_NOT_USE（selected=camunda）放行——'未引入X'类自然语言不再参与判定"

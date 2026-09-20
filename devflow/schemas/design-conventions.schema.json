@@ -1,0 +1,544 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://devflow.local/schemas/design-conventions.schema.json",
+  "title": "P1 设计规范基线 (v3.27.15)",
+  "description": "P1 阶段冻结的设计规范，约束 P2 详设如何使用选定的技术栈",
+  "type": "object",
+  "required": [
+    "feature_name",
+    "frozen_at",
+    "naming_conventions",
+    "api_conventions",
+    "data_conventions",
+    "state_machine_conventions",
+    "error_handling_conventions"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "feature_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "功能名称"
+    },
+    "frozen_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "冻结时间 (ISO8601)"
+    },
+    "naming_conventions": {
+      "type": "object",
+      "required": [
+        "table_naming",
+        "column_naming",
+        "class_naming",
+        "method_naming"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "table_naming": {
+          "type": "object",
+          "required": [
+            "case",
+            "prefix",
+            "pattern",
+            "examples"
+          ],
+          "properties": {
+            "case": {
+              "type": "string",
+              "enum": ["snake_case", "camelCase", "PascalCase"],
+              "description": "命名风格"
+            },
+            "prefix": {
+              "type": "string",
+              "description": "表前缀，如 t_"
+            },
+            "pattern": {
+              "type": "string",
+              "description": "命名模式，如 t_<domain>_<entity>"
+            },
+            "examples": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              },
+              "description": "示例，如 ['t_order_main', 't_user_profile']"
+            }
+          }
+        },
+        "column_naming": {
+          "type": "object",
+          "required": [
+            "case",
+            "reserved_fields",
+            "audit_fields"
+          ],
+          "properties": {
+            "case": {
+              "type": "string",
+              "enum": ["snake_case", "camelCase", "PascalCase"]
+            },
+            "reserved_fields": {
+              "type": "array",
+              "description": "保留字段（主键等），如 ['id', 'version']",
+              "items": {
+                "type": "string"
+              }
+            },
+            "audit_fields": {
+              "type": "array",
+              "description": "审计字段，如 ['created_at', 'updated_at', 'created_by', 'updated_by']",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "class_naming": {
+          "type": "object",
+          "required": [
+            "case",
+            "suffixes"
+          ],
+          "properties": {
+            "case": {
+              "type": "string",
+              "enum": ["PascalCase", "camelCase"]
+            },
+            "suffixes": {
+              "type": "object",
+              "description": "各层类后缀，如 {'controller': 'Controller', 'service': 'Service'}",
+              "properties": {
+                "controller": {
+                  "type": "string"
+                },
+                "service": {
+                  "type": "string"
+                },
+                "repository": {
+                  "type": "string"
+                },
+                "entity": {
+                  "type": "string"
+                },
+                "dto": {
+                  "type": "string"
+                },
+                "vo": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "method_naming": {
+          "type": "object",
+          "required": [
+            "case",
+            "verb_prefixes"
+          ],
+          "properties": {
+            "case": {
+              "type": "string",
+              "enum": ["camelCase", "snake_case"]
+            },
+            "verb_prefixes": {
+              "type": "array",
+              "description": "动词前缀，如 ['get', 'list', 'create', 'update', 'delete', 'check', 'validate']",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "api_conventions": {
+      "type": "object",
+      "required": [
+        "routing_pattern",
+        "versioning",
+        "http_methods",
+        "response_wrapper"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "routing_pattern": {
+          "type": "string",
+          "description": "路由模式，如 /api/v1/<resource>",
+          "examples": ["/api/v1/<resource>", "/api/<module>/<resource>"]
+        },
+        "versioning": {
+          "type": "string",
+          "enum": ["path", "header", "query", "none"],
+          "description": "版本控制方式"
+        },
+        "http_methods": {
+          "type": "object",
+          "description": "HTTP 方法与操作的对应关系",
+          "properties": {
+            "create": {
+              "type": "string",
+              "enum": ["POST", "PUT"]
+            },
+            "query": {
+              "type": "string",
+              "enum": ["GET"]
+            },
+            "update": {
+              "type": "string",
+              "enum": ["PUT", "PATCH"]
+            },
+            "delete": {
+              "type": "string",
+              "enum": ["DELETE"]
+            }
+          }
+        },
+        "response_wrapper": {
+          "type": "object",
+          "required": [
+            "enabled",
+            "structure"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "是否使用统一响应包装"
+            },
+            "structure": {
+              "type": "object",
+              "description": "响应结构，如 {code, message, data}",
+              "properties": {
+                "code_field": {
+                  "type": "string"
+                },
+                "message_field": {
+                  "type": "string"
+                },
+                "data_field": {
+                  "type": "string"
+                },
+                "success_code": {
+                  "type": ["string", "integer"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "data_conventions": {
+      "type": "object",
+      "required": [
+        "date_format",
+        "timezone",
+        "decimal_precision",
+        "soft_delete"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "date_format": {
+          "type": "string",
+          "description": "日期格式，如 ISO 8601",
+          "examples": ["ISO 8601", "yyyy-MM-dd HH:mm:ss"]
+        },
+        "timezone": {
+          "type": "string",
+          "description": "时区策略，如 UTC 存储、展示时转本地",
+          "examples": ["UTC 存储", "Asia/Shanghai"]
+        },
+        "decimal_precision": {
+          "type": "object",
+          "description": "小数精度策略",
+          "properties": {
+            "money": {
+              "type": "string",
+              "description": "金额精度，如 DECIMAL(19,2)"
+            },
+            "percentage": {
+              "type": "string",
+              "description": "百分比精度，如 DECIMAL(5,2)"
+            }
+          }
+        },
+        "soft_delete": {
+          "type": "object",
+          "required": [
+            "enabled",
+            "field_name"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "field_name": {
+              "type": "string",
+              "description": "软删除标识字段，如 deleted、is_deleted"
+            },
+            "delete_value": {
+              "type": ["string", "integer", "boolean"],
+              "description": "已删除状态值，如 1、true"
+            }
+          }
+        }
+      }
+    },
+    "state_machine_conventions": {
+      "type": "object",
+      "required": [
+        "storage_strategy",
+        "transition_logging"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "storage_strategy": {
+          "type": "string",
+          "enum": ["enum", "dict_table", "inline"],
+          "description": "状态存储策略：枚举、字典表、内联"
+        },
+        "dict_table_pattern": {
+          "type": "string",
+          "description": "字典表命名模式，如 t_dict_*"
+        },
+        "transition_logging": {
+          "type": "boolean",
+          "description": "是否记录状态转移日志"
+        },
+        "transition_table_pattern": {
+          "type": "string",
+          "description": "状态转移日志表命名模式，如 t_*_status_log"
+        }
+      }
+    },
+    "error_handling_conventions": {
+      "type": "object",
+      "required": [
+        "exception_wrapper",
+        "error_code_pattern",
+        "logging_strategy"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "exception_wrapper": {
+          "type": "string",
+          "description": "异常包装类型，如 Result<T>、Optional<T>、throws"
+        },
+        "error_code_pattern": {
+          "type": "string",
+          "description": "错误码模式，如 <module>-<category>-<sequence>"
+        },
+        "error_code_examples": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "错误码示例，如 ['ORDER-VALID-001', 'USER-AUTH-002']"
+        },
+        "logging_strategy": {
+          "type": "object",
+          "required": [
+            "exception_logging",
+            "request_logging"
+          ],
+          "properties": {
+            "exception_logging": {
+              "type": "string",
+              "enum": ["全量", "仅业务异常", "仅系统异常"]
+            },
+            "request_logging": {
+              "type": "string",
+              "enum": ["全量", "仅失败", "关闭"]
+            }
+          }
+        }
+      }
+    },
+    "security_conventions": {
+      "type": "object",
+      "description": "安全规范（v3.27.16: 关键可选字段检查）",
+      "properties": {
+        "authentication": {
+          "type": "string",
+          "description": "认证方式，如 JWT、Session"
+        },
+        "authorization": {
+          "type": "string",
+          "description": "鉴权方式，如 RBAC、注解式"
+        },
+        "sensitive_data_masking": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "需要脱敏的字段类型，如 ['手机号', '身份证', '银行卡']"
+        },
+        "external_integrations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "外部集成列表（有外部调用时必填），如 ['支付宝', '微信', '第三方物流']"
+        }
+      },
+      "if": {
+        "properties": {
+          "external_integrations": {
+            "minItems": 1
+          }
+        }
+      },
+      "then": {
+        "required": ["authentication", "authorization"]
+      }
+    },
+    "performance_conventions": {
+      "type": "object",
+      "description": "性能规范（v3.27.16: 关键可选字段检查）",
+      "properties": {
+        "pagination": {
+          "type": "object",
+          "properties": {
+            "default_page_size": {
+              "type": "integer"
+            },
+            "max_page_size": {
+              "type": "integer"
+            }
+          }
+        },
+        "caching_strategy": {
+          "type": "string",
+          "description": "缓存策略，如 Redis、本地缓存、无"
+        },
+        "batch_size_limits": {
+          "type": "object",
+          "description": "批量操作大小限制"
+        },
+        "high_concurrency": {
+          "type": "boolean",
+          "description": "是否有高并发场景（QPS > 1000）"
+        },
+        "large_dataset": {
+          "type": "boolean",
+          "description": "是否有大数据量场景（单表 > 100万行）"
+        }
+      },
+      "if": {
+        "properties": {
+          "high_concurrency": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "required": ["caching_strategy", "pagination"]
+      },
+      "else": {
+        "if": {
+          "properties": {
+            "large_dataset": {
+              "const": true
+            }
+          }
+        },
+        "then": {
+          "required": ["pagination"]
+        }
+      }
+    },
+    "case_conversion_rules": {
+      "type": "object",
+      "description": "命名大小写转换规则（v3.27.16 形式化）",
+      "required": ["acronyms"],
+      "properties": {
+        "acronyms": {
+          "type": "string",
+          "enum": ["uppercase", "lowercase", "preserve", "pascal"],
+          "description": "缩写词处理策略：uppercase=首字母大写其余小写(API_ID→apiId), lowercase=全小写(API_ID→apiid), preserve=保留大小写(API_ID→APIID), pascal=Pascal风格(API_ID→ApiId)"
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["snake_case", "camelCase"],
+            "properties": {
+              "snake_case": {
+                "type": "string",
+                "description": "snake_case 形式，如 user_api_id"
+              },
+              "camelCase": {
+                "type": "string",
+                "description": "camelCase 形式，根据 acronyms 策略转换"
+              },
+              "description": {
+                "type": "string",
+                "description": "转换说明"
+              }
+            }
+          },
+          "minItems": 3,
+          "description": "转换示例，必须符合 acronyms 策略（用 verify_case_conversion_rules.py 验证）"
+        }
+      },
+      "if": {
+        "properties": {
+          "acronyms": {
+            "const": "uppercase"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "examples": {
+            "description": "uppercase 策略示例：user_api_id → userApiId (API 转为 Api)"
+          }
+        }
+      },
+      "else": {
+        "if": {
+          "properties": {
+            "acronyms": {
+              "const": "lowercase"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "examples": {
+              "description": "lowercase 策略示例：user_api_id → userapiid (API 转为 api)"
+            }
+          }
+        },
+        "else": {
+          "if": {
+            "properties": {
+              "acronyms": {
+                "const": "preserve"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "examples": {
+                "description": "preserve 策略示例：user_api_id → userAPIID (API 保持 API)"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "examples": {
+                "description": "pascal 策略示例：user_api_id → userApiId (API 转为 Api)"
+              }
+            }
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "string",
+      "description": "补充说明"
+    }
+  }
+}

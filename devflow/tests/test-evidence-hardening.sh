@@ -677,14 +677,14 @@ for template in \
     bad "design template carries component-reuse/common-extraction sections: $template"
   fi
 done
-# v3.27.15：规范遵循移入技术选型报告（结构化字段+渲染），详设不再含
+# v3.28.1：规范遵循移入技术选型报告（结构化字段+渲染），详设不再含
 if grep -q '"standards"' "$ROOT/schemas/tech-selection.schema.json" && \
    grep -q '规范遵循' "$ROOT/scripts/df_render.py"; then
   ok "standards baseline moved to tech-selection report (schema + renderer)"
 else
   bad "standards baseline moved to tech-selection report (schema + renderer)"
 fi
-# v3.27.15：DDR 与数据库迁移移出详设，统一在数据库设计决策模板
+# v3.28.1：DDR 与数据库迁移移出详设，统一在数据库设计决策模板
 if grep -q '设计决策记录（DDR）' "$ROOT/templates/数据库设计决策-模板.md" && \
    grep -q '数据库迁移' "$ROOT/templates/数据库设计决策-模板.md"; then
   ok "db design doc template carries DDR + migration sections"
