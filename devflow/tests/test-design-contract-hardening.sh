@@ -519,6 +519,8 @@ check_rc 0 "lint passes with project rules whitelist" \
 # ---------- P1-b：P3c/P3d JSON 正本接线（waiver 路径正/负向） ----------
 WP3="$WORK/p3"; mkdir -p "$WP3/.devflow/p3f" "$WP3/docs/评审" "$WP3/docs/测试"
 printf 'P3CD_SECURITY=NOT_APPLICABLE\nP3CD_PERFORMANCE=NOT_APPLICABLE\n' > "$WP3/waiver.txt"
+# v3.28.4(P0-4)：waiver 纳入 skip-log 授权契约——waiver 文件 + skip-log 授权行缺一即 P0
+printf 'SKIP_P3CD_SECURITY=纯前端无安全面|authorized-by=user|at=2026-09-17|approval=slack-approval-001\nSKIP_P3CD_PERFORMANCE=无服务端目录|authorized-by=user|at=2026-09-17|approval=slack-approval-002\n' > "$WP3/.devflow/p3f/skip-log.txt"
 python3 - "$WP3" <<'PYEOF'
 import json, os, sys
 os.chdir(sys.argv[1])

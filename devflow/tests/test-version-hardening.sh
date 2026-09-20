@@ -240,16 +240,16 @@ mk_p4_workspace() { # $1=status
   mkdir -p "$w/docs/test" "$w/docs/requirements" "$w/scripts"
   printf '| M-01-F01-A01 | x |\n| M-01-F01-A02 | x |\n' > "$w/docs/requirements/fx-acceptance-criteria.md"
   printf 'raw validation evidence\n' > "$w/docs/test/fx-raw.log"
-  cat > "$w/scripts/run-p4.sh" <<EOF
-#!/usr/bin/env bash
-printf 'ID\\tSTATUS\\nM-01-F01-A01\\tPASS\\nM-01-F01-A02\\t$1\\n' > docs/test/fx-p4-results.tsv
-printf 'executed P4 validation\\n'
-EOF
-  chmod +x "$w/scripts/run-p4.sh"
-  cat > "$w/docs/test/fx-validation-report.md" <<'EOF'
+  # v3.28.4(P1-9)：受信 runner 改 make（STATUS 经 make 变量传入；配方行以 TAB 缩进）
+  cat > "$w/Makefile" <<'MKEOF'
+p4-verify:
+	printf 'ID\tSTATUS\nM-01-F01-A01\tPASS\nM-01-F01-A02\t$(STATUS)\n' > docs/test/fx-p4-results.tsv
+	printf 'executed P4 validation\n'
+MKEOF
+  cat > "$w/docs/test/fx-validation-report.md" <<EOF
 P0_BLOCKERS=0
 VALIDATION_EVIDENCE=docs/test/fx-raw.log
-P4_CMD=./scripts/run-p4.sh
+P4_CMD=make p4-verify STATUS=$1
 P4_RESULTS_PATH=docs/test/fx-p4-results.tsv
 EOF
   printf '%s\n' "$w"
@@ -270,7 +270,7 @@ if printf '%s' "$P4_PASS_OUT" | grep -q 'rc=0$' \
    && grep -q '^EVIDENCE_TREE_SHA256=' "$WP4_PASS/.devflow/fx/gates/P4/receipt.txt"; then
   ok "P4 binds report, raw evidence, results, and execution capture as a tree"
 else
-  bad "P4 lacks tree-bound executable evidence"
+  bad "P4 lacks tree-bound executable evidence :: report=[$(cat "$WP4_PASS/docs/test/fx-validation-report.md" | tr '\n' '|')] tsv=[$(cat "$WP4_PASS/docs/test/fx-p4-results.tsv" 2>/dev/null | tr '\n' '|')]"
 fi
 
 mk_p6_receipts() { # $1=workspace

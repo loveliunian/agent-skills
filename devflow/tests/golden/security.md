@@ -3,7 +3,7 @@
 > 生成时间：2026-09-17 10:00:00（UTC）　数据来源：security.json 自动汇总（人工勿改）
 
 
-<!-- 审计指纹: security.json sha256=9686a841e1c46f713e3c8b2ac5640805f5b53b041cb539f1a2386fd5d6221b96（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: security.json sha256=6044e930be20f5bbc62d4f89adffd72afa4776bf261925991611df0e3a1c6220（由 df_render 自动生成，人工勿改） -->
 
 ## 覆盖概览
 

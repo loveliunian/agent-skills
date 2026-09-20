@@ -1,6 +1,6 @@
 ---
 name: security
-version: "3.29.0"
+version: "3.28.7"
 description: >-
   Use when auditing security vulnerabilities, permission gaps, or data exposure risks, mentions
   "/security", "security audit", "安全审计", "权限审计", "auth", "authorization", or "vulnerability scan".
@@ -236,3 +236,11 @@ fi
 # 检查凭证安全
 grep -rE "password.*=.*['\"]admin|admin123|123456" "$SOURCE_ROOT" 2>/dev/null | grep -v ".class" | head -3 && echo "含硬编码凭证 WARN" || echo "无硬编码凭证 OK"
 ```
+
+---
+
+## 状态机口径（单命令模式 · P1-6）
+
+- 本命令运行于**单命令模式**：豁免状态机——不调用 `devflow-state.sh complete`，不推进阶段状态、不产出阶段收据链。
+- 执行时必须在输出首部显式携带降级声明：`MODE=single-command STATE_MACHINE=exempt（阶段状态不推进；完整门禁链走 /devflow 编排）`。
+- 需要完整门禁、收据链、checkpoint 恢复与"不可跳过阶段"约束时，改走 `/devflow` 编排路径（commands/devflow.md）。

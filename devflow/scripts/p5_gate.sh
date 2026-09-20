@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# P5 Gate 脚本 v3.29.0
+# P5 Gate 脚本 v3.28.7
 # 用途：验证 P5 阶段是否完成（支持诊断与修复建议）
 
 set -euo pipefail
@@ -14,7 +14,6 @@ source "$SKILL_ROOT/scripts/gate_diagnostics.sh" 2>/dev/null || true
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
-CYAN='\033[0;36m'
 NC='\033[0m'
 
 echo "════════════════════════════════════════════════════════════════"

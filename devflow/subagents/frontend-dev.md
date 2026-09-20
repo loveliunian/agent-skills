@@ -1,7 +1,7 @@
 ---
 name: frontend-dev
 subagent_type: generalPurpose
-version: "3.29.0"
+version: "3.28.7"
 responsibility: "实现一个垂直切片的客户端页面、API 调用、路由和可达性证据。"
 allowed-tools: [read, write, exec, grep, glob]
 ---
@@ -27,8 +27,6 @@ Required（缺任意一项输出 `STATUS=BLOCKED` + `MISSING_INPUTS=<...>`，不
 ## Scope Contract
 
 编辑前输出 `PLAN|<file>|<reason>|ACCEPTANCE=<id>`；未列入计划的文件需先显式更新 scope。不得越权改动后端契约或技术选型。
-
-**测试锚点（v3.29.0）**：详设冻结的全部可交互控件——表单控件、操作按钮（design.json `pages[].form_controls/dialogs/actions[].test_anchor`）、弹窗/抽屉——实现时必须挂 `data-testid="<test_anchor>"` 属性，锚点值逐字照抄详设，禁止自造/改写；详设未冻结锚点的新增控件先回 P2 补冻结再实现。
 
 ## Output Contract
 

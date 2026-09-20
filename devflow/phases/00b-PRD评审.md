@@ -1,6 +1,6 @@
 ---
 name: prd-review
-version: "3.29.0"
+version: "3.28.7"
 description: "Use when reviewing PRD documents to ensure requirements are complete, feasible, and aligned with business goals."
 number-scheme: legacy-P-retained
 devflow-phase: P0b
@@ -130,7 +130,7 @@ rationale: "评审是独立能力域,P0 不涵盖多 Agent 评审流程。保留
 | 歧义术语决议表 | 每条歧义 → 决议口径 + 决议人 |
 | 边界条件枚举表 | 未定义行为登记为 DF |
 | 对抗场景走查 AW | ≥2 条，每条以 `结果:` 收尾 |
-| 深层发现 DF | 每角色 ≥1 条、总计 ≥5 条（五字段缺一无效） |
+| 深层发现 DF | 按实际发现登记（五字段缺一无效）；零发现须附 ZERO-DF 核查记录，禁止凑数 |
 | 表层发现 SF | ≤5 条/角色，不计配额不阻塞 |
 | 评审结论 | 通过/不通过/有条件通过 |
 | 修改清单 | 需要修改的内容 |
@@ -143,7 +143,7 @@ rationale: "评审是独立能力域,P0 不涵盖多 Agent 评审流程。保留
 - [ ] 所有角色已参与评审
 - [ ] 四类探针（P1/P2/P4/P5）执行记录齐全
 - [ ] 歧义术语全部决议（或"无歧义"+证据）
-- [ ] 问题清单已输出（DF ≥5 且每角色 ≥1）
+- [ ] 问题清单已输出（DF 按实际发现；每角色有 DF 或含核查实质的 ZERO-DF 记录）
 - [ ] AW ≥2 条
 - [ ] 评审结论已确认
 - [ ] 产品经理已确认通过
@@ -157,8 +157,8 @@ bash "$SKILL_ROOT/scripts/artifact_gate.sh" P0b <feature>
 | 检查项 | 通过条件 |
 |--------|----------|
 | 报告存在且非空 | ≥10 行 |
-| 深层发现 DF | `#### DF-` 块 ≥5，五字段（归属评委/触发场景/影响链/完善建议/验证方式）非空 |
-| 单角色 DF | 归属评委计数各 ≥2 |
+| 深层发现 DF | 块数按实际发现；每个 `#### DF-` 块五字段（归属评委/触发场景/影响链/完善建议/验证方式）非空 |
+| 单角色证据 | 每角色有 DF，或含核查实质的 ZERO-DF 记录（核查范围/证据锚点/验证方式） |
 | 对抗场景走查 | `- AW-` 条目 ≥2 且含 `结果:` |
 | 探针执行记录 | P1/P2/P4/P5 章节存在 |
 | 歧义术语决议表 | 存在且无未决议行（或显式"无歧义"声明） |
@@ -176,3 +176,4 @@ bash "$SKILL_ROOT/scripts/artifact_gate.sh" P0b <feature>
 ```bash
 python3 scripts/df_pipeline.py prd-review --input .devflow/<feature>/prd-review.json --out docs/需求/<feature>-PRD评审.md
 ```
+

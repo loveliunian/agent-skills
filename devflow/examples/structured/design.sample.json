@@ -3,7 +3,7 @@
   "generated_at": "2026-09-12T10:00:00Z",
   "template": {
     "id": "详细设计-完整版-模板",
-    "version": "3.29.0",
+    "version": "3.28.7",
     "mode": "monolith"
   },
   "acceptance": [
@@ -148,16 +148,14 @@
           "label": "金额",
           "control": "el-input-number",
           "validation": "必填、大于 0（R1）",
-          "source": "用户输入",
-          "test_anchor": "pay-p1-input-amount"
+          "source": "用户输入"
         },
         {
           "field": "payMethod",
           "label": "支付方式",
           "control": "el-select",
           "validation": "必填；提示「请选择支付方式」",
-          "source": "静态枚举",
-          "test_anchor": "pay-p1-select-pay-method"
+          "source": "静态枚举"
         }
       ],
       "dialogs": [
@@ -165,17 +163,7 @@
           "name": "提交确认",
           "component": "views/pay/SubmitConfirmDialog.vue",
           "api": "§3.2.1",
-          "state": "二次确认；重复提交返回原单不重复扣款；失败保留草稿",
-          "test_anchor": "pay-p1-dialog-submit-confirm"
-        }
-      ],
-      "actions": [
-        {
-          "name": "提交订单",
-          "type": "页面操作",
-          "test_anchor": "pay-p1-btn-submit",
-          "api": "§3.2.1",
-          "dialog": "提交确认"
+          "state": "二次确认；重复提交返回原单不重复扣款；失败保留草稿"
         }
       ]
     },
@@ -204,8 +192,7 @@
           "label": "退款金额",
           "control": "el-input-number",
           "validation": "必填、不大于剩余可退金额（R2）；提示「退款金额超过剩余可退金额」",
-          "source": "用户输入",
-          "test_anchor": "pay-p2-input-refund-amount"
+          "source": "用户输入"
         }
       ],
       "dialogs": [
@@ -213,23 +200,7 @@
           "name": "退款确认",
           "component": "views/pay/RefundConfirmDialog.vue",
           "api": "§3.2.2",
-          "state": "二次确认；超限拦截并保留输入",
-          "test_anchor": "pay-p2-dialog-refund-confirm"
-        }
-      ],
-      "actions": [
-        {
-          "name": "申请退款",
-          "type": "页面操作",
-          "test_anchor": "pay-p2-btn-refund",
-          "api": "§3.2.2",
-          "dialog": "退款确认"
-        },
-        {
-          "name": "删除",
-          "type": "行操作",
-          "test_anchor": "pay-p2-row-del",
-          "api": "§3.2.2"
+          "state": "二次确认；超限拦截并保留输入"
         }
       ]
     }

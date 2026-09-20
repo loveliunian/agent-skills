@@ -64,17 +64,17 @@ cat > "$TMP/docs/test/foo-validation-report.md" <<'EOF'
 ## P0 阻断项
 P0_BLOCKERS=0
 VALIDATION_EVIDENCE=docs/test/foo-evidence.txt
-P4_CMD=./scripts/run-p4.sh
+P4_CMD=make p4-verify
 P4_RESULTS_PATH=docs/test/foo-p4-results.tsv
 EOF
 printf 'validation-run\n' > "$TMP/docs/test/foo-evidence.txt"
 printf '| M-01-F01-A01 | x |\n' > "$TMP/docs/requirements/foo-acceptance-criteria.md"
-cat > "$TMP/scripts/run-p4.sh" <<'EOF'
-#!/usr/bin/env bash
-printf 'ID\tSTATUS\nM-01-F01-A01\tPASS\n' > docs/test/foo-p4-results.tsv
-printf 'P4 fixture executed\n'
+# v3.28.4(P1-9)：./scripts/* 自建脚本不再是受信 runner——改用 make（需 Makefile）
+cat > "$TMP/Makefile" <<'EOF'
+p4-verify:
+	printf 'ID\tSTATUS\nM-01-F01-A01\tPASS\n' > docs/test/foo-p4-results.tsv
+	printf 'P4 fixture executed\n'
 EOF
-chmod +x "$TMP/scripts/run-p4.sh"
 if (cd "$TMP" && bash "$ROOT/scripts/p4_validation_gate.sh" foo >/dev/null) && \
    [ -f "$TMP/.devflow/foo/gates/P4/receipt.txt" ]; then
   ok "P4 validation gate writes a P4 receipt"
@@ -95,7 +95,7 @@ fi
 # v3.16.7 软口径不验 REPORT 曾掩盖此夹具污染）
 printf 'P0_BLOCKERS=0
 VALIDATION_EVIDENCE=docs/test/foo-evidence.txt
-P4_CMD=./scripts/run-p4.sh
+P4_CMD=make p4-verify
 P4_RESULTS_PATH=docs/test/foo-p4-results.tsv
 ' > "$TMP/docs/test/foo-validation-report.md"
 if (cd "$TMP" && bash "$ROOT/scripts/p4_validation_gate.sh" foo >/dev/null); then
@@ -330,6 +330,9 @@ else
   ok "P7 rejects a keyword-only deployment record"
 fi
 WORKSPACE="$TMP/p7" bash "$ROOT/scripts/devflow-state.sh" init foo --frontend=not-applicable >/dev/null
+# v3.28.4(P0-1)：P7 gate 机检发布授权收据——正向夹具必须携带有效 release.json
+mkdir -p "$TMP/p7/.devflow/foo/authorizations"
+printf '{"feature":"foo","target":"staging","authorized_by":"user","authorization_source":"explicit-user-request","authorized_at":"%s","scope":["deploy"]}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$TMP/p7/.devflow/foo/authorizations/release.json"
 # v3.14.11: 完整前置链 P0-P6 + P6-credential，内部+docs 镜像双写（audit-receipts 要求）
 mkdir -p "$TMP/p7/docs/test-cases"; printf 'test case\n' > "$TMP/p7/docs/test-cases/x.md"
 (
@@ -387,6 +390,13 @@ BUILD_INFO_URL=http://127.0.0.1:$HPORT/buildinfo.json
 RELEASE_EVIDENCE_PATH=release.out
 EOF
 printf 'deploy-run-001\nfinished_at=2026-08-26T12:00:00Z\nartifact_bytes=9\nexit=0\n' > "$TMP/p7/release.out"
+mv "$TMP/p7/.devflow/foo/authorizations/release.json" "$TMP/p7/.devflow/foo/authorizations/release.json.bak"
+if (cd "$TMP/p7" && bash "$ROOT/scripts/artifact_gate.sh" P7 foo >/dev/null 2>&1); then
+  bad "P7 无发布授权收据仍放行（review P0-1）"
+else
+  ok "P7 缺 release.json 授权收据被拒（review P0-1）"
+fi
+mv "$TMP/p7/.devflow/foo/authorizations/release.json.bak" "$TMP/p7/.devflow/foo/authorizations/release.json"
 if (cd "$TMP/p7" && bash "$ROOT/scripts/artifact_gate.sh" P7 foo >/dev/null); then
   ok "P7 accepts deployment evidence with identity artifact environment health and build-info binding"
 else

@@ -61,13 +61,33 @@ has_waiver() {
   local key="$1"
   [ -f "$WAIVER_FILE" ] && grep -qx "P3CD_${key}=NOT_APPLICABLE" "$WAIVER_FILE"
 }
+# v3.28.4(P0-4)：waiver 纳入 skip-log 授权契约——waiver 文件 + skip-log 授权行二者缺一即 P0
+_P3CD_WAIVED_KEYS=""
+skiplog_authorized() {
+  local key="$1" line reason by at evid
+  local log="${STATE_DIR:-.devflow}/${FEATURE}/skip-log.txt"
+  line=$(grep -E "^SKIP_P3CD_${key}=" "$log" 2>/dev/null | head -1)
+  [ -n "$line" ] || return 1
+  reason=$(echo "$line" | cut -d'|' -f1 | sed "s/^SKIP_P3CD_${key}=//")
+  by=$(echo "$line" | grep -oE 'authorized-by=[^|]*' | cut -d= -f2)
+  at=$(echo "$line" | grep -oE 'at=[^|]*' | cut -d= -f2)
+  evid=$(echo "$line" | grep -oE 'approval=[^|]*' | cut -d= -f2)
+  [ -n "$reason" ] && [ -n "${by//[[:space:]]/}" ] \
+    && echo "$at" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}([T ][0-9]{2}:[0-9]{2})?' \
+    && [ -n "${evid//[[:space:]]/}" ]
+}
 not_applicable_or_fail() {
   local key="$1" message="$2"
   if has_waiver "$key"; then
-    warn "${message}（已由 $WAIVER_FILE 明确豁免）"
-    SKIP=$((SKIP+1))
+    if skiplog_authorized "$key"; then
+      warn "${message}（waiver=$WAIVER_FILE + skip-log 授权行齐备）"
+      _P3CD_WAIVED_KEYS="${_P3CD_WAIVED_KEYS:+${_P3CD_WAIVED_KEYS},}${key}"
+      SKIP=$((SKIP+1))
+    else
+      p0 "${message}（waiver 须配 skip-log 授权行：.devflow/${FEATURE}/skip-log.txt 一行 SKIP_P3CD_${key}=理由|authorized-by=授权人|at=日期|approval=审批证据）"
+    fi
   else
-    p0 "${message}（需 $key 证据，或 --waiver 声明不适用）"
+    p0 "${message}（需 $key 证据，或 --waiver+skip-log 授权声明不适用）"
   fi
 }
 
@@ -431,6 +451,7 @@ PYEOF
     fi
     echo "EXIT_CODE=$([ "$FAIL" -gt 0 ] && echo 1 || echo 0)"
     echo "PASS=$PASS FAIL=$FAIL WARN=$WARN SKIP=$SKIP"
+    echo "WAIVED_KEYS=${_P3CD_WAIVED_KEYS:-none}"
     echo "CHECKED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   } > "$RECEIPT_DIR/receipt.txt" 2>/dev/null
   echo "[RECEIPT] Generated: $RECEIPT_DIR/receipt.txt"

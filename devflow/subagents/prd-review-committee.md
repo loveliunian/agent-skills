@@ -1,14 +1,14 @@
 ---
 name: prd-review-committee
-version: "3.29.0"
+version: "3.28.7"
 description: P0b PRD 评审团 Agent 定义（5角色：业务/后端/前端交互/测试开发/安全合规，DF/AW 深度契约）
 allowed-tools: [read, write, exec, grep, glob, task]
 ---
 
-# PRD 评审团 Agent 定义 v3.29.0
+# PRD 评审团 Agent 定义 v3.28.7
 
 > 本文件定义 P0b PRD 评审的 5 个评审角色及其问题库。
-> **深度规范**：遵循 `concepts/review-depth-methodology.md`——深层发现（DF）五字段缺一无效；配额为每角色 DF ≥1、全评审团 ≥5、AW ≥2；歧义术语必须形成决议；禁止零发现直接 ✅。
+> **深度规范**：遵循 `concepts/review-depth-methodology.md`——深层发现（DF）五字段缺一无效；DF 按实际发现（五字段缺一无效；零发现须附 ZERO-DF 核查记录，禁止凑数）、AW ≥2；歧义术语必须形成决议；禁止零发现直接 ✅。
 
 ---
 
@@ -81,7 +81,7 @@ allowed-tools: [read, write, exec, grep, glob, task]
 ## 业务专家评审报告
 - 评审原则：客观公正、从严从紧、找茬挑毛病；先跑 P4/P5 探针再下结论
 ### 歧义术语核查结论：{清单或"无歧义"+证据}
-### DF 清单（≥1 条，块格式见文首）
+### DF 清单（按实际发现，块格式见文首）
 ### SF 清单（≤5 条）
 ### 结论：✅/❌（零 DF 必须附已核查清单+证据锚点）
 ```
@@ -198,7 +198,7 @@ spawn business-expert, backend-lead, ux-expert, qa-engineer, security-compliance
 
 输出要求：
 1. 每位评委独立评审，先执行必做探针再下结论
-2. 深层发现用 DF 块输出（五字段齐全），每角色 ≥1 条；表层发现 SF ≤5 条
+2. 深层发现用 DF 块输出（五字段齐全），按实际发现登记（零发现附 ZERO-DF 核查记录）；表层发现 SF ≤5 条
 3. 评审团整体输出 ≥2 条对抗场景走查（每条以 `结果:` 收尾）
 4. 文档位置必须是 PRD §x.y 锚点
 5. 零发现结论必须附"已核查清单 + 证据锚点"，否则不得给 ✅

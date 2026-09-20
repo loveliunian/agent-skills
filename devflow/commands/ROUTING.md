@@ -1,10 +1,10 @@
 ---
 name: devflow-routing
-version: "3.29.0"
+version: "3.28.7"
 description: devflow 命令、阶段、Gate 与人工资源注册表。
 ---
 
-# devflow 路由索引（v3.29.0）
+# devflow 路由索引（v3.28.7）
 
 本文件只负责路由。执行规则以 `SKILL.md`、对应 command/phase 和 `concepts/core.md` 为准。
 
@@ -86,3 +86,9 @@ description: devflow 命令、阶段、Gate 与人工资源注册表。
 - Gate 非零即停；不得用文档存在、静态构建或 H2 结果替代真实运行证据。
 - P3、P4b、P6、P7-P10 不可隐式跳过；任何合法跳过都需用户明确授权并写入 `skip-log.txt`。
 - 开发者不能签署自己的审查或完成度 Gate；独立审计条件缺失时状态为 `BLOCKED`。
+
+---
+
+## 单命令模式与状态机（P1-6）
+
+上表所有单命令均运行于**单命令模式**：豁免状态机（不调用 `devflow-state.sh complete`、不推进阶段状态），命令输出必须携带 `MODE=single-command STATE_MACHINE=exempt` 降级声明。需要"不可跳过阶段 + 收据链 + checkpoint"的完整交付，走 `/devflow` 编排路径。

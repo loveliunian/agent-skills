@@ -1,6 +1,6 @@
 ---
 name: performance
-version: "3.29.0"
+version: "3.28.7"
 description: >-
   Use when auditing performance bottlenecks, slow queries, or scalability issues, mentions
   "/performance", "性能", "performance audit", "性能审计", "N+1", "slow query", "优化", or "load test".
@@ -58,9 +58,9 @@ find backend/<service>/src/main/java -name "*.java" -type f | grep "/service/imp
 ```bash
 # 详设表清单（table-index 渲染块，回退 CREATE TABLE）与 Flyway 索引交叉对比
 Windows / macOS / Linux 通用：while-read 替代 for f in $(...)
-grep -oE "(?<=TABLE\\s)[a-zA-Z_]+" \
+grep -hiE "^CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+" \
               backend/<service>/src/main/resources/db/migration/postgresql/*.sql 2>/dev/null \
-  | sort -u > /tmp/tables.txt
+  | awk '{print $NF}' | tr -d '(' | sort -u > /tmp/tables.txt
 
 while IFS= read -r table; do
   index_count=$(grep -cE "CREATE INDEX.*${table}|INDEX.*ON ${table}" \
@@ -200,3 +200,11 @@ echo "索引数: $FLYWAY_INDEXES, 详设表数: $DETAIL_TABLES"
 bash "$SKILL_ROOT/scripts/p3_security_perf_gate.sh" <feature>
 # 期望：exit 0 = 性能审计证据齐备；FAIL 即阻断
 ```
+
+---
+
+## 状态机口径（单命令模式 · P1-6）
+
+- 本命令运行于**单命令模式**：豁免状态机——不调用 `devflow-state.sh complete`，不推进阶段状态、不产出阶段收据链。
+- 执行时必须在输出首部显式携带降级声明：`MODE=single-command STATE_MACHINE=exempt（阶段状态不推进；完整门禁链走 /devflow 编排）`。
+- 需要完整门禁、收据链、checkpoint 恢复与"不可跳过阶段"约束时，改走 `/devflow` 编排路径（commands/devflow.md）。

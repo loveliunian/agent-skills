@@ -1,9 +1,9 @@
 ---
 name: postmortem
-version: "3.29.0"
+version: "3.28.7"
 description: |
   触发条件：生产 P0/P1 故障、SLA 违约、安全事件、影响用户的 Bug。
-  强制产出 docs/事故复盘/<incident>-事故复盘.md（§1-§10 完整 + 5 Why + 改进项可追溯）。
+  强制产出 docs/事故复盘/<YYYY-MM-DD>-<incident>-事故复盘.md（§1-§10 完整 + 5 Why + 改进项可追溯）。
   与 P10 区别：P10 是项目级复盘，P11 是事件级无指责根因分析。
 license: MIT
 paths: ["docs/事故复盘/**", "docs/incidents/**", "docs/复盘/**"]
@@ -114,7 +114,7 @@ INDEX 示例：
 
 | 检查项 | 通过条件 | 失败动作 |
 |--------|---------|---------|
-| 报告存在 | `docs/事故复盘/<slug>-事故复盘.md` 存在 | 阻塞 |
+| 报告存在 | `docs/事故复盘/<YYYY-MM-DD>-<slug>-事故复盘.md` 存在 | 阻塞 |
 | § 完整 | 含 §1~§10 标题 | 阻塞 |
 | 5 Why ≥ 5 层 | §4 至少 5 个 "Why" 编号 | 阻塞 |
 | 改进项可追溯 | §5 表格至少有 P0 项且含责任人 | 阻塞 |
@@ -153,3 +153,11 @@ INDEX 示例：
 - 与 devflow P0-P10 阶段的回流
 - Action Items 强制责任人 + 截止日期
 - INDEX 自动化生成
+
+---
+
+## 状态机口径（单命令模式 · P1-6）
+
+- 本命令运行于**单命令模式**：豁免状态机——不调用 `devflow-state.sh complete`，不推进阶段状态、不产出阶段收据链。
+- 执行时必须在输出首部显式携带降级声明：`MODE=single-command STATE_MACHINE=exempt（阶段状态不推进；完整门禁链走 /devflow 编排）`。
+- 需要完整门禁、收据链、checkpoint 恢复与"不可跳过阶段"约束时，改走 `/devflow` 编排路径（commands/devflow.md）。

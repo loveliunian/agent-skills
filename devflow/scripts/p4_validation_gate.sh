@@ -49,9 +49,13 @@ fi
 is_trusted_command() {
   local command="$1" first
   case "$command" in *'`'*|*'$('*|*';'*|*'&&'*|*'||'*|*'|'*|*'<'*|*'>'*) return 1 ;; esac
+  # v3.28.4(P1-9)：解释器内联（-c/-e/--eval）与自建脚本（./scripts/*）不得作为验证命令——
+  # 首词受信但"被执行的东西"由被门禁者定义 = 白名单失效（review P0-3/P1-9）
+  case "$command" in
+    *' -c'*|*' -e '*|*'--eval'*|*'./scripts/'*) return 1 ;;
+  esac
   first=$(printf '%s' "$command" | awk '{print $1}')
   case "$first" in
-    ./scripts/*) [ -x "$first" ] && return 0 ;;
     mvn|mvnw|./mvnw|gradle|./gradlew|npm|pnpm|yarn|pytest|python|python3|go|cargo|make|dotnet|flutter) return 0 ;;
   esac
   return 1

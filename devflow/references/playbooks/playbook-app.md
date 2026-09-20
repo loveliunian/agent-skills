@@ -1,4 +1,4 @@
-# APP（iOS/Android）专项评审剧本
+# APP（iOS/Android）专项评审
 
 > 规则来源：App Store Review Guidelines + 工信部应用备案要求
 > 核验日期：2026-08-26 ｜ 责任人：每次 P2a 前由评审主持人对照官方最新文档复核一次

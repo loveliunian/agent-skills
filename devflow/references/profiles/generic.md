@@ -1,6 +1,6 @@
 ---
 name: profile-generic
-version: "3.29.0"
+version: "3.28.7"
 description: 无技术栈假设的 Runtime Profile 模板——所有 adapter 必须从项目事实源解析。
 ---
 

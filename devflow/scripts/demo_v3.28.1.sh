@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# v3.29.0 快速演示脚本
+# v3.28.7 快速演示脚本
 # 演示：Gate 自动修复建议 + 增量变更模式
 
 set -euo pipefail
@@ -248,7 +248,7 @@ cat << 'EOF'
 
   • docs/Gate自动修复建议.md
   • docs/增量变更模式.md
-  • CHANGELOG-v3.28.1.md
+  • references/CHANGELOG.md
 
 EOF
 
