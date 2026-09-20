@@ -7,6 +7,8 @@
 # 用法：artifact_gate.sh <P0b|P7|P8|P9> <feature>
 set -uo pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 PHASE="${1:-}"
 FEATURE="${2:-}"
 if [ -z "$PHASE" ] || [ -z "$FEATURE" ]; then
@@ -250,7 +252,7 @@ case "$PHASE" in
     if [ ! -f "$AUTH_FILE" ]; then
       p0 "missing release authorization: ${AUTH_FILE}（外部副作用须显式人工授权；无收据最高 READY_TO_RELEASE，见 commands/devflow.md §Release Authorization）"
     else
-      AUTH_OUT=$(AUTH_FEATURE="$FEATURE" AUTH_PATH="$AUTH_FILE" python3 - <<'AUTH_PY'
+      AUTH_OUT=$(AUTH_FEATURE="$FEATURE" AUTH_PATH="$AUTH_FILE" "${DEVFLOW_PY[@]}" - <<'AUTH_PY'
 import json, os, sys
 from datetime import datetime, timezone
 feature, path = os.environ["AUTH_FEATURE"], os.environ["AUTH_PATH"]

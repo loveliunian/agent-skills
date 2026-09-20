@@ -14,6 +14,8 @@
 
 set -uo pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 JAVA_GLOB="${JAVA_GLOB:-backend/*/src/main/java/**/entity/*.java}"
 SQL_GLOB="${SQL_GLOB:-backend/*/src/main/resources/db/migration/h2/**/*.sql}"
 DIALECTS="${DIALECTS:-h2 postgresql oracle kingbase}"
@@ -31,7 +33,7 @@ echo "SQL   glob: $SQL_GLOB"
 echo "方言: $DIALECTS"
 echo
 
-python3 - "$JAVA_GLOB" "$SQL_GLOB" "$DIALECTS" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$JAVA_GLOB" "$SQL_GLOB" "$DIALECTS" <<'PYEOF'
 import os, sys, re, glob
 
 java_glob = sys.argv[1]
@@ -146,6 +148,6 @@ if [ "$CHK_RC" -eq 1 ]; then
   exit 1
 fi
 if [ "$CHK_RC" -ne 0 ]; then
-  echo "[FAIL] Python 环境故障（rc=${CHK_RC}，非业务判定——检查 python3 可用性）" >&2
+  echo "[FAIL] Python 环境故障（rc=${CHK_RC}，非业务判定——检查 Python 3 可用性）" >&2
   exit 1
 fi

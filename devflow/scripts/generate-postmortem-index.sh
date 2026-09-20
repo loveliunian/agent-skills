@@ -12,6 +12,8 @@
 set -e
 
 # v3.22.0: 默认目录中文化；历史英文目录已存在且未显式指定时沿用
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 if [ -n "${POSTMORTEM_DIR:-}" ]; then :; elif [ -d "docs/postmortems" ] && [ ! -d "docs/事故复盘" ]; then POSTMORTEM_DIR="docs/postmortems"; else POSTMORTEM_DIR="docs/事故复盘"; fi
 # 扫描时中英两目录都纳入（若都存在）
 POSTMORTEM_ALT=""
@@ -26,7 +28,7 @@ fi
 
 mkdir -p "$(dirname "$OUTPUT_FILE")"
 
-python3 - "$POSTMORTEM_DIR" "$POSTMORTEM_ALT" "$OUTPUT_FILE" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$POSTMORTEM_DIR" "$POSTMORTEM_ALT" "$OUTPUT_FILE" <<'PYEOF'
 import os, sys, re, glob
 from datetime import datetime
 

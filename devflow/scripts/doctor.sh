@@ -11,6 +11,8 @@
 #   reconcile/audit-receipts 两个命令；合并为 doctor 一键预检）。
 set -uo pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
 FAIL=0
 WARN=0
@@ -39,15 +41,15 @@ if command -v git >/dev/null 2>&1; then
 else
   fail "git 缺失"
 fi
-if command -v python3 >/dev/null 2>&1; then
-  ok "python3 可用（df_pipeline / release-audit YAML 校验）"
+if devflow_py_ok; then
+  ok "Python 3 可用（${DEVFLOW_PY[*]}；df_pipeline / release-audit YAML 校验）"
 else
-  fail "python3 缺失（df_pipeline / release-audit YAML 校验需要）"
+  fail "Python 3 缺失（python3/python/py -3 均未找到；df_pipeline / release-audit YAML 校验需要）"
 fi
 if command -v jq >/dev/null 2>&1; then
   ok "jq 可用（manifest hash-chain / state）"
 else
-  warn "jq 缺失（manifest hash-chain 与部分 Gate 需要，建议安装）"
+  fail "jq 缺失（manifest hash-chain 与 state 机硬依赖——Git Bash 不自带，需手动安装；缺失时发布与 checkpoint 恢复将 BLOCKED）"
 fi
 if command -v shellcheck >/dev/null 2>&1; then
   ok "shellcheck 可用（release.sh 硬门禁）"

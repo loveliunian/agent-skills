@@ -23,6 +23,8 @@
 # =============================================================================
 set -uo pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
 source "$(cd "$(dirname "$0")" && pwd)/devflow_receipt.sh"
 # v3.22.0: 文档层中文化（中文优先、英文回退）
@@ -495,14 +497,14 @@ echo "=== §3.5 结构化产物层 (verification.json) 对账 ==="
 VERIFY_JSON="$DIR/verification.json"
 if [ ! -f "$VERIFY_JSON" ]; then
   p0 "verification.json 缺失: ${VERIFY_JSON}——P6-final 必填（契约 schemas/verification.schema.json；Gate 通过后自动渲染终验报告并绑定收据）"
-elif ! command -v python3 >/dev/null 2>&1; then
-  p0 "verification.json 存在但 python3 不可用——结构化产物对账无法执行（失败关闭）: $VERIFY_JSON"
+elif ! devflow_py_ok; then
+  p0 "verification.json 存在但 Python 3 不可用（python3/python/py 均未找到）——结构化产物对账无法执行（失败关闭）: $VERIFY_JSON"
 else
   V_ARGS=(--kind verification --input "$VERIFY_JSON" --workspace .)
   [ -f "$BASELINE_TSV" ] && V_ARGS+=(--baseline "$BASELINE_TSV")
   [ -f "$EXEC_RECORD" ] && V_ARGS+=(--exec-record "$EXEC_RECORD")
   [ -n "$FROZEN_FRONTEND" ] && V_ARGS+=(--frontend-scope "$FROZEN_FRONTEND")
-  if python3 "$(cd "$(dirname "$0")" && pwd)/df_validate.py" "${V_ARGS[@]}"; then
+  if "${DEVFLOW_PY[@]}" "$(cd "$(dirname "$0")" && pwd)/df_validate.py" "${V_ARGS[@]}"; then
     pass "verification.json 与冻结 baseline / 本轮实际执行记录 / 冻结前端范围对账一致"
   else
     p0 "verification.json 校验或对账失败——修复后重跑 Gate（终验报告必须由已校验 JSON 渲染）"
@@ -517,7 +519,7 @@ P6_REPORT="$(df_resolve_doc "$EFF_FEATURE" final_verification .md test)"
 [ -n "$P6_REPORT" ] || P6_REPORT="$(df_default_doc "$EFF_FEATURE" final_verification .md test)"
 if [ "$FAIL" -eq 0 ]; then
   mkdir -p "$(dirname "$P6_REPORT")" || p0 "无法创建报告目录 $(dirname "$P6_REPORT")"
-  if python3 "$(cd "$(dirname "$0")" && pwd)/df_render.py" verification \
+  if "${DEVFLOW_PY[@]}" "$(cd "$(dirname "$0")" && pwd)/df_render.py" verification \
       --input "$VERIFY_JSON" --out "$P6_REPORT" \
       --exec-record "$EXEC_RECORD" --workspace . && [ -f "$P6_REPORT" ]; then
     pass "终验报告已渲染并绑定: $P6_REPORT"

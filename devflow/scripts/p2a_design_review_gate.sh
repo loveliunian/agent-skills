@@ -23,6 +23,8 @@
 #   role_cell 修剪后输出原始行（治理服务 detailed-design-v2 复盘实证）。
 # =============================================================================
 set -uo pipefail
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 LC_ALL=C
 export LC_ALL
 
@@ -100,9 +102,9 @@ DESIGN_JSON=".devflow/$FEATURE/design.json"
 MAPPING_SCRIPT="$SCRIPT_DIR/check_prd_design_mapping.py"
 
 if [ -f "$CLARIFICATION_JSON" ] && [ -f "$DESIGN_JSON" ]; then
-  if [ -f "$MAPPING_SCRIPT" ] && command -v python3 >/dev/null 2>&1; then
+  if [ -f "$MAPPING_SCRIPT" ] && devflow_py_ok; then
     echo "执行 PRD-to-Design 映射检查..."
-    MAPPING_RESULT=$(python3 "$MAPPING_SCRIPT" "$CLARIFICATION_JSON" "$DESIGN_JSON" 2>&1 || true)
+    MAPPING_RESULT=$("${DEVFLOW_PY[@]}" "$MAPPING_SCRIPT" "$CLARIFICATION_JSON" "$DESIGN_JSON" 2>&1 || true)
     MAPPING_EXIT=$?
     
     echo "$MAPPING_RESULT"
@@ -113,7 +115,7 @@ if [ -f "$CLARIFICATION_JSON" ] && [ -f "$DESIGN_JSON" ]; then
       p0 "PRD-to-Design 映射不完备，详见上方输出"
     fi
   else
-    warn "映射检查脚本或 python3 不可用，跳过"
+    warn "映射检查脚本或 Python 3 不可用（python3/python/py 均未找到），跳过"
   fi
 else
   warn "clarification.json 或 design.json 不存在，跳过映射检查"
@@ -304,7 +306,7 @@ elif [ ! -f "$DESIGN_JSON" ]; then
   p0 "design.json missing: $DESIGN_JSON (required for mapping check)"
 else
   # 执行 PRD-to-Design 映射检查
-  MAPPING_OUTPUT=$(python3 "$SCRIPT_DIR/check_prd_design_mapping.py" "$CLARIFICATION_JSON" "$DESIGN_JSON" 2>&1)
+  MAPPING_OUTPUT=$("${DEVFLOW_PY[@]}" "$SCRIPT_DIR/check_prd_design_mapping.py" "$CLARIFICATION_JSON" "$DESIGN_JSON" 2>&1)
   MAPPING_EXIT=$?
   
   if [ $MAPPING_EXIT -eq 0 ]; then
@@ -323,9 +325,9 @@ if [ ! -f "$DESIGN_JSON" ]; then
 else
   CONVENTIONS_JSON=".devflow/${FEATURE}/design-conventions.json"
   if [ -f "$CONVENTIONS_JSON" ]; then
-    LINTER_OUTPUT=$(python3 "$SCRIPT_DIR/design_consistency_linter.py" "$DESIGN_JSON" "$CONVENTIONS_JSON" 2>&1)
+    LINTER_OUTPUT=$("${DEVFLOW_PY[@]}" "$SCRIPT_DIR/design_consistency_linter.py" "$DESIGN_JSON" "$CONVENTIONS_JSON" 2>&1)
   else
-    LINTER_OUTPUT=$(python3 "$SCRIPT_DIR/design_consistency_linter.py" "$DESIGN_JSON" 2>&1)
+    LINTER_OUTPUT=$("${DEVFLOW_PY[@]}" "$SCRIPT_DIR/design_consistency_linter.py" "$DESIGN_JSON" 2>&1)
   fi
   LINTER_EXIT=$?
   [ "$LINTER_EXIT" -eq 0 ] || warn "design_consistency_linter exit=${LINTER_EXIT}（一致性问题视为警告，不阻断）"
@@ -529,9 +531,9 @@ for probe in "P1" "P2" "P3" "P4" "P5" "P6" "CODE-BASELINE"; do
   if [ "$probe" = "CODE-BASELINE" ]; then
     _probe_required=0
     P2A_DJ="${STATE_DIR:-.devflow}/${FEATURE}/design.json"
-    if [ -f "$P2A_DJ" ] && command -v python3 >/dev/null 2>&1; then
+    if [ -f "$P2A_DJ" ] && devflow_py_ok; then
       # $( ) 本身就是子 shell——unset LC_ALL 仅影响命令替换内部，不污染 Gate 环境
-      _probe_required=$(unset LC_ALL; python3 -c 'import json,sys
+      _probe_required=$(unset LC_ALL; "${DEVFLOW_PY[@]}" -c 'import json,sys
 try:
     es = json.load(open(sys.argv[1])).get("baseline", {}).get("entries", [])
     print(1 if any(e.get("decision") in ("REUSE", "MODIFY", "DELETE") for e in es) else 0)

@@ -22,6 +22,8 @@
 
 set -euo pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 # 推导 feature
@@ -84,15 +86,15 @@ if [ ! -f "$COMPARE_SCRIPT" ]; then
   exit 1
 fi
 
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "❌ python3 未安装，无法执行稳定性对比"
+if ! devflow_py_ok; then
+  echo "❌ Python 3 未安装（python3/python/py 均未找到），无法执行稳定性对比"
   exit 1
 fi
 
 # 执行对比
 REPORT_OUTPUT=$(mktemp -t p0-stability.XXXXXX)
 
-if python3 "$COMPARE_SCRIPT" "$LATEST_HISTORY" "$CURRENT_JSON" > "$REPORT_OUTPUT" 2>&1; then
+if "${DEVFLOW_PY[@]}" "$COMPARE_SCRIPT" "$LATEST_HISTORY" "$CURRENT_JSON" > "$REPORT_OUTPUT" 2>&1; then
   cat "$REPORT_OUTPUT"
   
   # 提取综合稳定性分数

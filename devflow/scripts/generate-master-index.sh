@@ -20,6 +20,8 @@
 set -o pipefail
 
 # v3.23.1: 主索引中文化——默认 主索引.md；历史 MASTER.md 存在且无中文版时沿用
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 if [ -n "${OUTPUT_FILE:-}" ]; then :; elif [ -f "MASTER.md" ] && [ ! -f "主索引.md" ]; then OUTPUT_FILE="MASTER.md"; else OUTPUT_FILE="主索引.md"; fi
 # v3.22.0: 默认目录中文化；历史英文目录已存在且未显式指定 DOC_DIR 时沿用
 if [ -n "${DOC_DIR:-}" ]; then :; elif [ -d "docs/detailed-design" ] && [ ! -d "docs/详细设计" ]; then DOC_DIR="docs/detailed-design"; else DOC_DIR="docs/详细设计"; fi
@@ -35,7 +37,7 @@ echo "OUTPUT:  $OUTPUT_FILE"
 echo "DOC_DIR: $DOC_DIR"
 echo
 
-python3 - "$OUTPUT_FILE" "$DOC_DIR" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$OUTPUT_FILE" "$DOC_DIR" <<'PYEOF'
 import os, sys, re, glob
 from collections import defaultdict
 

@@ -9,6 +9,8 @@ set -uo pipefail
 
 # ---------- v3.0 参数化 ----------
 # v3.22.0: 默认目录中文化；历史英文目录已存在且未显式指定 DOC_DIR 时沿用
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 if [ -n "${DOC_DIR:-}" ]; then :; elif [ -d "docs/detailed-design" ] && [ ! -d "docs/详细设计" ]; then DOC_DIR="docs/detailed-design"; else DOC_DIR="docs/详细设计"; fi
 OUTPUT_FILE="${OUTPUT_FILE:-${DOC_DIR}/_ER图索引.md}"
 
@@ -38,7 +40,7 @@ trap 'rm -f "$TMP_JSON"' EXIT
 # ----------------------------------------------------------------
 ok "扫描 backend/*/src/main/resources/db/migration/*/*.sql ..."
 
-python3 - "$TMP_JSON" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$TMP_JSON" <<'PYEOF'
 import re, os, json, glob, collections, sys
 
 out_file = sys.argv[1]
@@ -208,7 +210,7 @@ fi
 # ----------------------------------------------------------------
 ok "生成 $OUTPUT ..."
 
-python3 - "$TMP_JSON" "$OUTPUT" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$TMP_JSON" "$OUTPUT" <<'PYEOF'
 import json, os, sys, datetime, collections
 src, dst = sys.argv[1], sys.argv[2]
 data = json.load(open(src, encoding="utf-8"))

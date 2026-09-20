@@ -6,6 +6,8 @@
 #   gen-domain-checklist.sh <feature> --stage prd|design [--out <path>]
 set -uo pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 FEATURE="${1:-}"
 STAGE="design"
 shift || true

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # test-version-hardening.sh · 历史版本硬化回归（v3.20.3 / v3.21.1 / v3.21.2 合并，v3.23.0 瘦身）
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 source "$(cd "$(dirname "$0")" && pwd)/testlib.sh"
 ROOT="$(cd "$TEST_DIR/.." && pwd -P)"
 SKILL_VER=$(sed -n 's/^  version: "\([0-9.]*\)"/\1/p' "$ROOT/SKILL.md" | head -1)
@@ -99,7 +101,7 @@ done
 GATE="$ROOT/maintenance/s8_graph_health_gate.sh"
 mkgraph() { # mkgraph <dir> <status-json>
   printf '%s' "$2" > "$1/st.json"
-  STATUS_FILE="$1/st.json" python3 "$TMP/fake-graph.py" "$1/port" & echo $!
+  STATUS_FILE="$1/st.json" "${DEVFLOW_PY[@]}" "$TMP/fake-graph.py" "$1/port" & echo $!
 }
 cat > "$TMP/fake-graph.py" <<'PYEOF'
 import json, sys, os, time
@@ -118,7 +120,7 @@ run_gate() { # run_gate <status-json> [extra-env]
   local port
   port=$((20000 + RANDOM % 20000))
   printf '%s' "$1" > "$G1/st.json"
-  STATUS_FILE="$G1/st.json" python3 "$TMP/fake-graph.py" "$port" >/dev/null 2>&1 &
+  STATUS_FILE="$G1/st.json" "${DEVFLOW_PY[@]}" "$TMP/fake-graph.py" "$port" >/dev/null 2>&1 &
   local srv=$!
   sleep 0.5
   (cd "$G1" && env GRAPH_URL="http://127.0.0.1:$port" ${2:-} REPORT=rep.env bash "$GATE" m-01 >/dev/null 2>&1)
@@ -320,7 +322,7 @@ EOF
     done
     printf 'ENVIRONMENT=staging\n'
   } > "$w/.devflow/fx/test-evidence.env"
-  python3 - "$w" <<'PYEOF'
+  "${DEVFLOW_PY[@]}" - "$w" <<'PYEOF'
 import json, pathlib, sys
 w=pathlib.Path(sys.argv[1]); env={}
 for line in (w/'.devflow/fx/test-evidence.env').read_text().splitlines():
@@ -370,7 +372,7 @@ grep -q 'scripts/check-copies.sh' "$ROOT/scripts/release.sh" \
 grep -q '副本终验漂移"; FAIL=1; B_ROLLBACK_NEEDED=1' "$ROOT/scripts/release.sh" \
   && ok "B2 copy drift requests rollback" \
   || bad "B2 copy drift can leave an activated manifest"
-if python3 - "$ROOT/agents/openai.yaml" <<'PY'
+if "${DEVFLOW_PY[@]}" - "$ROOT/agents/openai.yaml" <<'PY'
 import sys, yaml
 d = yaml.safe_load(open(sys.argv[1]))
 raise SystemExit(0 if all(k in d for k in ("interface", "policy", "dependencies")) else 1)

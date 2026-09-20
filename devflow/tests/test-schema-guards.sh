@@ -4,11 +4,13 @@
 # ② 样例模板身份守卫（sample.template.id == schema const；sample.template.version == SKILL 版本）
 # ③ 死字段守卫（schema 属性在 scripts/ 零消费者 → 必须登记白名单，防"空转契约"复发）
 # ④ 模板 frontmatter name == 文件名
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 source "$(cd "$(dirname "$0")" && pwd)/testlib.sh"
 
 echo "=== schema 契约守卫（v3.27.12） ==="
 
-py_out=$(python3 - "$ROOT" <<'PYEOF'
+py_out=$("${DEVFLOW_PY[@]}" - "$ROOT" <<'PYEOF'
 import json, glob, re, sys
 from pathlib import Path
 ROOT = Path(sys.argv[1])

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 source "$(cd "$(dirname "$0")" && pwd)/testlib.sh"
 
 echo "=== devflow phase gate tests ==="
@@ -327,14 +329,14 @@ fi
 rm -f "$TMP/.devflow/foo/tech-selection.json"
 if (cd "$TMP" && bash "$ROOT/scripts/s2_design_coverage_gate.sh" docs/detailed-design/foo-design.md docs/requirements/foo-acceptance-criteria.md); then ok "P2 fixture"; else bad "P2 fixture"; fi
 # v3.27.11：响应恒出性 JSON↔正文对账（foo 夹具 §3.2.1 响应表恒出性=是）
-python3 - "$TMP" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$TMP" <<'PYEOF'
 import json, sys
 p = sys.argv[1] + "/.devflow/foo/design.json"
 d = json.load(open(p))
 d["apis"][0]["response"]["fields"][0]["always"] = "否"
 json.dump(d, open(sys.argv[1] + "/.devflow/foo/d-always.json", "w"), ensure_ascii=False)
 PYEOF
-if (cd "$TMP" && python3 "$ROOT/scripts/df_validate.py" --kind design --input .devflow/foo/d-always.json \
+if (cd "$TMP" && "${DEVFLOW_PY[@]}" "$ROOT/scripts/df_validate.py" --kind design --input .devflow/foo/d-always.json \
      --criteria docs/requirements/foo-acceptance-criteria.md --doc docs/detailed-design/foo-design.md >/dev/null 2>&1); then
   bad "response 恒出性与正文冲突未被拦截"
 else
@@ -492,7 +494,7 @@ else
 fi
 
 # v3.28.1：渲染版式（api-index 详细定义首列 / table-index 块）必须可解析——不再静默 skip
-python3 - "$TMP" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$TMP" <<'PYEOF'
 import sys
 from pathlib import Path
 base = Path(sys.argv[1])

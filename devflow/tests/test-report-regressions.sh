@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 source "$(cd "$(dirname "$0")" && pwd)/testlib.sh"
 SKILL_VER=$(sed -n 's/^  version: "\([0-9.]*\)"/\1/p' "$ROOT/SKILL.md" | head -1)
 set -u

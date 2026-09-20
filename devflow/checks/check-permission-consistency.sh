@@ -23,6 +23,8 @@
 # ============================================================
 set -uo pipefail
 # v3.0: keep caller cwd (caller run in project root)
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 DOC_DIR="${DOC_DIR:-docs/detailed-design}"
 OUTPUT_FILE="${OUTPUT_FILE:-${DOC_DIR}/_权限矩阵.md}"
 CONTROLLER_GLOB="${CONTROLLER_GLOB:-backend/*/src/main/java/**/*.java}"
@@ -57,7 +59,7 @@ if [ ! -f "$DOC_FILE" ]; then
 fi
 
 # 用 Python 一站式提取并对比（避免 shell 路径的 `0\n0` 等坑）
-GEN_SCRIPT="$GEN_SCRIPT" python3 << 'PYEOF'
+GEN_SCRIPT="$GEN_SCRIPT" "${DEVFLOW_PY[@]}" << 'PYEOF'
 import re, os, glob, sys
 
 DOC_FILE = os.environ.get("DOC_FILE", "docs/detailed-design/_权限矩阵.md")
@@ -159,6 +161,6 @@ if [ "$CHK_RC" -eq 1 ] || [ "$CHK_RC" -eq 2 ]; then
   exit "$CHK_RC"
 fi
 if [ "$CHK_RC" -ne 0 ]; then
-  echo "[FAIL] Python 环境故障（rc=${CHK_RC}，非业务判定——检查 python3 可用性）" >&2
+  echo "[FAIL] Python 环境故障（rc=${CHK_RC}，非业务判定——检查 Python 3 可用性）" >&2
   exit 1
 fi

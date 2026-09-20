@@ -5,6 +5,8 @@
 set -euo pipefail
 
 # 颜色定义
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
@@ -141,7 +143,7 @@ FIELD_TEMPLATE
   echo -e "${CYAN}[步骤 5/5]${NC} 记录变更..."
   
   # 记录到增量状态文件
-  python3 << PYTHON_END
+  "${DEVFLOW_PY[@]}" << PYTHON_END
 import json
 from datetime import datetime
 
@@ -228,7 +230,7 @@ incremental_modify_field() {
   
   echo -e "${CYAN}[步骤 4/4]${NC} 记录变更..."
   
-  python3 << PYTHON_END
+  "${DEVFLOW_PY[@]}" << PYTHON_END
 import json
 from datetime import datetime
 
@@ -352,7 +354,7 @@ API_TEMPLATE
   
   echo -e "${CYAN}[步骤 5/5]${NC} 记录变更..."
   
-  python3 << PYTHON_END
+  "${DEVFLOW_PY[@]}" << PYTHON_END
 import json
 from datetime import datetime
 
@@ -449,7 +451,7 @@ incremental_fix_bug() {
   
   echo -e "${CYAN}[步骤 4/4]${NC} 记录变更..."
   
-  python3 << PYTHON_END
+  "${DEVFLOW_PY[@]}" << PYTHON_END
 import json
 from datetime import datetime
 

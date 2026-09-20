@@ -30,6 +30,8 @@
 # =============================================================================
 set -uo pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 SKILL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
 STATE_DIR="${STATE_DIR:-.devflow}"
@@ -58,7 +60,7 @@ case "$ACTION" in
     TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
     # v3.14.0：统一走 python 路径（heredoc 直插 JSON 在 blocker 含引号时产生非法 JSON）
-    python3 - "$STATE_FILE" "$PHASE" "$SUBPHASE" "$EXIT_CODE" "$BLOCKER" "$NEXT_ACTION" "$TIMESTAMP" "$FEATURE" <<'PY'
+    "${DEVFLOW_PY[@]}" - "$STATE_FILE" "$PHASE" "$SUBPHASE" "$EXIT_CODE" "$BLOCKER" "$NEXT_ACTION" "$TIMESTAMP" "$FEATURE" <<'PY'
 import json, sys, os
 path, phase, subphase, exit_code, blocker, next_action, ts, feature = sys.argv[1:9]
 try:
@@ -114,7 +116,7 @@ PY
       exit 0
     fi
     echo "[RESUME] $FEATURE:"
-    python3 - "$STATE_FILE" <<'PY'
+    "${DEVFLOW_PY[@]}" - "$STATE_FILE" <<'PY'
 import json, sys
 try:
     with open(sys.argv[1], encoding="utf-8") as f:
@@ -143,7 +145,7 @@ PY
       exit 1
     fi
     echo ""
-    echo "  → resume from: $(STATE_FILE="$STATE_FILE" python3 -c '
+    echo "  → resume from: $(STATE_FILE="$STATE_FILE" "${DEVFLOW_PY[@]}" -c '
 import json, os
 try:
     d = json.load(open(os.environ["STATE_FILE"], encoding="utf-8"))
@@ -155,7 +157,7 @@ except Exception as e:
 
   list)
     [ ! -f "$STATE_FILE" ] && { echo "no state file"; exit 0; }
-    python3 - "$STATE_FILE" <<'PY'
+    "${DEVFLOW_PY[@]}" - "$STATE_FILE" <<'PY'
 import json, sys
 try:
     with open(sys.argv[1], encoding="utf-8") as f:

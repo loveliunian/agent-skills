@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 # : 推导 feature，避免写入 default 目录
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
 # =============================================================================
 # P0 验收点冻结 Gate (v3.9.1 · 含模板-产物对齐检查)
@@ -97,9 +99,9 @@ if [ ! -f "$CLARIFICATION_JSON" ]; then
 else
   pass "clarification.json exists: $CLARIFICATION_JSON"
   
-  if command -v python3 >/dev/null 2>&1; then
+  if devflow_py_ok; then
     # 检查实体数 ≥ 1
-    ENTITY_COUNT=$(python3 -c "import json; d=json.load(open('$CLARIFICATION_JSON')); print(len(d.get('entities', [])))" 2>/dev/null || echo "0")
+    ENTITY_COUNT=$("${DEVFLOW_PY[@]}" -c "import json; d=json.load(open('$CLARIFICATION_JSON')); print(len(d.get('entities', [])))" 2>/dev/null || echo "0")
     if [ "$ENTITY_COUNT" -ge 1 ]; then
       pass "entities count = $ENTITY_COUNT (≥ 1)"
     else
@@ -107,7 +109,7 @@ else
     fi
     
     # 检查操作数 ≥ 1
-    OPERATION_COUNT=$(python3 -c "import json; d=json.load(open('$CLARIFICATION_JSON')); print(len(d.get('operations', [])))" 2>/dev/null || echo "0")
+    OPERATION_COUNT=$("${DEVFLOW_PY[@]}" -c "import json; d=json.load(open('$CLARIFICATION_JSON')); print(len(d.get('operations', [])))" 2>/dev/null || echo "0")
     if [ "$OPERATION_COUNT" -ge 1 ]; then
       pass "operations count = $OPERATION_COUNT (≥ 1)"
     else
@@ -115,7 +117,7 @@ else
     fi
     
     # 检查约束（可为空，但必须显式声明）
-    CONSTRAINT_COUNT=$(python3 -c "import json; d=json.load(open('$CLARIFICATION_JSON')); print(len(d.get('constraints', [])))" 2>/dev/null || echo "0")
+    CONSTRAINT_COUNT=$("${DEVFLOW_PY[@]}" -c "import json; d=json.load(open('$CLARIFICATION_JSON')); print(len(d.get('constraints', [])))" 2>/dev/null || echo "0")
     pass "constraints count = $CONSTRAINT_COUNT"
     
     # 检查 JSON schema 有效性
@@ -123,14 +125,14 @@ else
     if [ -f "$SCHEMA_FILE" ]; then
       VALIDATE_SCRIPT="$SCRIPT_DIR/validate_json_schema.py"
       if [ -f "$VALIDATE_SCRIPT" ]; then
-        if python3 "$VALIDATE_SCRIPT" "$CLARIFICATION_JSON" "$SCHEMA_FILE" 2>/dev/null; then
+        if "${DEVFLOW_PY[@]}" "$VALIDATE_SCRIPT" "$CLARIFICATION_JSON" "$SCHEMA_FILE" 2>/dev/null; then
           pass "clarification.json schema validation passed"
         else
           p0 "clarification.json schema validation failed (check feature_name, prd_path, entities≥1, operations≥1)"
         fi
       else
         # 回退到内联验证
-        VALIDATION_RESULT=$(python3 -c "
+        VALIDATION_RESULT=$("${DEVFLOW_PY[@]}" -c "
 import json, sys
 from pathlib import Path
 try:
@@ -201,7 +203,7 @@ if [ -f "$CLARIFICATION_JSON" ]; then
     echo ""
     echo "--- 实体/操作提取稳定性对比 ---"
     if [ -x "$SCRIPT_DIR/compare_entity_extraction.py" ]; then
-      if python3 "$SCRIPT_DIR/compare_entity_extraction.py" "$CLARIFICATION_BASELINE" "$CLARIFICATION_JSON" 2>/dev/null; then
+      if "${DEVFLOW_PY[@]}" "$SCRIPT_DIR/compare_entity_extraction.py" "$CLARIFICATION_BASELINE" "$CLARIFICATION_JSON" 2>/dev/null; then
         pass "实体/操作提取稳定（差异 < 10%）"
       else
         warn "实体/操作提取稳定性低（差异 >= 10%），建议人工 Review"
@@ -219,20 +221,20 @@ fi
 
 if [ ! -f "$ACCEPTANCE_JSON" ]; then
   p0 "acceptance.json 缺失: ${ACCEPTANCE_JSON}——P0 必须产出结构化验收点（契约 schemas/acceptance.schema.json，管线 df_pipeline.py acceptance，见 phases/00-需求澄清.md §结构化产物层）"
-elif ! command -v python3 >/dev/null 2>&1; then
+elif ! devflow_py_ok; then
   p0 "acceptance.json 存在但 python3 不可用——结构化校验无法执行（失败关闭）: $ACCEPTANCE_JSON"
 else
-  if (unset LC_ALL; python3 "$SKILL_ROOT/scripts/df_validate.py" --kind acceptance \
+  if (unset LC_ALL; "${DEVFLOW_PY[@]}" "$SKILL_ROOT/scripts/df_validate.py" --kind acceptance \
       --input "$ACCEPTANCE_JSON" --workspace . >/dev/null 2>&1); then
     pass "acceptance.json 校验通过（schema + 全部 FROZEN + PRD 来源）"
   else
-    (unset LC_ALL; python3 "$SKILL_ROOT/scripts/df_validate.py" --kind acceptance \
+    (unset LC_ALL; "${DEVFLOW_PY[@]}" "$SKILL_ROOT/scripts/df_validate.py" --kind acceptance \
       --input "$ACCEPTANCE_JSON" --workspace . 2>&1 | head -5 | sed 's/^/    /')
     p0 "acceptance.json 校验失败——修复后重跑 df_pipeline.py acceptance 再过 Gate"
   fi
   # JSON ↔ Markdown 冻结分母集合全等（双正本对账）
   SET_OUT=$(mktemp -t s0set.XXXXXX)
-  if (unset LC_ALL; python3 - "$ACCEPTANCE_JSON" "$CRITERIA_PATH" >"$SET_OUT" 2>&1 <<'PYEOF'
+  if (unset LC_ALL; "${DEVFLOW_PY[@]}" - "$ACCEPTANCE_JSON" "$CRITERIA_PATH" >"$SET_OUT" 2>&1 <<'PYEOF'
 import json, re, sys
 d = json.load(open(sys.argv[1], encoding="utf-8"))
 jids = sorted({p.get("id") for p in d.get("points", [])})

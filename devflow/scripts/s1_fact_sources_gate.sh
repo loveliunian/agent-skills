@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 # : 推导 feature，避免写入 default 目录
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
 # v3.14.1: 一次性推导；失败（多 state/无 state）即拒绝执行，杜绝 default 目录
 EFF_FEATURE="$(devflow_feature "${FEATURE:-}")" || { echo "[FATAL] feature 推导失败，拒绝继续"; exit 2; }
@@ -104,7 +106,7 @@ if [ -f "$CONVENTIONS_JSON" ]; then
   if [ -x "$SCRIPT_DIR/validate_design_conventions.py" ]; then
     echo ""
     echo "--- 关键可选字段检查（建议性） ---"
-    python3 "$SCRIPT_DIR/validate_design_conventions.py" "$CONVENTIONS_JSON" || true
+    "${DEVFLOW_PY[@]}" "$SCRIPT_DIR/validate_design_conventions.py" "$CONVENTIONS_JSON" || true
   fi
   
   # 运行命名转换规则验证器（如果定义了 case_conversion_rules）
@@ -112,7 +114,7 @@ if [ -f "$CONVENTIONS_JSON" ]; then
     if command -v jq >/dev/null 2>&1 && jq -e '.case_conversion_rules' "$CONVENTIONS_JSON" >/dev/null 2>&1; then
       echo ""
       echo "--- 命名转换规则验证 ---"
-      if python3 "$SCRIPT_DIR/verify_case_conversion_rules.py" "$CONVENTIONS_JSON"; then
+      if "${DEVFLOW_PY[@]}" "$SCRIPT_DIR/verify_case_conversion_rules.py" "$CONVENTIONS_JSON"; then
         pass "命名转换规则稳定性验证通过"
       else
         warn "命名转换规则稳定性低，建议检查"
@@ -128,11 +130,11 @@ if [ ! -f "$CONVENTIONS_JSON" ]; then
 else
   pass "design-conventions.json exists: $CONVENTIONS_JSON"
   
-  if command -v python3 >/dev/null 2>&1; then
+  if devflow_py_ok; then
     # 检查必需字段
     REQUIRED_FIELDS="feature_name frozen_at naming_conventions api_conventions data_conventions state_machine_conventions error_handling_conventions"
     for field in $REQUIRED_FIELDS; do
-      HAS_FIELD=$(python3 -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print('$field' in d)" 2>/dev/null || echo "False")
+      HAS_FIELD=$("${DEVFLOW_PY[@]}" -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print('$field' in d)" 2>/dev/null || echo "False")
       if [ "$HAS_FIELD" = "True" ]; then
         pass "design-conventions.json has field: $field"
       else
@@ -143,7 +145,7 @@ else
     # 检查 JSON schema 有效性
     SCHEMA_FILE="$SKILL_ROOT/schemas/design-conventions.schema.json"
     if [ -f "$SCHEMA_FILE" ]; then
-      VALIDATION_RESULT=$(python3 -c "
+      VALIDATION_RESULT=$("${DEVFLOW_PY[@]}" -c "
 import json, sys
 from pathlib import Path
 try:
@@ -178,7 +180,7 @@ except jsonschema.ValidationError as e:
     echo "=== §1c 设计规范内容完整性 ==="
     
     # 表命名规则
-    TABLE_PATTERN=$(python3 -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print(d.get('naming_conventions', {}).get('table_naming', {}).get('pattern', ''))" 2>/dev/null || echo "")
+    TABLE_PATTERN=$("${DEVFLOW_PY[@]}" -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print(d.get('naming_conventions', {}).get('table_naming', {}).get('pattern', ''))" 2>/dev/null || echo "")
     if [ -n "$TABLE_PATTERN" ]; then
       pass "table naming pattern defined: $TABLE_PATTERN"
     else
@@ -186,7 +188,7 @@ except jsonschema.ValidationError as e:
     fi
     
     # API 路由规则
-    API_PATTERN=$(python3 -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print(d.get('api_conventions', {}).get('routing_pattern', ''))" 2>/dev/null || echo "")
+    API_PATTERN=$("${DEVFLOW_PY[@]}" -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print(d.get('api_conventions', {}).get('routing_pattern', ''))" 2>/dev/null || echo "")
     if [ -n "$API_PATTERN" ]; then
       pass "API routing pattern defined: $API_PATTERN"
     else
@@ -194,7 +196,7 @@ except jsonschema.ValidationError as e:
     fi
     
     # 状态机处理策略
-    STATE_STRATEGY=$(python3 -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print(d.get('state_machine_conventions', {}).get('storage_strategy', ''))" 2>/dev/null || echo "")
+    STATE_STRATEGY=$("${DEVFLOW_PY[@]}" -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print(d.get('state_machine_conventions', {}).get('storage_strategy', ''))" 2>/dev/null || echo "")
     if [ -n "$STATE_STRATEGY" ]; then
       pass "state machine strategy defined: $STATE_STRATEGY"
     else
@@ -202,7 +204,7 @@ except jsonschema.ValidationError as e:
     fi
     
     # 错误处理策略
-    ERROR_STRATEGY=$(python3 -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print(d.get('error_handling_conventions', {}).get('exception_wrapper', ''))" 2>/dev/null || echo "")
+    ERROR_STRATEGY=$("${DEVFLOW_PY[@]}" -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print(d.get('error_handling_conventions', {}).get('exception_wrapper', ''))" 2>/dev/null || echo "")
     if [ -n "$ERROR_STRATEGY" ]; then
       pass "error handling strategy defined: $ERROR_STRATEGY"
     else
@@ -216,7 +218,7 @@ except jsonschema.ValidationError as e:
     VALIDATE_CONVENTIONS_SCRIPT="$SCRIPT_DIR/validate_design_conventions.py"
     if [ -f "$VALIDATE_CONVENTIONS_SCRIPT" ]; then
       VALIDATE_OUTPUT=$(mktemp -t s1-validate-conv.XXXXXX)
-      if python3 "$VALIDATE_CONVENTIONS_SCRIPT" "$CONVENTIONS_JSON" > "$VALIDATE_OUTPUT" 2>&1; then
+      if "${DEVFLOW_PY[@]}" "$VALIDATE_CONVENTIONS_SCRIPT" "$CONVENTIONS_JSON" > "$VALIDATE_OUTPUT" 2>&1; then
         pass "关键可选字段检查通过"
         # 显示检查摘要
         grep -E '(✅|⚠️|ℹ️)' "$VALIDATE_OUTPUT" | head -5 || true
@@ -235,22 +237,22 @@ except jsonschema.ValidationError as e:
     
     VERIFY_CASE_SCRIPT="$SCRIPT_DIR/verify_case_conversion_rules.py"
     if [ -f "$VERIFY_CASE_SCRIPT" ]; then
-      HAS_CASE_RULES=$(python3 -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print('yes' if 'case_conversion_rules' in d else 'no')" 2>/dev/null || echo "no")
+      HAS_CASE_RULES=$("${DEVFLOW_PY[@]}" -c "import json; d=json.load(open('$CONVENTIONS_JSON')); print('yes' if 'case_conversion_rules' in d else 'no')" 2>/dev/null || echo "no")
       
       if [ "$HAS_CASE_RULES" = "yes" ]; then
         VERIFY_OUTPUT=$(mktemp -t s1-verify-case.XXXXXX)
-        if python3 "$VERIFY_CASE_SCRIPT" "$CONVENTIONS_JSON" > "$VERIFY_OUTPUT" 2>&1; then
+        if "${DEVFLOW_PY[@]}" "$VERIFY_CASE_SCRIPT" "$CONVENTIONS_JSON" > "$VERIFY_OUTPUT" 2>&1; then
           pass "命名转换规则形式化验证通过"
           grep '稳定性分数' "$VERIFY_OUTPUT" || true
         else
           p0 "命名转换规则验证失败（转换示例不符合 acronyms 策略）"
           grep -E '(❌|错误)' "$VERIFY_OUTPUT" | head -5 || true
-          echo "    建议：python3 $VERIFY_CASE_SCRIPT --generate-examples <strategy>"
+          echo "    建议：${DEVFLOW_PY[0]} $VERIFY_CASE_SCRIPT --generate-examples <strategy>"
         fi
         rm -f "$VERIFY_OUTPUT"
       else
         warn "case_conversion_rules not defined - recommend adding for consistent naming conversion"
-        echo "    生成示例: python3 $VERIFY_CASE_SCRIPT --generate-examples uppercase > case_rules.json"
+        echo "    生成示例: ${DEVFLOW_PY[0]} $VERIFY_CASE_SCRIPT --generate-examples uppercase > case_rules.json"
       fi
     fi
     
@@ -265,10 +267,10 @@ else
   pass "design-conventions.json exists: $CONVENTIONS_JSON"
   
   # 检查 JSON schema 有效性
-  if command -v python3 >/dev/null 2>&1; then
+  if devflow_py_ok; then
     SCHEMA_FILE="$SKILL_ROOT/schemas/design-conventions.schema.json"
     if [ -f "$SCHEMA_FILE" ]; then
-      if python3 "$SCRIPT_DIR/validate_json_schema.py" "$CONVENTIONS_JSON" "$SCHEMA_FILE" 2>/dev/null; then
+      if "${DEVFLOW_PY[@]}" "$SCRIPT_DIR/validate_json_schema.py" "$CONVENTIONS_JSON" "$SCHEMA_FILE" 2>/dev/null; then
         pass "design-conventions.json schema validation passed"
       else
         p0 "design-conventions.json schema validation failed (check required fields: naming, api_conventions, state_management, error_handling, data_conventions)"

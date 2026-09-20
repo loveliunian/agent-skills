@@ -14,6 +14,8 @@
 # ============================================================
 set -uo pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 CONTROLLER_GLOB="${CONTROLLER_GLOB:-backend/*/src/main/java/**/*.java}"
 # v3.22.0: 默认目录中文化；历史英文目录已存在且未显式指定 DOC_DIR 时沿用
 if [ -n "${DOC_DIR:-}" ]; then :; elif [ -d "docs/detailed-design" ] && [ ! -d "docs/详细设计" ]; then DOC_DIR="docs/detailed-design"; else DOC_DIR="docs/详细设计"; fi
@@ -43,7 +45,7 @@ echo
 mkdir -p "$(dirname "$OUTPUT_FILE")"
 export CONTROLLER_GLOB OUTPUT_FILE DOC_DIR PLACEHOLDER_REGEX DRY_RUN DIFF_MODE SECTION_ONLY
 
-python3 << 'PYEOF'
+"${DEVFLOW_PY[@]}" << 'PYEOF'
 import os, re, sys, glob, collections
 
 controller_glob = os.environ.get('CONTROLLER_GLOB', 'backend/*/src/main/java/**/*.java')

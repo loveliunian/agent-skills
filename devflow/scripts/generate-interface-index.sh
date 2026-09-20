@@ -17,6 +17,8 @@
 set -uo pipefail
 
 # v3.22.0: 默认目录中文化；历史英文目录已存在且未显式指定 DOC_DIR 时沿用
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 if [ -n "${DOC_DIR:-}" ]; then :; elif [ -d "docs/detailed-design" ] && [ ! -d "docs/详细设计" ]; then DOC_DIR="docs/detailed-design"; else DOC_DIR="docs/详细设计"; fi
 OUTPUT_FILE="${OUTPUT_FILE:-$DOC_DIR/INDEX-接口-auto.md}"
 DIFF=0
@@ -34,7 +36,7 @@ echo "DOC_DIR: $DOC_DIR"
 echo "OUTPUT:  $OUTPUT_FILE"
 echo
 
-python3 - "$DOC_DIR" "$OUTPUT_FILE" "$DIFF" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$DOC_DIR" "$OUTPUT_FILE" "$DIFF" <<'PYEOF'
 import os, sys, re, glob, json
 from collections import defaultdict
 

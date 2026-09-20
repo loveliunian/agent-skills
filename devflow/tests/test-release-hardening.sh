@@ -2,6 +2,8 @@
 set -u
 set -o pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 TEST_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 ROOT="$(cd "$TEST_DIR/.." && pwd -P)"
 source "$TEST_DIR/testlib.sh"
@@ -101,8 +103,8 @@ fi
 
 W_P6_MUT="$TMP/p6-mutated"
 cp -R "$W_P6" "$W_P6_MUT"
-sed -i '' "s|^UNIT_CMD=.*|UNIT_CMD=python3 -c \"open('.devflow/fx/test-evidence.env','a').write('# touched by unit');open('.devflow/fx/reports/unit-report.txt','a').write('live')\"|" "$W_P6_MUT/.devflow/fx/test-evidence.env" 2>/dev/null ||
-  sed -i "s|^UNIT_CMD=.*|UNIT_CMD=python3 -c \"open('.devflow/fx/test-evidence.env','a').write('# touched by unit');open('.devflow/fx/reports/unit-report.txt','a').write('live')\"|" "$W_P6_MUT/.devflow/fx/test-evidence.env"
+sed -i '' "s|^UNIT_CMD=.*|UNIT_CMD=\$DEVFLOW_PY_STR -c \"open('.devflow/fx/test-evidence.env','a').write('# touched by unit');open('.devflow/fx/reports/unit-report.txt','a').write('live')\"|" "$W_P6_MUT/.devflow/fx/test-evidence.env" 2>/dev/null ||
+  sed -i "s|^UNIT_CMD=.*|UNIT_CMD=\$DEVFLOW_PY_STR -c \"open('.devflow/fx/test-evidence.env','a').write('# touched by unit');open('.devflow/fx/reports/unit-report.txt','a').write('live')\"|" "$W_P6_MUT/.devflow/fx/test-evidence.env"
 P6_MUT_OUT=$(cd "$W_P6_MUT" && bash "$ROOT/scripts/s6_final_verification_gate.sh" fx 2>&1; echo "rc=$?")
 if printf '%s' "$P6_MUT_OUT" | grep -q '篡改 test-evidence.env' && ! printf '%s' "$P6_MUT_OUT" | grep -q 'rc=0$'; then
   ok "P6 detects a test command mutating later test declarations"

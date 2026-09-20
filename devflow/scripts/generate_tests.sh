@@ -10,6 +10,8 @@
 
 set -euo pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
@@ -113,12 +115,12 @@ if [[ -z "$OUTPUT_FRONTEND" ]]; then
 fi
 
 # 检查 Python
-if ! command -v python3 &> /dev/null; then
+if ! devflow_py_ok; then
     echo -e "${RED}[ERROR]${NC} Python 3 未安装"
     exit 1
 fi
 
-PYTHON_VERSION=$(python3 --version | awk '{print $2}')
+PYTHON_VERSION=$("${DEVFLOW_PY[@]}" --version | awk '{print $2}')
 echo -e "${GREEN}[INFO]${NC} 使用 Python $PYTHON_VERSION"
 
 # 路径
@@ -143,7 +145,7 @@ if [[ "$PLAYWRIGHT_ONLY" == false ]]; then
     if [[ ! -f "$DESIGN_JSON" ]]; then
         echo -e "${YELLOW}[WARN]${NC} design.json 不存在，跳过 JUnit 生成: $DESIGN_JSON"
     else
-        python3 "$SCRIPT_DIR/generate_junit_tests.py" "$DESIGN_JSON" "$OUTPUT_BACKEND"
+        "${DEVFLOW_PY[@]}" "$SCRIPT_DIR/generate_junit_tests.py" "$DESIGN_JSON" "$OUTPUT_BACKEND"
         
         if [[ $? -eq 0 ]]; then
             echo -e "${GREEN}[SUCCESS]${NC} JUnit 测试生成完成"
@@ -162,7 +164,7 @@ if [[ "$JUNIT_ONLY" == false ]]; then
     if [[ ! -f "$ACCEPTANCE_JSON" ]]; then
         echo -e "${YELLOW}[WARN]${NC} acceptance.json 不存在，跳过 Playwright 生成: $ACCEPTANCE_JSON"
     else
-        python3 "$SCRIPT_DIR/generate_playwright_tests.py" "$ACCEPTANCE_JSON" "$OUTPUT_FRONTEND"
+        "${DEVFLOW_PY[@]}" "$SCRIPT_DIR/generate_playwright_tests.py" "$ACCEPTANCE_JSON" "$OUTPUT_FRONTEND"
         
         if [[ $? -eq 0 ]]; then
             echo -e "${GREEN}[SUCCESS]${NC} Playwright 测试生成完成"

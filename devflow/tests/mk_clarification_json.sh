@@ -2,13 +2,15 @@
 # mk_clarification_json.sh — s0 强制结构化正本 clarification.json
 # 用法: bash tests/mk_clarification_json.sh <feature> <workspace> [prd_path]
 set -u
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 FEATURE="${1:?feature}"
 WS="${2:?workspace}"
 PRD_PATH="${3:-docs/需求/$FEATURE-需求澄清.md}"
 DEV_DIR="$WS/.devflow/$FEATURE"
 mkdir -p "$DEV_DIR"
 
-python3 - "$FEATURE" "$PRD_PATH" "$DEV_DIR" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$FEATURE" "$PRD_PATH" "$DEV_DIR" <<'PYEOF'
 import json, sys
 feature, prd_path, dev_dir = sys.argv[1], sys.argv[2], sys.argv[3]
 d = {

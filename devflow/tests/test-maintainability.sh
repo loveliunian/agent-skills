@@ -2,6 +2,8 @@
 set -u
 set -o pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
 PASS=0
 FAIL=0
@@ -150,7 +152,7 @@ grep -qE '^\|[[:space:]]*TC-[^[:space:]|]+' "$TMP/tc-zh.md" \
   && ok "p5 TC 正则支持中文模块名" || bad "p5 TC 正则不认中文模块名"
 
 # ---------- 文档-机器一致性 meta-gate（review P1-7：gate 注册/产物路径/DF 配额三扫描） ----------
-if python3 "$ROOT/scripts/check-contract-consistency.py" > "$TMP/cc.out" 2>&1; then
+if "${DEVFLOW_PY[@]}" "$ROOT/scripts/check-contract-consistency.py" > "$TMP/cc.out" 2>&1; then
   ok "meta-gate: gate 注册/产物路径/DF 配额三扫描全绿"
 else
   bad "meta-gate 拦截: $(grep '✗' "$TMP/cc.out" | head -3 | tr '\n' ' ')"

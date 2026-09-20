@@ -1,0 +1,15 @@
+# 统一 LF 换行（v3.28.7 Windows 兼容硬化）
+# 背景：Git for Windows 默认 core.autocrlf=true，克隆时会把文本文件检出为 CRLF，
+# 导致 shebang 带 \r、grep $ 锚点失效，devflow 全部 bash 门禁无法运行。
+# eol=lf 强制检出为 LF，与 autocrlf 配置解耦。
+* text=auto
+*.sh text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.txt text eol=lf
+*.tsv text eol=lf
+*.env text eol=lf
+*.html text eol=lf

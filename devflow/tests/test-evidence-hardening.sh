@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 source "$(cd "$(dirname "$0")" && pwd)/testlib.sh"
 # v3.16.5: 收据契约函数（receipt_evidence_tree/verify_receipt_evidence）——夹具在 L143 即需调用，须在文件头部 source
 source "$ROOT/scripts/devflow_receipt.sh"
@@ -354,7 +356,7 @@ mkdir -p "$TMP/p7/docs/test-cases"; printf 'test case\n' > "$TMP/p7/docs/test-ca
 HPF="$TMP/p7/hport"
 mkdir -p "$TMP/p7/healthsite"
 printf 'ok\n' > "$TMP/p7/healthsite/index.html"
-python3 - "$HPF" "$TMP/p7/healthsite" >>"$TMP/p7/server.log" 2>&1 <<'PY' &
+"${DEVFLOW_PY[@]}" - "$HPF" "$TMP/p7/healthsite" >>"$TMP/p7/server.log" 2>&1 <<'PY' &
 import http.server, socketserver, sys, os
 pf, site = sys.argv[1], sys.argv[2]
 os.chdir(site)

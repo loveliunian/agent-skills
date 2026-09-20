@@ -31,6 +31,8 @@
 #   old:  P0b/P3cd/P5/P7-P10          ≥3.13.4（EVIDENCE_PATH/SHA256）
 #   old4b: P4b                        ≥3.15.5（p4_prd_vs_code 绑定起点）
 # 低于阈值的收据为合法 legacy（渐进放行）；阈值以上缺绑定 = 被剥离。
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 receipt_stage_contract() {
   case "$1" in
     P3b|P6-final|ARCH-PITFALLS) echo "new 3.16.0" ;;
@@ -72,10 +74,10 @@ _receipt_ws_base() { # → workspace 物理绝对路径；不可达 → 空输�
 #（macOS bash 3.2 无 readlink -f）；无 python3 时 fail-closed 拒绝 symlink
 # 文件（非 symlink 文件 cd -P 父目录归一已足够）。
 _receipt_realpath() { # $1=绝对/相对路径 → 完整物理路径；失败 rc1
-  if command -v python3 >/dev/null 2>&1; then
+  if devflow_py_ok; then
     # v3.20.2: 剥离 LC_ALL——C locale 下含非 ASCII site 配置的解释器（venv 中文
     # .pth）在 site 初始化即崩，导致所有 gate 的路径解析级联"unresolvable"
-    (unset LC_ALL; exec python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$1") 2>/dev/null || return 1
+    (unset LC_ALL; exec "${DEVFLOW_PY[@]}" -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$1") 2>/dev/null || return 1
   elif command -v readlink >/dev/null 2>&1 && readlink -f / >/dev/null 2>&1; then
     readlink -f "$1" 2>/dev/null || return 1
   else
@@ -92,7 +94,7 @@ _receipt_norm_file() { # $1=任意路径 → 物理绝对路径（相对路径�
   d=$(dirname "$p"); b=$(basename "$p")
   _rp=$( cd -P "$d" 2>/dev/null && printf '%s/%s' "$(pwd -P)" "$b" ) || return 1
   # v3.16.11: 最终层/中间层 symlink 完整解析（realpath 工具缺失时 symlink 文件 fail-closed）
-  if command -v python3 >/dev/null 2>&1 \
+  if devflow_py_ok \
      || { command -v readlink >/dev/null 2>&1 && readlink -f / >/dev/null 2>&1; }; then
     _receipt_realpath "$_rp" && return 0
     return 1

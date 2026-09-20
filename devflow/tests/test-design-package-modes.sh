@@ -7,6 +7,8 @@
 set -u
 set -o pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 ROOT="$(cd "$TEST_DIR/.." && pwd -P)"
 PASS=0
@@ -57,17 +59,17 @@ cat > pkg/pkg-fake-id.json <<'EOF'
   {"path":"pkg/doc-b.md","mode":"total","acceptance_ids":["M-09-F09-A09"]}]}
 EOF
 check_rc 0 "package manifest union == frozen set accepted (A05)" \
-  python3 "$PKG" --package pkg/pkg-ok.json --criteria pkg/criteria.md --doc pkg/doc-a.md
-PKG_OUT=$(python3 "$PKG" --package pkg/pkg-ok.json --criteria pkg/criteria.md --doc pkg/doc-a.md)
+  "${DEVFLOW_PY[@]}" "$PKG" --package pkg/pkg-ok.json --criteria pkg/criteria.md --doc pkg/doc-a.md
+PKG_OUT=$("${DEVFLOW_PY[@]}" "$PKG" --package pkg/pkg-ok.json --criteria pkg/criteria.md --doc pkg/doc-a.md)
 printf '%s' "$PKG_OUT" | grep -q "SCOPE=M-01-F01-A01" && ok "current doc scope exported (A05)" || bad "scope export failed: $PKG_OUT"
 check_rc 1 "package manifest current doc registered check" \
-  python3 "$PKG" --package pkg/pkg-ok.json --criteria pkg/criteria.md --doc pkg/doc-x.md
+  "${DEVFLOW_PY[@]}" "$PKG" --package pkg/pkg-ok.json --criteria pkg/criteria.md --doc pkg/doc-x.md
 assert_out "并集" "union gap against frozen denominator rejected (A05)" \
-  python3 "$PKG" --package pkg/pkg-gap.json --criteria pkg/criteria.md --doc pkg/doc-a.md
+  "${DEVFLOW_PY[@]}" "$PKG" --package pkg/pkg-gap.json --criteria pkg/criteria.md --doc pkg/doc-a.md
 assert_out "文档不存在" "missing registered doc rejected (A05)" \
-  python3 "$PKG" --package pkg/pkg-missing-doc.json --criteria pkg/criteria.md --doc pkg/doc-a.md
+  "${DEVFLOW_PY[@]}" "$PKG" --package pkg/pkg-missing-doc.json --criteria pkg/criteria.md --doc pkg/doc-a.md
 assert_out "冻结分母之外" "fabricated acceptance ID in subset rejected (A05)" \
-  python3 "$PKG" --package pkg/pkg-fake-id.json --criteria pkg/criteria.md --doc pkg/doc-a.md
+  "${DEVFLOW_PY[@]}" "$PKG" --package pkg/pkg-fake-id.json --criteria pkg/criteria.md --doc pkg/doc-a.md
 
 # ---------- A05：df_validate 范围过滤对账（--scope-ids） ----------
 cp "$ROOT/examples/structured/design.sample.json" design.json
@@ -79,7 +81,7 @@ cat > criteria.md <<'EOF'
 EOF
 mkdir -p docs/requirements && cp criteria.md docs/requirements/demo-pay-acceptance-criteria.md
 # doc-sub.md：只保留 A01/A02 引用的对象（删掉 A03 的 §2.2.2 与 §7.1.2 小节）
-python3 - <<'PYEOF'
+"${DEVFLOW_PY[@]}" - <<'PYEOF'
 import re
 from pathlib import Path
 t = Path("doc.md").read_text(encoding="utf-8")
@@ -88,9 +90,9 @@ t = re.sub(r"(### 7\.1\.2 退款页\n)(.*?)(### 7\.2\.1)", r"\1\3", t, flags=re.
 Path("doc-sub.md").write_text(t, encoding="utf-8")
 PYEOF
 check_rc 1 "full reconciliation fails when doc lacks module-B sections" \
-  python3 "$V" --kind design --input design.json --criteria criteria.md --doc doc-sub.md
+  "${DEVFLOW_PY[@]}" "$V" --kind design --input design.json --criteria criteria.md --doc doc-sub.md
 check_rc 0 "scope-filtered reconciliation passes for the doc's own subset (A05)" \
-  python3 "$V" --kind design --input design.json --criteria criteria.md --doc doc-sub.md \
+  "${DEVFLOW_PY[@]}" "$V" --kind design --input design.json --criteria criteria.md --doc doc-sub.md \
     --scope-ids "M01-F01-A01,M01-F01-A02"
 
 # ---------- A07/A05：sub 模式完整正向（模板拷贝→最小合法填充→管线→Gate） ----------
@@ -98,7 +100,7 @@ build_sub_fixture() { # <dir>
   local d="$1" tplv
   mkdir -p "$d/docs/需求" "$d/docs/详细设计" "$d/.devflow/subf"
   tplv=$(sed -n 's/^version: "\([0-9.]*\)"/\1/p' "$ROOT/templates/详细设计-总分分文档-模板.md" | head -1)
-  python3 - "$ROOT/templates/详细设计-总分分文档-模板.md" "$d/docs/详细设计/subf-详细设计.md" "$tplv" <<'PYEOF'
+  "${DEVFLOW_PY[@]}" - "$ROOT/templates/详细设计-总分分文档-模板.md" "$d/docs/详细设计/subf-详细设计.md" "$tplv" <<'PYEOF'
 import re, sys
 from pathlib import Path
 src, dst, ver = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -139,7 +141,7 @@ constraint_set=NONE
 confirmed=true
 DEVFLOW:END -->
 EOF
-  python3 - "$d" <<'PYEOF'
+  "${DEVFLOW_PY[@]}" - "$d" <<'PYEOF'
 import json, sys
 d = sys.argv[1]
 tbl_cfg = {
@@ -256,7 +258,7 @@ SUBF="$WORK/subf"
 build_sub_fixture "$SUBF"
 # 管线（校验+渲染）先于 Gate——与 phases/02 管线契约一致
 check_rc 0 "sub mode: template copy fills and passes pipeline (A07)" \
-  bash -c "cd '$SUBF' && python3 '$PI' design --input .devflow/subf/design.json --doc docs/详细设计/subf-详细设计.md --criteria docs/需求/subf-验收点.md --trace-doc docs/详细设计/subf-需求追溯.md"
+  bash -c "cd '$SUBF' && \$DEVFLOW_PY_STR '$PI' design --input .devflow/subf/design.json --doc docs/详细设计/subf-详细设计.md --criteria docs/需求/subf-验收点.md --trace-doc docs/详细设计/subf-需求追溯.md"
 check_rc 0 "sub mode: filled template passes s2 Gate end-to-end (A07/A05)" \
   bash -c "cd '$SUBF' && bash '$S2' docs/详细设计/subf-详细设计.md docs/需求/subf-验收点.md --mode=sub"
 # 总分模式缺设计包 → 拒
@@ -283,7 +285,7 @@ build_total_fixture() { # <dir>
   local d="$1" tplv
   mkdir -p "$d/docs/需求" "$d/docs/详细设计" "$d/.devflow/totf"
   tplv=$(sed -n 's/^version: "\([0-9.]*\)"/\1/p' "$ROOT/templates/详细设计-总分总文档-模板.md" | head -1)
-  python3 - "$ROOT/templates/详细设计-总分总文档-模板.md" "$d/docs/详细设计/totf-系统详细设计.md" "$tplv" <<'PYEOF'
+  "${DEVFLOW_PY[@]}" - "$ROOT/templates/详细设计-总分总文档-模板.md" "$d/docs/详细设计/totf-系统详细设计.md" "$tplv" <<'PYEOF'
 import re, sys
 from pathlib import Path
 src, dst, ver = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -324,7 +326,7 @@ constraint_set=NONE
 confirmed=true
 DEVFLOW:END -->
 EOF
-  python3 - "$d" <<'PYEOF'
+  "${DEVFLOW_PY[@]}" - "$d" <<'PYEOF'
 import json, sys
 d = sys.argv[1]
 design = {
@@ -376,7 +378,7 @@ build_total_fixture "$TOTF"
 printf '# totf 技术选型\n## 决策矩阵\nx\n## 决策结论\n用户确认: YES\n## 详设文档结构决策\ndesign_doc_structure_mode=total\n' \
   > "$TOTF/docs/详细设计/totf-技术选型.md"
 check_rc 0 "total mode: template copy fills and passes pipeline (A07)" \
-  bash -c "cd '$TOTF' && python3 '$PI' design --input .devflow/totf/design.json --doc docs/详细设计/totf-系统详细设计.md --criteria docs/需求/totf-验收点.md --trace-doc docs/详细设计/totf-系统详细设计-需求追溯.md"
+  bash -c "cd '$TOTF' && \$DEVFLOW_PY_STR '$PI' design --input .devflow/totf/design.json --doc docs/详细设计/totf-系统详细设计.md --criteria docs/需求/totf-验收点.md --trace-doc docs/详细设计/totf-系统详细设计-需求追溯.md"
 check_rc 0 "total mode: filled template passes s2 Gate end-to-end (A07/A05)" \
   bash -c "cd '$TOTF' && bash '$S2' docs/详细设计/totf-系统详细设计.md docs/需求/totf-验收点.md --mode=total"
 # v3.27.7：P1 冻结 total 但 s2 以 monolith 运行 → FAIL
@@ -384,7 +386,7 @@ assert_out "不得在 P2 自行改回单文档" "s2 --mode=monolith 与 P1 total
   bash -c "cd '$TOTF' && bash '$S2' docs/详细设计/totf-系统详细设计.md docs/需求/totf-验收点.md --mode=monolith"
 
 # ---------- v3.27.10(H1)：total + 前端页面/旅程——模块级对象不在总文档对账 ----------
-python3 - "$TOTF" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$TOTF" <<'PYEOF'
 import json, sys
 p = f"{sys.argv[1]}/.devflow/totf/design.json"
 d = json.load(open(p))
@@ -400,11 +402,11 @@ PYEOF
 jq '.scope.frontend="pc-web"' "$TOTF/.devflow/totf.state.json" > "$TOTF/.devflow/totf.state.json.tmp" \
   && mv "$TOTF/.devflow/totf.state.json.tmp" "$TOTF/.devflow/totf.state.json"
 check_rc 0 "total mode: UI page+journey re-render (doc-mode auto-resolved from design-package)" \
-  bash -c "cd '$TOTF' && python3 '$PI' design --input .devflow/totf/design.json --doc docs/详细设计/totf-系统详细设计.md --criteria docs/需求/totf-验收点.md --trace-doc docs/详细设计/totf-系统详细设计-需求追溯.md"
+  bash -c "cd '$TOTF' && \$DEVFLOW_PY_STR '$PI' design --input .devflow/totf/design.json --doc docs/详细设计/totf-系统详细设计.md --criteria docs/需求/totf-验收点.md --trace-doc docs/详细设计/totf-系统详细设计-需求追溯.md"
 check_rc 0 "total mode: UI page+journey passes s2 (module-level checks skipped on total doc, H1)" \
   bash -c "cd '$TOTF' && bash '$S2' docs/详细设计/totf-系统详细设计.md docs/需求/totf-验收点.md --mode=total"
 # v3.27.10(M2)：design.json template.mode 与 Gate --mode 漂移 → 拒
-python3 - "$TOTF" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$TOTF" <<'PYEOF'
 import json, sys
 p = f"{sys.argv[1]}/.devflow/totf/design.json"
 d = json.load(open(p)); d["template"]["mode"] = "monolith"
@@ -413,7 +415,7 @@ PYEOF
 assert_out "template.mode=monolith 与 Gate --mode=total 不一致" "s2 rejects JSON template.mode drift (v3.27.10)" \
   bash -c "cd '$TOTF' && bash '$S2' docs/详细设计/totf-系统详细设计.md docs/需求/totf-验收点.md --mode=total"
 # v3.27.10(M3)：design.json constraints[] 登记冻结集合之外的约束 → 拒
-python3 - "$TOTF" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$TOTF" <<'PYEOF'
 import json, sys
 p = f"{sys.argv[1]}/.devflow/totf/design.json"
 d = json.load(open(p)); d["template"]["mode"] = "total"
@@ -426,7 +428,7 @@ assert_out "冻结集合之外" "s2 rejects design.json constraints outside froz
 # ---------- A06：适用性正向夹具（纯 UI / 消息消费者 / 小程序 / APP） ----------
 mkaux() { # <name> — validate 级正向变体（含独立 criteria）
   printf '| M01-F01-A01 | x |\n' > "criteria-$1.md"
-  python3 - "$1" <<'PYEOF'
+  "${DEVFLOW_PY[@]}" - "$1" <<'PYEOF'
 import json, sys
 name = sys.argv[1]
 d = json.load(open("design.json"))
@@ -483,7 +485,7 @@ else:
 json.dump(d, open(f"d-{name}.json", "w"), ensure_ascii=False)
 PYEOF
   check_rc 0 "applicability forward fixture accepted: $1 (A06)" \
-    python3 "$V" --kind design --input "d-$1.json" --criteria "criteria-$1.md" --doc doc.md
+    "${DEVFLOW_PY[@]}" "$V" --kind design --input "d-$1.json" --criteria "criteria-$1.md" --doc doc.md
 }
 mkaux pure-ui
 mkaux mq-consumer

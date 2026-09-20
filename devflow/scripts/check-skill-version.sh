@@ -2,6 +2,8 @@
 set -u
 set -o pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 ROOT="$(dirname "$SCRIPT_DIR")"
 EXPECTED="${1:-$(sed -n 's/^version: "\([0-9.]*\)"/\1/p; s/^  version: "\([0-9.]*\)"/\1/p' "$ROOT/SKILL.md" | head -1)}"
@@ -108,7 +110,7 @@ fi
 # v3.27.2: sample template.version 对齐——structured samples 的 template.version 必须等于当前版本
 for _sf in "$ROOT"/examples/structured/*.sample.json; do
   [ -f "$_sf" ] || continue
-  _sv=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('template',{}).get('version',''))" "$_sf" 2>/dev/null || echo "")
+  _sv=$("${DEVFLOW_PY[@]}" -c "import json,sys; print(json.load(open(sys.argv[1])).get('template',{}).get('version',''))" "$_sf" 2>/dev/null || echo "")
   if [ -n "$_sv" ] && [ "$_sv" != "$EXPECTED" ]; then
     echo "[FAIL] sample template.version 漂移: ${_sf#$ROOT/} ($_sv != $EXPECTED)"
     FAIL=$((FAIL + 1))

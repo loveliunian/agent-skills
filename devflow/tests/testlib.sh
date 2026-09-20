@@ -2,6 +2,8 @@
 set -u
 set -o pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 ROOT="$(cd "$TEST_DIR/.." && pwd -P)"
 PASS=0
@@ -31,7 +33,7 @@ mk_acceptance_json() {
   mkdir -p "$ws/.devflow/$feature"
   # 相对路径——绝对路径含 mktemp 的字面 XXXXXX 会撞占位话术黑名单
   rel="${crit#"$ws"/}"
-  python3 - "$feature" "$crit" "$ws/.devflow/$feature/acceptance.json" "$rel" <<'PY'
+  "${DEVFLOW_PY[@]}" - "$feature" "$crit" "$ws/.devflow/$feature/acceptance.json" "$rel" <<'PY'
 import json, re, sys
 feature, crit, out, rel = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 text = open(crit, encoding="utf-8").read()

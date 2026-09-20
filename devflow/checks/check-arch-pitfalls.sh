@@ -22,6 +22,8 @@
 set -e
 # v3.16.3: SCRIPT_DIR 定义（v3.16.1 changelog 曾声称修复但未落码——N+1 子检查
 # 在 cwd 非 skill 根时整体跳过、恰在根时空展开恒 127 却报 PASS 的双重死路）
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 CATEGORY="${1:-all}"
@@ -283,7 +285,7 @@ check_code_transactional_self_invoke() {
   while IFS=: read -r f line; do
     [ -n "$f" ] || continue
     critical "L-STACK-003 ❌ @Transactional 方法疑似同类自调用（AOP 代理被绕过，事务静默失效）：$f:$line —— 改 TransactionTemplate 显式边界或拆分独立 Bean"
-  done < <(python3 - "$BACKEND" <<'PYEOF'
+  done < <("${DEVFLOW_PY[@]}" - "$BACKEND" <<'PYEOF'
 import glob, re, sys
 
 backend = sys.argv[1]

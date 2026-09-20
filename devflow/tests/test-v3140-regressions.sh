@@ -2,6 +2,8 @@
 # test-v3140-regressions.sh · v3.14.0 特性常驻回归
 # 覆盖：DF/AW 深度评审阈值、reconcile 强收据校验、default 回退拒绝、
 #       P8 告警一致性交叉核对、monitor 监听模式、client-adapter 生命周期拆分
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 source "$(cd "$(dirname "$0")" && pwd)/testlib.sh"
 SKILL_VER=$(sed -n 's/^version: "\([0-9.]*\)"/\1/p; s/^  version: "\([0-9.]*\)"/\1/p' "$ROOT/SKILL.md" | head -1)
 # v3.15.2: 夹具收据须含 SKILL_TREE（== init 冻结树）
@@ -110,7 +112,7 @@ W6="$TMP/mon"; mkdir -p "$W6"
 MON_PORT_FILE="$W6/listening-port"
 # 由内核分配端口 0，并等待子进程明确写入就绪端口；旧夹具用 $RANDOM + sleep 1，
 # 端口碰撞/启动失败会让“启动前应 FAIL”和“owner 匹配应 PASS”同时误红。
-python3 - "$MON_PORT_FILE" <<'PY' >/dev/null 2>&1 & MPID=$!
+"${DEVFLOW_PY[@]}" - "$MON_PORT_FILE" <<'PY' >/dev/null 2>&1 & MPID=$!
 import http.server, socketserver, sys
 port_file = sys.argv[1]
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -299,7 +301,7 @@ else
 fi
 
 # 正向：逐项追加（证据：…）后，该 P0 消失且出现 fully answered with evidence
-python3 - "$DC" <<'PY'
+"${DEVFLOW_PY[@]}" - "$DC" <<'PY'
 import sys, hashlib
 path = sys.argv[1]
 out = []

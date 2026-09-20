@@ -8,6 +8,8 @@
 set -u
 set -o pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 ROOT="$(cd "$TEST_DIR/.." && pwd -P)"
 PASS=0
@@ -41,7 +43,7 @@ cat > criteria.md <<'EOF'
 EOF
 cp criteria.md docs/requirements/demo-pay-acceptance-criteria.md
 # 基线工作区隔离：样例 MODIFY 目标在本仓不存在 → 无工程标志时反查关闭
-check_rc 0 "baseline sample validates without workspace markers" python3 "$V" --kind design --input design.json --criteria criteria.md --doc doc.md
+check_rc 0 "baseline sample validates without workspace markers" "${DEVFLOW_PY[@]}" "$V" --kind design --input design.json --criteria criteria.md --doc doc.md
 
 # ---------- A07：块注册表同源（v3.28.1：详设 10 块 + DB 2 块 + 追溯 1 块） ----------
 DESIGN_BLOCKS="summary table-index api-index permission-matrix rule-index biz-ops resource-operations integrations-configs"
@@ -68,28 +70,28 @@ for b in $TRACE_BLOCKS; do
 done
 [ -z "$_miss" ] && ok "traceability template carries trace blocks" || bad "traceability template missing blocks ($_miss)"
 # init-doc 初始化入口
-check_rc 0 "init-doc creates skeleton" python3 "$R" design --input design.json --init-doc fresh-skeleton.md
+check_rc 0 "init-doc creates skeleton" "${DEVFLOW_PY[@]}" "$R" design --input design.json --init-doc fresh-skeleton.md
 for b in $BLOCKS; do
   grep -q "df:begin:$b" fresh-skeleton.md || bad "init-doc skeleton missing block $b"
 done
 ok "init-doc skeleton has all blocks"
-check_rc 1 "init-doc refuses existing doc" python3 "$R" design --input design.json --init-doc fresh-skeleton.md
+check_rc 1 "init-doc refuses existing doc" "${DEVFLOW_PY[@]}" "$R" design --input design.json --init-doc fresh-skeleton.md
 # 旧反例复现：删 resource-operations/integrations-configs → 渲染失败关闭且报缺块
-python3 - <<'PYEOF'
+"${DEVFLOW_PY[@]}" - <<'PYEOF'
 from pathlib import Path
 t = Path("fresh-skeleton.md").read_text(encoding="utf-8")
 for k in ("resource-operations", "integrations-configs"):
     t = t.replace(f"<!-- df:begin:{k} -->\n<!-- df:end:{k} -->", "")
 Path("ten-blocks.md").write_text(t, encoding="utf-8")
 PYEOF
-check_rc 1 "doc missing registry blocks fails closed (A07)" python3 "$R" design --input design.json --doc ten-blocks.md
-assert_out "resource-operations" "missing-block error names the undeclared block (A07)" python3 "$R" design --input design.json --doc ten-blocks.md
+check_rc 1 "doc missing registry blocks fails closed (A07)" "${DEVFLOW_PY[@]}" "$R" design --input design.json --doc ten-blocks.md
+assert_out "resource-operations" "missing-block error names the undeclared block (A07)" "${DEVFLOW_PY[@]}" "$R" design --input design.json --doc ten-blocks.md
 # 全量骨架（13 块）→ 渲染：详设 11 块必需；骨架中存量 ddr 块一并刷新（升级期兼容）
-check_rc 0 "full skeleton renders via renderer (A07)" python3 "$R" design --input design.json --doc fresh-skeleton.md
+check_rc 0 "full skeleton renders via renderer (A07)" "${DEVFLOW_PY[@]}" "$R" design --input design.json --doc fresh-skeleton.md
 grep -q "df:begin:biz-ops" fresh-skeleton.md && grep -q "BOP-1\|创建支付订单" fresh-skeleton.md && ok "biz-ops block rendered (A01)" || bad "biz-ops block rendered"
 
 # ---------- A01：业务操作覆盖闭环 ----------
-python3 - <<'PYEOF'
+"${DEVFLOW_PY[@]}" - <<'PYEOF'
 import json
 d = json.load(open("design.json")); d["business_operations"].pop()   # 删掉覆盖 M01-F02-A01 的退款操作
 json.dump(d, open("d-bopgap.json", "w"), ensure_ascii=False)
@@ -98,18 +100,18 @@ e["business_operations"][0]["stateless"] = False; e["business_operations"][0].po
 json.dump(e, open("d-bopstate.json", "w"), ensure_ascii=False)
 PYEOF
 assert_out "覆盖缺口" "missing restore/refund operation caught as coverage gap (A01)" \
-  python3 "$V" --kind design --input d-bopgap.json --criteria criteria.md
+  "${DEVFLOW_PY[@]}" "$V" --kind design --input d-bopgap.json --criteria criteria.md
 assert_out "M01-F02-A01" "coverage gap names the exact uncovered acceptance ID (A15)" \
-  python3 "$V" --kind design --input d-bopgap.json --criteria criteria.md
+  "${DEVFLOW_PY[@]}" "$V" --kind design --input d-bopgap.json --criteria criteria.md
 assert_out "source_state" "stateful op without source_state rejected (A01)" \
-  python3 "$V" --kind design --input d-bopstate.json --criteria criteria.md
+  "${DEVFLOW_PY[@]}" "$V" --kind design --input d-bopstate.json --criteria criteria.md
 
 # ---------- A02：基线工作区反查 ----------
 WSA="$WORK/ws-a"; mkdir -p "$WSA/backend/x/src/main/java" "$WSA/docs/requirements"
 printf 'class FooController {}\n' > "$WSA/backend/x/src/main/java/FooController.java"
 cp criteria.md "$WSA/docs/requirements/demo-pay-acceptance-criteria.md"
 touch "$WSA/pom.xml"   # 工程标志：启用全仓反查
-python3 - <<'PYEOF'
+"${DEVFLOW_PY[@]}" - <<'PYEOF'
 import json
 d = json.load(open("design.json"))
 # 同一夹具内自洽：configs 消费点与基线目标都指向真实存在的 FooController
@@ -125,11 +127,11 @@ json.dump(e, open("ws-a/miss.json", "w"), ensure_ascii=False)
 PYEOF
 # 工程标志存在时反查生效：MODIFY 目标真实存在 → 通过
 check_rc 0 "baseline MODIFY target exists passes reverse lookup (A02)" \
-  bash -c "cd '$WSA' && python3 '$V' --kind design --input base.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
+  bash -c "cd '$WSA' && \$DEVFLOW_PY_STR '$V' --kind design --input base.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
 assert_out "目标文件不存在" "fictional MODIFY target rejected in real workspace (A02)" \
-  bash -c "cd '$WSA' && python3 '$V' --kind design --input miss.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
+  bash -c "cd '$WSA' && \$DEVFLOW_PY_STR '$V' --kind design --input miss.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
 # v3.24.0(A02) 补充：fingerprint 证据指纹（64-hex = 文件 SHA-256，工作区反查时实算比对）
-python3 - <<'PYEOF'
+"${DEVFLOW_PY[@]}" - <<'PYEOF'
 import hashlib, json
 d = json.load(open("ws-a/base.json"))
 fp = hashlib.sha256(open("ws-a/backend/x/src/main/java/FooController.java", "rb").read()).hexdigest()
@@ -142,15 +144,15 @@ f = json.loads(json.dumps(d)); f["baseline"]["entries"][0]["related_operations"]
 json.dump(f, open("ws-a/rop-bad.json", "w"), ensure_ascii=False)
 PYEOF
 check_rc 0 "baseline fingerprint matching actual file accepted (A02)" \
-  bash -c "cd '$WSA' && python3 '$V' --kind design --input fp-ok.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
+  bash -c "cd '$WSA' && \$DEVFLOW_PY_STR '$V' --kind design --input fp-ok.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
 assert_out "指纹" "stale baseline fingerprint rejected (A02)" \
-  bash -c "cd '$WSA' && python3 '$V' --kind design --input fp-bad.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
+  bash -c "cd '$WSA' && \$DEVFLOW_PY_STR '$V' --kind design --input fp-bad.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
 assert_out "悬空引用" "baseline related_operations dangling id rejected (A02)" \
-  bash -c "cd '$WSA' && python3 '$V' --kind design --input rop-bad.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
+  bash -c "cd '$WSA' && \$DEVFLOW_PY_STR '$V' --kind design --input rop-bad.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
 
 # ---------- A03：JSON↔正文对账 + 空壳拦截 ----------
 # 正文 §2.1 注入五列表，order_no 类型与 JSON 冲突（BOOLEAN vs VARCHAR(64)）
-python3 - <<'PYEOF'
+"${DEVFLOW_PY[@]}" - <<'PYEOF'
 from pathlib import Path
 t = Path("doc.md").read_text(encoding="utf-8")
 table = "\n| 字段名 | 类型 | 约束 | 默认值 | 口径说明 |\n|---|---|---|---|---|\n| order_no | BOOLEAN | PK | — | 冲突类型 |\n"
@@ -158,18 +160,18 @@ t = t.replace("### 2.2.1 支付订单表（pay_order）\n", "### 2.2.1 支付订
 Path("doc-typeconflict.md").write_text(t, encoding="utf-8")
 PYEOF
 assert_out "冲突" "JSON type vs doc table type conflict rejected (A03)" \
-  python3 "$V" --kind design --input design.json --criteria criteria.md --doc doc-typeconflict.md
+  "${DEVFLOW_PY[@]}" "$V" --kind design --input design.json --criteria criteria.md --doc doc-typeconflict.md
 # 字段从正文表格消失（正文有表但缺该字段）
-python3 - <<'PYEOF'
+"${DEVFLOW_PY[@]}" - <<'PYEOF'
 from pathlib import Path
 t = Path("doc-typeconflict.md").read_text(encoding="utf-8")
 t = t.replace("| order_no | BOOLEAN | PK | — | 冲突类型 |\n", "| ref_no | BOOLEAN | PK | — | 另一字段 |\n", 1)
 Path("doc-nofield.md").write_text(t, encoding="utf-8")
 PYEOF
 assert_out "未出现在" "JSON field missing from doc table rejected (A03)" \
-  python3 "$V" --kind design --input design.json --criteria criteria.md --doc doc-nofield.md
+  "${DEVFLOW_PY[@]}" "$V" --kind design --input design.json --criteria criteria.md --doc doc-nofield.md
 # 仅标题空壳正文
-python3 - <<'PYEOF'
+"${DEVFLOW_PY[@]}" - <<'PYEOF'
 import re
 from pathlib import Path
 t = Path("doc.md").read_text(encoding="utf-8")
@@ -178,22 +180,22 @@ t = re.sub(r"(### 7\.1\.1 下单页\n)(.*?)(### 7\.1\.2)", r"\1\3", t, flags=re.
 Path("doc-hollow.md").write_text(t, encoding="utf-8")
 PYEOF
 assert_out "空壳" "headings-only section rejected as hollow (A03)" \
-  python3 "$V" --kind design --input design.json --criteria criteria.md --doc doc-hollow.md
+  "${DEVFLOW_PY[@]}" "$V" --kind design --input design.json --criteria criteria.md --doc doc-hollow.md
 
 # ---------- A03 补充：约束列比对 + WHEN 逐字契约 ----------
-python3 - <<'PYEOF'
+"${DEVFLOW_PY[@]}" - <<'PYEOF'
 import json
 d = json.load(open("design.json"))
 d["rules"][0]["when_line"] = "WHEN 同一 order_no 在 60 秒内重复提交：直接二次扣款。"   # 与正文反义
 json.dump(d, open("d-wl.json", "w"), ensure_ascii=False)
 PYEOF
 assert_out "逐字" "JSON WHEN line diverging from doc pseudocode rejected (A03)" \
-  python3 "$V" --kind design --input d-wl.json --criteria criteria.md --doc doc.md
+  "${DEVFLOW_PY[@]}" "$V" --kind design --input d-wl.json --criteria criteria.md --doc doc.md
 assert_out "约束" "doc table constraint column conflict rejected (A03)" \
-  python3 "$V" --kind design --input design.json --criteria criteria.md --doc doc-typeconflict.md
+  "${DEVFLOW_PY[@]}" "$V" --kind design --input design.json --criteria criteria.md --doc doc-typeconflict.md
 
 # ---------- A04 补充：一条验收行为关联多个对象（数组引用） ----------
-python3 - <<'PYEOF'
+"${DEVFLOW_PY[@]}" - <<'PYEOF'
 import json
 d = json.load(open("design.json"))
 d["acceptance"][0]["page"] = ["§7.2.1", "§7.2.2"]
@@ -201,19 +203,19 @@ d["acceptance"][0]["api"] = ["§3.2.1"]
 json.dump(d, open("d-multiref.json", "w"), ensure_ascii=False)
 PYEOF
 check_rc 0 "acceptance row may reference multiple objects via arrays (A04)" \
-  python3 "$V" --kind design --input d-multiref.json --criteria criteria.md --doc doc.md
-python3 - <<'PYEOF'
+  "${DEVFLOW_PY[@]}" "$V" --kind design --input d-multiref.json --criteria criteria.md --doc doc.md
+"${DEVFLOW_PY[@]}" - <<'PYEOF'
 import json
 d = json.load(open("design.json"))
 d["acceptance"][0]["page"] = ["§7.2.1", "§7.99"]
 json.dump(d, open("d-multiref-bad.json", "w"), ensure_ascii=False)
 PYEOF
 assert_out "引用断链" "array reference with dangling element rejected (A04)" \
-  python3 "$V" --kind design --input d-multiref-bad.json --criteria criteria.md
+  "${DEVFLOW_PY[@]}" "$V" --kind design --input d-multiref-bad.json --criteria criteria.md
 
 
 # ---------- A04：PRD 来源存在 + 嵌套锚点 ----------
-python3 - <<'PYEOF'
+"${DEVFLOW_PY[@]}" - <<'PYEOF'
 import json
 d = json.load(open("design.json"))
 d["acceptance"][0]["prd_anchor"] = "does-not-exist.md#L99999"
@@ -223,9 +225,9 @@ e["apis"][0]["request"]["anchor"] = "§9.9.9"
 json.dump(e, open("d-nested.json", "w"), ensure_ascii=False)
 PYEOF
 assert_out "来源文件不存在" "nonexistent PRD source rejected (A04)" \
-  python3 "$V" --kind design --input d-prdmiss.json --criteria criteria.md
+  "${DEVFLOW_PY[@]}" "$V" --kind design --input d-prdmiss.json --criteria criteria.md
 assert_out "嵌套引用断链" "dangling nested request anchor rejected (A04)" \
-  python3 "$V" --kind design --input d-nested.json --criteria criteria.md --doc doc.md
+  "${DEVFLOW_PY[@]}" "$V" --kind design --input d-nested.json --criteria criteria.md --doc doc.md
 
 # ---------- A08：p2a 角色表解析（BSD awk $0 重建陷阱） ----------
 cat > role-table.md <<'EOF'
@@ -401,7 +403,7 @@ else
 fi
 printf '%s' "$S2_PURE" | grep -q "exempted" && ok "s2 reports five/six-column exemption (A06)" || bad "s2 exemption reporting missing"
 # 负向：冻结 frontend 漂移（state=not-applicable，design.json 声明 pc-web）→ P0
-python3 -c "import json; p='$WS2/.devflow/pure/design.json'; d=json.load(open(p)); d['client']={'scope':'pc-web','journeys':[{'name':'x','page':'§7.1.1','evidence':'真实浏览器'}]}; d['zero_results']=[z for z in d['zero_results'] if z['path']!='pages']; d['pages']=[{'anchor':'§7.1.1','name':'计算页','permission':'pure:view'}]; json.dump(d, open(p,'w'), ensure_ascii=False)"
+"${DEVFLOW_PY[@]}" -c "import json; p='$WS2/.devflow/pure/design.json'; d=json.load(open(p)); d['client']={'scope':'pc-web','journeys':[{'name':'x','page':'§7.1.1','evidence':'真实浏览器'}]}; d['zero_results']=[z for z in d['zero_results'] if z['path']!='pages']; d['pages']=[{'anchor':'§7.1.1','name':'计算页','permission':'pure:view'}]; json.dump(d, open(p,'w'), ensure_ascii=False)"
 printf '\n### 7.1 计算页\n计算页正文与权限说明。\n' >> "$WS2/docs/详细设计/pure-详细设计.md"
 S2_DRIFT=$(cd "$WS2" && bash "$ROOT/scripts/s2_design_coverage_gate.sh" docs/详细设计/pure-详细设计.md docs/需求/pure-验收点.md 2>&1 || true)
 printf '%s' "$S2_DRIFT" | grep -q "client scope drift" && ok "s2 rejects frozen frontend drift (A06)" || bad "s2 missed client scope drift (A06)"
@@ -448,11 +450,11 @@ printf '%s' "$CB_OUT4" | grep -q "severity revisions without reason" \
 
 # ---------- A15：缺陷级断言升级（错误信息必须点名被变异对象） ----------
 assert_out "does-not-exist.md" "PRD negative names the broken source path (A15)" \
-  python3 "$V" --kind design --input d-prdmiss.json --criteria criteria.md
+  "${DEVFLOW_PY[@]}" "$V" --kind design --input d-prdmiss.json --criteria criteria.md
 assert_out "NotFound.java" "baseline negative names the fictional target (A15)" \
-  bash -c "cd '$WSA' && python3 '$V' --kind design --input miss.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
+  bash -c "cd '$WSA' && \$DEVFLOW_PY_STR '$V' --kind design --input miss.json --criteria '$WSA/docs/requirements/demo-pay-acceptance-criteria.md' --workspace ."
 assert_out "BOOLEAN" "type-conflict negative names the conflicting type (A15)" \
-  python3 "$V" --kind design --input design.json --criteria criteria.md --doc doc-typeconflict.md
+  "${DEVFLOW_PY[@]}" "$V" --kind design --input design.json --criteria criteria.md --doc doc-typeconflict.md
 
 # ---------- A14：s1 事实源元数据（来源/时点/适用范围） ----------
 WSM="$WORK/s1meta"; mkdir -p "$WSM/docs/detailed-design"
@@ -505,7 +507,7 @@ WHEN 创建 (cmd): [R1]
 EOF
 DQ="$ROOT/scripts/check_design_doc_quality.py"
 printf '%s' '{"api_detail_parent": "5.3"}' > "$DQL/rules-default.json"
-DQ_OUT=$(python3 "$DQ" "$DQL/design.md" --rules "$DQL/rules-default.json" 2>&1 || true)
+DQ_OUT=$("${DEVFLOW_PY[@]}" "$DQ" "$DQL/design.md" --rules "$DQL/rules-default.json" 2>&1 || true)
 printf '%s' "$DQ_OUT" | grep -q "DQ-002" && printf '%s' "$DQ_OUT" | grep -q "DQ-003" \
   && ok "lint catches unreferenced rule + unconsumed API detail" \
   || bad "lint missed violations: $DQ_OUT"
@@ -514,14 +516,14 @@ cat > "$DQL/rules.json" <<'EOF'
 {"api_detail_parent": "5.3", "rules_without_flow_ref": ["R2"], "internal_endpoints": ["5.3.2"]}
 EOF
 check_rc 0 "lint passes with project rules whitelist" \
-  python3 "$DQ" "$DQL/design.md" --rules "$DQL/rules.json" --root "$WORK"
+  "${DEVFLOW_PY[@]}" "$DQ" "$DQL/design.md" --rules "$DQL/rules.json" --root "$WORK"
 
 # ---------- P1-b：P3c/P3d JSON 正本接线（waiver 路径正/负向） ----------
 WP3="$WORK/p3"; mkdir -p "$WP3/.devflow/p3f" "$WP3/docs/评审" "$WP3/docs/测试"
 printf 'P3CD_SECURITY=NOT_APPLICABLE\nP3CD_PERFORMANCE=NOT_APPLICABLE\n' > "$WP3/waiver.txt"
 # v3.28.4(P0-4)：waiver 纳入 skip-log 授权契约——waiver 文件 + skip-log 授权行缺一即 P0
 printf 'SKIP_P3CD_SECURITY=纯前端无安全面|authorized-by=user|at=2026-09-17|approval=slack-approval-001\nSKIP_P3CD_PERFORMANCE=无服务端目录|authorized-by=user|at=2026-09-17|approval=slack-approval-002\n' > "$WP3/.devflow/p3f/skip-log.txt"
-python3 - "$WP3" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$WP3" <<'PYEOF'
 import json, os, sys
 os.chdir(sys.argv[1])
 sec = {"feature": "p3f", "generated_at": "2026-09-17T00:00:00Z",
@@ -541,9 +543,9 @@ json.dump(perf, open(".devflow/p3f/performance.json", "w"), ensure_ascii=False)
 PYEOF
 # v3.25.2(P0)：报告由 df_pipeline 从 JSON 正本渲染（渲染器 + 管线端到端）
 check_rc 0 "pipeline security renders audit report (P0-fix)" \
-  bash -c "cd '$WP3' && python3 '$ROOT/scripts/df_pipeline.py' security --input .devflow/p3f/security.json --out docs/评审/p3f-安全审计报告.md"
+  bash -c "cd '$WP3' && \$DEVFLOW_PY_STR '$ROOT/scripts/df_pipeline.py' security --input .devflow/p3f/security.json --out docs/评审/p3f-安全审计报告.md"
 check_rc 0 "pipeline performance renders load-test report (P0-fix)" \
-  bash -c "cd '$WP3' && python3 '$ROOT/scripts/df_pipeline.py' performance --input .devflow/p3f/performance.json --out docs/测试/p3f-压测报告.md"
+  bash -c "cd '$WP3' && \$DEVFLOW_PY_STR '$ROOT/scripts/df_pipeline.py' performance --input .devflow/p3f/performance.json --out docs/测试/p3f-压测报告.md"
 grep -q "P95 380 ms" "$WP3/docs/测试/p3f-压测报告.md" && ok "performance renderer emits machine P95 lines" || bad "performance renderer missing P95 lines"
 P3_OUT=$(cd "$WP3" && bash "$ROOT/scripts/p3_security_perf_gate.sh" p3f --waiver waiver.txt 2>&1 || true)
 if (cd "$WP3" && bash "$ROOT/scripts/p3_security_perf_gate.sh" p3f --waiver waiver.txt >/dev/null 2>&1); then
@@ -575,7 +577,7 @@ else
   ok "p3 gate rejects missing security.json even with waiver (P1-b)"
 fi
 # v3.25.2(P1)：性能双正本漂移——报告删掉 P95 机器行，Gate 必须与 JSON 对账拦截
-python3 - "$WP3" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$WP3" <<'PYEOF'
 import re, sys
 from pathlib import Path
 p = Path(sys.argv[1]) / "docs/测试/p3f-压测报告.md"

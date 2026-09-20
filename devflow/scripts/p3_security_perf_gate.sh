@@ -2,6 +2,8 @@
 # P3c/P3d 安全+性能 Gate（合并版）· 版本随 SKILL.md
 # 功能：安全审计（@PreAuthorize覆盖率）+ 性能审计（N+1/P95）
 set -uo pipefail
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 SKILL_ROOT="${SKILL_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 # v3.15.9: WORK_DIR 跟随 STATE_DIR 取默认——隔离部署（STATE_DIR 自定义）下报告不再回退
@@ -187,7 +189,7 @@ check_response_time() {
   fi
   echo "| 正本 | $pj |" >> "$REPORT_FILE"
   local rt_out
-  rt_out=$( (unset LC_ALL; python3 - "$pj" <<'PYEOF'
+  rt_out=$( (unset LC_ALL; "${DEVFLOW_PY[@]}" - "$pj" <<'PYEOF'
 import json, re, sys
 d = json.load(open(sys.argv[1], encoding="utf-8"))
 rp = (d.get("report_path") or "").strip()
@@ -311,19 +313,19 @@ main() {
       p0 "${kind}.json 缺失: ${p}——必须产出结构化审计正本（契约 schemas/${kind}.schema.json，管线 df_pipeline.py ${kind}，失败不渲染、不进 Gate）"
       return 1
     fi
-    if ! command -v python3 >/dev/null 2>&1; then
-      p0 "${kind}.json 存在但 python3 不可用——结构化校验无法执行（失败关闭）"
+    if ! devflow_py_ok; then
+      p0 "${kind}.json 存在但 Python 3 不可用（python3/python/py 均未找到）——结构化校验无法执行（失败关闭）"
       return 1
     fi
-    if ! (unset LC_ALL; python3 "${GATE_SCRIPT_DIR}/df_validate.py" --kind "$kind" --input "$p" --workspace . >/dev/null 2>&1); then
-      (unset LC_ALL; python3 "${GATE_SCRIPT_DIR}/df_validate.py" --kind "$kind" --input "$p" --workspace . 2>&1 | head -4 | sed 's/^/    /')
+    if ! (unset LC_ALL; "${DEVFLOW_PY[@]}" "${GATE_SCRIPT_DIR}/df_validate.py" --kind "$kind" --input "$p" --workspace . >/dev/null 2>&1); then
+      (unset LC_ALL; "${DEVFLOW_PY[@]}" "${GATE_SCRIPT_DIR}/df_validate.py" --kind "$kind" --input "$p" --workspace . 2>&1 | head -4 | sed 's/^/    /')
       p0 "${kind}.json 校验失败——修复后重跑 df_pipeline.py ${kind} 再过 Gate"
       return 1
     fi
     # v3.25.2：report_path 三重约束——①工作区内相对路径；②真实落盘；③与 df_render
     # 从当前 JSON 的渲染产物逐字节一致（手工改动/双正本漂移即 P0；validate 不查，Gate 查）。
     local rp rp_err
-    rp_err=$( (unset LC_ALL; python3 - "$p" <<'PYEOF'
+    rp_err=$( (unset LC_ALL; "${DEVFLOW_PY[@]}" - "$p" <<'PYEOF'
 import json, os, sys
 rp = (json.load(open(sys.argv[1])).get("report_path") or "").strip()
 if not rp:
@@ -342,11 +344,11 @@ PYEOF
       p0 "${kind}.json report_path 非法: $rp_err"
       return 1
     fi
-    rp=$( (unset LC_ALL; python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("report_path",""))' "$p" 2>/dev/null) || true)
+    rp=$( (unset LC_ALL; "${DEVFLOW_PY[@]}" -c 'import json,sys; print(json.load(open(sys.argv[1])).get("report_path",""))' "$p" 2>/dev/null) || true)
     # 渲染一致性：report_path 必须与 df_render 从当前 JSON 的输出逐字节一致
     local expect
     expect=$(mktemp -t p3render.XXXXXX)
-    if ! (unset LC_ALL; python3 "${GATE_SCRIPT_DIR}/df_render.py" "$kind" --input "$p" --out "$expect" >/dev/null 2>&1); then
+    if ! (unset LC_ALL; "${DEVFLOW_PY[@]}" "${GATE_SCRIPT_DIR}/df_render.py" "$kind" --input "$p" --out "$expect" >/dev/null 2>&1); then
       p0 "${kind} 报告渲染失败（渲染器/JSON 异常）"
       rm -f "$expect"
       return 1
@@ -422,12 +424,12 @@ PYEOF
       local _p3cd_sr _p3cd_pf
       case "$CHECK_MODE" in
         security|full)
-          _p3cd_sr=$( (unset LC_ALL; python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("report_path",""))' "$SECURITY_JSON" 2>/dev/null) || true)
+          _p3cd_sr=$( (unset LC_ALL; "${DEVFLOW_PY[@]}" -c 'import json,sys; print(json.load(open(sys.argv[1])).get("report_path",""))' "$SECURITY_JSON" 2>/dev/null) || true)
           [ -n "$_p3cd_sr" ] && [ -f "$_p3cd_sr" ] && _P3CD_EV_ARGS+=("$_p3cd_sr") ;;
       esac
       case "$CHECK_MODE" in
         performance|full)
-          _p3cd_pf=$( (unset LC_ALL; python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("report_path",""))' "$PERFORMANCE_JSON" 2>/dev/null) || true)
+          _p3cd_pf=$( (unset LC_ALL; "${DEVFLOW_PY[@]}" -c 'import json,sys; print(json.load(open(sys.argv[1])).get("report_path",""))' "$PERFORMANCE_JSON" 2>/dev/null) || true)
           [ -n "$_p3cd_pf" ] && [ -f "$_p3cd_pf" ] && _P3CD_EV_ARGS+=("$_p3cd_pf") ;;
       esac
       [ -f "$SECURITY_JSON" ] && _P3CD_EV_ARGS+=("$SECURITY_JSON")

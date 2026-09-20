@@ -2,13 +2,15 @@
 # mk_design_conventions.sh — 生成 s1 合规的 design-conventions.json
 # 用法: bash tests/mk_design_conventions.sh <feature> <workspace>
 set -u
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 FEATURE="${1:?feature}"
 WS="${2:?workspace}"
 DEV_DIR="$WS/.devflow/$FEATURE"
 mkdir -p "$DEV_DIR"
 
 # design-conventions.json（s1 P1 新增；字段对齐 schemas/design-conventions.schema.json）
-python3 - "$FEATURE" "$DEV_DIR" <<'DCEOF'
+"${DEVFLOW_PY[@]}" - "$FEATURE" "$DEV_DIR" <<'DCEOF'
 import json, sys
 feature, dev_dir = sys.argv[1], sys.argv[2]
 d = {

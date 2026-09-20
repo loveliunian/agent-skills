@@ -7,6 +7,8 @@
 set -u
 set -o pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 ROOT="$(cd "$TEST_DIR/.." && pwd -P)"
 PASS=0
@@ -72,7 +74,7 @@ EOF
 
 validate() { # <kind> <json> [extra args...]
   local kind="$1" json="$2"; shift 2
-  python3 "$V" --kind "$kind" --input "$json" --workspace . "$@"
+  "${DEVFLOW_PY[@]}" "$V" --kind "$kind" --input "$json" --workspace . "$@"
 }
 
 # ---------- 2. 各 kind 正向 ----------
@@ -84,7 +86,7 @@ check_rc 0 "sample validates: test-cases (+criteria 覆盖对照)" validate test
 check_rc 0 "sample validates: tech-selection (+constraints 绑定对账)" validate tech-selection "$EX/tech-selection.sample.json" --constraints constraints-contract.md
 
 # docs-index：样例 SHA 为占位，测试内生成真实文档与指纹后校验
-EX="$EX" python3 - <<'PYEOF'
+EX="$EX" "${DEVFLOW_PY[@]}" - <<'PYEOF'
 import hashlib, json, os
 from pathlib import Path
 ex = os.environ["EX"]
@@ -107,7 +109,7 @@ PYEOF
 check_rc 0 "docs-index validates (真实文档+实算 SHA)" validate docs-index docs-index.generated.json
 
 # ---------- 3. 各 kind 负向（失败关闭） ----------
-mutate() { python3 -c "$1"; }
+mutate() { "${DEVFLOW_PY[@]}" -c "$1"; }
 
 mutate 'import json; d=json.load(open("'"$EX"'/clarification.sample.json")); d["ambiguities"][0]["status"]="pending"; json.dump(d, open("neg-clarification.json","w"), ensure_ascii=False)'
 check_rc 1 "clarification: P0 未澄清被拦截" validate clarification neg-clarification.json
@@ -163,7 +165,7 @@ check_rc 1 "deployment: 制品指纹非 64hex 被拦截" validate deployment neg
 mutate 'import json; d=json.load(open("'"$EX"'/monitoring.sample.json")); d["machine"]["alert_rule"]="deploy/missing-alerts.yml"; json.dump(d, open("neg-monitoring.json","w"), ensure_ascii=False)'
 check_rc 1 "monitoring: 告警规则文件不存在被拦截" validate monitoring neg-monitoring.json
 
-python3 - <<'PYEOF'
+"${DEVFLOW_PY[@]}" - <<'PYEOF'
 import json
 from pathlib import Path
 d = json.loads(Path("docs-index.generated.json").read_text(encoding="utf-8"))
@@ -191,11 +193,11 @@ check_rc 1 "sharing: lesson <3 被拦截" validate sharing neg-sharing.json
 OUT=render; mkdir -p "$OUT"
 for k in clarification acceptance constraints prd-review tech-selection design-review \
          self-check code-review prd-validation test-cases deployment monitoring docs-index retrospective sharing demo-signoff; do
-  check_rc 0 "render: $k" python3 "$R" "$k" --input "$EX/$k.sample.json" --out "$OUT/$k.md"
+  check_rc 0 "render: $k" "${DEVFLOW_PY[@]}" "$R" "$k" --input "$EX/$k.sample.json" --out "$OUT/$k.md"
 done
-check_rc 0 "render: small-change 三件套" python3 "$R" small-change --input "$EX/small-change.sample.json" \
+check_rc 0 "render: small-change 三件套" "${DEVFLOW_PY[@]}" "$R" small-change --input "$EX/small-change.sample.json" \
   --out "$OUT/small-change.md" --out-env "$OUT/small-change.env" --out-scan "$OUT/project-scan.txt"
-check_rc 0 "render: retrospective 四件套(--out-feedback)" python3 "$R" retrospective --input "$EX/retrospective.sample.json" \
+check_rc 0 "render: retrospective 四件套(--out-feedback)" "${DEVFLOW_PY[@]}" "$R" retrospective --input "$EX/retrospective.sample.json" \
   --out "$OUT/retrospective.md" --out-feedback "$OUT/feedback.md"
 
 grep -q '分母已冻结：验收点总计 3 个' "$OUT/acceptance.md" && ok "acceptance: 分母冻结行(s0 §4)" || bad "acceptance: 分母冻结行(s0 §4)"
@@ -244,7 +246,7 @@ echo "$S0_OUT" | grep -q 'P0 RESULT: PASS=[0-9][0-9]* FAIL=0' && ok "s0 gate 端
 echo "$S0_OUT" | grep -q "acceptance.json 校验通过" && ok "s0 校验并绑定 acceptance.json 正本" || bad "s0 未校验 acceptance.json"
 grep -q "ACCEPTANCE_JSON_SHA256=" .devflow/demo-pay/gates/P0/receipt.txt && ok "P0 收据绑定 acceptance.json SHA" || bad "P0 收据未绑定 JSON SHA"
 # v3.25.1(P1-a)：负向②——非 FROZEN 的 JSON 校验失败即 FAIL
-python3 - <<'PYEOF'
+"${DEVFLOW_PY[@]}" - <<'PYEOF'
 import json
 d = json.load(open(".devflow/demo-pay/acceptance.json"))
 d["points"][0]["status"] = "REVIEWING"
@@ -257,11 +259,11 @@ cp "$EX/acceptance.sample.json" .devflow/demo-pay/acceptance.json
 
 # ---------- 6. 管线失败关闭：坏 JSON 不落盘 ----------
 cp "$OUT/acceptance.md" pipeline-doc.before
-check_rc 1 "pipeline: 校验失败即中止(不渲染)" python3 "$P" acceptance --input neg-acceptance.json --out pipeline-doc.md
+check_rc 1 "pipeline: 校验失败即中止(不渲染)" "${DEVFLOW_PY[@]}" "$P" acceptance --input neg-acceptance.json --out pipeline-doc.md
 [ ! -f pipeline-doc.md ] && ok "pipeline: 校验失败未产出文档" || bad "pipeline: 校验失败未产出文档"
-check_rc 0 "pipeline: 正向 validate→render" python3 "$P" acceptance --input "$EX/acceptance.sample.json" --out pipeline-doc.md --workspace .
+check_rc 0 "pipeline: 正向 validate→render" "${DEVFLOW_PY[@]}" "$P" acceptance --input "$EX/acceptance.sample.json" --out pipeline-doc.md --workspace .
 grep -q '分母已冻结' pipeline-doc.md && ok "pipeline: 渲染产物含确定性层" || bad "pipeline: 渲染产物含确定性层"
-check_rc 2 "pipeline: 缺 --out 报用法错误(argparse 退出码 2)" python3 "$P" acceptance --input "$EX/acceptance.sample.json"
+check_rc 2 "pipeline: 缺 --out 报用法错误(argparse 退出码 2)" "${DEVFLOW_PY[@]}" "$P" acceptance --input "$EX/acceptance.sample.json"
 
 echo "=== phase-docs structured artifacts RESULT PASS=$PASS FAIL=$FAIL ==="
 [ "$FAIL" -eq 0 ] || exit 1

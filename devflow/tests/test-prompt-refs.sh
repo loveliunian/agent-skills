@@ -8,6 +8,8 @@
 set -u
 set -o pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 ROOT="$(cd "$TEST_DIR/.." && pwd -P)"
 PASS=0
@@ -20,7 +22,7 @@ echo "=== prompt reference integrity (A16) ==="
 # 收集全部被引用路径：反引号 span 与 Markdown 链接目标
 REFS_FILE=$(mktemp -t promptrefs.XXXXXX)
 trap 'rm -f "$REFS_FILE"' EXIT
-python3 - "$ROOT" > "$REFS_FILE" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$ROOT" > "$REFS_FILE" <<'PYEOF'
 import re, sys
 from pathlib import Path
 

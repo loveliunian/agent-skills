@@ -38,4 +38,16 @@ disable-model-invocation: false
 
 - 路径分隔符：副本目标列表（DEVFLOW_COPY_TARGETS）用换行分隔（盘符冒号不参与切分，check-copies 已兼容 CRLF）。
 - Git Bash 下 `mktemp`/`find -print0` 行为一致；PowerShell/CMD 不受支持。
+- **Python 解释器解析（v3.28.7）**：所有脚本经 `scripts/py_runtime.sh` 统一解析
+  `python3 → python（3.x 探测）→ py -3`，以 `"${DEVFLOW_PY[@]}"` 调用、`devflow_py_ok`
+  判可用、导出标量 `DEVFLOW_PY_STR` 供 `bash -c` 子壳使用——覆盖 python.org Windows
+  安装包无 python3 别名的场景。守护点（`command -v python3`）已全部改为 `devflow_py_ok`，
+  缺解释器时仍按原语义优雅降级/失败关闭。
+- **换行符（v3.28.7）**：仓库根 `.gitattributes` 强制 `*.sh/*.py/*.md/*.json` 等检出为
+  LF，与 Git for Windows 默认 `core.autocrlf=true` 解耦——历史克隆请重装或
+  `git add --renormalize .` 后重检。
+- **jq 为硬依赖（v3.28.7）**：manifest hash-chain 与 state 机依赖 jq；doctor 已从
+  WARN 升级为 FAIL。Git Bash 不自带 jq，需手动安装（`winget install jqlang.jq`）。
+- **install.sh 软链（v3.28.7）**：MSYS 默认把 `ln -s` 当复制执行；install.sh 会检测
+  并提示。启用真软链：Windows 开发者模式 + `export MSYS=winsymlinks:nativestrict`。
 - CI 收据（Ubuntu/Git Bash）为待办：接入后在本表补退出码与日志路径。

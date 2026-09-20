@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 # : 推导 feature，避免写入 default 目录
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
 source "$(cd "$(dirname "$0")" && pwd)/devflow_receipt.sh"
 # v3.22.0: 文档层中文化（中文优先、英文回退）
@@ -18,7 +20,7 @@ LC_ALL=C
 export LC_ALL
 # v3.20.2: python 子进程剥离 LC_ALL——C locale 下含非 ASCII site 配置的解释器
 # （如 venv editable .pth 含中文路径）在 site 初始化即崩；grep/awk 仍保持 C locale。
-_python3() { (unset LC_ALL; exec python3 "$@"); }
+_python3() { (unset LC_ALL; exec "${DEVFLOW_PY[@]}" "$@"); }
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 SKILL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
@@ -73,8 +75,8 @@ pass "design exists: $DESIGN"
 # 硬链接别名共享 inode，生成器/投影写入会经同一 inode 覆盖分文档详设
 # （治理服务 v2.1.1 事故：聚合投影覆写分文档）。python3 缺失时跳过本检查
 # （生成器侧 nlink 防护为主防线；§2c 仍有 python3 硬依赖兜底）。
-if command -v python3 >/dev/null 2>&1; then
-  _S2_NLINK=$(python3 -c 'import os,sys; print(os.stat(sys.argv[1]).st_nlink)' "$DESIGN" 2>/dev/null || echo 1)
+if devflow_py_ok; then
+  _S2_NLINK=$("${DEVFLOW_PY[@]}" -c 'import os,sys; print(os.stat(sys.argv[1]).st_nlink)' "$DESIGN" 2>/dev/null || echo 1)
   case "$_S2_NLINK" in ''|*[!0-9]*) _S2_NLINK=1 ;; esac
   if [ "$_S2_NLINK" -gt 1 ]; then
     p0 "设计文档为硬链接（nlink=${_S2_NLINK}）: ${DESIGN} —— 跨模板视图必须独立文件（L-P2-001），请 unlink 别名后重跑"
@@ -202,7 +204,7 @@ else
   fi
   # v3.27.10：design.json constraints[] 使用时必须与冻结集合闭环（此前为无消费者的
   # 空转字段）——非空时逐条反查冻结约束；重复由 df_validate 拦截。
-  if [ -f "$DESIGN_JSON" ] && command -v python3 >/dev/null 2>&1; then
+  if [ -f "$DESIGN_JSON" ] && devflow_py_ok; then
     JC_IDS=$(_python3 -c 'import json,sys
 try: print("\n".join(c.get("id","") for c in json.load(open(sys.argv[1])).get("constraints",[])))
 except Exception: pass' "$DESIGN_JSON" 2>/dev/null || true)
@@ -247,8 +249,8 @@ echo ""
 echo "=== §2c 结构化产物层 (design.json) ==="
 if [ ! -f "$DESIGN_JSON" ]; then
   p0 "design.json 缺失: ${DESIGN_JSON}——P2 必须产出结构化业务产物层（契约 schemas/design.schema.json，管线 df_pipeline.py design，见 phases/02-详细设计.md §结构化产物层）"
-elif ! command -v python3 >/dev/null 2>&1; then
-  p0 "design.json 存在但 python3 不可用——结构化产物校验无法执行（失败关闭）: $DESIGN_JSON"
+elif ! devflow_py_ok; then
+  p0 "design.json 存在但 Python 3 不可用（python3/python/py 均未找到）——结构化产物校验无法执行（失败关闭）: $DESIGN_JSON"
 else
   # v3.24.0(A05)：--doc 全模式对账——旧逻辑仅 monolith 传 --doc，sub 文档删掉
   # 接口详细定义标题、JSON detail_anchor 指向不存在 §99.9.9 仍 exit=0（分文档
@@ -285,7 +287,7 @@ except Exception:
   if [ "$MODE" != "monolith" ]; then
     if [ ! -f "$PKG_FILE" ]; then
       p0 "design-package.json 缺失: ${PKG_FILE}——总分模式必须登记设计包（docs[].path/mode/acceptance_ids；子集并集=冻结分母，缺文档即失败）"
-    elif command -v python3 >/dev/null 2>&1; then
+    elif devflow_py_ok; then
       PKG_OUT=$(_python3 "$SKILL_ROOT/scripts/df_design_package.py" --package "$PKG_FILE" --criteria "$CRITERIA" --doc "$DESIGN" 2>&1)
       if [ $? -eq 0 ]; then
         PKG_SCOPE=$(printf '%s\n' "$PKG_OUT" | sed -n 's/^SCOPE=//p')
@@ -307,7 +309,7 @@ fi
 echo ""
 echo "=== §2d 冻结客户端范围对账 ==="
 S2_STATE_FILE="${STATE_DIR:-.devflow}/${EFF_FEATURE}.state.json"
-if [ -f "$S2_STATE_FILE" ] && [ -f "$DESIGN_JSON" ] && command -v jq >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+if [ -f "$S2_STATE_FILE" ] && [ -f "$DESIGN_JSON" ] && command -v jq >/dev/null 2>&1 && devflow_py_ok; then
   FROZEN_FE=$(jq -r '.scope.frontend // empty' "$S2_STATE_FILE" 2>/dev/null)
   DECL_FE=$(_python3 -c 'import json,sys
 try: print(json.load(open(sys.argv[1])).get("client",{}).get("scope",""))
@@ -340,7 +342,7 @@ echo "=== §4 五列数据模型 ==="
 # 合法性）的纯计算/纯任务需求，五列表头不再强制——合法无数据设计曾被误拒（实测
 # 纯计算 JSON 校验 exit=0、s2 FAIL=3）。无 design.json 时维持强制。
 DJ_TABLES_EMPTY=0
-if [ -f "$DESIGN_JSON" ] && command -v python3 >/dev/null 2>&1; then
+if [ -f "$DESIGN_JSON" ] && devflow_py_ok; then
   DJ_TABLES_EMPTY=$(_python3 -c 'import json,sys
 try: print(1 if not json.load(open(sys.argv[1])).get("tables") else 0)
 except Exception: print(0)' "$DESIGN_JSON" 2>/dev/null || echo 0)
@@ -364,7 +366,7 @@ echo ""
 echo "=== §5 六列接口字段 ==="
 # v3.24.0(A06)：同 §4——design.json 声明 apis 为空时不强制六列表头。
 DJ_APIS_EMPTY=0
-if [ -f "$DESIGN_JSON" ] && command -v python3 >/dev/null 2>&1; then
+if [ -f "$DESIGN_JSON" ] && devflow_py_ok; then
   DJ_APIS_EMPTY=$(_python3 -c 'import json,sys
 try: print(1 if not json.load(open(sys.argv[1])).get("apis") else 0)
 except Exception: print(0)' "$DESIGN_JSON" 2>/dev/null || echo 0)
@@ -409,7 +411,7 @@ echo ""
 echo "=== §6a 设计一致性 Linter ==="
 CONVENTIONS_JSON=".devflow/$EFF_FEATURE/design-conventions.json"
 if [ -f "$DESIGN_JSON" ]; then
-  if command -v python3 >/dev/null 2>&1; then
+  if devflow_py_ok; then
     if [ -f "$CONVENTIONS_JSON" ]; then
       LINTER_RESULT=$("$SCRIPT_DIR/design_consistency_linter.py" "$DESIGN_JSON" "$CONVENTIONS_JSON" 2>&1 || true)
       LINTER_EXIT=$?
@@ -436,7 +438,7 @@ fi
 # 有 design.json 时为强检查（P0：硬前置必须命中详定义 api）；无则降级提示（WARN）。
 echo ""
 echo "=== §6b 规则前置操作可达性 ==="
-if command -v python3 >/dev/null 2>&1 && [ -f "$SKILL_ROOT/scripts/rule_operation_closure.py" ]; then
+if devflow_py_ok && [ -f "$SKILL_ROOT/scripts/rule_operation_closure.py" ]; then
   ROC_ARGS=(--design "$DESIGN")
   [ -f "$DESIGN_JSON" ] && ROC_ARGS+=(--design-json "$DESIGN_JSON")
   if _python3 "$SKILL_ROOT/scripts/rule_operation_closure.py" "${ROC_ARGS[@]}"; then
@@ -461,7 +463,7 @@ fi
 echo ""
 echo "=== §6c 内容充分性三防线 ==="
 CS_PROBE="$SKILL_ROOT/scripts/content_sufficiency_probes.py"
-if command -v python3 >/dev/null 2>&1 && [ -f "$CS_PROBE" ]; then
+if devflow_py_ok && [ -f "$CS_PROBE" ]; then
   CS_FAIL=0
   # 输入发现（可选）：PRD 取验收点同目录；legacy 取 archive/ 下同域旧设计；peer 取同目录其他分文档
   # v3.26.4：发现目录必须用「设计真身」解析（DESIGN 可能是 symlink；同目录旧副本/
@@ -671,8 +673,8 @@ echo "  Total: $TOTAL  COMPLETE: $COMPLETE  Coverage: ${COVERAGE_RATE}%"
 echo ""
 echo "=== §2c 设计一致性 Linter ==="
 LINTER_SCRIPT="$SCRIPT_DIR/design_consistency_linter.py"
-if [ -f "$DESIGN_JSON" ] && [ -f "$LINTER_SCRIPT" ] && command -v python3 >/dev/null 2>&1; then
-  LINTER_RESULT=$(python3 "$LINTER_SCRIPT" "$DESIGN_JSON" 2>&1 || true)
+if [ -f "$DESIGN_JSON" ] && [ -f "$LINTER_SCRIPT" ] && devflow_py_ok; then
+  LINTER_RESULT=$("${DEVFLOW_PY[@]}" "$LINTER_SCRIPT" "$DESIGN_JSON" 2>&1 || true)
   echo "$LINTER_RESULT"
   # Linter 是建议性检查，不阻断 Gate（退出码始终为 0）
   pass "设计一致性 Linter 完成（建议性检查，非强制阻断）"
@@ -706,7 +708,7 @@ EXIT_CODE=$([ "$FAIL" -gt 0 ] && echo 1 || echo 0)
     [ -f "$DESIGN_JSON" ] && _P2_EV_ARGS+=("$DESIGN_JSON")
     # v3.24.0(A02)：收据绑定调查过的源码证据——design.json baseline 中真实存在的
     # 目标文件一并纳入证据树；评审/实现期间源码被改写 → audit-receipts 重验 FAIL。
-    if [ -f "$DESIGN_JSON" ] && command -v python3 >/dev/null 2>&1; then
+    if [ -f "$DESIGN_JSON" ] && devflow_py_ok; then
       while IFS= read -r _bl_f; do
         [ -n "$_bl_f" ] && [ -f "$_bl_f" ] && _P2_EV_ARGS+=("$_bl_f")
       done < <(_python3 -c 'import json,sys

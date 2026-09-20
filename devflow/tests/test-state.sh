@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 source "$(cd "$(dirname "$0")" && pwd)/testlib.sh"
 
 echo "=== devflow state tests ==="
@@ -76,7 +78,7 @@ if [ "$C1RC" -ne 0 ] && printf '%s' "$C1" | grep -q "FAILED" && [ ! -f "$CKPT/.d
 C2=$(cd "$CKPT" && bash "$ROOT/scripts/checkpoint-state.sh" save foo P3 build 0 2>&1); C2RC=$?
 # v3.15.22（第 19 轮 P3-2）: resume/list 兄弟分支 fail-closed——死 python3 时
 # 不得空输出 rc=0 假成功（save 分支 P1 修复同口径）
-if [ "$C2RC" -eq 0 ] && python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if len(d["checkpoints"])==1 else 1)' "$CKPT/.devflow/foo/state.json" 2>/dev/null; then
+if [ "$C2RC" -eq 0 ] && "${DEVFLOW_PY[@]}" -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if len(d["checkpoints"])==1 else 1)' "$CKPT/.devflow/foo/state.json" 2>/dev/null; then
   ok "checkpoint save still works when python3 healthy"; else bad "checkpoint save still works when python3 healthy (${C2:-rc=$C2RC})"; fi
 printf '{"feature":"foo","blockers":["x"],"checkpoints":[]}
 ' > "$CKPT/.devflow/foo/state.json"

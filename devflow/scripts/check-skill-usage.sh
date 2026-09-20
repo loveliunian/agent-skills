@@ -11,6 +11,8 @@
 # 期望：FAIL=0
 # =============================================================================
 set -uo pipefail
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 LC_ALL=C
 export LC_ALL
 
@@ -132,7 +134,7 @@ if [ -d "$STATE_DIR" ]; then
     # v3.15.21: python3 死亡/解析失败 fail-closed——旧版 find -exec python3 输出为空 →
     # grep -c 得 0 → 假 PASS "全部无 blocker"（第 18 轮 PoC：state 含 blocker + 死
     # python3 仍报 clean）。三重防御：'E' 解析失败标记 / 行数对账 / 空输出对账。
-    BLOCKER_LINES=$(find "$STATE_DIR" -name "state.json" -exec python3 -c "import json,sys
+    BLOCKER_LINES=$(find "$STATE_DIR" -name "state.json" -exec \$DEVFLOW_PY_STR -c "import json,sys
 try:
     d=json.load(open(sys.argv[1],encoding='utf-8'))
     print('1' if d.get('blockers') else '0')
@@ -146,7 +148,7 @@ except Exception:
       echo "[FAIL] ${HAS_ERRORS} 个 state.json 解析失败——blockers 审计 fail-closed（不判 clean）"
       FAIL=$((FAIL + 1))
     elif [ "$LINE_COUNT" -ne "$TOTAL" ]; then
-      echo "[FAIL] python3 输出不完整（${LINE_COUNT}/${TOTAL}，解释器死亡或 find 失败）——fail-closed 不判 clean"
+      echo "[FAIL] Python 3 输出不完整（${LINE_COUNT}/${TOTAL}，解释器死亡或 find 失败）——fail-closed 不判 clean"
       FAIL=$((FAIL + 1))
     elif [ "$HAS_BLOCKERS" -eq 0 ]; then
       echo "[PASS] $TOTAL 个 state.json 全部无 blocker = clean"
@@ -207,7 +209,7 @@ if [ -d "$TPL_DIR" ]; then
   TPL_COUNT=$(find "$TPL_DIR" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
   if [ "$TPL_COUNT" -gt 0 ]; then
     # 用 python 算 (避开 bash 中文匹配问题)；路径经环境变量传入，避免注入/转义问题
-    USED=$(TPL_DIR="$TPL_DIR" PROJ_DOCS="$PROJECT_ROOT/docs" python3 - <<'PY'
+    USED=$(TPL_DIR="$TPL_DIR" PROJ_DOCS="$PROJECT_ROOT/docs" "${DEVFLOW_PY[@]}" - <<'PY'
 import os, re
 tpl_dir = os.environ["TPL_DIR"]
 proj = os.environ["PROJ_DOCS"]
@@ -240,7 +242,7 @@ PY
     # v3.15.23: 输出格式对账 fail-closed——python3 死亡时 USED 空输出曾走
     # "使用率 0%" 假 WARN（第 20 轮 P3-7：解释器故障 ≠ 使用率为零，§5 同口径）
     if ! printf '%s\n' "$USED" | grep -qE '^[0-9]+[[:space:]]+[0-9]+$'; then
-      echo "[FAIL] templates 使用率审计输出异常（python3 故障？输出='${USED:-空}'）——fail-closed 不判 0%"
+      echo "[FAIL] templates 使用率审计输出异常（Python 3 故障？输出='${USED:-空}'）——fail-closed 不判 0%"
       FAIL=$((FAIL + 1))
     else
       # v3.15.24: 正常输出才走 PASS/WARN 判定——FAIL 分支后不再打印"使用率 0%"

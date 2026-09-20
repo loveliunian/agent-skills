@@ -5,6 +5,8 @@
 
 set -euo pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
@@ -40,8 +42,8 @@ echo ""
 
 # 1. 检查 Python 环境
 echo "[1/8] 检查 Python 环境..."
-if command -v python3 &> /dev/null; then
-    PYTHON_VERSION=$(python3 --version | awk '{print $2}')
+if devflow_py_ok; then
+    PYTHON_VERSION=$("${DEVFLOW_PY[@]}" --version | awk '{print $2}')
     MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)
     MINOR=$(echo $PYTHON_VERSION | cut -d. -f2)
     
@@ -66,7 +68,7 @@ PROFILES=(
 for profile in "${PROFILES[@]}"; do
     if [[ -f "$SKILL_ROOT/runtime-profiles/$profile.json" ]]; then
         # 验证 JSON 格式
-        if python3 -c "import json; json.load(open('$SKILL_ROOT/runtime-profiles/$profile.json'))" 2>/dev/null; then
+        if "${DEVFLOW_PY[@]}" -c "import json; json.load(open('$SKILL_ROOT/runtime-profiles/$profile.json'))" 2>/dev/null; then
             check_pass "$profile.json 格式正确"
         else
             check_fail "$profile.json JSON 格式错误"
@@ -81,7 +83,7 @@ echo ""
 echo "[3/8] 检查 JSON Schema..."
 SCHEMA_FILE="$SKILL_ROOT/schemas/runtime-profile.schema.json"
 if [[ -f "$SCHEMA_FILE" ]]; then
-    if python3 -c "import json; json.load(open('$SCHEMA_FILE'))" 2>/dev/null; then
+    if "${DEVFLOW_PY[@]}" -c "import json; json.load(open('$SCHEMA_FILE'))" 2>/dev/null; then
         check_pass "runtime-profile.schema.json 存在且格式正确"
     else
         check_fail "runtime-profile.schema.json JSON 格式错误"
@@ -117,7 +119,7 @@ echo ""
 # 5. 检查 Python 脚本语法
 echo "[5/8] 检查 Python 脚本语法..."
 for py_script in generate_junit_tests.py generate_playwright_tests.py; do
-    if python3 -m py_compile "$SCRIPT_DIR/$py_script" 2>/dev/null; then
+    if "${DEVFLOW_PY[@]}" -m py_compile "$SCRIPT_DIR/$py_script" 2>/dev/null; then
         check_pass "$py_script 语法正确"
     else
         check_fail "$py_script 语法错误"
@@ -170,7 +172,7 @@ cat > "$TEST_DIR/.devflow/test-feature/design.json" <<'EOF'
 EOF
 
 # 测试 JUnit 生成器
-if python3 "$SCRIPT_DIR/generate_junit_tests.py" \
+if "${DEVFLOW_PY[@]}" "$SCRIPT_DIR/generate_junit_tests.py" \
     "$TEST_DIR/.devflow/test-feature/design.json" \
     "$TEST_DIR/backend/src/test/java" &>/dev/null; then
     check_pass "JUnit 生成器可运行"
@@ -189,7 +191,7 @@ cat > "$TEST_DIR/.devflow/test-feature/acceptance.json" <<'EOF'
 EOF
 
 # 测试 Playwright 生成器
-if python3 "$SCRIPT_DIR/generate_playwright_tests.py" \
+if "${DEVFLOW_PY[@]}" "$SCRIPT_DIR/generate_playwright_tests.py" \
     "$TEST_DIR/.devflow/test-feature/acceptance.json" \
     "$TEST_DIR/frontend/tests/e2e" &>/dev/null; then
     check_pass "Playwright 生成器可运行"

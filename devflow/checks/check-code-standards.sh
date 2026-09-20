@@ -21,6 +21,8 @@ set -uo pipefail
 
 # v3.26.1: 参数解析修复——旧版 SERVICE_DIR="${1:-backend}" 会把 --strict 吃成目录
 # （文档用法 `--strict` 单独使用即报"目录不存在：--strict"）；flag 与位置参数分离。
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 SERVICE_DIR=""
 STRICT=0
 while [ $# -gt 0 ]; do
@@ -49,7 +51,7 @@ if [ ! -d "$SERVICE_DIR" ]; then
   exit 1
 fi
 
-python3 - "$SERVICE_DIR" "$STRICT" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$SERVICE_DIR" "$STRICT" <<'PYEOF'
 import os, sys, re, glob
 
 base = sys.argv[1]
@@ -167,6 +169,6 @@ if [ "$CHK_RC" -eq 1 ]; then
   exit 1
 fi
 if [ "$CHK_RC" -ne 0 ]; then
-  echo "[FAIL] Python 环境故障（rc=${CHK_RC}，非业务判定——检查 python3 可用性）" >&2
+  echo "[FAIL] Python 环境故障（rc=${CHK_RC}，非业务判定——检查 Python 3 可用性）" >&2
   exit 1
 fi

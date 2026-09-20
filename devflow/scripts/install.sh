@@ -54,8 +54,15 @@ link_one() {
         fail "$target 已是实体目录/文件——为防覆盖不自动处理，请手工迁移后重试"
       fi
       mkdir -p "$dir" || fail "无法创建 $dir"
-      ln -s "$ROOT" "$target" || fail "创建软链失败: $target"
-      echo "[OK]   已安装: $target -> $ROOT"
+      if ! ln -s "$ROOT" "$target" 2>/dev/null; then
+        fail "创建软链失败: ${target}（Windows Git Bash 需开启开发者模式并设 MSYS=winsymlinks:nativestrict 后重试）"
+      fi
+      if [ ! -L "$target" ]; then
+        echo "[WARN] MSYS 把 ln -s 当作复制执行：$target 是实体副本而非软链——"
+        echo "       源仓更新后不会自动同步，需重跑 install.sh；启用真软链：开发者模式 + MSYS=winsymlinks:nativestrict"
+      else
+        echo "[OK]   已安装: $target -> $ROOT"
+      fi
       ;;
     uninstall)
       if [ -L "$target" ]; then

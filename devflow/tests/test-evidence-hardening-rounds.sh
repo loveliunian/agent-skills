@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # test-evidence-hardening-rounds.sh · 行为钉轮次回归（v3.20.3 自 test-evidence-hardening.sh 按领域拆分）
 # 覆盖 v3.16.6+ 各轮行为钉（N27/N28/N29/N30/N32）。头部环境与前文件保持同构。
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 source "$(cd "$(dirname "$0")" && pwd)/testlib.sh"
 source "$ROOT/scripts/devflow_receipt.sh"
 SKILL_VER=$(sed -n 's/^  version: "\([0-9.]*\)"/\1/p' "$ROOT/SKILL.md" | head -1)
@@ -37,10 +39,10 @@ TMP=$(mktemp -d)
 STAGING_PROBE_PORT=""
 STAGING_SRV=""
 _start_staging_probe() {
-  STAGING_PROBE_PORT=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')
+  STAGING_PROBE_PORT=$("${DEVFLOW_PY[@]}" -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')
   local d="$TMP/staging-probe"; mkdir -p "$d"
   printf '{"status":"UP","service":"fx-staging-probe","suite":"fx","cases":42,"passed":42,"failed":0}\n' > "$d/healthz"
-  python3 -m http.server "$STAGING_PROBE_PORT" --bind 127.0.0.1 --directory "$d" >/dev/null 2>&1 &
+  "${DEVFLOW_PY[@]}" -m http.server "$STAGING_PROBE_PORT" --bind 127.0.0.1 --directory "$d" >/dev/null 2>&1 &
   STAGING_SRV=$!
   sleep 0.5
 }
@@ -543,7 +545,7 @@ fi
 # _mkfull: 构造完整合法终验场景（冻结 baseline 3 点全 PASS + 五类真实报告）
 # 用途：T28a 正向基线 / T28d 删报告攻击起点
 _mkverif() { # $1=workspace —— 从 test-evidence.env 生成合法 verification.json（命令逐字一致）
-  python3 - "$1" <<'PYEOF'
+  "${DEVFLOW_PY[@]}" - "$1" <<'PYEOF'
 import json, sys, pathlib
 w = pathlib.Path(sys.argv[1])
 env = {}

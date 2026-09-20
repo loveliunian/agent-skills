@@ -15,6 +15,8 @@
 
 set -eo pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 SKILL_ROOT="${SKILL_ROOT:-$SCRIPT_DIR/..}"
 WORKSPACE="${WORKSPACE:-$(pwd)}"
@@ -87,8 +89,8 @@ generate_from_template() {
   local norm_ws norm_out
   norm_ws=$(cd "$WORKSPACE" 2>/dev/null && pwd -P) || { error "workspace 不可达: $WORKSPACE"; return 1; }
   case "$output_path" in
-    /*) norm_out=$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$output_path" 2>/dev/null) ;;
-    *) norm_out=$(python3 -c 'import os,sys; print(os.path.realpath(os.path.join(sys.argv[1], sys.argv[2])))' "$norm_ws" "$output_path" 2>/dev/null) ;;
+    /*) norm_out=$("${DEVFLOW_PY[@]}" -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$output_path" 2>/dev/null) ;;
+    *) norm_out=$("${DEVFLOW_PY[@]}" -c 'import os,sys; print(os.path.realpath(os.path.join(sys.argv[1], sys.argv[2])))' "$norm_ws" "$output_path" 2>/dev/null) ;;
   esac
   [ -n "$norm_out" ] || { error "输出路径归一化失败: $output_path"; return 1; }
   case "$norm_out" in

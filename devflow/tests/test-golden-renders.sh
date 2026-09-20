@@ -3,6 +3,8 @@
 # 目的：把全部 kind 的确定性渲染输出钉为逐字节黄金样本——渲染器任何非预期改动
 #（章节、表头、机器行、文案）都会在此暴露；有意变更须同步重生成 tests/golden/。
 # 生成方式（变更后重跑）：bash tests/test-golden-renders.sh --regen
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 source "$(cd "$(dirname "$0")" && pwd)/testlib.sh"
 
 KINDS="acceptance clarification code-review constraints demo-signoff deployment \
@@ -32,7 +34,7 @@ check_file() { # <golden-rel> <generated-path> <label>
 
 echo "=== 渲染黄金样本回归（v3.27.12） ==="
 for k in $KINDS; do
-  if ! python3 "$ROOT/scripts/df_render.py" "$k" \
+  if ! "${DEVFLOW_PY[@]}" "$ROOT/scripts/df_render.py" "$k" \
        --input "$ROOT/examples/structured/$k.sample.json" --out "$TMP/$k.md" >/dev/null 2>&1; then
     bad "render failed: $k"
     continue
@@ -41,7 +43,7 @@ for k in $KINDS; do
 done
 
 # small-change：md + env + scan 三件套
-if python3 "$ROOT/scripts/df_render.py" small-change \
+if "${DEVFLOW_PY[@]}" "$ROOT/scripts/df_render.py" small-change \
      --input "$ROOT/examples/structured/small-change.sample.json" \
      --out "$TMP/small-change.md" --out-env "$TMP/small-change.env" \
      --out-scan "$TMP/small-change-scan.txt" >/dev/null 2>&1; then
@@ -56,7 +58,7 @@ fi
 cp "$ROOT/examples/structured/design.skeleton.md" "$TMP/design.md"
 cp "$ROOT/examples/structured/数据库设计决策.skeleton.md" "$TMP/数据库设计决策.md"
 cp "$ROOT/examples/structured/需求追溯.skeleton.md" "$TMP/需求追溯.md"
-if python3 "$ROOT/scripts/df_render.py" design \
+if "${DEVFLOW_PY[@]}" "$ROOT/scripts/df_render.py" design \
      --input "$ROOT/examples/structured/design.sample.json" --doc "$TMP/design.md" \
      --db-doc "$TMP/数据库设计决策.md" --trace-doc "$TMP/需求追溯.md" >/dev/null 2>&1; then
   check_file "design.md" "$TMP/design.md" "design（块拼接）"

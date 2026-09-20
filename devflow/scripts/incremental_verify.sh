@@ -4,6 +4,8 @@
 
 set -euo pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 FEATURE="${1:-}"
 
 # 颜色定义
@@ -37,14 +39,14 @@ echo -e "${BLUE}Feature:${NC} $FEATURE"
 echo ""
 
 # 读取变更列表
-CHANGE_COUNT=$(python3 -c "import json; f=open('$INCREMENTAL_STATE'); d=json.load(f); print(len(d['changes']))")
+CHANGE_COUNT=$("${DEVFLOW_PY[@]}" -c "import json; f=open('$INCREMENTAL_STATE'); d=json.load(f); print(len(d['changes']))")
 
 echo "════════════════════════════════════════════════════════════════"
 echo "  变更列表（共 $CHANGE_COUNT 项）"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 
-python3 - "$INCREMENTAL_STATE" << 'PYTHON_END'
+"${DEVFLOW_PY[@]}" - "$INCREMENTAL_STATE" << 'PYTHON_END'
 import json
 import sys
 
@@ -99,7 +101,7 @@ echo ""
 # 3. 检查受影响的代码文件
 echo -e "${CYAN}[3/5]${NC} 检查受影响的代码文件..."
 
-python3 - "$INCREMENTAL_STATE" << 'PYTHON_END'
+"${DEVFLOW_PY[@]}" - "$INCREMENTAL_STATE" << 'PYTHON_END'
 import json
 import sys
 import os

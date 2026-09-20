@@ -6,6 +6,8 @@
 
 set -euo pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 GREEN='\033[0;32m'
@@ -225,7 +227,7 @@ echo -e "${GREEN}[3/5]${NC} 生成 JUnit 测试..."
 echo ""
 
 cd "$DEMO_DIR"
-python3 "$SCRIPT_DIR/generate_junit_tests.py" \
+"${DEVFLOW_PY[@]}" "$SCRIPT_DIR/generate_junit_tests.py" \
   ".devflow/demo-feature/design.json" \
   "backend/src/test/java"
 
@@ -233,7 +235,7 @@ echo ""
 echo -e "${GREEN}[4/5]${NC} 生成 Playwright 测试..."
 echo ""
 
-python3 "$SCRIPT_DIR/generate_playwright_tests.py" \
+"${DEVFLOW_PY[@]}" "$SCRIPT_DIR/generate_playwright_tests.py" \
   ".devflow/demo-feature/acceptance.json" \
   "frontend/tests/e2e"
 

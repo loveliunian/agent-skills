@@ -13,6 +13,8 @@ set -uo pipefail
 
 
 # ---------- 全局计数 ----------
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 FAIL=0; PASS=0; WARN=0
 
 p0() { echo "[P0] $1"; FAIL=$((FAIL + 1)); }
@@ -242,8 +244,8 @@ if [ "$GRAPH_STATUS" = "reachable" ]; then
       # normalize_str <raw> -> stdout 归一化结果；失败 rc=1
       local raw="$1"
       [ -n "$raw" ] || { printf '%s' "$raw"; return 0; }
-      if command -v python3 >/dev/null 2>&1 && python3 -c 'pass' >/dev/null 2>&1; then
-        python3 -c 'import os,sys; print(os.path.normpath(sys.argv[1]))' "$raw" 2>/dev/null && return 0
+      if devflow_py_ok && "${DEVFLOW_PY[@]}" -c 'pass' >/dev/null 2>&1; then
+        "${DEVFLOW_PY[@]}" -c 'import os,sys; print(os.path.normpath(sys.argv[1]))' "$raw" 2>/dev/null && return 0
       fi
       case "$raw" in
         *".."*) return 1 ;;   # 无法归一化的父段引用——fail-closed

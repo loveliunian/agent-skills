@@ -12,6 +12,8 @@
 #   6) check-permission-consistency.sh：含数字权限码 + hasAnyAuthority 提取漏检。
 # 兼容性注意：本文件跑在 macOS / Git Bash 3.2——ok/bad 必须在顶层调用（子 shell 计数
 # 不回传）；变量与多字节字符相邻时一律 ${var} 括号化（bash 3.2 多字节解析怪癖）。
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 TEST_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 ROOT="$(cd "$TEST_DIR/.." && pwd -P)"
 source "$TEST_DIR/testlib.sh"
@@ -256,10 +258,10 @@ cat > "$W8/.devflow/f1/security.json" <<'EOF'
   "zero_results": [{"path": "findings", "reason": "fixture 无发现"}]
 }
 EOF
-python3 "$ROOT/scripts/df_pipeline.py" security --input "$W8/.devflow/f1/security.json" --out "$W8/docs/评审/f1-安全审计报告.md" >/dev/null 2>&1 \
+"${DEVFLOW_PY[@]}" "$ROOT/scripts/df_pipeline.py" security --input "$W8/.devflow/f1/security.json" --out "$W8/docs/评审/f1-安全审计报告.md" >/dev/null 2>&1 \
   || bad "p3cd 收据夹具渲染失败（df_pipeline security）"
 NOJQ_BIN="$TMP/nojq-bin"; mkdir -p "$NOJQ_BIN"
-for _t in bash sh env python3 find grep sed awk cat date mktemp cmp shasum sort head tail wc tr cut basename dirname mkdir cp mv rm xargs; do
+for _t in bash sh env "${DEVFLOW_PY[@]}" find grep sed awk cat date mktemp cmp shasum sort head tail wc tr cut basename dirname mkdir cp mv rm xargs; do
   _p="$(command -v "$_t" 2>/dev/null)" && ln -sf "$_p" "$NOJQ_BIN/$_t"
 done
 in_dir "$W8" env PATH="$NOJQ_BIN" bash "$S/p3_security_perf_gate.sh" f1 --mode security
@@ -388,7 +390,7 @@ EOF
 cat > "$W12/d.json" <<'EOF'
 {"apis": [{"method": "PATCH", "path": "/api/elements/{type}/{id}/toggle", "name": "启停要素（停用/启用）"}]}
 EOF
-out="$(python3 "$ROOT/scripts/rule_operation_closure.py" --design "$W12/d.md" --design-json "$W12/d.json" 2>&1)"; rc=$?
+out="$("${DEVFLOW_PY[@]}" "$ROOT/scripts/rule_operation_closure.py" --design "$W12/d.md" --design-json "$W12/d.json" 2>&1)"; rc=$?
 [ "$rc" -eq 0 ] \
   && ok "rule closure 契约齐全不再误 FAIL（过度捕获收敛）" \
   || bad "rule closure 仍误报（$(printf '%s' "$out" | head -3 | tr '\n' ' ')）"
@@ -396,7 +398,7 @@ printf '%s' "$out" | grep -q "RR6" && bad "rule closure 标签双写 RR6 未修"
 
 # 负面：真缺契约仍须 FAIL（修复不得削弱检测）
 printf '## §3 业务规则\n| 编号 | 分类 | 规则描述 | 错误处理 |\n|---|---|---|---|\n| R6 | 删除 | 要素需先停用才可删除 | 未停用返回 E |\n\n## §5 接口概览\n| 子域 | Method | 路径 | 操作名 | 权限 |\n|---|---|---|---|---|\n| 要素 | DELETE | /api/elements/{id} | 删除要素 | x:y:z |\n' > "$W12/d2.md"
-python3 "$ROOT/scripts/rule_operation_closure.py" --design "$W12/d2.md" >/dev/null 2>&1; rc=$?
+"${DEVFLOW_PY[@]}" "$ROOT/scripts/rule_operation_closure.py" --design "$W12/d2.md" >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 1 ] \
   && ok "rule closure 真缺契约仍 FAIL（负面可验证）" \
   || bad "rule closure 负面用例未拦截（rc=${rc}）"
@@ -412,25 +414,25 @@ cat > "$W12/dead.md" <<'EOF'
 ## §3 规则
 | R1 | DRAFT 可提交 |
 EOF
-out="$(python3 "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/dead.md" 2>&1)"
+out="$("${DEVFLOW_PY[@]}" "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/dead.md" 2>&1)"
 if printf '%s' "$out" | grep -q "死状态" && printf '%s' "$out" | grep -q "无死状态"; then
   bad "state-matrix 非 strict 输出矛盾未修"
 else
   ok "state-matrix 非 strict 输出不再自相矛盾"
 fi
-out="$(python3 "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/dead.md" --strict 2>&1)"; rc=$?
+out="$("${DEVFLOW_PY[@]}" "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/dead.md" --strict 2>&1)"; rc=$?
 [ "$rc" -eq 1 ] && ok "state-matrix --strict 死状态仍 P0（负面可验证）" || bad "state-matrix strict 未拦截（rc=${rc}）"
 
 # field-drift 负面仍 FAIL
 printf '# 旧\n`sequence_incr` 序列号机制与指数退避。\n' > "$W12/old.md"
 printf '# 新\n无。\n' > "$W12/new.md"
-python3 "$ROOT/scripts/content_sufficiency_probes.py" field-drift --design "$W12/new.md" --legacy "$W12/old.md" >/dev/null 2>&1; rc=$?
+"${DEVFLOW_PY[@]}" "$ROOT/scripts/content_sufficiency_probes.py" field-drift --design "$W12/new.md" --legacy "$W12/old.md" >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 1 ] && ok "field-drift 负面仍可触发（修复未削弱检测）" || bad "field-drift 检测被削弱"
 
 # 边界：需要X才可执行（拆分顺序含"需要"，不得产出 junk「要二次鉴权」）
 printf '## §3 业务规则\n| 编号 | 分类 | 规则描述 | 错误处理 |\n|---|---|---|---|\n| R9 | 导出 | 需要二次鉴权才可执行 | 未二次鉴权返回 E |\n' > "$W12/d3.md"
 printf '{"apis":[{"method":"POST","path":"/api/export/challenge","name":"二次鉴权"}]}' > "$W12/d3.json"
-out="$(python3 "$ROOT/scripts/rule_operation_closure.py" --design "$W12/d3.md" --design-json "$W12/d3.json" 2>&1)"; rc=$?
+out="$("${DEVFLOW_PY[@]}" "$ROOT/scripts/rule_operation_closure.py" --design "$W12/d3.md" --design-json "$W12/d3.json" 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q "要二次鉴权"; then
   ok "rule closure 需要X句式收敛（伪造操作不产出）"
 else
@@ -440,7 +442,7 @@ fi
 # 健壮性：valid_combos 含不可哈希值 → 降级 WARN 而非 traceback 崩溃
 printf '## §2.3 状态枚举\n| 字段 | 值 | 说明 |\n|---|---|---|\n| status | A | a |\n| status | B | b |\n| type | X | x |\n| type | Y | y |\n\n## §3 规则\n| R1 | A 可提交 |\n\n## §4 转移\nA 到 B；X 到 Y。\n' > "$W12/combo.md"
 printf '{"state_machines": {"fields": ["status", "type"], "valid_combos": [{"status": ["A", "B"], "type": "X"}]}}' > "$W12/combo.json"
-out="$(python3 "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/combo.md" --design-json "$W12/combo.json" 2>&1)"; rc=$?
+out="$("${DEVFLOW_PY[@]}" "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/combo.md" --design-json "$W12/combo.json" 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q "Traceback"; then
   ok "state-matrix 组合结构不可解析时降级 WARN（无崩溃）"
 else
@@ -450,7 +452,7 @@ fi
 # 反例：业务对象绑定（v3.26.7）——"要素需先停用"不得被"停用字典"满足
 printf '## §3 业务规则\n| 编号 | 分类 | 规则描述 | 错误处理 |\n|---|---|---|---|\n| R6 | 删除 | 要素需先停用才可删除 | 未停用返回 E |\n' > "$W12/obj.md"
 printf '{"apis":[{"method":"PATCH","path":"/api/dict/toggle","name":"停用字典"}]}' > "$W12/obj.json"
-python3 "$ROOT/scripts/rule_operation_closure.py" --design "$W12/obj.md" --design-json "$W12/obj.json" >/dev/null 2>&1; rc=$?
+"${DEVFLOW_PY[@]}" "$ROOT/scripts/rule_operation_closure.py" --design "$W12/obj.md" --design-json "$W12/obj.json" >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 1 ] \
   && ok "rule closure 无关同动词端点不满足（业务对象绑定）" \
   || bad "rule closure 未绑定业务对象（停用字典被误认可达，rc=${rc}）"
@@ -458,46 +460,46 @@ python3 "$ROOT/scripts/rule_operation_closure.py" --design "$W12/obj.md" --desig
 # 反例：组合矩阵枚举数（v3.26.7）——常规三列表两个状态、仅一个合法组合必须 FAIL
 printf '## §2.3 状态枚举\n| 字段 | 值 | 说明 |\n|---|---|---|\n| status | DRAFT | 草稿 |\n| status | PUBLISHED | 已发布 |\n\n## §3 规则\n| R1 | DRAFT 可提交 |\n\n## §4 转移\nDRAFT 到 PUBLISHED。\n' > "$W12/enum.md"
 printf '{"state_machines": {"fields": ["status"], "valid_combos": [{"status": "DRAFT"}]}}' > "$W12/enum-bad.json"
-python3 "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/enum.md" --design-json "$W12/enum-bad.json" >/dev/null 2>&1; rc=$?
+"${DEVFLOW_PY[@]}" "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/enum.md" --design-json "$W12/enum-bad.json" >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 1 ] \
   && ok "state-matrix 三列表枚举数提取正确（1 < 2 必 FAIL）" \
   || bad "state-matrix 枚举数仍错（rc=${rc}）"
 printf '{"state_machines": {"fields": ["status"], "valid_combos": [{"status": "DRAFT"}, {"status": "PUBLISHED"}]}}' > "$W12/enum-ok.json"
-python3 "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/enum.md" --design-json "$W12/enum-ok.json" >/dev/null 2>&1; rc=$?
+"${DEVFLOW_PY[@]}" "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/enum.md" --design-json "$W12/enum-ok.json" >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 0 ] && ok "state-matrix 组合齐全（2/2）正常通过" || bad "state-matrix 组合齐全被误拒（rc=${rc}）"
 
 # 反例：状态条件隔断下的对象继承（v3.26.8）——"要素在草稿状态时需先停用"的主语
 # 须传到错误码分支"未停用返回"，"停用字典"不得满足
 printf '## §3 业务规则\n| 编号 | 分类 | 规则描述 | 错误处理 |\n|---|---|---|---|\n| R6 | 删除 | 要素在草稿状态时需先停用才可删除 | 未停用返回 ELEMENT_NOT_DISABLED |\n' > "$W12/cond.md"
 printf '{"apis":[{"method":"PATCH","path":"/api/dict/toggle","name":"停用字典"}]}' > "$W12/cond-bad.json"
-python3 "$ROOT/scripts/rule_operation_closure.py" --design "$W12/cond.md" --design-json "$W12/cond-bad.json" >/dev/null 2>&1; rc=$?
+"${DEVFLOW_PY[@]}" "$ROOT/scripts/rule_operation_closure.py" --design "$W12/cond.md" --design-json "$W12/cond-bad.json" >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 1 ] \
   && ok "rule closure 状态条件隔断下对象继承（停用字典不满足）" \
   || bad "rule closure 条件隔断下对象丢失（rc=${rc}）"
 printf '{"apis":[{"method":"PATCH","path":"/api/elements/toggle","name":"启停要素（停用/启用）"}]}' > "$W12/cond-ok.json"
-python3 "$ROOT/scripts/rule_operation_closure.py" --design "$W12/cond.md" --design-json "$W12/cond-ok.json" >/dev/null 2>&1; rc=$?
+"${DEVFLOW_PY[@]}" "$ROOT/scripts/rule_operation_closure.py" --design "$W12/cond.md" --design-json "$W12/cond-ok.json" >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 0 ] && ok "rule closure 同对象端点仍通过（条件句正向）" || bad "rule closure 条件句误拒（rc=${rc}）"
 
 # 反例：组合合法性（v3.26.8）——{DRAFT, UNKNOWN} 数量相同但取值非法必须 FAIL
 printf '{"state_machines": {"fields": ["status"], "valid_combos": [{"status": "DRAFT"}, {"status": "UNKNOWN"}]}}' > "$W12/enum-illegal.json"
-python3 "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/enum.md" --design-json "$W12/enum-illegal.json" >/dev/null 2>&1; rc=$?
+"${DEVFLOW_PY[@]}" "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/enum.md" --design-json "$W12/enum-illegal.json" >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 1 ] \
   && ok "state-matrix 非法组合（取值不在枚举域）必 FAIL" \
   || bad "state-matrix 非法组合同数量放行（rc=${rc}）"
 
 # 反例：自然句式"X未Y时拒绝"（v3.26.9）——对象前缀不再令模式 2 整体漏抽
 printf '## §3 业务规则\n| 编号 | 分类 | 规则描述 | 错误处理 |\n|---|---|---|---|\n| R6 | 删除 | 要素未停用时拒绝删除 | 无 |\n' > "$W12/nat.md"
-python3 "$ROOT/scripts/rule_operation_closure.py" --design "$W12/nat.md" >/dev/null 2>&1; rc=$?
+"${DEVFLOW_PY[@]}" "$ROOT/scripts/rule_operation_closure.py" --design "$W12/nat.md" >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 1 ] \
   && ok "rule closure 未X时拒绝句式提取（无端点必 FAIL）" \
   || bad "rule closure 自然句式仍漏抽（rc=${rc}）"
 printf '{"apis":[{"method":"PATCH","path":"/api/elements/toggle","name":"启停要素（停用/启用）"}]}' > "$W12/nat-ok.json"
-python3 "$ROOT/scripts/rule_operation_closure.py" --design "$W12/nat.md" --design-json "$W12/nat-ok.json" >/dev/null 2>&1; rc=$?
+"${DEVFLOW_PY[@]}" "$ROOT/scripts/rule_operation_closure.py" --design "$W12/nat.md" --design-json "$W12/nat-ok.json" >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 0 ] && ok "rule closure 自然句式正向通过" || bad "rule closure 自然句式误拒（rc=${rc}）"
 
 # 反例：组合混入未声明字段（v3.26.9）——scope=ANY 不得因无枚举域被静默放行
 printf '{"state_machines": {"fields": ["status"], "valid_combos": [{"status": "DRAFT"}, {"status": "PUBLISHED", "scope": "ANY"}]}}' > "$W12/enum-scope.json"
-python3 "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/enum.md" --design-json "$W12/enum-scope.json" >/dev/null 2>&1; rc=$?
+"${DEVFLOW_PY[@]}" "$ROOT/scripts/content_sufficiency_probes.py" state-matrix --design "$W12/enum.md" --design-json "$W12/enum-scope.json" >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 1 ] \
   && ok "state-matrix 未声明字段必 FAIL" \
   || bad "state-matrix 未声明字段被放行（rc=${rc}）"

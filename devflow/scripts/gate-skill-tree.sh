@@ -10,6 +10,8 @@
 #          哈希（~0.1s），输出与旧版逐字节一致（路径\t哈希 + LC_ALL=C 排序）；
 #          无 python3 的环境回退旧 shell 实现，两者 fail-closed 语义相同。
 set -uo pipefail
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 export LC_ALL=C
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
@@ -17,7 +19,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
 # 排除谓词必须与下面 shell 回退路径完全一致（两处修改需同步，回归由 test-v3140 /
 # test-version-hardening 树锚点与 manifest hash 钉住）。
 _tree_hash_python() {
-  python3 - "$ROOT" <<'PYEOF'
+  "${DEVFLOW_PY[@]}" - "$ROOT" <<'PYEOF'
 import hashlib, os, subprocess, sys
 ROOT = sys.argv[1]
 proc = subprocess.run(['find', ROOT, '-type', 'f',
@@ -85,7 +87,7 @@ _hash_stream() {
 }
 
 # ---------- 快速路径：python3 单进程批量哈希 ----------
-if command -v python3 >/dev/null 2>&1; then
+if devflow_py_ok; then
   FAST_HASH=$(_tree_hash_python) && [ -n "$FAST_HASH" ] || exit 1
   if printf '%s' "$FAST_HASH" | grep -qE '^[0-9a-f]{64}$'; then
     printf '%s\n' "$FAST_HASH"

@@ -18,8 +18,24 @@ disable-model-invocation: false
   （详设 §0.1 总表 / 正文内联 / 实现交接「新建清单 + M-NN 修改点」两节）；
   P2a 评审按此核对，缺标记按 DF 退回。
 - **commands/devflow.md**：`change`/`extend` 参数行补增量标记强制提示。
-- 纯文档约定，无脚本/schema/Gate 改动；存量 feature 不受影响（标记仅对
-  change/extend 模式的 P2/P2a 产出提出要求）。
+- 存量 feature 不受影响（标记仅对 change/extend 模式的 P2/P2a 产出提出要求）。
+
+同批：**Windows Git Bash 兼容硬化**（Windows-compatibility 专项评审落地）。
+
+- **`scripts/py_runtime.sh` 统一解释器解析**：`python3 → python(3.x 探测) → py -3`，
+  全仓 60 个 .sh 的硬编码 `python3` 调用改走 `"${DEVFLOW_PY[@]}"`、守护点改
+  `devflow_py_ok`（缺解释器保持原降级/失败关闭语义）、导出 `DEVFLOW_PY_STR`
+  供 `bash -c` 子壳与 sed 注入场景；覆盖 python.org Windows 安装包无 python3
+  别名导致的 command not found。
+- **仓库根新增 `.gitattributes`**：`*.sh/*.py/*.md/*.json` 等强制检出 LF，
+  对冲 Git for Windows 默认 `core.autocrlf=true`（CRLF 会破坏 shebang 与 grep
+  `$` 锚点）。
+- **doctor.sh**：jq 缺失由 WARN 升级 FAIL（manifest hash-chain 与 state 机硬依赖）；
+  Python 3 检查项显示实际解析到的解释器。
+- **install.sh**：MSYS 把 `ln -s` 当复制执行时显式 WARN 并给出
+  `MSYS=winsymlinks:nativestrict` + 开发者模式指引。
+- 事实清单与平台矩阵更新见 `references/windows-compatibility.md`；Ubuntu/Git Bash
+  CI 收据仍为待办。
 
 ## v3.28.6 (2026-09-20) — ch07-org-user 实战修复：结构化层旧格式兼容 + ugrep 多字节契约 + 四纪律沉淀
 

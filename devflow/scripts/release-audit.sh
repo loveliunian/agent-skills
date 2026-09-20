@@ -2,6 +2,8 @@
 # Release integrity gate for the active devflow tree.
 set -uo pipefail
 
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 DEFAULT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
 ROOT="${DEVFLOW_AUDIT_ROOT:-$DEFAULT_ROOT}"
@@ -43,8 +45,8 @@ done < <(active_markdown)
 # 背景：completeness-auditor.md 的 allowed-tools/paths 缩进冲突曾使 YAML 解析 exit 1，
 # 而旧审计只查 frontmatter 版本号，未发现结构损坏。
 validate_frontmatter_yaml() {
-  if command -v python3 >/dev/null 2>&1 && python3 -c "import yaml" >/dev/null 2>&1; then
-    python3 -c '
+  if devflow_py_ok && "${DEVFLOW_PY[@]}" -c "import yaml" >/dev/null 2>&1; then
+    "${DEVFLOW_PY[@]}" -c '
 import sys, yaml
 try:
     yaml.safe_load(sys.stdin)
@@ -93,8 +95,8 @@ except Exception:
 #          同时校验顶层 compatibility 为字符串、metadata 为 string→string。
 validate_allowed_tools_semantics() {
   local file="$1"
-  if command -v python3 >/dev/null 2>&1 && python3 -c "import yaml" >/dev/null 2>&1; then
-    python3 - "$file" <<'PY'
+  if devflow_py_ok && "${DEVFLOW_PY[@]}" -c "import yaml" >/dev/null 2>&1; then
+    "${DEVFLOW_PY[@]}" - "$file" <<'PY'
 import sys, yaml
 path = sys.argv[1]
 text = open(path, encoding="utf-8").read()
@@ -210,10 +212,10 @@ while IFS= read -r json_file; do
       fail "invalid JSON: $rel"
     fi
     continue
-  elif command -v python3 >/dev/null 2>&1; then
+  elif devflow_py_ok; then
     # v3.15.23: 区分 python3 运行故障与 JSON 无效——旧版把解释器损坏误报 invalid
     # JSON（第 20 轮 P3-7：fail 方向正确但归因误导）
-    if python3 -m json.tool "$json_file" >/dev/null 2>&1; then
+    if "${DEVFLOW_PY[@]}" -m json.tool "$json_file" >/dev/null 2>&1; then
       pass "valid JSON: $rel"
     else
       fail "invalid JSON (or python3 validator failure): $rel"
@@ -305,11 +307,11 @@ if bash "$ROOT/hooks/pre-commit-devflow.sh" --self-test >/dev/null 2>&1; then
   pass "pre-commit hook self-test"
 
 # v3.27.2: Contract Registry 一致性 linter（审查报告 P0-1——sample/probe/spawn/core 漂移自动拦截）
-if command -v python3 >/dev/null 2>&1; then
-  if python3 "$ROOT/scripts/check-contract-consistency.py" >/dev/null 2>&1; then
+if devflow_py_ok; then
+  if "${DEVFLOW_PY[@]}" "$ROOT/scripts/check-contract-consistency.py" >/dev/null 2>&1; then
     pass "contract consistency linter"
   else
-    fail "contract consistency linter failed (run: python3 scripts/check-contract-consistency.py)"
+    fail "contract consistency linter failed (run: ${DEVFLOW_PY[0]} scripts/check-contract-consistency.py)"
   fi
 fi
 else

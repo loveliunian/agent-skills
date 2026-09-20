@@ -25,6 +25,8 @@ set -o pipefail
 # 参数解析：支持 1~2 个位置参数
 # 第 1 个：服务目录（默认 backend）
 # 第 2 个：输出 markdown 文件（可选，默认空=stdout）
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 SERVICE_DIR="${1:-backend}"
 OUTPUT_FILE="${2:-}"
 
@@ -44,7 +46,7 @@ if [ ! -d "$SERVICE_DIR" ]; then
   exit 1
 fi
 
-python3 - "$SERVICE_DIR" "$OUTPUT_FILE" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$SERVICE_DIR" "$OUTPUT_FILE" <<'PYEOF'
 import os, sys, re, glob
 from collections import defaultdict
 
@@ -265,6 +267,6 @@ if [ "$CHK_RC" -eq 1 ]; then
   exit 1
 fi
 if [ "$CHK_RC" -ne 0 ]; then
-  echo "[FAIL] Python 环境故障（rc=${CHK_RC}，非业务判定——检查 python3 可用性）" >&2
+  echo "[FAIL] Python 环境故障（rc=${CHK_RC}，非业务判定——检查 Python 3 可用性）" >&2
   exit 1
 fi

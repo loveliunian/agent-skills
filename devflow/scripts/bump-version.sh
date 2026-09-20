@@ -4,6 +4,8 @@
 # 覆盖: SKILL.md + commands/phases/subagents/references/concepts/templates 前matter+标题
 #       + scripts banner + structured samples template.version + agents/devflow.md
 set -euo pipefail
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
 NEW_VER="${1:?用法: bump-version.sh <new-version>}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
 OLD_VER=$(sed -n 's/^version: "\([0-9.]*\)"/\1/p; s/^  version: "\([0-9.]*\)"/\1/p' "$ROOT/SKILL.md" | head -1)
@@ -14,7 +16,7 @@ if [ "$OLD_VER" = "$NEW_VER" ]; then
 fi
 echo "bump: $OLD_VER → $NEW_VER"
 
-python3 - "$ROOT" "$OLD_VER" "$NEW_VER" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$ROOT" "$OLD_VER" "$NEW_VER" <<'PYEOF'
 import glob, json, sys, re
 root, old, new = sys.argv[1], sys.argv[2], sys.argv[3]
 count = 0

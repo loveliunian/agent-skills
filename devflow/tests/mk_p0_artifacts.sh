@@ -2,6 +2,8 @@
 # mk_p0_artifacts.sh — s0 Gate 全部强制产物一次性生成
 # 用法: bash tests/mk_p0_artifacts.sh <feature> <workspace>
 set -u
+# v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 FEATURE="${1:?feature}"
 WS="${2:?workspace}"
 REQ_DIR="$WS/docs/需求"
@@ -83,7 +85,7 @@ EOF
 printf '# %s PRD\nfixture PRD\n' "$FEATURE" > "$WS/docs/PRD/$FEATURE.md"
 
 # clarification.json
-python3 - "$FEATURE" "$DEV_DIR" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$FEATURE" "$DEV_DIR" <<'PYEOF'
 import json, sys
 feature, dev_dir = sys.argv[1], sys.argv[2]
 d = {
@@ -110,7 +112,7 @@ json.dump(d, open(dev_dir + "/clarification.json", "w"), ensure_ascii=False)
 PYEOF
 
 # acceptance.json（signoffs ≥1 + prd_anchor 指向真实文件）
-python3 - "$FEATURE" "$DEV_DIR" <<'PYEOF'
+"${DEVFLOW_PY[@]}" - "$FEATURE" "$DEV_DIR" <<'PYEOF'
 import json, sys
 feature, dev_dir = sys.argv[1], sys.argv[2]
 d = {
