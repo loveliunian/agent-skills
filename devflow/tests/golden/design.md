@@ -54,6 +54,8 @@ sequenceDiagram
 
 ## §2 数据模型
 
+## 2.2 表结构设计
+
 ### 2.2.1 支付订单表（pay_order）
 
 字段与口径见下表索引。
@@ -67,6 +69,8 @@ sequenceDiagram
 ### 3.1 接口概览
 
 接口索引见下表。
+
+### 3.2 详细接口定义
 
 #### 3.2.1 创建支付订单
 
@@ -126,6 +130,8 @@ sequenceDiagram
 | 2 | 支付 | 退款页 | /pay/refund | views/pay/RefundCreate.vue | 表单页 | pay:refund:create |
 | 3 | 支付 | 提交确认 | /pay/order/create | views/pay/SubmitConfirmDialog.vue | 弹窗（确认） | pay:order:create |
 | 4 | 支付 | 退款确认 | /pay/refund | views/pay/RefundConfirmDialog.vue | 弹窗（确认） | pay:refund:create |
+
+## 7.2 页面交互设计
 
 ### 7.2.1 下单页交互（覆盖：下单页）
 

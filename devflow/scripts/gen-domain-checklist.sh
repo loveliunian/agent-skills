@@ -42,7 +42,7 @@ case "$PLATFORM" in
 esac
 [ "$PLATFORM" = "mini-program" ] && PLATFORM="miniprogram"
 
-# 外部数据依赖检测：需求/详设中出现对接信号即触发 external-data 剧本
+# 外部数据依赖检测：需求/详设中出现对接信号即触发 external-data
 DEP_HIT=0
 # v3.14.3: 检测范围收窄到本 feature 的文档（其他 feature 的对接描述不得误触发）
 # v3.22.0: 扫描目录中英双语
@@ -80,17 +80,17 @@ mkdir -p "$(dirname "$OUT")"
   fi
   echo ""
   if [ "$PLATFORM" != "not-applicable" ]; then
-    echo "## 平台剧本：${LABEL}"
+    echo "## 平台：${LABEL}"
     echo ""
     cat "$PB_PLATFORM"
     echo ""
   fi
   if [ "$DEP_HIT" = "1" ]; then
-    echo "## 外部数据依赖剧本（检测到对接信号）"
+    echo "## 外部数据依赖（检测到对接信号）"
     echo ""
     cat "$PLAYBOOK_DIR/playbook-external-data.md"
   else
-    echo "## 外部数据依赖剧本"
+    echo "## 外部数据依赖"
     echo ""
     echo "> 未检测到外部对接信号，本节跳过。若实际存在对接，请补充到需求文档后重新生成。"
     echo ""

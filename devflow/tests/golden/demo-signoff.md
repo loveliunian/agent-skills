@@ -3,7 +3,7 @@
 > 确认日期：2026-09-16　数据来源：demo-signoff.json 结构化产物自动汇总
 
 
-<!-- 审计指纹: demo-signoff.json sha256=04d8c5e0885cfd126ba863dafe260e5a32c81503d6b93ad94c5526c6f515663a（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: demo-signoff.json sha256=6c6a4bb4687d99ff75cc406b4ad62d927e57277d1806e31d854e0faef9a4fbd1（由 df_render 自动生成，人工勿改） -->
 
 ## 原型文件
 

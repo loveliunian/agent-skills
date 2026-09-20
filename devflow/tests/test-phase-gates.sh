@@ -115,6 +115,7 @@ CREATE TABLE foo (id BIGINT PRIMARY KEY, page INT);
 ## §3 接口设计
 <!-- anchor: api-contracts -->
 本模块对外提供分页查询接口，概览与详细定义一一对应。
+### 3.2 详细接口定义
 #### 3.2.1 分页列表
 
 > 说明：GET /api/foo/list ｜权限：foo:view
@@ -162,6 +163,8 @@ sequenceDiagram
 | 1 | foo | foo-list | /foo/list | views/foo/FooList.vue | 列表页 | foo:view |
 
 foo-list.vue；列表可达。
+
+## 7.2 页面交互设计
 
 ### 7.2.1 列表页交互
 

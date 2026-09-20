@@ -3,7 +3,7 @@
 > 生成时间：2026-09-17 10:00:00（UTC）　数据来源：performance.json 自动汇总（人工勿改）
 
 
-<!-- 审计指纹: performance.json sha256=79a8e31afcf5d59dd68c5fee9c2730a06c6f4f190eb0bcdaa632b02709c8bdaa（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: performance.json sha256=14bbdb0abe5b19c4dc321fde613d61fba08f49ee68832f4e220d442393c99890（由 df_render 自动生成，人工勿改） -->
 
 ## 场景实测
 

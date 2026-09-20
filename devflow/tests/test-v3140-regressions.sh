@@ -66,7 +66,7 @@ W4="$TMP/p2a"; mkdir -p "$W4/docs/detailed-design" "$W4/docs/requirements" "$W4/
 WORKSPACE="$W4" bash "$ROOT/scripts/devflow-state.sh" init p2a --frontend=mini-program >/dev/null 2>&1
 printf '# d\n| M-01-F01-A01 | COMPLETE |\n' > "$W4/docs/detailed-design/p2a-design.md"
 printf '# c\n| M-01-F01-A01 | 待验证 |\n' > "$W4/docs/requirements/p2a-acceptance-criteria.md"
-# 外部依赖信号：触发外部数据剧本（同时使领域清单成为强制项）
+# 外部依赖信号：触发外部数据（同时使领域清单成为强制项）
 echo "本功能需与 CRM 系统对接获取客户数据。" >> "$W4/docs/detailed-design/p2a-design.md"
 { echo "# 报告"
   for r in 架构师 后端专家 前端专家 测试开发 DBA; do echo "- 归属评委：$r"; done

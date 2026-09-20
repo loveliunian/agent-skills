@@ -3,7 +3,7 @@
 > 生成时间：2026-09-16 10:00:00（UTC）　数据来源：clarification.json 结构化产物自动汇总
 
 
-<!-- 审计指纹: clarification.json sha256=de5690f5e99ad0c6527ef9cd7bfe6cd48fba048bba05b09a56ce6071861600a1（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: clarification.json sha256=b7506cf8985520e0f5fb185dd7cfc06dcbba9fb08785fded31a56ba8cdf37cfe（由 df_render 自动生成，人工勿改） -->
 
 ## 基本信息
 

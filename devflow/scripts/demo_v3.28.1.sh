@@ -248,7 +248,7 @@ cat << 'EOF'
 
   • docs/Gate自动修复建议.md
   • docs/增量变更模式.md
-  • CHANGELOG-v3.28.1.md
+  • references/CHANGELOG.md
 
 EOF
 

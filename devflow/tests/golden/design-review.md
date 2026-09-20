@@ -4,7 +4,7 @@
 > 详设文档：docs/详细设计/demo-pay-详细设计.md　PRD：docs/PRD/demo-pay.md
 
 
-<!-- 审计指纹: design-review.json sha256=98db1d81f0657a5aee7e7cfd84a92a74a9e45657d2f8e5be781fe23617a7de90（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: design-review.json sha256=5de05821fbf827ce3228b0eb7ad6edff0e0e24ca518c1e513fcae3d41b643c02（由 df_render 自动生成，人工勿改） -->
 
 REVIEW_RUN_ID=REV-20260916-001
 
