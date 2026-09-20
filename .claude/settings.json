@@ -1,0 +1,54 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/stop_tests_must_pass.py\"",
+            "timeout": 600,
+            "statusMessage": "收工检查:编译改动模块…"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/sdd_prompt_context.py\"",
+            "timeout": 30,
+            "statusMessage": "SDD 状态机报数…"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/sdd_pre_edit.py\"",
+            "timeout": 15,
+            "statusMessage": "SDD 守卫:状态字段只许命令回写…"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/sdd_post_edit.py\"",
+            "timeout": 120,
+            "statusMessage": "SDD 快检:机器 twin 改动后即刻校验…"
+          }
+        ]
+      }
+    ]
+  }
+}

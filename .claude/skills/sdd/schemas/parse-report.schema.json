@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "parse-report",
+  "description": "解析步解析报告:架构形态判定 + 六项计数 + 验收分母。脚本用 rawCounts 与抽取件实际条数对账,防漏抽/漏统计",
+  "type": "object",
+  "required": ["generatedAt", "source", "architecture", "rawCounts", "counts"],
+  "properties": {
+    "generatedAt": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "source": { "type": "string", "minLength": 1, "description": "主详设路径" },
+    "docs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 2 },
+      "description": "本次参与解析的全部详设文件(总分结构时必填,含总文档与每个分文档)。chunk-plan 的 doc 必须能在本清单或 source 里找到"
+    },
+    "architecture": {
+      "type": "object",
+      "required": ["style", "evidence"],
+      "properties": {
+        "style": {
+          "enum": ["monolith", "microservices"],
+          "description": "monolith=Spring Boot 单体(含多模块单应用);microservices=Spring Cloud 多服务"
+        },
+        "services": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "微服务形态的服务清单;单体形态留空"
+        },
+        "modules": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "单体形态的业务模块清单,守卫方案 模块隔离守卫据此生成"
+        },
+        "evidence": { "type": "string", "minLength": 2, "description": "判定依据:必须引用原文语句出处+关键词,如 '总文档 §1.2:单体服务、无注册中心'。标题含「跨服务调用」但正文写「无」的,不得作为微服务证据" }
+      },
+      "additionalProperties": false
+    },
+    "rawCounts": {
+      "type": "object",
+      "required": ["modules", "apis", "tables", "rules", "nfrs", "acceptances", "openIssues"],
+      "properties": {
+        "modules": { "type": "integer", "minimum": 0 },
+        "apis": { "type": "integer", "minimum": 0 },
+        "tables": { "type": "integer", "minimum": 0 },
+        "rules": { "type": "integer", "minimum": 0 },
+        "nfrs": { "type": "integer", "minimum": 0 },
+        "acceptances": { "type": "integer", "minimum": 0 },
+        "openIssues": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false,
+      "description": "各片抽取件的原始合计条数(未去重)"
+    },
+    "counts": {
+      "type": "object",
+      "required": ["modules", "apis", "tables", "rules", "nfrs", "acceptances", "openIssues"],
+      "properties": {
+        "modules": { "type": "integer", "minimum": 0 },
+        "apis": { "type": "integer", "minimum": 0 },
+        "tables": { "type": "integer", "minimum": 0 },
+        "rules": { "type": "integer", "minimum": 0 },
+        "nfrs": { "type": "integer", "minimum": 0 },
+        "acceptances": { "type": "integer", "minimum": 0 },
+        "openIssues": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false,
+      "description": "跨片合并去重后的唯一条目数,必须 <= rawCounts 同项"
+    },
+    "acceptance": {
+      "type": "object",
+      "required": ["declared"],
+      "properties": {
+        "declared": { "type": "integer", "minimum": 0, "description": "详设自己声明的验收点总数(分母),如 §9 「18 个验收点」。脚本据此核对是否全抽到、是否全落到 feature" },
+        "evidence": { "type": "string", "description": "分母出处,如 '§8.1 / §9.1 矩阵 18 个验收点'" },
+        "designedComplete": { "type": "integer", "minimum": 0, "description": "矩阵中状态为 COMPLETE 的条数(详设层面的设计完成度)" }
+      },
+      "additionalProperties": false,
+      "description": "详设有验收章节/追溯矩阵时必填;无验收章节可省略,但需在 notes 说明"
+    },
+    "conflicts": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 2 },
+      "description": "跨片矛盾(同名接口两片描述不一致等),每条须已登记为 Q"
+    },
+    "notes": { "type": "string" }
+  },
+  "additionalProperties": false
+}

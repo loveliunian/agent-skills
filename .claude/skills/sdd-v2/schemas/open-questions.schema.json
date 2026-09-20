@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "open-questions",
+  "type": "object",
+  "required": ["generatedAt", "questions"],
+  "properties": {
+    "generatedAt": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "question", "source", "features", "blocking", "status", "suggestion"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^Q\\d{3}$" },
+          "question": { "type": "string", "minLength": 5 },
+          "source": { "type": "string", "minLength": 2, "description": "详设章节/解析疑点/constitution 待定" },
+          "features": { "type": "array", "items": { "type": "string", "pattern": "^F\\d{3}$" } },
+          "blocking": { "enum": ["high", "low"] },
+          "status": { "enum": ["open", "已关闭"] },
+          "suggestion": { "type": "string", "minLength": 2, "description": "AI 建议答案,必填;md 中标注「建议,待确认」" },
+          "answer": { "type": ["string", "null"], "description": "用户答复,closed 时必填" },
+          "answeredBy": { "type": "string", "description": "给出答复的人,status=closed 时必填" },
+          "answeredAt": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "description": "答复日期,status=closed 时必填" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

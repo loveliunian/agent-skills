@@ -1,0 +1,257 @@
+{
+  "meta": {
+    "templateId": "详细设计-总分分文档-模板",
+    "templateVersion": "3.20.3",
+    "docType": "模块详细设计",
+    "moduleCode": "USR",
+    "moduleName": "用户中心",
+    "ownerService": "user-service",
+    "scope": "组织架构管理(组织树/组织维护/临时部门)+用户信息维护",
+    "status": "草稿",
+    "generatedAt": "2026-09-17",
+    "baseline": "依据 CH-07 功能详细设计(QUICK-VALIDATION-001 限域)生成",
+    "docs": [
+      "用户中心-详细设计-v1.json"
+    ],
+    "sourceDoc": "ch-07.md",
+    "decisions": [
+      {
+        "issueId": "PI-01",
+        "landedAt": [
+          "C02-R01"
+        ]
+      }
+    ],
+    "issuesDigest": "8ea197cf282cda26ae737a66975b6ee698bba81e58aa2d262258bcfed65919be"
+  },
+  "architecture": {
+    "style": "unknown",
+    "services": [],
+    "modules": [
+      "组织架构管理",
+      "用户信息维护"
+    ],
+    "evidence": "§7.1 基础能力模块:PRD 未声明部署形态,按单体 Web 管理端设计(裁决记录见 prd_issues.json)"
+  },
+  "techStack": [
+    {
+      "item": "前端",
+      "value": "Web 管理端(框架 PRD 未指定)",
+      "sourceSection": "§7.1 容器概述"
+    }
+  ],
+  "acceptance": {
+    "declared": 5,
+    "evidence": "§7.1 各 FUN 第 15 项验收标准表合计 5 行;其中 1 条(FUN-USR-006)不在本期范围,未进详设(裁决记录见 prd_issues.json)",
+    "designedComplete": 3
+  },
+  "chunks": [
+    {
+      "chunkId": "C01",
+      "chapter": "数据模型",
+      "sourceSection": "§7.1 第 14 项 数据字段",
+      "contextFrom": [
+        "§7.1 第 3 项 功能边界"
+      ],
+      "modules": [
+        {
+          "name": "组织树",
+          "summary": "部门+用户统一树,根唯一、部门多级、用户为叶子",
+          "sourceSection": "§7.1 FUN-ORG-001"
+        }
+      ],
+      "rules": [],
+      "apis": [],
+      "tables": [],
+      "nfrs": [],
+      "acceptances": []
+    },
+    {
+      "chunkId": "C02",
+      "chapter": "业务规则",
+      "sourceSection": "§7.1 第 11 项 业务规则",
+      "contextFrom": [],
+      "modules": [],
+      "rules": [
+        {
+          "ruleId": "C02-R01",
+          "sourceRuleId": "R-001",
+          "text": "组织名称必填且同级内唯一",
+          "category": "校验",
+          "errorCase": "ORG_NAME_REQUIRED / ORG_NAME_DUPLICATED",
+          "module": "组织架构管理",
+          "sourceSection": "§7.1 FUN-ORG-002 第 11 项"
+        },
+        {
+          "ruleId": "C02-R02",
+          "sourceRuleId": "R-002",
+          "text": "组织编码创建后不可修改,编辑时编码字段置灰",
+          "category": "编码",
+          "errorCase": "ORG_CODE_IMMUTABLE",
+          "module": "组织架构管理",
+          "sourceSection": "§7.1 FUN-ORG-002 第 5 项"
+        },
+        {
+          "ruleId": "C02-R03",
+          "sourceRuleId": "R-005",
+          "text": "是否临时部门=是 时,级联显示有效期字段且有效期必填",
+          "category": "校验",
+          "errorCase": "ORG_TEMP_EXPIRY_REQUIRED",
+          "module": "组织架构管理",
+          "sourceSection": "§7.1 FUN-ORG-002 第 4 项;§7.1 FUN-ORG-002 第 11 项"
+        },
+        {
+          "ruleId": "C02-R04",
+          "sourceRuleId": "R-014",
+          "text": "同级内停用用户排在最后展示",
+          "category": "展示",
+          "errorCase": "—",
+          "module": "用户信息维护",
+          "sourceSection": "§7.1 FUN-ORG-001 第 11 项"
+        }
+      ],
+      "apis": [],
+      "tables": [],
+      "nfrs": [],
+      "acceptances": []
+    },
+    {
+      "chunkId": "C03",
+      "chapter": "接口设计",
+      "sourceSection": "§7.1 第 8 项 主流程与操作流程图",
+      "contextFrom": [
+        "§7.1 第 5 项 权限能力约束"
+      ],
+      "modules": [],
+      "rules": [],
+      "apis": [
+        {
+          "method": "UI:createOrg",
+          "path": "组织架构管理页/抽屉:新建组织",
+          "purpose": "新建组织(含子组织上级预填)",
+          "permission": "仅管理员(角色体系外部,声明)",
+          "sourceSection": "§7.1 FUN-ORG-002"
+        }
+      ],
+      "tables": [],
+      "nfrs": [],
+      "acceptances": []
+    },
+    {
+      "chunkId": "C04",
+      "chapter": "验收标准",
+      "sourceSection": "§7.1 第 15 项 验收标准",
+      "contextFrom": [
+        "§7.1 第 11 项 业务规则"
+      ],
+      "modules": [],
+      "rules": [],
+      "apis": [],
+      "tables": [],
+      "nfrs": [],
+      "acceptances": [
+        {
+          "acceptanceId": "A1",
+          "text": "进入页面展开树:根唯一、多级部门、用户为叶子、启停标记与停用用户排序正确",
+          "ruleRefs": [
+            "R-014"
+          ],
+          "apiRefs": [],
+          "tableRefs": [],
+          "testCases": [
+            "TC-ORG-001"
+          ],
+          "status": "COMPLETE",
+          "sourceSection": "§7.1 FUN-ORG-001 第 15 项"
+        },
+        {
+          "acceptanceId": "A2",
+          "text": "新建组织提交:R-001/R-002/R-005 校验通过后保存并刷新树,任一校验失败停留抽屉就地提示",
+          "ruleRefs": [
+            "R-001",
+            "R-002",
+            "R-005"
+          ],
+          "apiRefs": [
+            "§7.1 FUN-ORG-002 第 8 项"
+          ],
+          "tableRefs": [],
+          "testCases": [
+            "TC-ORG-002"
+          ],
+          "status": "COMPLETE",
+          "sourceSection": "§7.1 FUN-ORG-002 第 15 项"
+        },
+        {
+          "acceptanceId": "A3",
+          "text": "是否临时部门=是 时级联显示有效期且必填",
+          "ruleRefs": [
+            "R-005"
+          ],
+          "apiRefs": [],
+          "tableRefs": [],
+          "testCases": [
+            "TC-ORG-003"
+          ],
+          "status": "COMPLETE",
+          "sourceSection": "§7.1 FUN-ORG-002 第 4 项"
+        }
+      ]
+    },
+    {
+      "chunkId": "C05",
+      "chapter": "非功能设计",
+      "sourceSection": "§7.1 第 10 项 异常处理",
+      "contextFrom": [],
+      "modules": [],
+      "rules": [],
+      "apis": [],
+      "tables": [],
+      "nfrs": [
+        {
+          "dimension": "usability",
+          "requirement": "组织树加载失败提供重试入口",
+          "target": "失败态可一键重试,重试成功恢复展示",
+          "sourceSection": "§7.1 FUN-ORG-001 第 10 项"
+        }
+      ],
+      "acceptances": []
+    }
+  ],
+  "frontend": {
+    "pages": [
+      {
+        "name": "组织架构管理页",
+        "module": "组织架构管理",
+        "route": "/admin/organization",
+        "component": "admin/organization/index.vue",
+        "type": "左树右详情",
+        "permission": "全员可见;维护仅管理员"
+      }
+    ],
+    "interactions": [
+      {
+        "page": "组织架构管理页",
+        "topic": "列表框架",
+        "content": "左栏组织树(根唯一/启停标记/临时钥匙icon);右侧详情区随选中类型切换;加载失败显示重试;保存/删除/启停后局部刷新并保持展开选中位置",
+        "sourceSection": "§7.1 FUN-ORG-001 第 4 项"
+      }
+    ],
+    "dialogs": [
+      {
+        "scene": "组织架构·新建/编辑",
+        "component": "OrgEditDrawer.vue",
+        "apiRef": "UI:createOrg",
+        "notes": "编辑预填;编码置灰;临时部门级联有效期"
+      }
+    ],
+    "contracts": {
+      "routing": "路由懒加载(基线 §1);免登录无守卫,/admin/organization 直进",
+      "state": "Pinia:orgTreeStore(树数据/展开选中位置,保存删除启停后局部刷新)",
+      "apiClient": "统一 request 封装:解包 {code,message,data};失败按 bizCode 分发到 el-message;写操作自动附 Idempotency-Key(基线 §2)",
+      "errorMapping": "VALIDATION_FAILED→表单 fieldPath 就地提示;NOT_FOUND→el-message+刷新列表;ORG_NAME_DUPLICATED→名称字段就地提示;ORG_CODE_INVALID/DUPLICATED→编码字段就地提示;INTERNAL_ERROR→展示 requestId",
+      "permission": "免登录模式:页面与按钮全部可见,权限码仅在代码预留;删除类操作前端二次确认+后端校验兜底",
+      "reusedComponents": "OrgEditDrawer(新建/编辑共用);确认弹窗组件(删除/启停共用);列表三态封装(骨架屏/空态/失败重试)"
+    }
+  }
+}

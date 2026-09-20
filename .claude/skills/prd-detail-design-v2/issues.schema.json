@@ -1,0 +1,161 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://liucheng/schemas/prd-issues.json",
+  "title": "PRD 问题清单（独立于详设交付裁决）",
+  "description": "PRD 预检发现的未决/矛盾/缺口全量登记，独立生成 issues.json + issues.md 交付裁决。详设中禁止出现任何问题内容：blocking 问题裁决回填后受影响部分才能进详设；非 blocking 问题不阻塞设计但须在此留档。裁决状态机：open → resolved（resolution 必填，写明裁决口径）/ wontfix（理由必填）。",
+  "definitions": {
+    "meta": {
+      "type": "object",
+      "description": "问题清单元信息",
+      "required": [
+        "sourceDoc",
+        "generatedAt",
+        "module"
+      ],
+      "properties": {
+        "sourceDoc": {
+          "type": "string",
+          "minLength": 1,
+          "description": "PRD 路径"
+        },
+        "generatedAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "module": {
+          "type": "string",
+          "minLength": 1,
+          "description": "模块名"
+        }
+      },
+      "additionalProperties": false
+    },
+    "issue": {
+      "type": "object",
+      "description": "问题一条。blocking=true ⇒ 详设受影响部分在裁决（status=resolved 且 resolution 非空）前不得生成；非 blocking 不阻塞",
+      "required": [
+        "issueId",
+        "kind",
+        "text",
+        "sourceSection",
+        "blocking",
+        "status",
+        "affects"
+      ],
+      "properties": {
+        "issueId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "PI-01 起连续编号（校验器强制）"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "unresolved",
+            "conflict",
+            "gap"
+          ],
+          "description": "未决 / 矛盾（text 须并列两处口径及出处）/ 缺口"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceSection": {
+          "type": "string",
+          "minLength": 1
+        },
+        "blocking": {
+          "type": "boolean"
+        },
+        "affects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "受影响的范围（功能名/规则编号/验收编号），裁决回填时按此定位详设改动点"
+        },
+        "relatedRules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "关联的 PRD 规则编号（R-xxx）"
+        },
+        "relatedAcceptances": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "受影响的验收条目（A 编号，详设生成后回填关联）"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "open",
+            "resolved",
+            "wontfix"
+          ]
+        },
+        "resolution": {
+          "type": "string",
+          "description": "裁决口径（resolved 必填）：明确了什么、按哪个候选执行；wontfix 时写理由"
+        },
+        "decidedBy": {
+          "type": "string",
+          "description": "裁决人/裁决来源"
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "option"
+            ],
+            "properties": {
+              "option": {
+                "type": "string",
+                "minLength": 1,
+                "description": "候选方案一句话"
+              },
+              "impact": {
+                "type": "string",
+                "description": "选它对接口/数据/流程设计的影响差异（供裁决人比选）"
+              }
+            },
+            "additionalProperties": false
+          },
+          "description": "候选方案列表：blocking=true 且 kind=unresolved 时必须 ≥2（校验器硬拦——分叉检测器要求出示分叉凭据）；conflict 型双口径已在 text/sourceSection 中，可不填；gap 型（零方案）允许为空"
+        },
+        "nonBlockingReason": {
+          "type": "string",
+          "description": "非阻塞自说明（blocking=false 时建议填写）：为什么不影响详设生成（如“基线规范唯一确定推导结果，无候选分叉”）"
+        },
+        "confirmPoint": {
+          "type": "string",
+          "description": "非阻塞确认点（blocking=false 时建议填写）：读者只需核对什么"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "required": [
+    "meta",
+    "issues"
+  ],
+  "properties": {
+    "meta": {
+      "$ref": "#/definitions/meta"
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/issue"
+      },
+      "minItems": 0,
+      "description": "PRD 预检问题全量登记;PRD 无任何问题写空数组"
+    }
+  },
+  "additionalProperties": false
+}

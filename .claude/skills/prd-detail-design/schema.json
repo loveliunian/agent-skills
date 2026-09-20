@@ -1,0 +1,995 @@
+{
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "$id": "https://liucheng/schemas/prd-detail-design.json",
+ "title": "PRD → 详细设计 结构化产出（AI 精读 PRD 结果）",
+ "description": "AI 精读 PRD 后产出的详设 JSON，结构对齐《详细设计-总分分文档-模板》（sdd/templates/detail-design.template.json v3.20.3 泛化版）。由 validate_design.py 做 schema 子集 + 跨字段闭环校验。定稿纪律：本文件只含已裁决确认的设计内容，禁止任何未决/矛盾/问题类表述（校验器全文扫描拦截）；blocking 问题裁决前受影响部分不得写入本文件。问题内容的唯一载体是独立交付的 prd_issues.json（issues.schema.json 契约）。",
+ "definitions": {
+  "meta": {
+   "type": "object",
+   "description": "文档元信息（模板 meta 节泛化）",
+   "required": [
+    "templateId",
+    "templateVersion",
+    "docType",
+    "moduleCode",
+    "moduleName",
+    "ownerService",
+    "scope",
+    "status",
+    "generatedAt",
+    "baseline",
+    "docs"
+   ],
+   "properties": {
+    "templateId": {
+     "type": "string",
+     "minLength": 1
+    },
+    "templateVersion": {
+     "type": "string",
+     "minLength": 1
+    },
+    "docType": {
+     "type": "string",
+     "minLength": 1
+    },
+    "moduleCode": {
+     "type": "string",
+     "minLength": 1,
+     "description": "模块编码，如 GOV / USR"
+    },
+    "moduleName": {
+     "type": "string",
+     "minLength": 1
+    },
+    "ownerService": {
+     "type": "string",
+     "minLength": 1,
+     "description": "归属服务/工程名"
+    },
+    "scope": {
+     "type": "string",
+     "minLength": 1,
+     "description": "本文档覆盖范围一句话"
+    },
+    "status": {
+     "type": "string",
+     "enum": [
+      "草稿",
+      "评审中",
+      "已定稿"
+     ]
+    },
+    "generatedAt": {
+     "type": "string",
+     "minLength": 1,
+     "description": "生成日期 YYYY-MM-DD"
+    },
+    "baseline": {
+     "type": "string",
+     "minLength": 1,
+     "description": "依据基线，如 PRD 章节版本/SHA/裁决"
+    },
+    "docs": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "minItems": 1,
+     "description": "产出文件名清单"
+    },
+    "sourceDoc": {
+     "type": "string",
+     "description": "输入 PRD 路径，如 ch-07.md"
+    },
+    "issuesDigest": {
+     "type": "string",
+     "description": "生成本详设时 prd_issues.json 的内容 sha256（run_design.py 自动写入/比对）：问题清单更新后此值过期，提示详设可能是旧版需重跑流水"
+    },
+    "decisions": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "issueId",
+       "landedAt"
+      ],
+      "properties": {
+       "issueId": {
+        "type": "string",
+        "minLength": 1,
+        "description": "问题清单编号 PI-NN"
+       },
+       "landedAt": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+         "type": "string"
+        },
+        "description": "裁决口径落进详设的锚点列表，锚点形态：ruleId（如 C01-R03）/ acceptanceId（如 A4）/ 接口锚点（如 POST /api/users）。校验器核对锚点真实存在"
+       }
+      },
+      "additionalProperties": false
+     },
+     "description": "裁决落地台账：所有 resolved 且 blocking 的问题须在此登记落点（run_design.py 3.5 段对账，拦\"裁决了但漏回填\"）"
+    }
+   },
+   "additionalProperties": false
+  },
+  "architecture": {
+   "type": "object",
+   "description": "架构形态声明",
+   "required": [
+    "style",
+    "modules",
+    "evidence"
+   ],
+   "properties": {
+    "style": {
+     "type": "string",
+     "enum": [
+      "monolith",
+      "microservice",
+      "frontend-only",
+      "unknown"
+     ],
+     "description": "unknown 表示 PRD 未声明，须登记到问题清单（prd_issues.json）"
+    },
+    "services": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "微服务清单；单体/纯前端写空数组"
+    },
+    "modules": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "minItems": 1,
+     "description": "模块清单"
+    },
+    "evidence": {
+     "type": "string",
+     "minLength": 1,
+     "description": "溯源章节"
+    }
+   },
+   "additionalProperties": false
+  },
+  "tech_item": {
+   "type": "object",
+   "description": "技术栈一行：项 + 选型 + 溯源",
+   "required": [
+    "item",
+    "value",
+    "sourceSection"
+   ],
+   "properties": {
+    "item": {
+     "type": "string",
+     "minLength": 1
+    },
+    "value": {
+     "type": "string",
+     "minLength": 1
+    },
+    "sourceSection": {
+     "type": "string",
+     "minLength": 1
+    }
+   },
+   "additionalProperties": false
+  },
+  "acceptance_summary": {
+   "type": "object",
+   "description": "验收总分（校验器比对 designedComplete 与各 chunk acceptances 总数）",
+   "required": [
+    "declared",
+    "evidence",
+    "designedComplete"
+   ],
+   "properties": {
+    "declared": {
+     "type": "integer",
+     "minimum": 0,
+     "description": "PRD 声明的验收条目总数"
+    },
+    "evidence": {
+     "type": "string",
+     "minLength": 1,
+     "description": "如 §7.1 第15项 A1~A15 共 15 条"
+    },
+    "designedComplete": {
+     "type": "integer",
+     "minimum": 0,
+     "description": "已完整设计(覆盖 ruleRefs/apiRefs/tableRefs 至少一类)的条数"
+    }
+   },
+   "additionalProperties": false
+  },
+  "module": {
+   "type": "object",
+   "description": "chunk 内模块条目",
+   "required": [
+    "name",
+    "summary",
+    "sourceSection"
+   ],
+   "properties": {
+    "name": {
+     "type": "string",
+     "minLength": 1
+    },
+    "summary": {
+     "type": "string",
+     "minLength": 1,
+     "description": "一句话职责"
+    },
+    "sourceSection": {
+     "type": "string",
+     "minLength": 1
+    }
+   },
+   "additionalProperties": false
+  },
+  "rule": {
+   "type": "object",
+   "description": "业务规则一条：PRD 多处出现的同一规则归一为一条（取最完整表述）",
+   "required": [
+    "ruleId",
+    "sourceRuleId",
+    "text",
+    "errorCase",
+    "sourceSection"
+   ],
+   "properties": {
+    "ruleId": {
+     "type": "string",
+     "minLength": 1,
+     "description": "{chunkId}-R{NN}，按数组顺序连续（校验器强制）"
+    },
+    "sourceRuleId": {
+     "type": "string",
+     "minLength": 1,
+     "description": "PRD 原始编号（如 R-001）；无编号写 PRD 内定位词"
+    },
+    "text": {
+     "type": "string",
+     "minLength": 1,
+     "description": "规则最完整表述"
+    },
+    "category": {
+     "type": "string",
+     "description": "规则分类，如 校验/状态/权限/编码"
+    },
+    "errorCase": {
+     "type": "string",
+     "minLength": 1,
+     "description": "失败面：错误码或 HTTP 语义；PRD 未定义按语义拟，口径拿不准登记问题清单"
+    },
+    "module": {
+     "type": "string",
+     "description": "归属模块名"
+    },
+    "sourceSection": {
+     "type": "string",
+     "minLength": 1,
+     "description": "多处来源用 ; 分隔"
+    }
+   },
+   "additionalProperties": false
+  },
+  "io_field": {
+   "type": "object",
+   "description": "接口入参/出参字段一行",
+   "required": [
+    "field",
+    "type",
+    "required",
+    "rule",
+    "source",
+    "masked"
+   ],
+   "properties": {
+    "field": {
+     "type": "string",
+     "minLength": 1,
+     "description": "字段名（响应字段可用 data.xxx 路径形态）"
+    },
+    "type": {
+     "type": "string",
+     "minLength": 1
+    },
+    "required": {
+     "type": "string",
+     "minLength": 1,
+     "description": "是/否/条件（入参）；响应字段此列写恒出性（是/否）"
+    },
+    "rule": {
+     "type": "string",
+     "minLength": 1,
+     "description": "校验规则/取值规则；无写 —"
+    },
+    "source": {
+     "type": "string",
+     "minLength": 1,
+     "description": "数据来源（前端表单/路径变量/表.字段）"
+    },
+    "masked": {
+     "type": "string",
+     "minLength": 1,
+     "description": "脱敏：脱敏方式或 不脱敏"
+    }
+   },
+   "additionalProperties": false
+  },
+  "api": {
+   "type": "object",
+   "description": "接口/操作一条。method 为 HTTP 动词（GET/POST/PUT/PATCH/DELETE）时为完整契约：必须带非空 responseFields 与请求/响应示例；requestFields 对 GET 豁免（无 query 入参写空数组），其余动词必须非空（校验器强制）；UI:xxx 语义操作可省略契约字段",
+   "required": [
+    "method",
+    "path",
+    "purpose",
+    "sourceSection"
+   ],
+   "properties": {
+    "method": {
+     "type": "string",
+     "minLength": 1,
+     "description": "HTTP 方法；PRD 未定义 REST 契约时写操作语义（如 UI:createOrg）"
+    },
+    "path": {
+     "type": "string",
+     "minLength": 1,
+     "description": "路径或操作标识"
+    },
+    "purpose": {
+     "type": "string",
+     "minLength": 1
+    },
+    "permission": {
+     "type": "string",
+     "description": "权限点；PRD 有权限约束时必填"
+    },
+    "requestFields": {
+     "type": "array",
+     "items": {
+      "$ref": "#/definitions/io_field"
+     },
+     "description": "请求字段表；GET 无 query 入参写空数组（校验器豁免），其余动词必须非空"
+    },
+    "responseFields": {
+     "type": "array",
+     "items": {
+      "$ref": "#/definitions/io_field"
+     },
+     "description": "响应字段表；无出参写空数组"
+    },
+    "requestExample": {
+     "type": "string",
+     "description": "请求示例（原样 http 代码块内容，含方法行与 body）"
+    },
+    "responseExample": {
+     "type": "string",
+     "description": "响应示例（原样 json 代码块内容）"
+    },
+    "errors": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "错误响应清单（状态码+错误码+触发条件）；无写空数组"
+    },
+    "assertions": {
+     "type": "string",
+     "description": "落库断言/副作用说明；无省略"
+    },
+    "sourceSection": {
+     "type": "string",
+     "minLength": 1
+    }
+   },
+   "additionalProperties": false
+  },
+  "table_field": {
+   "type": "object",
+   "description": "表字段一行（字段级结构，对齐《详细设计-总分分文档-模板》§2.4 形态）",
+   "required": [
+    "name",
+    "type",
+    "constraint",
+    "default",
+    "note"
+   ],
+   "properties": {
+    "name": {
+     "type": "string",
+     "minLength": 1,
+     "description": "字段名"
+    },
+    "type": {
+     "type": "string",
+     "minLength": 1,
+     "description": "类型，如 bigint / varchar(50) / jsonb"
+    },
+    "constraint": {
+     "type": "string",
+     "minLength": 1,
+     "description": "约束（PK/NOT NULL/UNIQUE/FK→表.字段/NULL）；无写 —"
+    },
+    "default": {
+     "type": "string",
+     "minLength": 1,
+     "description": "默认值；无写 —"
+    },
+    "note": {
+     "type": "string",
+     "minLength": 1,
+     "description": "口径说明（业务含义/枚举取值/特殊语义）"
+    }
+   },
+   "additionalProperties": false
+  },
+  "table": {
+   "type": "object",
+   "description": "表结构一条；PRD 无数据库设计时 tables 整体留空数组，不硬造表名",
+   "required": [
+    "name",
+    "purpose",
+    "fields",
+    "indexes",
+    "sourceSection"
+   ],
+   "properties": {
+    "name": {
+     "type": "string",
+     "minLength": 1
+    },
+    "purpose": {
+     "type": "string",
+     "minLength": 1
+    },
+    "fields": {
+     "type": "array",
+     "items": {
+      "$ref": "#/definitions/table_field"
+     },
+     "minItems": 1,
+     "description": "字段级结构（校验器拦重复字段名）"
+    },
+    "indexes": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "索引；无写空数组"
+    },
+    "sourceSection": {
+     "type": "string",
+     "minLength": 1
+    },
+    "ownerService": {
+     "type": "string",
+     "minLength": 1,
+     "description": "数据所属服务(GR06 数据所有权);单服务期缺省=meta.ownerService"
+    }
+   },
+   "additionalProperties": false
+  },
+  "fe_page": {
+   "type": "object",
+   "description": "前端页面清单一行",
+   "required": [
+    "name",
+    "route",
+    "component",
+    "type",
+    "permission"
+   ],
+   "properties": {
+    "name": {
+     "type": "string",
+     "minLength": 1,
+     "description": "页面名"
+    },
+    "module": {
+     "type": "string",
+     "description": "所属模块/子域"
+    },
+    "route": {
+     "type": "string",
+     "minLength": 1,
+     "description": "路由路径；弹窗/抽屉类无独立路由写 —"
+    },
+    "component": {
+     "type": "string",
+     "minLength": 1,
+     "description": "组件文件路径"
+    },
+    "type": {
+     "type": "string",
+     "minLength": 1,
+     "description": "页面类型，如 列表+详情抽屉 / 表单页 / 配置控制台(多Tab)"
+    },
+    "permission": {
+     "type": "string",
+     "minLength": 1,
+     "description": "权限码；免登录写 免登录(预留)"
+    }
+   },
+   "additionalProperties": false
+  },
+  "fe_interaction": {
+   "type": "object",
+   "description": "关键页面交互设计一组：布局/表格列/行操作/三态/特殊约定",
+   "required": [
+    "page",
+    "content"
+   ],
+   "properties": {
+    "page": {
+     "type": "string",
+     "minLength": 1,
+     "description": "页面名（与 fe_page.name 对应）"
+    },
+    "topic": {
+     "type": "string",
+     "description": "交互主题（同页多组时区分，如 列表框架/新建抽屉）"
+    },
+    "content": {
+     "type": "string",
+     "minLength": 1,
+     "description": "交互描述（布局→表格列→行操作→批量→三态→并发/错误约定；分号分隔）"
+    },
+    "sourceSection": {
+     "type": "string",
+     "minLength": 1
+    },
+    "columns": {
+     "type": "array",
+     "items": {
+      "$ref": "#/definitions/fe_column"
+     },
+     "description": "该页数据表格列清单;无表格省略"
+    },
+    "formFields": {
+     "type": "array",
+     "items": {
+      "$ref": "#/definitions/fe_form_field"
+     },
+     "description": "该页表单控件清单;无表单省略"
+    },
+    "controls": {
+     "type": "array",
+     "items": {
+      "$ref": "#/definitions/fe_control"
+     },
+     "description": "该页非表单可操作控件清单(按钮/行操作/搜索等),登记测试锚点;无则省略"
+    }
+   },
+   "additionalProperties": false
+  },
+  "fe_dialog": {
+   "type": "object",
+   "description": "弹窗/抽屉映射一行：交互 → 组件 → 接口 → 确认流",
+   "required": [
+    "scene",
+    "component",
+    "apiRef",
+    "notes"
+   ],
+   "properties": {
+    "scene": {
+     "type": "string",
+     "minLength": 1,
+     "description": "页面·交互场景"
+    },
+    "component": {
+     "type": "string",
+     "minLength": 1,
+     "description": "组件/弹窗名"
+    },
+    "apiRef": {
+     "type": "string",
+     "minLength": 1,
+     "description": "调用的接口（apis[].path 或操作标识）"
+    },
+    "notes": {
+     "type": "string",
+     "minLength": 1,
+     "description": "关键状态/确认流/校验约定"
+    }
+   },
+   "additionalProperties": false
+  },
+  "nfr": {
+   "type": "object",
+   "description": "非功能需求一条",
+   "required": [
+    "dimension",
+    "requirement",
+    "target",
+    "sourceSection"
+   ],
+   "properties": {
+    "dimension": {
+     "type": "string",
+     "enum": [
+      "performance",
+      "reliability",
+      "quality",
+      "security",
+      "usability",
+      "maintainability"
+     ]
+    },
+    "requirement": {
+     "type": "string",
+     "minLength": 1
+    },
+    "target": {
+     "type": "string",
+     "minLength": 1,
+     "description": "可度量目标值"
+    },
+    "sourceSection": {
+     "type": "string",
+     "minLength": 1
+    }
+   },
+   "additionalProperties": false
+  },
+  "acceptance": {
+   "type": "object",
+   "description": "验收标准一条：以 PRD 验收表格的行为单位，一行 = 一条",
+   "required": [
+    "acceptanceId",
+    "text",
+    "status",
+    "sourceSection"
+   ],
+   "properties": {
+    "acceptanceId": {
+     "type": "string",
+     "minLength": 1,
+     "description": "全局唯一，如 A1"
+    },
+    "text": {
+     "type": "string",
+     "minLength": 1,
+     "description": "验收表述（含关键约束）"
+    },
+    "ruleRefs": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "引用的 sourceRuleId 集合（校验器比对闭环）"
+    },
+    "apiRefs": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "关联接口/章节"
+    },
+    "tableRefs": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "关联表名/章节"
+    },
+    "testCases": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "建议用例编号"
+    },
+    "status": {
+     "type": "string",
+     "enum": [
+      "COMPLETE"
+     ],
+     "description": "详设只收 COMPLETE；未闭环条目留在问题清单（prd_issues.json），裁决后以 COMPLETE 回填（校验器强制）"
+    },
+    "sourceSection": {
+     "type": "string",
+     "minLength": 1
+    }
+   },
+   "additionalProperties": false
+  },
+  "chunk": {
+   "type": "object",
+   "description": "设计切片（总分分文档的一个分块），按内容归属收纳六类要素；六类全空的 chunk 被校验器拦截",
+   "required": [
+    "chunkId",
+    "chapter",
+    "sourceSection",
+    "contextFrom",
+    "modules",
+    "rules",
+    "apis",
+    "tables",
+    "nfrs",
+    "acceptances"
+   ],
+   "properties": {
+    "chunkId": {
+     "type": "string",
+     "minLength": 1,
+     "description": "C01 起连续编号（校验器强制）"
+    },
+    "chapter": {
+     "type": "string",
+     "minLength": 1,
+     "description": "主题名，如 数据模型/业务规则/接口设计/验收标准/非功能设计"
+    },
+    "sourceSection": {
+     "type": "string",
+     "minLength": 1,
+     "description": "溯源章节，如 §7.1 组织架构管理"
+    },
+    "contextFrom": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "支撑章节"
+    },
+    "modules": {
+     "type": "array",
+     "items": {
+      "$ref": "#/definitions/module"
+     }
+    },
+    "rules": {
+     "type": "array",
+     "items": {
+      "$ref": "#/definitions/rule"
+     }
+    },
+    "apis": {
+     "type": "array",
+     "items": {
+      "$ref": "#/definitions/api"
+     }
+    },
+    "tables": {
+     "type": "array",
+     "items": {
+      "$ref": "#/definitions/table"
+     }
+    },
+    "nfrs": {
+     "type": "array",
+     "items": {
+      "$ref": "#/definitions/nfr"
+     }
+    },
+    "acceptances": {
+     "type": "array",
+     "items": {
+      "$ref": "#/definitions/acceptance"
+     }
+    }
+   },
+   "additionalProperties": false
+  },
+  "fe_column": {
+   "type": "object",
+   "description": "页面表格列一行",
+   "required": [
+    "field",
+    "label",
+    "note"
+   ],
+   "properties": {
+    "field": {
+     "type": "string",
+     "minLength": 1,
+     "description": "字段名(对应接口响应字段)"
+    },
+    "label": {
+     "type": "string",
+     "minLength": 1,
+     "description": "列标题"
+    },
+    "note": {
+     "type": "string",
+     "minLength": 1,
+     "description": "渲染说明:组件(Tag/图标/格式化)/排序/特殊语义"
+    }
+   },
+   "additionalProperties": false
+  },
+  "fe_form_field": {
+   "type": "object",
+   "description": "表单控件一行",
+   "required": [
+    "field",
+    "label",
+    "control",
+    "rule",
+    "source",
+    "testId"
+   ],
+   "properties": {
+    "field": {
+     "type": "string",
+     "minLength": 1
+    },
+    "label": {
+     "type": "string",
+     "minLength": 1
+    },
+    "control": {
+     "type": "string",
+     "minLength": 1,
+     "description": "控件类型:el-input/el-select/el-date-picker/el-switch/ radio 等;含置灰/条件显隐说明"
+    },
+    "rule": {
+     "type": "string",
+     "minLength": 1,
+     "description": "校验与提示语(对应接口校验规则/规则编号)"
+    },
+    "source": {
+     "type": "string",
+     "minLength": 1,
+     "description": "候选/字典来源;静态默认值"
+    },
+    "testId": {
+     "type": "string",
+     "minLength": 1,
+     "description": "测试锚点:该控件 data-testid 的值,详设定名、实现照抄,供测试精确定位;模块内唯一"
+    }
+   },
+   "additionalProperties": false
+  },
+  "fe_control": {
+   "type": "object",
+   "description": "非表单可操作控件一行(按钮/行操作/搜索/上传等),登记测试锚点",
+   "required": [
+    "name",
+    "testId"
+   ],
+   "properties": {
+    "name": {
+     "type": "string",
+     "minLength": 1,
+     "description": "控件名,如 新建按钮/行-删除/搜索/批量导出"
+    },
+    "testId": {
+     "type": "string",
+     "minLength": 1,
+     "description": "测试锚点:data-testid 值,详设定名、实现照抄;模块内唯一"
+    },
+    "note": {
+     "type": "string",
+     "minLength": 1,
+     "description": "出现位置/条件显隐/置灰说明(可选)"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ "type": "object",
+ "required": [
+  "meta",
+  "architecture",
+  "techStack",
+  "acceptance",
+  "frontend",
+  "chunks"
+ ],
+ "properties": {
+  "meta": {
+   "$ref": "#/definitions/meta"
+  },
+  "architecture": {
+   "$ref": "#/definitions/architecture"
+  },
+  "techStack": {
+   "type": "array",
+   "items": {
+    "$ref": "#/definitions/tech_item"
+   },
+   "minItems": 1
+  },
+  "acceptance": {
+   "$ref": "#/definitions/acceptance_summary"
+  },
+  "frontend": {
+   "type": "object",
+   "description": "前端页面设计：页面清单 + 关键页面交互设计 + 弹窗/抽屉映射（对齐模板 §7 形态）；纯后端模块 pages 写空数组并在问题清单说明",
+   "required": [
+    "pages",
+    "interactions",
+    "dialogs",
+    "contracts"
+   ],
+   "properties": {
+    "pages": {
+     "type": "array",
+     "items": {
+      "$ref": "#/definitions/fe_page"
+     },
+     "description": "页面清单；纯后端模块写空数组并在问题清单说明"
+    },
+    "interactions": {
+     "type": "array",
+     "items": {
+      "$ref": "#/definitions/fe_interaction"
+     },
+     "minItems": 1,
+     "description": "关键页面交互设计（不必逐页，关键页必须有）"
+    },
+    "dialogs": {
+     "type": "array",
+     "items": {
+      "$ref": "#/definitions/fe_dialog"
+     },
+     "description": "弹窗/抽屉映射表；无写空数组"
+    },
+    "contracts": {
+     "type": "object",
+     "description": "全局前端契约:路由/状态/API封装/错误映射/权限指令/复用组件(对齐模板 §7.4~§7.7)",
+     "required": [
+      "routing",
+      "state",
+      "apiClient",
+      "errorMapping",
+      "permission",
+      "reusedComponents"
+     ],
+     "properties": {
+      "routing": {
+       "type": "string",
+       "minLength": 1,
+       "description": "路由组织与守卫约定(懒加载/是否权限守卫)"
+      },
+      "state": {
+       "type": "string",
+       "minLength": 1,
+       "description": "Pinia store 划分与职责"
+      },
+      "apiClient": {
+       "type": "string",
+       "minLength": 1,
+       "description": "请求封装约定(统一响应解包/bizCode 分发/Idempotency-Key)"
+      },
+      "errorMapping": {
+       "type": "string",
+       "minLength": 1,
+       "description": "bizCode→前端行为映射(全局码+本模块专属码,分号分隔)"
+      },
+      "permission": {
+       "type": "string",
+       "minLength": 1,
+       "description": "权限控制方式(免登录声明/权限码预留/按钮指令)"
+      },
+      "reusedComponents": {
+       "type": "string",
+       "minLength": 1,
+       "description": "复用与公共抽取清单(共享框架/公共弹窗/工具)"
+      }
+     },
+     "additionalProperties": false
+    }
+   },
+   "additionalProperties": false
+  },
+  "chunks": {
+   "type": "array",
+   "items": {
+    "$ref": "#/definitions/chunk"
+   },
+   "minItems": 1
+  }
+ },
+ "additionalProperties": false
+}
