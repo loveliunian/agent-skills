@@ -36,7 +36,7 @@ class PlaywrightTestGenerator:
         with open(self.acceptance_json_path, 'r', encoding='utf-8') as f:
             self.acceptance_data = json.load(f)
         self.feature = self.acceptance_data.get('feature', 'unknown')
-        # v3.29.0：详设冻结测试锚点（design.json 同目录优先消费）
+        # 详设冻结测试锚点（design.json 同目录优先消费）
         self.design_anchors = self._load_design_anchors()
         
         # 按验证方式分组
@@ -102,7 +102,7 @@ class PlaywrightTestGenerator:
         return pages
     
     def _load_design_anchors(self) -> List[Dict[str, Any]]:
-        """v3.29.0：优先消费详设冻结的测试锚点（design.json pages[] 正本）。
+        """优先消费详设冻结的测试锚点（design.json pages[] 正本）。
 
         与 acceptance.json 同目录的 design.json 存在且含 pages[] 时，收集
         form_controls/dialogs/actions 的 test_anchor 作为 Page Object 定位符；
@@ -136,7 +136,7 @@ class PlaywrightTestGenerator:
             return []
 
     def _anchor_members_block(self) -> str:
-        """v3.29.0：按冻结锚点生成 Page Object 追加成员（ANCHORS 常量 + anchor() 定位方法）。"""
+        """按冻结锚点生成 Page Object 追加成员（ANCHORS 常量 + anchor() 定位方法）。"""
         if not self.design_anchors:
             return ""
         entries = ",\n".join(
@@ -145,7 +145,7 @@ class PlaywrightTestGenerator:
             for a in self.design_anchors
         )
         return f"""
-  // ---- 详设冻结测试锚点（v3.29.0，design.json 正本；测试定位一律走 anchor()，禁止改用猜测选择器）----
+  // ---- 详设冻结测试锚点（design.json 正本；测试定位一律走 anchor()，禁止改用猜测选择器）----
   static readonly ANCHORS = {{
 {entries},
   }} as const;

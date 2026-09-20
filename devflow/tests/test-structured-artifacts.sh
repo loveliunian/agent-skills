@@ -187,7 +187,7 @@ NDR_OUT=$(python3 "$V" --kind design --input design.json --criteria criteria.md 
 printf '%s' "$NDR_OUT" | grep -q "未出现在 §7.1 页面清单表" \
   && ok "dialog missing from §7.1 inventory rejected (v3.28.1)" \
   || bad "dialog §7.1 inventory closure missed: $NDR_OUT"
-# 3c3. v3.29.0：测试锚点——form_controls/dialogs 必填 test_anchor、全文档唯一、actions 闭环
+# 3c3. 测试锚点——form_controls/dialogs 必填 test_anchor、全文档唯一、actions 闭环
 python3 - <<'PYEOF'
 import json
 d = json.load(open("design.json"))
@@ -207,22 +207,22 @@ t = Path("doc.md").read_text(encoding="utf-8")
 t = t.replace("| pay-p1-input-amount |", "|")
 Path("doc-no-ta.md").write_text(t, encoding="utf-8")
 PYEOF
-check_rc 1 "missing form_controls.test_anchor rejected (v3.29.0)" python3 "$V" --kind design --input d-ta-missing.json --criteria criteria.md
+check_rc 1 "missing form_controls.test_anchor rejected " python3 "$V" --kind design --input d-ta-missing.json --criteria criteria.md
 TA_DUP=$(python3 "$V" --kind design --input d-ta-dup.json --criteria criteria.md 2>&1 || true)
 printf '%s' "$TA_DUP" | grep -q "测试锚点重复" \
-  && ok "duplicate test_anchor rejected (v3.29.0)" || bad "test_anchor uniqueness missed: $TA_DUP"
+  && ok "duplicate test_anchor rejected " || bad "test_anchor uniqueness missed: $TA_DUP"
 TA_API=$(python3 "$V" --kind design --input d-ta-badapi.json --criteria criteria.md 2>&1 || true)
 printf '%s' "$TA_API" | grep -q "操作接口引用断链" \
-  && ok "actions.api dangling rejected (v3.29.0)" || bad "actions.api closure missed: $TA_API"
+  && ok "actions.api dangling rejected " || bad "actions.api closure missed: $TA_API"
 TA_DLG=$(python3 "$V" --kind design --input d-ta-baddialog.json --criteria criteria.md 2>&1 || true)
 printf '%s' "$TA_DLG" | grep -q "触发弹窗/抽屉断链" \
-  && ok "actions.dialog dangling rejected (v3.29.0)" || bad "actions.dialog closure missed: $TA_DLG"
+  && ok "actions.dialog dangling rejected " || bad "actions.dialog closure missed: $TA_DLG"
 TA_FMT=$(python3 "$V" --kind design --input d-ta-badfmt.json --criteria criteria.md 2>&1 || true)
 printf '%s' "$TA_FMT" | grep -q "不匹配 pattern" \
-  && ok "test_anchor bad naming rejected (v3.29.0)" || bad "test_anchor pattern missed: $TA_FMT"
+  && ok "test_anchor bad naming rejected " || bad "test_anchor pattern missed: $TA_FMT"
 TA_DOC=$(python3 "$V" --kind design --input design.json --criteria criteria.md --doc doc-no-ta.md 2>&1 || true)
 printf '%s' "$TA_DOC" | grep -q "未出现在 §7.2 表单控件规格表对应行" \
-  && ok "doc row without test_anchor rejected (v3.29.0)" || bad "test_anchor doc reconciliation missed: $TA_DOC"
+  && ok "doc row without test_anchor rejected " || bad "test_anchor doc reconciliation missed: $TA_DOC"
 
 # 3e. v3.28.1：表名/字段名保留字分层机检（fail→FAIL；warn→WARN 不阻断）
 python3 - <<'PYEOF'

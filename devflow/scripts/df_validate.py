@@ -892,7 +892,7 @@ def check_page_specs(data, errors):
     form_controls[].submit_api（`§x.y.z`）/target_field（`表.字段`）提供即对账——
     接口锚点必须存在、字段/落库列必须存在于 apis[] / tables[]（悬空即 FAIL）。
 
-    测试锚点（v3.29.0）：form_controls/dialogs/actions 的 test_anchor 全文档唯一
+    测试锚点：form_controls/dialogs/actions 的 test_anchor 全文档唯一
     （格式 pattern 由 schema required+pattern 强制，此处管唯一性）；actions[].api
     锚点闭环到 apis[]，actions[].dialog 必须存在于同页 dialogs[].name。"""
     api_anchors = set()
@@ -1007,7 +1007,7 @@ def check_page_specs(data, errors):
                         f"{where}.dialogs[{di}]({name}): api 锚点 §{r} 不在 apis[].anchor/detail_anchor 中"
                         f"（弹窗接口引用断链——§7.2 弹窗/抽屉表与 §3.2 接口定义必须闭环）"
                     )
-    # v3.29.0：测试锚点全文档唯一 + 操作按钮（actions[]）闭环
+    # 测试锚点全文档唯一 + 操作按钮（actions[]）闭环
     seen_anchors = {}
     for pi, p in enumerate(data.get("pages", [])):
         where = f"pages[{pi}]({p.get('name')})"
@@ -1088,7 +1088,7 @@ def check_page_specs_doc(data, errors, doc_path):
       submit_api/target_field 提供时须出现在同一行；
     - dialogs.name/component/api 必须落在 §7.2.* 「弹窗/抽屉」表（表头含「组件」）对应行
       （原 §7.3 映射表已并入 §7.2）；清单可见性由 check_page_list_doc 对账。
-    v3.29.0：测试锚点对账——form_controls/dialogs 的 test_anchor 必须出现在对应表行
+    测试锚点对账——form_controls/dialogs 的 test_anchor 必须出现在对应表行
     「测试锚点」列；actions[] 必须逐条落在 §7.2 「操作」表（表头含「操作」+「类型」）
     首列，api/dialog/test_anchor 提供时须出现在同一行。
     """
