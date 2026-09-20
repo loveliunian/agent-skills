@@ -388,12 +388,12 @@ python3 - "$TOTF" <<'PYEOF'
 import json, sys
 p = f"{sys.argv[1]}/.devflow/totf/design.json"
 d = json.load(open(p))
-d["acceptance"][0]["page"] = "§7.1.1"
-d["pages"] = [{"anchor": "§7.1.1", "name": "列表页", "permission": "demo:view",
+d["acceptance"][0]["page"] = "§7.2.1"
+d["pages"] = [{"anchor": "§7.2.1", "name": "列表页", "permission": "demo:view",
                "route": "/demo/list", "component": "views/demo/ListPage.vue",
                "page_type": "列表+详情抽屉"}]
 d["client"] = {"scope": "pc-web",
-               "journeys": [{"name": "列表查看", "page": "§7.1.1", "evidence": "真实浏览器"}]}
+               "journeys": [{"name": "列表查看", "page": "§7.2.1", "evidence": "真实浏览器"}]}
 d["zero_results"] = [z for z in d["zero_results"] if z["path"] != "pages"]
 json.dump(d, open(p, "w"), ensure_ascii=False)
 PYEOF
@@ -431,7 +431,7 @@ import json, sys
 name = sys.argv[1]
 d = json.load(open("design.json"))
 d["feature"] = name
-_acc_page = "§7.1.1" if name != "mq-consumer" else "—"
+_acc_page = "§7.2.1" if name != "mq-consumer" else "—"
 d["acceptance"] = [dict(d["acceptance"][0], id="M01-F01-A01", page=_acc_page, api="—", data="—")]
 d["tables"] = []
 d["apis"] = []
@@ -460,11 +460,11 @@ if name in ("pure-ui", "mini-app-ui", "app-ui"):
         {"path": "integrations", "reason": "无外部调用"},
         {"path": "configs", "reason": "无新增配置键"}]
     if name == "pure-ui":
-        d["client"] = {"scope": "pc-web", "journeys": [{"name": "列表查看", "page": "§7.1.1", "evidence": "真实浏览器"}]}
+        d["client"] = {"scope": "pc-web", "journeys": [{"name": "列表查看", "page": "§7.2.1", "evidence": "真实浏览器"}]}
     elif name == "mini-app-ui":
-        d["client"] = {"scope": "mini-program", "journeys": [{"name": "列表查看", "page": "§7.1.1", "evidence": "微信开发者工具"}]}
+        d["client"] = {"scope": "mini-program", "journeys": [{"name": "列表查看", "page": "§7.2.1", "evidence": "微信开发者工具"}]}
     else:
-        d["client"] = {"scope": "app", "journeys": [{"name": "列表查看", "page": "§7.1.1", "evidence": "真机"}]}
+        d["client"] = {"scope": "app", "journeys": [{"name": "列表查看", "page": "§7.2.1", "evidence": "真机"}]}
 else:
     d["migrations"] = {"applicable": True, "dialects": ["h2", "postgresql", "oracle", "kingbase"]}
     d["pages"] = []

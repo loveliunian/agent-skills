@@ -128,6 +128,10 @@ disable-model-invocation: false
   ② **章节号连续化**——完整版 0-12（§8 验收/§9 依赖/§10 组件复用/§11 异常安全性能/§12 变更历史）、
   分文档 0-11、总文档 0-9；三份模板 s2 必含章节、评审指引、router 同步。
   ③ **锚点去重**——§10.1(原§12.1) component-reuse 锚点重复出现两次，删除第一个。
+- **§7.1 精简为单表（v3.27.15）**：删除 client-scope 渲染块（客户端旅程改由 `client.journeys[]`
+  JSON 正本承载，不再渲染到详设正文）与 `#### 7.1.N` 页面小节示例（页面详情在 §7.2 页组中写）；
+  §7.1 只保留页面清单一张表（页面 + 全部弹窗/抽屉 + 判定口径 + 完整性说明两行 blockquote）；
+  渲染器从必需块注册表移除 client-scope（生成保留，存量兼容）。
 - **测试**：design-contract-hardening / structured-artifacts / phase-gates / design-package-modes
   夹具同步 §7.2.N；全量 25 组回归（新版本尚未发布时不要求 manifest）。
 

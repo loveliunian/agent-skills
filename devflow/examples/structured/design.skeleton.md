@@ -122,14 +122,6 @@ sequenceDiagram
 | 3 | 支付 | 提交确认 | /pay/order/create | views/pay/SubmitConfirmDialog.vue | 弹窗（确认） | pay:order:create |
 | 4 | 支付 | 退款确认 | /pay/refund | views/pay/RefundConfirmDialog.vue | 弹窗（确认） | pay:refund:create |
 
-### 7.1.1 下单页
-
-表单与权限见权限矩阵。
-
-### 7.1.2 退款页
-
-表单与权限见权限矩阵。
-
 ### 7.2.1 下单页交互（覆盖：下单页）
 
 - **查询区**：无
@@ -234,14 +226,6 @@ sequenceDiagram
 
 > 每个页面和接口都标注了所需的权限；完全公开的对象在该列标注 public。
 <!-- df:end:permission-matrix -->
-
-<!-- df:begin:client-scope -->
-客户端范围为**PC 网页端**，以下旅程必须在真实环境中走通：
-
-| 旅程 | §页面锚点 | 证据形态 |
-|---|---|---|
-| 下单主流程 | §7.1.1 | 真实浏览器 |
-<!-- df:end:client-scope -->
 
 <!-- df:begin:resource-operations -->
 | 资源 | 类别 | 超时取消（timeout） |

@@ -41,7 +41,7 @@ if hasattr(sys.stdout, "reconfigure"):
 #   需求追溯文档 = _TRACE_BLOCKS（--trace-doc）；实现交接文档无渲染块（手写施工图，JSON 对账）。
 _DESIGN_BLOCKS = [
     "summary", "table-index", "api-index",
-    "permission-matrix", "rule-index", "biz-ops", "client-scope",
+    "permission-matrix", "rule-index", "biz-ops",
     "resource-operations", "integrations-configs",
 ]
 _DB_BLOCKS = ["ddr-index", "ddr-matrix"]

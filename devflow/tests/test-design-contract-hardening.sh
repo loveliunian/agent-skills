@@ -44,7 +44,7 @@ cp criteria.md docs/requirements/demo-pay-acceptance-criteria.md
 check_rc 0 "baseline sample validates without workspace markers" python3 "$V" --kind design --input design.json --criteria criteria.md --doc doc.md
 
 # ---------- A07：块注册表同源（v3.27.15：详设 10 块 + DB 2 块 + 追溯 1 块） ----------
-DESIGN_BLOCKS="summary table-index api-index permission-matrix rule-index biz-ops client-scope resource-operations integrations-configs"
+DESIGN_BLOCKS="summary table-index api-index permission-matrix rule-index biz-ops resource-operations integrations-configs"
 DB_BLOCKS="ddr-index ddr-matrix"
 TRACE_BLOCKS="trace-matrix"
 BLOCKS="$DESIGN_BLOCKS $DB_BLOCKS $TRACE_BLOCKS"
@@ -196,7 +196,7 @@ assert_out "约束" "doc table constraint column conflict rejected (A03)" \
 python3 - <<'PYEOF'
 import json
 d = json.load(open("design.json"))
-d["acceptance"][0]["page"] = ["§7.1.1", "§7.1.2"]
+d["acceptance"][0]["page"] = ["§7.2.1", "§7.2.2"]
 d["acceptance"][0]["api"] = ["§3.2.1"]
 json.dump(d, open("d-multiref.json", "w"), ensure_ascii=False)
 PYEOF
@@ -205,7 +205,7 @@ check_rc 0 "acceptance row may reference multiple objects via arrays (A04)" \
 python3 - <<'PYEOF'
 import json
 d = json.load(open("design.json"))
-d["acceptance"][0]["page"] = ["§7.1.1", "§7.99"]
+d["acceptance"][0]["page"] = ["§7.2.1", "§7.99"]
 json.dump(d, open("d-multiref-bad.json", "w"), ensure_ascii=False)
 PYEOF
 assert_out "引用断链" "array reference with dangling element rejected (A04)" \

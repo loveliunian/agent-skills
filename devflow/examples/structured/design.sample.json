@@ -10,7 +10,7 @@
     {
       "id": "M01-F01-A01",
       "prd_anchor": "docs/requirements/demo-pay-acceptance-criteria.md#M01-F01-A01",
-      "page": "§7.1.1",
+      "page": "§7.2.1",
       "api": "§3.2.1",
       "data": "§2.2.1",
       "rule": "R1",
@@ -20,7 +20,7 @@
     {
       "id": "M01-F01-A02",
       "prd_anchor": "docs/requirements/demo-pay-acceptance-criteria.md#M01-F01-A02",
-      "page": "§7.1.1",
+      "page": "§7.2.1",
       "api": "§3.2.1",
       "data": "§2.2.1",
       "rule": "R1",
@@ -30,7 +30,7 @@
     {
       "id": "M01-F02-A01",
       "prd_anchor": "docs/requirements/demo-pay-acceptance-criteria.md#M01-F02-A01",
-      "page": "§7.1.2",
+      "page": "§7.2.2",
       "api": "§3.2.2",
       "data": "§2.2.2",
       "rule": "R2",
@@ -136,7 +136,7 @@
   ],
   "pages": [
     {
-      "anchor": "§7.1.1",
+      "anchor": "§7.2.1",
       "name": "下单页",
       "permission": "pay:order:create",
       "route": "/pay/order/create",
@@ -168,7 +168,7 @@
       ]
     },
     {
-      "anchor": "§7.1.2",
+      "anchor": "§7.2.2",
       "name": "退款页",
       "permission": "pay:refund:create",
       "route": "/pay/refund",
@@ -337,7 +337,7 @@
     "journeys": [
       {
         "name": "下单主流程",
-        "page": "§7.1.1",
+        "page": "§7.2.1",
         "evidence": "真实浏览器"
       }
     ]

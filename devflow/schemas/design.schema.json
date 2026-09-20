@@ -919,7 +919,8 @@
       "properties": {
         "anchor": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "页面锚点——写 §7.2.N（页组编号，页面交互设计小节）；追溯矩阵页面列、/plan 与实现交接均按此定位"
         },
         "name": {
           "type": "string",
@@ -1109,41 +1110,41 @@
           "type": "string",
           "minLength": 1
         },
-          "when_line": {
-            "type": "string",
-            "minLength": 1,
-            "description": "该规则对应的 WHEN 准伪代码行（逐字契约）：提供时必须在该规则 §锚点小节原文中出现——正文改写伪代码而 JSON 不同步即规则不一致（跨字段校验）"
-          },
-          "error_codes": {
-            "type": "array",
-            "description": "该规则对外稳定错误码（v3.27.15）：code 全局唯一且必须出现在详设正文（df_validate --doc 对账）；前端 §7.4 errorCode→行为表按此引用",
-            "items": {
-              "type": "object",
-              "required": [
-                "code",
-                "meaning"
-              ],
-              "additionalProperties": false,
-              "properties": {
-                "code": {
-                  "type": "string",
-                  "pattern": "^[A-Z][A-Z0-9_]{2,}$",
-                  "description": "稳定错误码（大写下划线，如 REFUND_AMOUNT_EXCEEDED）"
-                },
-                "meaning": {
-                  "type": "string",
-                  "minLength": 1,
-                  "description": "错误语义（用户可见提示或后端 message 口径）"
-                },
-                "http_status": {
-                  "type": "integer",
-                  "minimum": 400,
-                  "maximum": 599,
-                  "description": "对应 HTTP 状态码（可选）"
-                }
+        "when_line": {
+          "type": "string",
+          "minLength": 1,
+          "description": "该规则对应的 WHEN 准伪代码行（逐字契约）：提供时必须在该规则 §锚点小节原文中出现——正文改写伪代码而 JSON 不同步即规则不一致（跨字段校验）"
+        },
+        "error_codes": {
+          "type": "array",
+          "description": "该规则对外稳定错误码（v3.27.15）：code 全局唯一且必须出现在详设正文（df_validate --doc 对账）；前端 §7.4 errorCode→行为表按此引用",
+          "items": {
+            "type": "object",
+            "required": [
+              "code",
+              "meaning"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{2,}$",
+                "description": "稳定错误码（大写下划线，如 REFUND_AMOUNT_EXCEEDED）"
+              },
+              "meaning": {
+                "type": "string",
+                "minLength": 1,
+                "description": "错误语义（用户可见提示或后端 message 口径）"
+              },
+              "http_status": {
+                "type": "integer",
+                "minimum": 400,
+                "maximum": 599,
+                "description": "对应 HTTP 状态码（可选）"
               }
             }
           }
+        }
       }
     },
     "business_operation_def": {
