@@ -890,7 +890,11 @@ def check_page_specs(data, errors):
 
     链路闭环（v3.28.1）：table_columns[].api_field（`§x.y.z 字段`）/source（`表.字段`）、
     form_controls[].submit_api（`§x.y.z`）/target_field（`表.字段`）提供即对账——
-    接口锚点必须存在、字段/落库列必须存在于 apis[] / tables[]（悬空即 FAIL）。"""
+    接口锚点必须存在、字段/落库列必须存在于 apis[] / tables[]（悬空即 FAIL）。
+
+    测试锚点：form_controls/dialogs/actions 的 test_anchor 全文档唯一
+    （格式 pattern 由 schema required+pattern 强制，此处管唯一性）；actions[].api
+    锚点闭环到 apis[]，actions[].dialog 必须存在于同页 dialogs[].name。"""
     api_anchors = set()
     api_fields = {}  # 规范化 anchor -> {字段名}
     for a in data.get("apis", []):
@@ -1003,6 +1007,55 @@ def check_page_specs(data, errors):
                         f"{where}.dialogs[{di}]({name}): api 锚点 §{r} 不在 apis[].anchor/detail_anchor 中"
                         f"（弹窗接口引用断链——§7.2 弹窗/抽屉表与 §3.2 接口定义必须闭环）"
                     )
+    # 测试锚点全文档唯一 + 操作按钮（actions[]）闭环
+    seen_anchors = {}
+    for pi, p in enumerate(data.get("pages", [])):
+        where = f"pages[{pi}]({p.get('name')})"
+
+        def _reg(anchor, kind, label):
+            a = str(anchor or "").strip()
+            if not a:
+                return
+            prev = seen_anchors.get(a)
+            if prev:
+                errors.append(
+                    f"测试锚点重复: {a!r} 同时出现在 {prev} 与 {where}.{kind}({label})"
+                    f"（test_anchor 全文档必须唯一——实现层 data-testid 一对一定位）"
+                )
+            else:
+                seen_anchors[a] = f"{where}.{kind}({label})"
+
+        for c in p.get("form_controls") or []:
+            _reg(c.get("test_anchor"), "form_controls", c.get("field"))
+        for d in p.get("dialogs") or []:
+            _reg(d.get("test_anchor"), "dialogs", d.get("name"))
+        for ai, a in enumerate(p.get("actions") or []):
+            _reg(a.get("test_anchor"), "actions", a.get("name"))
+            aname = str(a.get("name") or "").strip()
+            dlg = str(a.get("dialog") or "").strip()
+            if dlg and dlg != "—":
+                dlg_names = {
+                    str((d.get("name") or "").strip()) for d in (p.get("dialogs") or [])
+                }
+                if dlg not in dlg_names:
+                    errors.append(
+                        f"{where}.actions[{ai}]({aname}): dialog={dlg!r} 不在同页 dialogs[].name 中"
+                        f"（触发弹窗/抽屉断链——§7.2 操作表与弹窗/抽屉表必须闭环）"
+                    )
+            ap = str(a.get("api") or "").strip()
+            if ap and ap != "—":
+                refs = re.findall(r"§([0-9]+(?:\.[0-9]+)+)", ap)
+                if not refs:
+                    errors.append(
+                        f"{where}.actions[{ai}]({aname}): api={ap!r} 未包含 §x.y.z 接口锚点且非 —"
+                        f"（操作必须挂在接口证据位上；无接口交互显式写 —）"
+                    )
+                for r in refs:
+                    if r not in api_anchors:
+                        errors.append(
+                            f"{where}.actions[{ai}]({aname}): api 锚点 §{r} 不在 apis[].anchor/detail_anchor 中"
+                            f"（操作接口引用断链——§7.2 操作表与 §3.2 接口定义必须闭环）"
+                        )
 
 
 def _doc_table_blocks(text):
@@ -1035,12 +1088,15 @@ def check_page_specs_doc(data, errors, doc_path):
       submit_api/target_field 提供时须出现在同一行；
     - dialogs.name/component/api 必须落在 §7.2.* 「弹窗/抽屉」表（表头含「组件」）对应行
       （原 §7.3 映射表已并入 §7.2）；清单可见性由 check_page_list_doc 对账。
+    测试锚点对账——form_controls/dialogs 的 test_anchor 必须出现在对应表行
+    「测试锚点」列；actions[] 必须逐条落在 §7.2 「操作」表（表头含「操作」+「类型」）
+    首列，api/dialog/test_anchor 提供时须出现在同一行。
     """
     doc = Path(doc_path)
     if not doc.exists():
         return
     sections, _raw = _doc_sections(doc)
-    col_rows, form_rows, dialog_rows = {}, {}, []
+    col_rows, form_rows, dialog_rows, action_rows = {}, {}, [], {}
     for key, text in sections.items():
         if key == "7.2" or key.startswith("7.2."):
             for rows in _doc_table_blocks(text):
@@ -1056,6 +1112,10 @@ def check_page_specs_doc(data, errors, doc_path):
                             form_rows.setdefault(r[0], " | ".join(r))
                 elif "组件" in header and "交互" in header:
                     dialog_rows.extend(body)
+                elif "操作" in header and "类型" in header:
+                    for r in body:
+                        if r and r[0]:
+                            action_rows.setdefault(r[0], " | ".join(r))
     for pi, p in enumerate(data.get("pages", [])):
         missing = [
             c.get("field") for c in (p.get("table_columns") or [])
@@ -1086,12 +1146,28 @@ def check_page_specs_doc(data, errors, doc_path):
             )
         for ci, c in enumerate(p.get("form_controls") or []):
             row_text = form_rows.get(str(c.get("field") or "").strip(), "")
-            for key, label in (("submit_api", "提交接口"), ("target_field", "落库字段")):
+            for key, label in (("submit_api", "提交接口"), ("target_field", "落库字段"), ("test_anchor", "测试锚点")):
                 v = str(c.get(key) or "").strip()
                 if v and v != "—" and row_text and v not in row_text:
                     errors.append(
                         f"pages[{pi}]({p.get('name')}).form_controls[{ci}]({c.get('field')}): "
                         f"{label} {v!r} 未出现在 §7.2 表单控件规格表对应行（JSON 与正文冲突——链路列必须同源）"
+                    )
+        for ai, a in enumerate(p.get("actions") or []):
+            aname = str(a.get("name") or "").strip()
+            row_text = action_rows.get(aname, "")
+            if not row_text:
+                errors.append(
+                    f"pages[{pi}]({p.get('name')}).actions[{ai}]({aname}): "
+                    f"§7.2 操作表首列（操作）未找到该操作——JSON 与正文冲突"
+                )
+                continue
+            for key, label in (("api", "接口锚点"), ("test_anchor", "测试锚点")):
+                v = str(a.get(key) or "").strip()
+                if v and v != "—" and v not in row_text:
+                    errors.append(
+                        f"pages[{pi}]({p.get('name')}).actions[{ai}]({aname}): "
+                        f"{label} {v!r} 未出现在 §7.2 操作表对应行（JSON 与正文冲突——操作列必须同源）"
                     )
         for di, d in enumerate(p.get("dialogs") or []):
             name = (d.get("name") or "").strip()
@@ -1117,6 +1193,12 @@ def check_page_specs_doc(data, errors, doc_path):
                             f"pages[{pi}]({p.get('name')}).dialogs[{di}]({name}): §7.2 弹窗/抽屉表对应行未包含"
                             f"接口锚点 §{ref}（JSON 与正文冲突——接口列必须同源）"
                         )
+            ta = str(d.get("test_anchor") or "").strip()
+            if ta and ta not in row_text:
+                errors.append(
+                    f"pages[{pi}]({p.get('name')}).dialogs[{di}]({name}): §7.2 弹窗/抽屉表对应行未包含"
+                    f"测试锚点 {ta!r}（JSON 与正文冲突——测试锚点列必须同源）"
+                )
 
 
 def check_page_list_doc(data, errors, doc_path):

@@ -29,12 +29,15 @@ class PlaywrightTestGenerator:
         self.feature = None
         self.ui_points = []
         self.api_points = []
+        self.design_anchors: List[Dict[str, Any]] = []
         
     def load_acceptance(self):
         """加载 acceptance.json"""
         with open(self.acceptance_json_path, 'r', encoding='utf-8') as f:
             self.acceptance_data = json.load(f)
         self.feature = self.acceptance_data.get('feature', 'unknown')
+        # 详设冻结测试锚点（design.json 同目录优先消费）
+        self.design_anchors = self._load_design_anchors()
         
         # 按验证方式分组
         points = self.acceptance_data.get('points', [])
@@ -98,6 +101,66 @@ class PlaywrightTestGenerator:
         
         return pages
     
+    def _load_design_anchors(self) -> List[Dict[str, Any]]:
+        """优先消费详设冻结的测试锚点（design.json pages[] 正本）。
+
+        与 acceptance.json 同目录的 design.json 存在且含 pages[] 时，收集
+        form_controls/dialogs/actions 的 test_anchor 作为 Page Object 定位符；
+        读不到/解析失败回退到描述推断路径（不破坏现有行为）。"""
+        try:
+            design_path = Path(self.acceptance_json_path).parent / 'design.json'
+            if not design_path.exists():
+                return []
+            with open(design_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            anchors: List[Dict[str, Any]] = []
+            for p in data.get('pages') or []:
+                for c in p.get('form_controls') or []:
+                    anchors.append({'page': p.get('name', ''), 'kind': 'control',
+                                    'label': c.get('label') or c.get('field', ''),
+                                    'anchor': c.get('test_anchor')})
+                for a in p.get('actions') or []:
+                    anchors.append({'page': p.get('name', ''), 'kind': 'action',
+                                    'label': a.get('name', ''),
+                                    'anchor': a.get('test_anchor')})
+                for d in p.get('dialogs') or []:
+                    anchors.append({'page': p.get('name', ''), 'kind': 'dialog',
+                                    'label': d.get('name', ''),
+                                    'anchor': d.get('test_anchor')})
+            anchors = [x for x in anchors if x.get('anchor')]
+            if anchors:
+                print(f"[INFO] 已从 design.json 加载 {len(anchors)} 个冻结测试锚点（data-testid）")
+            return anchors
+        except (OSError, ValueError) as e:
+            print(f"[WARN] design.json 测试锚点加载失败，回退到推断选择器: {e}")
+            return []
+
+    def _anchor_members_block(self) -> str:
+        """按冻结锚点生成 Page Object 追加成员（ANCHORS 常量 + anchor() 定位方法）。"""
+        if not self.design_anchors:
+            return ""
+        entries = ",\n".join(
+            f"    // {a['page']} · {a['kind']} · {a['label']}\n"
+            f"    '{a['anchor']}': '{a['anchor']}'"
+            for a in self.design_anchors
+        )
+        return f"""
+  // ---- 详设冻结测试锚点（design.json 正本；测试定位一律走 anchor()，禁止改用猜测选择器）----
+  static readonly ANCHORS = {{
+{entries},
+  }} as const;
+
+  /** 按详设冻结锚点定位控件（data-testid，P2 详设冻结、P5/P6e 只读消费） */
+  anchor(key: string): Locator {{
+    const anchors = (this.constructor as unknown as {{ ANCHORS: Record<string, string> }}).ANCHORS;
+    const testId = anchors[key];
+    if (!testId) {{
+      throw new Error(`未知测试锚点: ${{key}}（详设未冻结，禁止自造选择器）`);
+    }}
+    return this.page.getByTestId(testId);
+  }}
+"""
+
     def _generate_page_object(self, page_name: str, comments: List[str]):
         """生成单个 Page Object"""
         feature_pascal = self._to_pascal_case(self.feature)
@@ -239,7 +302,7 @@ export class {class_name} {{
     const tableText = await this.table.textContent();
     return tableText?.includes(text) || false;
   }}
-}}
+{self._anchor_members_block()}}}
 """
         
         output_path = self.output_base / "pages" / f"{class_name}.ts"
