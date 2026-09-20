@@ -603,11 +603,17 @@ def render_acceptance(data, input_path):
     pts = data.get("points", [])
     total = len(pts)
     frozen = sum(1 for p in pts if p.get("status") == "FROZEN")
+    # 分组键必须含模块号（M{mod}-F{fn}）：多模块 feature（如 M-01 组织 + M-02 用户）
+    # 若只按 F 序号分桶，M-02 各功能会被并入 M-01 同号桶，且标题取桶内首行
+    # （恒为 M-01 功能名），用户侧验收点全部"寄居"在组织侧标题下。
     groups = {}
     for p in pts:
         m = re.match(r"M-?([0-9]{2})-F([0-9]{2})-A([0-9]{2})$", p.get("id", ""))
         if m:
-            groups.setdefault(f"F{m.group(2)}", []).append(p)
+            groups.setdefault((m.group(1), m.group(2)), []).append(p)
+    # 模块编码以点集实际出现的模块为准（多模块逐一列出）；无解析点时回退顶层 module
+    modules = sorted({k[0] for k in groups}) or (
+        [data["module"]] if data.get("module") else [])
     lines = [
         f"# 原子验收点清单 - {data.get('feature_name')}",
         "",
@@ -618,7 +624,7 @@ def render_acceptance(data, input_path):
         "",
         _table(["项", "内容"], [
             ["功能名称", data.get("feature_name")],
-            ["模块编码", f"M-{data.get('module')}"],
+            ["模块编码", "、".join(f"M-{x}" for x in modules)],
             ["PRD 文档", data.get("prd_doc")],
             ["拆分日期", data.get("date")],
             ["拆分人", data.get("splitter")],
@@ -638,12 +644,19 @@ def render_acceptance(data, input_path):
         "## 验收点清单",
         "",
     ]
-    for fname in sorted(groups):
-        lines += [f"### 功能 {fname}：{(groups[fname][0] or {}).get('feature_label', '')}".rstrip(), ""]
+    for mod, fnum in sorted(groups):
+        # 标题取本组自身的 feature_label（组内去重、按出现序拼接——
+        # 正常数据组内唯一；异常混组时并排可见而非静默取首行）
+        labels = []
+        for p in groups[(mod, fnum)]:
+            lab = (p.get("feature_label") or "").strip()
+            if lab and lab not in labels:
+                labels.append(lab)
+        lines += [f"### 功能 M-{mod}-F{fnum}：{'/'.join(labels)}".rstrip(), ""]
         lines += [
             _table(["验收点ID", "验收点描述", "验证方式", "PRD原文锚点", "状态"],
                    [[p.get("id"), p.get("description"), p.get("verify_method"),
-                     f"`{p.get('prd_anchor')}`", p.get("status")] for p in groups[fname]]),
+                     f"`{p.get('prd_anchor')}`", p.get("status")] for p in groups[(mod, fnum)]]),
             "",
         ]
     reviews = data.get("reviews", [])

@@ -822,6 +822,65 @@ def check_error_codes(data, errors, doc_path=None):
             )
 
 
+def check_heading_hierarchy(errors, warnings, doc_path):
+    """v3.28.3(L-HIER-1)：标题层级闭环（提供 --doc 时）——N.M.K 子级标题必须有 N.M 父级标题。
+
+    三层编号（§2.2.N 表 / §3.2.N 接口 / §6.2.N 业务操作 / §7.2.N 页组）隐含必须存在
+    N.M 父级小节标题。ch07 详设曾出现 §6.1 直接跳 §6.2.1、§7.1 直接跳 §7.2.1（缺
+    §6.2/§7.2 父级）却通过全部 Gate：锚点存在性校验只证明「§6.2.1 标题存在」，不证明
+    「§6.2 父级章节存在」。本检查补上该缺口：
+    - 父级锚点缺失 → FAIL（fail-closed）；
+    - 父级存在但标题深度不是子级-1（如 #### §6.2.1 配了 #### §6.2）→ WARN（不阻断，
+      与 v3.19.0 P1-4「锚点匹配放宽到任意深度」口径一致）。
+    围栏内伪标题跳过（与 _doc_detail_headings 同一口径）。"""
+    doc = Path(doc_path)
+    if not doc.is_file():
+        return  # 文件不存在已由 check_doc_anchors 报告，不重复报
+    _heading_re = re.compile(r"^(#{1,6})\s+(?:\*\*)?\s*§?([0-9]+(?:\.[0-9]+)*)(?!\.?[0-9])")
+    entries = []  # (深度, 规范化锚点, 截断标题行)
+    in_fence = False
+    _fence_marker = ""
+    for ln in doc.read_text(encoding="utf-8", errors="replace").splitlines():
+        _stripped = ln.strip()
+        if _stripped.startswith("```") or _stripped.startswith("~~~"):
+            if not in_fence:
+                in_fence = True
+                _fence_marker = _stripped[:3]
+            elif _stripped.startswith(_fence_marker):
+                in_fence = False
+            continue
+        if in_fence:
+            continue
+        m = _heading_re.match(_stripped)
+        if m:
+            entries.append((len(m.group(1)), _norm_anchor(m.group(2)), _stripped[:60]))
+    anchor_depth = {}
+    for depth, a, _disp in entries:
+        anchor_depth.setdefault(a, depth)
+    # 缺父级按父级锚点聚合——一个父级缺失只报一条（附波及子级数与首个示例），不逐子级刷屏
+    _missing = {}  # parent -> {"count": int, "example": str, "depth": int}
+    for depth, a, disp in entries:
+        parts = a.split(".")
+        if len(parts) < 2:
+            continue
+        parent = ".".join(parts[:-1])
+        if parent not in anchor_depth:
+            info = _missing.setdefault(parent, {"count": 0, "example": disp, "depth": depth})
+            info["count"] += 1
+        elif anchor_depth[parent] != depth - 1:
+            warnings.append(
+                f"--doc 标题层级不规范: 「{disp}」的父级 §{parent} 为 {anchor_depth[parent]} 级标题"
+                f"（建议 {depth - 1} 级，即 {'#' * (depth - 1)}；不阻断）"
+            )
+    for parent in sorted(_missing, key=lambda p: [int(x) for x in p.split(".")]):
+        info = _missing[parent]
+        errors.append(
+            f"--doc 标题层级断裂: {info['count']} 个 §{parent}.N 小节缺少父级标题 §{parent}"
+            f"（首例「{info['example']}」；N.M.K 三层编号隐含 N.M 父级小节必须真实存在，"
+            f"如 {'#' * (info['depth'] - 1)} §{parent} …）"
+        )
+
+
 def check_page_specs(data, errors):
     """v3.27.9(F2)：页面规格结构化——dialogs[].api 锚点闭环到 apis[]。
 
@@ -2804,6 +2863,9 @@ def main():
         check_reserved_words(data, errors, warnings)
         # v3.28.1：规则错误码全局唯一 + 正文出现（提供 --doc 时）
         check_error_codes(data, errors, doc_path=args.doc)
+        # v3.28.3(L-HIER-1)：标题层级闭环——N.M.K 子级标题必须有 N.M 父级标题（提供 --doc 时）
+        if args.doc:
+            check_heading_hierarchy(errors, warnings, args.doc)
     elif args.kind == "verification":
         check_verification(data, errors, baseline_path=args.baseline,
                            exec_record_path=args.exec_record, workspace=ws or ".",

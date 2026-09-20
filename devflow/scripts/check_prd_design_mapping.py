@@ -111,9 +111,14 @@ def check_constraint_mapping(clarification: dict, design: dict) -> Tuple[List[st
             if constraint_ref:
                 constraint_refs.add(constraint_ref)
     
-    # 从 API 字段中收集约束引用
+    # 从 API 字段中收集约束引用（v3.28.2 兼容：request 为 {anchor, fields} 对象或旧版列表均可）
     for api in apis:
-        for req_field in api.get('request', []):
+        _req = api.get('request', [])
+        if isinstance(_req, dict):
+            _req = _req.get('fields', [])
+        for req_field in _req:
+            if not isinstance(req_field, dict):
+                continue
             constraint_ref = req_field.get('prd_constraint_ref', '')
             if constraint_ref:
                 constraint_refs.add(constraint_ref)

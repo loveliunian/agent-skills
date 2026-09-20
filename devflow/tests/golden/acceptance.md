@@ -3,7 +3,7 @@
 > 生成时间：2026-09-16 10:05:00（UTC）　数据来源：acceptance.json 结构化产物自动汇总
 
 
-<!-- 审计指纹: acceptance.json sha256=9ee4bf19dd7cffe84a9c813245356b92712c6bb264a65e3072f42451cb4aa01f（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: acceptance.json sha256=f2efe0ade09b69db9986e3ff1e3fe0d07e21b74b7841c9f0e5d31da19ca56c2c（由 df_render 自动生成，人工勿改） -->
 
 ## 基本信息
 
@@ -28,14 +28,14 @@
 
 ## 验收点清单
 
-### 功能 F01：支付单管理
+### 功能 M-01-F01：支付单管理
 
 | 验收点ID | 验收点描述 | 验证方式 | PRD原文锚点 | 状态 |
 |---|---|---|---|---|
 | M-01-F01-A01 | 新增支付单成功返回支付单 ID | API | `docs/PRD/demo-pay.md#L12` | FROZEN |
 | M-01-F01-A02 | 列表按创建时间倒序返回 | API | `docs/PRD/demo-pay.md#L15` | FROZEN |
 
-### 功能 F02：支付关闭
+### 功能 M-01-F02：支付关闭
 
 | 验收点ID | 验收点描述 | 验证方式 | PRD原文锚点 | 状态 |
 |---|---|---|---|---|

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# P5 Gate 脚本 v3.28.2
+# P5 Gate 脚本 v3.28.3
 # 用途：验证 P5 阶段是否完成（支持诊断与修复建议）
 
 set -euo pipefail
