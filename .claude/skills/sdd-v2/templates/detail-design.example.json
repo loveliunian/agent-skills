@@ -1,0 +1,223 @@
+{
+  "_说明": "这是【示例】不是模板:内容为某治理服务项目的真实取值,展示填写形态用,禁止照抄任何值。新建详设 JSON 时按 detail-design.template.md 的规则从零填写。",
+  "meta": {
+    "templateId": "详细设计-总分分文档-模板",
+    "templateVersion": "3.20.3",
+    "docType": "模块详细设计",
+    "moduleCode": "GOV",
+    "moduleName": "治理服务",
+    "ownerService": "governance-service",
+    "scope": "要素库治理(四类要素)+全局配置+统一回收站",
+    "status": "已定稿",
+    "generatedAt": "2026-09-17",
+    "baseline": "G0 裁决基线 v3.0;本文档为唯一事实源",
+    "docs": ["治理服务-详细设计-v3.json"]
+  },
+
+  "architecture": {
+    "style": "monolith",
+    "services": [],
+    "modules": ["要素库管理", "全局配置", "统一回收站"],
+    "evidence": "§0.1 模块概览:可独立运行的单体服务,Spring Boot 内嵌容器 + H2,无任何跨服务依赖(无网关/注册中心/Redis/MQ)"
+  },
+
+  "techStack": [
+    { "item": "后端", "value": "Spring Boot 3.x + MyBatis-Plus", "sourceSection": "§0.1" },
+    { "item": "数据库", "value": "H2 文件模式(MySQL 兼容方言),Flyway 迁移为字段级事实源", "sourceSection": "§2.1" },
+    { "item": "前端", "value": "Vue3 + Element Plus 静态资源", "sourceSection": "§7.7" },
+    { "item": "鉴权", "value": "无(本地单机免登录,操作人统一 admin)", "sourceSection": "§6" }
+  ],
+
+  "acceptance": {
+    "declared": 15,
+    "evidence": "§8.1 功能验收 A1~A15 共 15 条;§8.2 为非功能 3 项(不并入分母)",
+    "designedComplete": 15
+  },
+
+  "chunks": [
+    {
+      "chunkId": "C01",
+      "chapter": "数据模型",
+      "sourceSection": "§2 数据模型#§2.4 表结构设计",
+      "contextFrom": ["§2.2 本期建表清单", "§2.3 ER 图"],
+      "modules": [
+        { "name": "要素统一身份", "summary": "统一身份+不可变版本+版本级引用,四类要素共用", "sourceSection": "§2.4 子域 A" }
+      ],
+      "rules": [],
+      "apis": [],
+      "tables": [
+        {
+          "name": "gov_element",
+          "purpose": "要素统一身份表",
+          "fields": [
+            "id bigint PK -- 要素 ID",
+            "element_type varchar(20) NOT NULL -- METADATA/PARAMETER/FORM/PROCESS",
+            "element_code varchar(50) NOT NULL, UNIQUE -- 编码,由全局配置规则生成",
+            "element_name varchar(100) NOT NULL -- 命名规则生成的展示名",
+            "current_version_id bigint FK->gov_element_version.id NULL -- 当前版本指针(循环外键)",
+            "status varchar(20) NOT NULL DEFAULT ENABLED -- ENABLED/DISABLED",
+            "is_builtin boolean NOT NULL DEFAULT false -- 内置要素不可删除",
+            "recycled_at timestamp NULL -- 进入回收站时间(逻辑删除标记)",
+            "created_by/at, updated_by/at -- 审计,操作人固定 admin"
+          ],
+          "indexes": [
+            "uk_element_code(element_code) UNIQUE",
+            "idx_element_type_status(element_type, status)"
+          ],
+          "sourceSection": "§2.4 gov_element"
+        }
+      ],
+      "nfrs": [],
+      "acceptances": [],
+      "openIssues": [
+        {
+          "question": "gov_element_version 超 20 列,本节仅登记关键列",
+          "sourceSection": "§2.4 gov_element_version",
+          "conflictWith": ""
+        }
+      ]
+    },
+    {
+      "chunkId": "C02",
+      "chapter": "业务规则",
+      "sourceSection": "§3 业务规则",
+      "contextFrom": [],
+      "modules": [],
+      "rules": [
+        {
+          "ruleId": "C02-R01",
+          "sourceRuleId": "R1",
+          "text": "element_code/element_name 由全局配置规则进程内生成;生成失败不落库",
+          "category": "编码命名",
+          "errorCase": "CODE_GENERATION_FAILED",
+          "module": "要素库管理",
+          "sourceSection": "§3"
+        },
+        {
+          "ruleId": "C02-R02",
+          "sourceRuleId": "R4",
+          "text": "gov_element_version 禁 UPDATE/DELETE",
+          "category": "版本",
+          "errorCase": "409 VERSION_IMMUTABLE_FORBIDDEN",
+          "module": "要素库管理",
+          "sourceSection": "§3"
+        },
+        {
+          "ruleId": "C02-R03",
+          "sourceRuleId": "R25",
+          "text": "建编码规则前必须先配好全局默认分隔符;同规则内 paramKey 不可重名;规则创建成功后永久只读;规则保存时冻结当时的分隔符",
+          "category": "编码规则",
+          "errorCase": "DELIMITER_NOT_CONFIGURED / CODE_RULE_PARAM_KEY_DUPLICATED",
+          "module": "全局配置",
+          "sourceSection": "§3"
+        }
+      ],
+      "apis": [],
+      "tables": [],
+      "nfrs": [],
+      "acceptances": [],
+      "openIssues": []
+    },
+    {
+      "chunkId": "C03",
+      "chapter": "接口设计",
+      "sourceSection": "§5 接口设计#§5.2 接口概览",
+      "contextFrom": ["§5.3 详细接口定义", "§6 权限与全局约定"],
+      "modules": [],
+      "rules": [],
+      "apis": [
+        {
+          "method": "POST",
+          "path": "/api/elements/{type}",
+          "purpose": "新建要素",
+          "permission": "governance:element:add",
+          "sourceSection": "§5.2"
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/elements/{type}/{id}/status",
+          "purpose": "停用/启用要素",
+          "permission": "governance:element:edit",
+          "sourceSection": "§5.2"
+        },
+        {
+          "method": "POST",
+          "path": "/api/governance/recycle/bin/batch-purge",
+          "purpose": "批量彻底删除",
+          "permission": "governance:recycle:purge",
+          "sourceSection": "§5.2"
+        }
+      ],
+      "tables": [],
+      "nfrs": [],
+      "acceptances": [],
+      "openIssues": []
+    },
+    {
+      "chunkId": "C04",
+      "chapter": "验收标准",
+      "sourceSection": "§8 验收标准",
+      "contextFrom": ["§5.2 接口概览", "§3 业务规则"],
+      "modules": [],
+      "rules": [],
+      "apis": [],
+      "tables": [],
+      "nfrs": [],
+      "acceptances": [
+        {
+          "acceptanceId": "A2",
+          "text": "编辑要素产生新版本 v(X+1).0,旧版本原样保留可查看可对比;任何改写历史版本的请求被拒",
+          "ruleRefs": ["R3", "R4"],
+          "apiRefs": ["§5.3.3 编辑要素"],
+          "tableRefs": ["§2.4 gov_element_version"],
+          "testCases": ["TC-ELEM-EDIT-001"],
+          "status": "COMPLETE",
+          "sourceSection": "§8.1"
+        },
+        {
+          "acceptanceId": "A7",
+          "text": "被引用方 B 编辑出新版本后,引用方 A 的当前 ACTIVE 出向边自动指向 B 新版本,旧边转 HISTORICAL 可查",
+          "ruleRefs": ["R32"],
+          "apiRefs": ["§5.3.3 编辑要素"],
+          "tableRefs": ["§2.4 gov_reference"],
+          "testCases": ["TC-REF-FOLLOW-001"],
+          "status": "COMPLETE",
+          "sourceSection": "§8.1"
+        }
+      ],
+      "openIssues": []
+    },
+    {
+      "chunkId": "C05",
+      "chapter": "非功能设计",
+      "sourceSection": "§8.2 非功能验收#§11 异常处理、安全与性能设计",
+      "contextFrom": [],
+      "modules": [],
+      "rules": [],
+      "apis": [],
+      "tables": [],
+      "nfrs": [
+        {
+          "dimension": "performance",
+          "requirement": "列表接口 P95 响应时间",
+          "target": "< 500 ms(10 万要素量级分页查询)",
+          "sourceSection": "§8.2"
+        },
+        {
+          "dimension": "quality",
+          "requirement": "核心业务单测覆盖率(element/globalconfig/recycle 包核心 Service)",
+          "target": ">= 80%",
+          "sourceSection": "§8.2"
+        },
+        {
+          "dimension": "reliability",
+          "requirement": "上线前 P0 缺陷数",
+          "target": "= 0",
+          "sourceSection": "§8.2"
+        }
+      ],
+      "acceptances": [],
+      "openIssues": []
+    }
+  ]
+}

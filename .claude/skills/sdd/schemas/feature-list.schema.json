@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "feature-list",
+  "type": "object",
+  "required": ["source", "generatedAt", "status", "architecture", "features"],
+  "properties": {
+    "source": { "type": "string", "minLength": 1, "description": "详设路径" },
+    "generatedAt": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "status": { "enum": ["草案", "已确认"] },
+    "architecture": {
+      "enum": ["monolith", "microservices"],
+      "description": "架构形态,必须与 _work/parse-report.json 的 architecture.style 一致;决定 守卫方案 用哪套隔离守卫"
+    },
+    "approvedBy": { "type": "string", "description": "清单确认人;status=已确认 时必填" },
+    "approvedAt": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "description": "清单确认 确认日期" },
+    "features": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "boundary", "deps", "firstBatch", "acceptance", "estimateDays"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^F\\d{3}$" },
+          "name": { "type": "string", "minLength": 1 },
+          "boundary": { "type": "string", "minLength": 5, "description": "做什么/不做什么,必须两者都有表述" },
+          "deps": { "type": "array", "items": { "type": "string", "pattern": "^F\\d{3}$" } },
+          "firstBatch": { "type": "boolean" },
+          "done": {
+            "type": "boolean",
+            "default": false,
+            "description": "开工前已交付/既有的 feature;首批 feature 依赖它时豁免「首批闭环」检查"
+          },
+          "service": {
+            "type": "string",
+            "description": "归属服务,来自详设 twin(基线 §5 服务规划);sdd 只对账不自定,详设未标则缺省(单服务模式)"
+          },
+          "module": {
+            "type": "string",
+            "description": "服务内模块(=Maven module),来自详设 twin;多模块布局下本 feature 代码落此模块,并行时各编各的"
+          },
+          "acceptance": { "type": "string", "minLength": 10, "description": "可执行的验收要点" },
+          "estimateDays": { "type": "number", "minimum": 0, "maximum": 5, "description": "粒度 1~5 人日;低于 1 人日出合并提示;done=true 的既有能力填 0" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

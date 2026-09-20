@@ -1,0 +1,145 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "chunk-extract",
+  "description": "解析步分片抽取件:每个子代理对详设一个分片的抽取结果",
+  "type": "object",
+  "required": ["chunkId", "modules", "apis", "tables", "rules", "openIssues"],
+  "properties": {
+    "chunkId": { "type": "string", "pattern": "^C\\d{2,3}$" },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "summary"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "summary": { "type": "string", "minLength": 5 },
+          "sourceSection": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "apis": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["method", "path", "purpose"],
+        "properties": {
+          "method": { "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "UNKNOWN"] },
+          "path": { "type": "string", "minLength": 1 },
+          "purpose": { "type": "string", "minLength": 2 },
+          "unresolved": { "type": "boolean", "description": "本片(含 contextFrom 辅助上下文)里确实取不到 method/path 时标 true,同时 method 填 UNKNOWN、path 写待定说明,且本片必须附一条 openIssue。禁止为了过校验编一个路径" },
+          "permission": { "type": "string", "description": "概览表的权限/鉴权列(如 governance:element:add);免登录时写 无" },
+          "sourceSection": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "tables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "purpose"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "purpose": { "type": "string", "minLength": 2 },
+          "fields": { "type": "array", "items": { "type": "string" }, "description": "原样抄录表结构行,含类型与约束,如 'element_code VARCHAR(64) NOT NULL -- 要素编码'" },
+          "indexes": { "type": "array", "items": { "type": "string" }, "description": "唯一键/索引/外键缺失等表级约束" },
+          "sourceSection": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "rules": {
+      "type": "array",
+      "description": "业务规则,原样转述详设,不改写不补全",
+      "items": {
+        "type": "object",
+        "required": ["ruleId", "text"],
+        "properties": {
+          "ruleId": {
+            "type": "string",
+            "pattern": "^C\\d{2,3}-R\\d{2,}$",
+            "description": "规则唯一标识,格式 {chunkId}-R{两位序号}(如 C03-R07)。拆分台账 rule-ledger.json 以此为对账键;必填是为了防止规则顺序变动导致对账错位。"
+          },
+          "text": { "type": "string", "minLength": 5 },
+          "sourceRuleId": {
+            "type": "string",
+            "description": "**详设原文的规则编号,原样照抄**(如 R1/GR02/T2/AR01)。本片无编号时省略。台账与 清单确认呈报靠它回溯原文,不可丢弃也不可改写"
+          },
+          "category": { "type": "string", "description": "原文表格的分类列(如 编辑/删除/回收站);它是 拆分 feature 的天然依据" },
+          "errorCase": { "type": "string", "description": "原文「约束/错误处理」列的返回值与错误码(如 409 VERSION_CONFLICT / GOV-400-INVALID-SYMBOL)。有则必填,否则 spec 编写契约时要回头读原文" },
+          "module": { "type": "string" },
+          "vague": { "type": "boolean", "description": "详设原文即含糊时 true,并必须同时产 openIssue" },
+          "sourceSection": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "nfrs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["dimension", "requirement"],
+        "properties": {
+          "dimension": {
+            "enum": ["performance", "security", "idempotency", "compatibility", "quality", "capacity", "reliability", "observability", "operability", "maintainability", "scalability", "compliance", "other"],
+            "description": "quality=覆盖率/缺陷门槛类门禁;other 时必须同时填 subDimension 说明具体维度"
+          },
+          "subDimension": { "type": "string", "description": "dimension=other 时给出具体维度名" },
+          "requirement": { "type": "string", "minLength": 2 },
+          "target": { "type": "string", "description": "可度量目标值,如 P95<500ms / 覆盖率≥80%" },
+          "sourceSection": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "acceptances": {
+      "type": "array",
+      "description": "详设验收章节/追溯矩阵里的验收点与测试用例。**本节有内容却不抽,等于把验收分母弄丢**,禁止归入 rules 了事",
+      "items": {
+        "type": "object",
+        "required": ["acceptanceId", "text"],
+        "properties": {
+          "acceptanceId": { "type": "string", "minLength": 1, "description": "原文验收点编号,原样照抄(如 M-03-F01-A01);无编号时用 {chunkId}-A{序号}" },
+          "text": { "type": "string", "minLength": 5, "description": "验收点要验什么(一句话可观察的结果)" },
+          "ruleRefs": { "type": "array", "items": { "type": "string" }, "description": "矩阵「设计规则」列原样内容(原文编号,如 R1/R2)" },
+          "apiRefs": { "type": "array", "items": { "type": "string" }, "description": "矩阵「接口契约」列原样内容(如 §5.3.1)" },
+          "tableRefs": { "type": "array", "items": { "type": "string" }, "description": "矩阵「数据字段」列原样内容(如 §2.3 gov_element)" },
+          "testCases": { "type": "array", "items": { "type": "string" }, "description": "矩阵「测试用例」列(如 TC-M03-F01-CRUD-001)" },
+          "status": { "type": "string", "description": "矩阵原状态值(COMPLETE/待补等);详设声明的设计完成度,不等于代码已实现" },
+          "sourceSection": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "openIssues": {
+      "type": "array",
+      "description": "本片发现的疑点/缺失/矛盾",
+      "items": {
+        "type": "object",
+        "required": ["question", "sourceSection"],
+        "properties": {
+          "question": { "type": "string", "minLength": 5 },
+          "sourceSection": { "type": "string", "minLength": 1 },
+          "conflictWith": { "type": "string", "description": "与其他片矛盾时标注对方 chunkId" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "techStack": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["item", "value"],
+        "properties": {
+          "item": { "type": "string" },
+          "value": { "type": "string" },
+          "sourceSection": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,54 @@
+{
+  "meta": {
+    "sourceDoc": "ch-07.md",
+    "generatedAt": "2026-09-17",
+    "module": "用户中心"
+  },
+  "issues": [
+    {
+      "issueId": "PI-01",
+      "kind": "unresolved",
+      "text": "FUN-USR-006 用户权限组授权未决(PRD 原始问题 Q-003 裁决中),对应验收 A4 未设计",
+      "sourceSection": "§7.1",
+      "blocking": true,
+      "affects": [
+        "A4"
+      ],
+      "relatedAcceptances": ["A4"],
+      "status": "resolved",
+      "resolution": "按候选二执行:权限组仅做只读展示,A4 以 COMPLETE 形态进入详设(只读口径)",
+      "decidedBy": "产品 2026-09-17",
+      "candidates": [
+        {"option": "权限组可编辑(增删成员+保存)", "impact": "需要批量更新接口+乐观锁,表结构加版本号字段"},
+        {"option": "权限组仅只读展示", "impact": "纯查询接口,不动表结构"}
+      ]
+    },
+    {
+      "issueId": "PI-02",
+      "kind": "gap",
+      "text": "PRD 未包含数据库表结构设计,仅第 14 项数据字段表;表结构为详设本职,按字段表推导建表,登记非 blocking 待评审确认",
+      "sourceSection": "§7.1 第 14 项",
+      "blocking": false,
+      "affects": [
+        "C01 数据模型"
+      ],
+      "nonBlockingReason": "基线 §3/§4 已给定建表规范,推导结果唯一,无候选分叉",
+      "confirmPoint": "核对推导的表名前缀与公共列是否符合基线",
+      "status": "open"
+    },
+    {
+      "issueId": "PI-03",
+      "kind": "gap",
+      "text": "A5 为数据埋点类验收,PRD 未定义埋点方案,无法设计",
+      "sourceSection": "§7.1 第 15 项",
+      "blocking": false,
+      "affects": [
+        "A5"
+      ],
+      "relatedAcceptances": ["A5"],
+      "status": "wontfix",
+      "resolution": "埋点方案由数据平台统一规划,本期不进详设,A5 挂起",
+      "decidedBy": "产品 2026-09-17"
+    }
+  ]
+}

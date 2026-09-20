@@ -1,0 +1,59 @@
+{
+  "_name": "17 项功能详设模板",
+  "_appliesTo": "功能小节标题形如 FUN-XXX-NNN：小节名；小节内固定 17 项信息项（写为 - **N. 项名**）；规则以 | R-xxx | ... | 表格行定义；第 15 项为验收标准表",
+  "_source": "归档/07-功能详细设计.md（第 7 章撰写规范）+ 归档/06-功能结构设计.md",
+  "_note": "本文件是 validate_prd.py 的输入，不是运行产物。使用时复制到 design/{PRD}/prd_profile.json 并补上该 PRD 的 expectedFuns（AI 亲数的小节 id 清单），以保证该次运行可复现。字段含义见 SKILL.md「模板层」；下划线开头的字段是给人看的元信息，引擎忽略。",
+  "_fieldGuide": {
+    "funSection.pattern": "功能小节标题正则，必须含 ?P<id> 命名组（小节标识）、可选 ?P<name>",
+    "templateItem.pattern": "模板项行正则，必须含 ?P<num> 命名组（项编号）",
+    "templateItem.names": "项编号 → 项名，仅用于报告可读性",
+    "requiredItems": "P1 必需项：缺任一即报结构缺项",
+    "acceptanceItemNumber": "P6 据此定位验收标准表",
+    "ruleDef.pattern": "规则表行正则，必须含 ?P<rid>；可选 ?P<qual> 抓非权威括注",
+    "ruleDef.nonAuthoritativeQualifiers": "括注值命中此表 = 只消费不定义，P2 不计入权威定义位",
+    "ruleRefPattern/funRefPattern/qRefPattern": "P3/P4/P7 的引用扫描词形；某类引用在本模板下不存在时写永假式如 (?!x)x",
+    "unresolvedMarkers": "P5 未决标记词表",
+    "emptyTableRowPattern/acceptanceHeaderKeywords": "P6 表格识别用"
+  },
+  "profileVersion": 1,
+  "funSection": {
+    "pattern": "^#{2,6}\\s*(?P<id>FUN-[A-Z]+-\\d+)[:：](?P<name>.+)$"
+  },
+  "templateItem": {
+    "pattern": "^- \\*\\*(?P<num>\\d+)\\.\\s*[^*]+\\*\\*",
+    "names": {
+      "1": "功能概述与预期结果",
+      "2": "关联需求与设计依据",
+      "3": "功能边界",
+      "4": "界面结构与交互",
+      "5": "权限能力约束",
+      "6": "触发条件或入口",
+      "7": "前置条件",
+      "8": "主流程与操作流程图",
+      "9": "业务分支",
+      "10": "异常处理",
+      "11": "业务规则",
+      "12": "状态定义与状态转移",
+      "13": "结果与状态变化",
+      "14": "数据字段",
+      "15": "验收标准",
+      "16": "上游依赖",
+      "17": "下游影响与后续触发"
+    }
+  },
+  "requiredItems": [1, 3, 4, 8, 10, 11, 15],
+  "acceptanceItemNumber": 15,
+  "ruleDef": {
+    "pattern": "^\\|\\s*(?P<rid>R-\\d+)\\s*(?P<qual>[（(][^）)]*[）)])?\\s*\\|",
+    "nonAuthoritativeQualifiers": ["引用"]
+  },
+  "ruleRefPattern": "R-\\d+",
+  "funRefPattern": "FUN-[A-Z]+-\\d+",
+  "qRefPattern": "(?<![A-Za-z])Q-\\d+",
+  "unresolvedMarkers": [
+    "待确认", "待定稿", "待裁决", "待产品", "待 Q-", "二选一",
+    "占位不展开", "不展开", "WAITING_DECISION", "口径未定", "未决"
+  ],
+  "emptyTableRowPattern": "^\\|\\s*-{2,}",
+  "acceptanceHeaderKeywords": ["场景", "前置条件", "用例", "编号", "预期结果", "验收项"]
+}

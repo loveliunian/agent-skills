@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "chunk-plan",
+  "description": "解析步分片计划:顶层必须是数组,一项一片;脚本据此核对每片是否已抽取。总分文档(总文档+多个分文档)时按文件并列入计划,靠 doc 区分",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "required": ["chunkId", "source", "approxLines"],
+    "properties": {
+      "chunkId": { "type": "string", "pattern": "^C\\d{2,3}$" },
+      "doc": { "type": "string", "description": "本片所属详设文件路径(相对仓库根)。只有一份文档时可省略,脚本回退到 parse-report.source" },
+      "source": { "type": "string", "minLength": 2, "description": "分片来源,格式 文件路径#章节 或 文件路径#§x.y" },
+      "startLine": { "type": "integer", "minimum": 1, "description": "本片起始行号(含)。强烈建议填:子代理按行范围抽取比按标题文本定位可靠,无编号章节、重名标题都能定准" },
+      "endLine": { "type": "integer", "minimum": 1, "description": "本片结束行号(含),必须 >= startLine" },
+      "approxLines": { "type": "integer", "minimum": 1, "description": "该片大致行数;超约 3 万字的小节再切分" },
+      "contextFrom": {
+        "type": "array",
+        "items": { "type": "string", "minLength": 2 },
+        "description": "本片抽不全会漏的关键信息所在的其他章节定位符(文件#§x.y),派片时必须一并读。典型场景:接口详情只写字段表,method+path 在另一节的概览表里"
+      },
+      "module": { "type": "string", "description": "该片所属模块/章名" }
+    },
+    "additionalProperties": false
+  }
+}

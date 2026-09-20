@@ -1,0 +1,21 @@
+{
+  "_说明": "委托模式开关(复制到 specs/_work/gate-delegation.json 即开启,删除即关闭)。守门引擎只读 batchAutoAdvance 一个键;其余键由主会话在确认关口按语义消费。每次 AI 自裁必须追加 specs/_work/gate-decisions.md(不落档视同未确认)。五类红线事项不可自裁:高阻塞 Q 待裁决、spec 与详设/现有代码矛盾、评审同一问题 3 轮仍报、测试同一问题修 3 次仍红、守卫挡路且实现没错。",
+  "enabled": true,
+  "enabledAt": "<日期>",
+  "enabledBy": "<用户>",
+  "batchAutoAdvance": true,
+  "_batchAutoAdvance说明": "true=实现期补批不必逐批等用户同意,守门引擎放行非首批 spec;false/缺省=非首批 spec 生成前逐批呈报",
+  "autoApprove": {
+    "_说明": "各确认关口是否允许 AI 自裁;缺省 true。关掉某项即恢复该关口人工确认",
+    "listConfirm": true,
+    "specConfirm": true,
+    "deliverConfirm": true
+  },
+  "escalateAlways": [
+    "_说明(复盘 2026-09-20 追加):命中下列主题的裁决一律升级呈报用户,AI 只出选项与建议不代拍板;主题按语义匹配,措辞不必逐字。",
+    "菜单/页面承接(菜单项点击后去哪个页面)",
+    "用户可见交互口径(点击后用户看到什么/给什么反馈)",
+    "数据删除语义(物理删除 vs 逻辑删除 vs 进回收站)"
+  ],
+  "_escalateAlways说明": "即使 autoApprove 全开,命中 escalateAlways 主题的裁决仍须升级;源自先例:用户管理菜单承接被 AI 合规自裁为同页映射,用户事后质询'为什么详设没有的页面开发里出现了'——低危不等于用户无意见,此类主题由用户显式圈定"
+}

@@ -1,0 +1,20 @@
+{
+  "_说明": "并行派发共享状态文件。主会话在每次派发前生成/更新,实现代理只读。落在 specs/_work/pipeline.json。三件事:迁移号独占分配、文件所有权划界、共享文件协作约定。",
+  "generatedAt": "1970-01-01",
+  "dispatched": [
+    {"id": "F011", "agent": "实现代理A", "migration": ["V10__xxx.sql"], "owns": ["backend/src/main/java/com/demo/admin/module/x/**"], "forbidden": ["backend/src/main/java/com/demo/admin/module/y/**", "frontend/src/views/OtherView.vue"]}
+  ],
+  "migrationAllocator": {
+    "_规则": "派发前由主会话查 db/migration 最大版本号顺延分配,写进对应 feature 的 migration 数组;两个并行 feature 不允许共享版本号",
+    "next": "V10"
+  },
+  "ownership": {
+    "_规则": "owns=本 feature 独占可写;forbidden=明确禁触(其他在途 feature 的地盘)。共享文件(如 api/index.ts)约定『只许在文件末尾追加自己的段落』",
+    "sharedAppendOnly": ["frontend/src/api/index.ts"]
+  },
+  "isolation": {
+    "_规则": "同目录并行(无 worktree)时:测试数据用独立前缀+独立 H2 数据目录或独立端口;有 git 时优先 worktree(见 references/parallel-worktrees.md),完工 merge",
+    "mode": "shared-workspace | worktree",
+    "testIsolation": {"dbUrl": "jdbc:h2:file:./data/<feature前缀>", "serverPort": "默认 8080,并行时按派发表错开"}
+  }
+}
