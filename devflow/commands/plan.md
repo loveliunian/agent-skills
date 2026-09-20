@@ -1,6 +1,6 @@
 ---
 name: plan
-version: "3.28.3"
+version: "3.29.0"
 description: >-
   Use when decomposing a detailed design into actionable tasks, mentions
   "/plan", "任务分解", "任务清单", "分解任务", "break down", "task list", or "work items".

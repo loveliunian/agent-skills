@@ -1,12 +1,31 @@
 ---
 name: changelog
-version: "3.28.3"
+version: "3.29.0"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.28.3
+# Changelog — devflow v1 → v3.29.0
+
+## v3.29.0 (2026-09-20) — P2 详设前端测试锚点冻结（test_anchor / data-testid）
+
+- **问题背景**：P2 详设只冻结「长什么样、调什么接口」，未冻结测试定位信息——P5/P6e E2E
+  只能从验收点描述猜选择器（placeholder/文本/层级），自动化用例脆弱且无法对账。
+- **schema（v3.29.0）**：`pages[].form_controls[]`/`dialogs[]` 增 `test_anchor`（**required**，
+  pattern `^[a-z][a-z0-9]*(-[a-z0-9]+)+$`）；`pages[]` 新增 `actions[]` 操作按钮正本
+  （name/type/test_anchor 必填，permission/api/dialog 可选）。
+- **机检**：df_validate 增 test_anchor 全文档唯一（跨 form_controls/dialogs/actions）、
+  `actions[].api` 闭环到 `apis[]`、`actions[].dialog` 闭环到同页 `dialogs[].name`；
+  `--doc` 对账 §7.2 表单控件规格表/弹窗·抽屉表/操作表的「测试锚点」列与 JSON 同源。
+- **命名公式**：`<feature缩写>-p<页面序号>-<类型>-<名称slug>`（类型枚举
+  input/select/date/switch/btn/dialog/row，如 `orgm-p1-input-name`），实现层以
+  `data-testid` 属性承载；P5 测试用例规范改为「定位符只允许引用详设冻结锚点」。
+- **generate_playwright_tests.py**：优先消费同目录 design.json 的 test_anchor 生成
+  Page Object `ANCHORS` 常量 + `anchor()` 定位方法（getByTestId）；缺 design.json
+  回退原推断路径。
+- **兼容性**：存量 design.json 缺 test_anchor 即 Gate FAIL（fail-closed）；实现侧
+  data-testid 一致性检查（P3b/P6c）留待下版本。详见 CHANGELOG-v3.29.0.md。
 
 ## v3.28.3 (2026-09-20) — 详设标题层级闭环校验（L-HIER-1）
 

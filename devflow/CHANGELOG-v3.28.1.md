@@ -1,4 +1,4 @@
-# devflow v3.28.3 更新总结
+# devflow v3.29.0 更新总结
 
 **发布日期**: 2026-09-20  
 **版本**: v3.28.1  
@@ -21,7 +21,7 @@ Gate 失败时输出 `suggested_fix` 字段，提供具体的修复代码和命�
 ❌ P3 Gate 失败
 - 缺少 import: RestController
 
-# 现在（v3.28.3）
+# 现在（v3.29.0）
 ❌ P3 Gate 失败
 - 缺少 import: RestController
 

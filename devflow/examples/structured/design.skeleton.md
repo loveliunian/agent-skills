@@ -49,6 +49,8 @@ sequenceDiagram
 
 ## §2 数据模型
 
+### 2.2 表结构（逐表锚点）
+
 ### 2.2.1 支付订单表（pay_order）
 
 字段与口径见下表索引。
@@ -62,6 +64,8 @@ sequenceDiagram
 ### 3.1 接口概览
 
 接口索引见下表。
+
+### 3.2 接口详细定义
 
 #### 3.2.1 创建支付订单
 
@@ -122,6 +126,8 @@ sequenceDiagram
 | 3 | 支付 | 提交确认 | /pay/order/create | views/pay/SubmitConfirmDialog.vue | 弹窗（确认） | pay:order:create |
 | 4 | 支付 | 退款确认 | /pay/refund | views/pay/RefundConfirmDialog.vue | 弹窗（确认） | pay:refund:create |
 
+### 7.2 页面交互设计
+
 ### 7.2.1 下单页交互（覆盖：下单页）
 
 - **查询区**：无
@@ -142,22 +148,22 @@ sequenceDiagram
 
 **操作：**
 
-| 操作 | 类型 | 权限点 | 关联（§3.2.x · BOP-n · Rn） | 触发弹窗/抽屉 |
-|---|---|---|---|---|
-| 提交 | 行操作 | pay:order:create | §3.2.1 · BOP-1 · R1 | → 弹窗/抽屉：提交确认 |
+| 操作 | 类型 | 权限点 | 关联（§3.2.x · BOP-n · Rn） | 触发弹窗/抽屉 | 测试锚点 |
+|---|---|---|---|---|---|
+| 提交订单 | 页面操作 | pay:order:create | §3.2.1 · BOP-1 · R1 | → 弹窗/抽屉：提交确认 | pay-p1-btn-submit |
 
 **弹窗/抽屉：**
 
-| 交互 | 组件 | 接口 | 关键状态/确认流 |
-|---|---|---|---|
-| 提交确认 | views/pay/SubmitConfirmDialog.vue | §3.2.1 POST | 二次确认；重复提交返回原单不重复扣款；失败保留草稿 |
+| 交互 | 组件 | 接口 | 关键状态/确认流 | 测试锚点 |
+|---|---|---|---|---|
+| 提交确认 | views/pay/SubmitConfirmDialog.vue | §3.2.1 POST | 二次确认；重复提交返回原单不重复扣款；失败保留草稿 | pay-p1-dialog-submit-confirm |
 
 **表单控件规格：**
 
-| 字段 | 标签 | 控件 | 校验与提示 | 候选来源 | 链路（§3.2.x → 表.字段） |
-|---|---|---|---|---|---|
-| amount | 金额 | el-input-number | 必填 · 0.01~99999.99 · R1 | 用户输入 | §3.2.1 → — |
-| payMethod | 支付方式 | el-select | 必填 · 候选:静态枚举 | 静态枚举 | §3.2.1 → — |
+| 字段 | 标签 | 控件 | 校验与提示 | 候选来源 | 链路（§3.2.x → 表.字段） | 测试锚点 |
+|---|---|---|---|---|---|---|
+| amount | 金额 | el-input-number | 必填 · 0.01~99999.99 · R1 | 用户输入 | §3.2.1 → — | pay-p1-input-amount |
+| payMethod | 支付方式 | el-select | 必填 · 候选:静态枚举 | 静态枚举 | §3.2.1 → — | pay-p1-select-pay-method |
 
 ### 7.2.2 退款页交互（覆盖：退款页）
 
@@ -179,15 +185,16 @@ sequenceDiagram
 
 **操作：**
 
-| 操作 | 类型 | 权限点 | 关联（§3.2.x · BOP-n · Rn） | 触发弹窗/抽屉 |
-|---|---|---|---|---|
-| 发起退款 | 行操作 | pay:refund:create | §3.2.2 · BOP-2 · R2 | → 弹窗/抽屉：退款确认 |
+| 操作 | 类型 | 权限点 | 关联（§3.2.x · BOP-n · Rn） | 触发弹窗/抽屉 | 测试锚点 |
+|---|---|---|---|---|---|
+| 申请退款 | 页面操作 | pay:refund:create | §3.2.2 · BOP-2 · R2 | → 弹窗/抽屉：退款确认 | pay-p2-btn-refund |
+| 删除 | 行操作 | pay:refund:delete | §3.2.2 · BOP-2 · R2 | — | pay-p2-row-del |
 
 **弹窗/抽屉：**
 
-| 交互 | 组件 | 接口 | 关键状态/确认流 |
-|---|---|---|---|
-| 退款确认 | views/pay/RefundConfirmDialog.vue | §3.2.2 POST | 二次确认；超限拦截并保留输入 |
+| 交互 | 组件 | 接口 | 关键状态/确认流 | 测试锚点 |
+|---|---|---|---|---|
+| 退款确认 | views/pay/RefundConfirmDialog.vue | §3.2.2 POST | 二次确认；超限拦截并保留输入 | pay-p2-dialog-refund-confirm |
 
 **表格列规格：**
 
@@ -198,9 +205,9 @@ sequenceDiagram
 
 **表单控件规格：**
 
-| 字段 | 标签 | 控件 | 校验与提示 | 候选来源 | 链路（§3.2.x → 表.字段） |
-|---|---|---|---|---|---|
-| refundAmount | 退款金额 | el-input-number | 必填 · ≤剩余可退金额 · R2 | 用户输入 | §3.2.2 → — |
+| 字段 | 标签 | 控件 | 校验与提示 | 候选来源 | 链路（§3.2.x → 表.字段） | 测试锚点 |
+|---|---|---|---|---|---|---|
+| refundAmount | 退款金额 | el-input-number | 必填 · ≤剩余可退金额 · R2 | 用户输入 | §3.2.2 → — | pay-p2-input-refund-amount |
 
 <!-- df:begin:api-index -->
 | 方法 | 路径 | 接口名称 | 权限 | 概览锚点 | 详细定义 | 请求字段 | 响应字段 |

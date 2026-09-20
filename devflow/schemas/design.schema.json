@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "devflow/schemas/design.schema.json",
   "title": "devflow P2 详细设计结构化核心（design.json）",
-  "description": "P2 详设的机器可读业务产物层。AI 只填语义层（设计判断、证据、锚点）；编号、计数、覆盖率、追溯矩阵、索引表、零结果话术由 df_render.py 派生，AI 不填。定位器（codegraph/历史文档）不是证据：锚点必须指向当前详设文档章节。空集合必须在 zero_results 声明（path + reason），静默省略即校验拦截。本 schema 刻意领域无关：不含任何具体业务表单/流程编码。v3.20.0：吸收数据恢复矩阵（resources×operations 补偿链闭环）、外部集成强制验证链（integrations 失败路径/幂等必填）、配置消费规格卡（configs 全仓消费点/失败路径/置信级）三个机制。v3.17.1：接口概览↔详细定义闭环（apis[].detail_anchor 必填，双向对账文档小节）；DDR↔字段一一对应（decisions[] + 每字段必填 ddr 引用，双向闭环）。",
+  "description": "P2 详设的机器可读业务产物层。AI 只填语义层（设计判断、证据、锚点）；编号、计数、覆盖率、追溯矩阵、索引表、零结果话术由 df_render.py 派生，AI 不填。定位器（codegraph/历史文档）不是证据：锚点必须指向当前详设文档章节。空集合必须在 zero_results 声明（path + reason），静默省略即校验拦截。本 schema 刻意领域无关：不含任何具体业务表单/流程编码。v3.20.0：吸收数据恢复矩阵（resources×operations 补偿链闭环）、外部集成强制验证链（integrations 失败路径/幂等必填）、配置消费规格卡（configs 全仓消费点/失败路径/置信级）三个机制。v3.17.1：接口概览↔详细定义闭环（apis[].detail_anchor 必填，双向对账文档小节）；DDR↔字段一一对应（decisions[] + 每字段必填 ddr 引用，双向闭环）。v3.29.0：前端交互控件测试锚点——form_controls/dialogs 必填 test_anchor，pages 新增 actions[]（操作按钮正本），全文档唯一，实现层以 data-testid 属性承载，P5/P6e 定位符只允许引用冻结锚点。",
   "type": "object",
   "required": [
     "feature",
@@ -1009,7 +1009,7 @@
         },
         "form_controls": {
           "type": "array",
-          "description": "表单控件规格（§7.2 页组「表单控件规格」表正本，v3.27.9；v3.27.15 增链路列）：字段必须出现在 §7.2.* 表单控件规格表首列；submit_api/target_field 提供即对账（悬空即 FAIL）",
+          "description": "表单控件规格（§7.2 页组「表单控件规格」表正本，v3.27.9；v3.27.15 增链路列；v3.29.0 增测试锚点列）：字段必须出现在 §7.2.* 表单控件规格表首列；submit_api/target_field 提供即对账（悬空即 FAIL）；test_anchor 必填且全局唯一",
           "items": {
             "type": "object",
             "required": [
@@ -1017,7 +1017,8 @@
               "label",
               "control",
               "validation",
-              "source"
+              "source",
+              "test_anchor"
             ],
             "additionalProperties": false,
             "properties": {
@@ -1045,6 +1046,12 @@
                 "type": "string",
                 "minLength": 1,
                 "description": "候选来源（用户输入/静态枚举/树选中上下文/部门岗位关联数据…）"
+              },
+              "test_anchor": {
+                "type": "string",
+                "minLength": 1,
+                "description": "测试锚点（v3.29.0）：确定性命名 `<feature缩写>-p<页面序号>-<类型>-<名称slug>`，类型枚举 input/select/date/switch/btn/dialog/row（如 orgm-p1-input-name）；全文档唯一；实现层以 `data-testid` 属性承载；P5/P6e 定位符只允许引用此处冻结锚点",
+                "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)+$"
               },
               "submit_api": {
                 "type": "string",
@@ -1096,16 +1103,64 @@
             }
           }
         },
+        "actions": {
+          "type": "array",
+          "description": "操作按钮规格（§7.2 页组「操作」表正本，v3.29.0 新增）：页面/工具栏/行操作/批量按钮逐条登记——name/type/test_anchor 必填，必须与 §7.2 操作表行对上；api 提供即对账（悬空即 FAIL）；dialog 提供时须存在于同页 dialogs[].name",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "type",
+              "test_anchor"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "操作名（§7.2 操作表「操作」列，如 新增/删除/批量导出）"
+              },
+              "type": {
+                "type": "string",
+                "minLength": 1,
+                "description": "按钮类型（§7.2 操作表「类型」列）：页面操作/工具栏/行操作/批量操作…"
+              },
+              "test_anchor": {
+                "type": "string",
+                "minLength": 1,
+                "description": "测试锚点（v3.29.0）：确定性命名 `<feature缩写>-p<页面序号>-btn-<名称slug>` 或 `-row-`（行操作，如 orgm-p1-row-del）；全文档唯一；实现层以 `data-testid` 属性承载",
+                "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)+$"
+              },
+              "permission": {
+                "type": "string",
+                "minLength": 1,
+                "description": "按钮级权限码（§7.2 操作表「权限点」列）；与 §7.3 按钮级权限码同源"
+              },
+              "api": {
+                "type": "string",
+                "minLength": 1,
+                "description": "关联接口锚点（§x.y.z，必须闭环到 apis[].anchor/detail_anchor）；无接口交互写 —",
+                "pattern": "^—$|^§[0-9]+(?:\\.[0-9]+)+$"
+              },
+              "dialog": {
+                "type": "string",
+                "minLength": 1,
+                "description": "触发的弹窗/抽屉交互名（§7.2 操作表「触发弹窗/抽屉」列，写「→ 弹窗/抽屉：{交互名}」中的交互名）；必须存在于同页 dialogs[].name；无则写 —"
+              }
+            }
+          }
+        },
         "dialogs": {
           "type": "array",
-          "description": "弹窗/抽屉映射（§7.2 弹窗/抽屉表正本，v3.27.15 由原 §7.3 并入）：name/component/api 必须与 §7.2 表行对上，且 name/component 必须出现在 §7.1 页面清单表（全部 UI 面唯一清单）；api 锚点闭环到 apis[]（无接口交互写 —）",
+          "description": "弹窗/抽屉映射（§7.2 弹窗/抽屉表正本，v3.27.15 由原 §7.3 并入；v3.29.0 增测试锚点列）：name/component/api 必须与 §7.2 表行对上，且 name/component 必须出现在 §7.1 页面清单表（全部 UI 面唯一清单）；api 锚点闭环到 apis[]（无接口交互写 —）；test_anchor 必填且全局唯一",
           "items": {
             "type": "object",
             "required": [
               "name",
               "component",
               "api",
-              "state"
+              "state",
+              "test_anchor"
             ],
             "additionalProperties": false,
             "properties": {
@@ -1128,6 +1183,12 @@
                 "type": "string",
                 "minLength": 1,
                 "description": "关键状态/确认流（§7.2 弹窗/抽屉表「关键状态/确认流」列）"
+              },
+              "test_anchor": {
+                "type": "string",
+                "minLength": 1,
+                "description": "测试锚点（v3.29.0）：确定性命名 `<feature缩写>-p<页面序号>-dialog-<名称slug>`（如 orgm-p1-dialog-edit）；全文档唯一；实现层以 `data-testid` 属性承载",
+                "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)+$"
               }
             }
           }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# gen-review-keypair.sh · 生成 P2a 评审签名密钥对（降低 attestation 起步门槛，v3.28.3）
+# gen-review-keypair.sh · 生成 P2a 评审签名密钥对（降低 attestation 起步门槛，v3.29.0）
 # =============================================================================
 # 背景：P2a 设计评审的收据两阶段签名（review-attestation.sh）要求环境变量
 # REVIEW_ATTESTATION_PUBKEY 指向评审发起方公钥；此前没有任何密钥生成指引，
