@@ -1,6 +1,6 @@
 ---
 name: deploy
-version: "3.28.3"
+version: "3.28.7"
 description: >-
   Use when deploying to staging or production after P6 and Review Gates pass, mentions
   "/deploy", "部署", "发布", "go live", "上线", "staging", or "production release".
@@ -215,3 +215,11 @@ grep -q "healthcheck:" deploy/docker-compose.prod.yml && echo "P7 docker PASS"
 bash "$SKILL_ROOT/scripts/artifact_gate.sh" P7 <feature>
 # 期望：exit 0 = 部署产物检查通过
 ```
+
+---
+
+## 状态机口径（单命令模式 · P1-6）
+
+- 本命令运行于**单命令模式**：豁免状态机——不调用 `devflow-state.sh complete`，不推进阶段状态、不产出阶段收据链。
+- 执行时必须在输出首部显式携带降级声明：`MODE=single-command STATE_MACHINE=exempt（阶段状态不推进；完整门禁链走 /devflow 编排）`。
+- 需要完整门禁、收据链、checkpoint 恢复与"不可跳过阶段"约束时，改走 `/devflow` 编排路径（commands/devflow.md）。

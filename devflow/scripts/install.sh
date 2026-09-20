@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh · devflow 软链安装器（v3.28.3）
+# install.sh · devflow 软链安装器（v3.28.7）
 # 把本 skill 目录以符号链接接入各 Agent 的 skills 目录；幂等可重复执行，绝不覆盖实体目录。
 # 用法: bash scripts/install.sh --platform <claude|codex|cursor|trae|trae-cn|all> [--uninstall]
 set -uo pipefail

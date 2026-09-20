@@ -104,6 +104,16 @@ _validate_test_provenance() { # <kind> <command>
     echo|printf|cat|tee|awk|sed|head|tail|touch|cp|mv|true|yes|seq|openssl|shasum|sha256sum)
       p0 "${kind} 测试命令首词为报表/文件生成器（${first}）——不是测试运行器，无法证明执行过测试（P6_CMD_NOT_RUNNER）" ;;
   esac
+  # v3.28.4(P1-9)：解释器内联与自建脚本不得作为测试证据命令——
+  # 首词受信但命令体自写 = "被执行的东西"由被门禁者定义（review P0-3）
+  case " $command " in
+    *" -c "*|*" -c\""*|*" -c'"*|*" --eval "*|*" -e "*)
+      p0 "${kind} 测试命令含解释器内联（-c/-e/--eval）——内联代码无法与任何测试计划绑定（P6_CMD_INLINE_EVAL）" ;;
+  esac
+  case "$command" in
+    *"./scripts/"*)
+      p0 "${kind} 测试命令引用自建脚本（./scripts/*）——被门禁会话可自写脚本自我证明（P6_CMD_SELF_SCRIPT）" ;;
+  esac
   case "$first" in
     mvn|mvnw|./mvnw)              _prov_manifest="pom.xml" ;;
     gradle|./gradlew)             _prov_manifest="build.gradle" ;;

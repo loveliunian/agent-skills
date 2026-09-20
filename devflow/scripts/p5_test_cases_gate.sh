@@ -95,7 +95,7 @@ if [ -z "$CASES" ] || [ ! -f "$CASES" ]; then
   p0 "test-case evidence missing: ${CASES:-docs/test-cases/${FEATURE}*.md}"
 else
   pass "test-case evidence exists: $CASES"
-  if grep -qE '(^|[[:space:]])TC-[A-Za-z0-9._-]+' "$CASES"; then
+  if grep -qE '(^|[[:space:]])TC-[^[:space:]|]+' "$CASES"; then
     pass "test case IDs are present"
   else
     p0 "test case IDs (TC-*) are missing"
@@ -110,10 +110,10 @@ else
   echo "=== [Step 3/5] Check Test Case Quality ==="
   
   # ---------- v3.14.3: 实质内容校验 ----------
-  DATA_ROWS=$(grep -E '^\|[[:space:]]*TC-[A-Za-z0-9._-]+' "$CASES" 2>/dev/null | grep -vE '^\|[[:space:]]*-{2,}' || true)
+  DATA_ROWS=$(grep -E '^\|[[:space:]]*TC-[^[:space:]|]+' "$CASES" 2>/dev/null | grep -vE '^\|[[:space:]]*-{2,}' || true)
 
   # 1) TC ID 唯一性
-  DUP_IDS=$(printf '%s\n' "$DATA_ROWS" | grep -oE 'TC-[A-Za-z0-9._-]+' | sort | uniq -d | head -3)
+  DUP_IDS=$(printf '%s\n' "$DATA_ROWS" | grep -oE 'TC-[^[:space:]|]+' | sort | uniq -d | head -3)
   if [ -n "$DUP_IDS" ]; then
     p0 "重复 TC ID: $(echo $DUP_IDS)"
   else

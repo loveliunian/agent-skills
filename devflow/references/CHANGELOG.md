@@ -1,12 +1,86 @@
 ---
 name: changelog
-version: "3.28.3"
+version: "3.28.7"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.28.3
+# Changelog — devflow v1 → v3.28.7
+
+## v3.28.7 (2026-09-20) — login-auth 实战沉淀：change/extend 增量/修改点标记约定
+
+来源：login-auth（登录鉴权）P0→P2a 全链实测（用户授权修改已安装 skill）。
+
+- **phases/02-详细设计.md 新增《增量/修改点标记（change/extend 模式强制）》**：
+  新建不标记（新表/接口/页面/菜单/脚本自然呈现）；触及既有产物必标记——
+  【增量字段】【修改-行为】【追加登记】【扩展-公共层】四词汇 + 三处落点
+  （详设 §0.1 总表 / 正文内联 / 实现交接「新建清单 + M-NN 修改点」两节）；
+  P2a 评审按此核对，缺标记按 DF 退回。
+- **commands/devflow.md**：`change`/`extend` 参数行补增量标记强制提示。
+- 纯文档约定，无脚本/schema/Gate 改动；存量 feature 不受影响（标记仅对
+  change/extend 模式的 P2/P2a 产出提出要求）。
+
+## v3.28.6 (2026-09-20) — ch07-org-user 实战修复：结构化层旧格式兼容 + ugrep 多字节契约 + 四纪律沉淀
+
+来源：ch07-org-user 项目 P0→P2a 全链实测（用户授权修改已安装 skill）。
+
+- **design_consistency_linter.py 旧格式崩溃修复**：request/response 既可能是
+  现行 schema 的 `{anchor, fields}` 对象，也可能是旧版字段列表——4 处迭代位
+  统一走新增 `_api_fields()` helper（非 dict 元素丢弃），崩溃转为正常建议性输出。
+- **check_prd_design_mapping.py 同型修复**：约束收集位同样兼容两种形状
+  （v3.28.6 之前对现行格式直接 AttributeError，P2a Gate §3f 因此误判映射不完备）。
+- **p2a_design_review_gate.sh 标题编号提取改 awk 字节安全实现**：ugrep 在
+  LC_ALL=C 下对「§? 可选前缀」模式只匹配含 § 的行（BSD grep 无此问题），
+  导致 §x.y 标题锚点集合被截断为 14 条、AW/探针证据引用全部误判不解析。
+  现按代码库既有口径（\302\247 字节转义）先剥 § 再取首个数字节段。
+- **concepts/core.md 新增 §20「机器契约四纪律」**：契约先行 / 收据后置 /
+  派生生成 / 校验一次跑全 + 跨阶段前置冻结链，作为一次通过率与速度的执行纪律。
+
+
+## v3.28.5 (2026-09-20) — 深度评审 P1 结构性补强（6/7/8/9/10）
+
+v3.28.4 同批落地 §七 P1 建议 6-10（第 5 条 CI 形态另行走查），版本随批升 3.28.5；
+本节内容并入上方 v3.28.4 条目的 P1 部分。
+
+## v3.28.4 (2026-09-20) — 深度评审 P0 修复：授权收据机检 + 门禁契约一致性
+
+来源：`devflow-skill-深度评审报告.md` §七 P0 清单（四项全部落地）。
+
+- **P0-1 发布授权收据装上消费者**：`artifact_gate.sh P7` 首关机检
+  `.devflow/<f>/authorizations/release.json`——feature 匹配、scope 含 deploy、
+  authorized_by/authorization_source 非空、authorized_at 合法且 ≤24h 时效；
+  `small-change --target=released` 同契约接入。P0 评审前该承诺 0 技术执行点。
+- **P0-4 旁路留痕**：`p2a --skip=P2` 纳入 skip-log 授权契约（SKIP_P2A_COVERAGE=
+  理由|authorized-by|at|approval，无授权行即 P0），收据新增 SKIPPED_P2_COVERAGE
+  及授权四字段；`p3_security_perf_gate --waiver` 同契约（SKIP_P3CD_<KEY> 授权行），
+  收据新增 WAIVED_KEYS——waiver 不再是"自开自签"。
+- **P0-5/P0-2 门禁契约修复**：p5 gate TC 正则改 `TC-[^[:space:]|]+`（中文模块名
+  TC-组织架构-001 可计数）；postmortem 生成/Gate 文件名统一带日期前缀；
+  performance.md 索引审计命令弃用 ERE lookbehind（恒空+吞错）改 while-read 可移植写法；
+  spec.md 清除 EXPECT_DATA/EXPECT_API 幽灵变量；复盘产物路径对齐正本
+  `复盘报告.md`；test-maintainability 新增 6 条产物路径单一来源 contract 断言。
+- **P0-6 DF 口径三处对齐脚本现实**：`00b-PRD评审.md`（配额表/自检/Gate 表）、
+- **P1-6 单命令状态机诚实化**：13 个 phase 映射单命令（build/test/deploy/monitor/docs/
+  retro/review/security/performance/spec/design-review/prd-vs-code/postmortem）统一声明
+  单命令模式豁免状态机，输出必须携带 `MODE=single-command STATE_MACHINE=exempt` 降级
+  声明；ROUTING.md 补总口径。
+- **P1-7 文档-机器一致性 meta-gate**：`check-contract-consistency.py` 新增三扫描——
+  gate 调用 ↔ phase-registry 对账（含辅助检查器白名单与脚本存在性）、产物路径字面量 ↔
+  devflow_paths.sh 对账（顺手修正 `docs/design` → `docs/detailed-design`）、P0b DF 废弃
+  配额措辞回归守卫；test-maintainability 接入。
+- **P1-8 06a-06f 收编降级**：六文件统一声明"P6 执行指南、无独立 Gate/收据"，删除
+  相互矛盾的"进入 Phase X"断言（06d/06e → 进入 06f）；06e Checklist"或有明确修复计划"
+  与 FAIL=0 门禁口径的冲突修正。
+- **P1-9 运行器白名单收紧**：s6 与 p4 拒绝解释器内联（-c/-e/--eval，P6_CMD_INLINE_EVAL）
+  与 `./scripts/*` 自建脚本（P6_CMD_SELF_SCRIPT / p4 直接移除白名单）；测试夹具改用
+  `make p4-verify` 受信 runner。
+- **P1-10 人类仪式诚实化**：03b 删除"代码已合并"通过条件（不得诱导未授权 merge）；
+  07"紧急部署直接跳过检查"改为"紧急通道=P7 授权收据 + skip-log 留痕 + 24h 补 P3b/P6
+  收据"；p10 知识分享增加 SKIP_P10_SHARING not-applicable 出口（skip-log 同契约）。
+  `prd-review-committee.md`、`PRD评审-模板.md` 全部改为"按实际发现登记，零发现须附
+  ZERO-DF 核查记录，禁止凑数"；design-review.schema.json 的 severity 枚举剥离
+  探针 ID（P4a/P4b/P4c/P7）——OPEN 深层发现不再能借伪严重性逃过 CLOSED 校验。
 
 ## v3.28.3 (2026-09-20) — 详设标题层级闭环校验（L-HIER-1）
 

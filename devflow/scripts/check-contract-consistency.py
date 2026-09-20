@@ -122,6 +122,127 @@ def check_core_stack_literals():
                 errors.append(f"core.md 技术栈字面量泄漏: {label} → {real_leak[0][:80]}")
 
 
+def _load_gate_registry():
+    reg_path = ROOT / "references" / "phase-registry.json"
+    if not reg_path.is_file():
+        return None
+    try:
+        return json.loads(reg_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        errors.append(f"phase-registry.json JSON 解析失败: {e}")
+        return None
+
+
+def _resolve_script(name: str):
+    """gate 脚本解析：scripts/ 优先，兼容 maintenance/、hooks/。"""
+    for base in ("scripts", "maintenance", "hooks", ""):
+        cand = ROOT / base / name if base else ROOT / name
+        if cand.is_file():
+            return cand
+    return None
+
+
+# v3.27.x registry 自述：无独立收据的辅助检查器不在注册范围（白名单须与描述同步）
+AUX_GATE_ALLOWLIST = {
+    "s3_migration_mapping_gate.sh",
+    "s8_graph_health_gate.sh",
+    "s8b_feedback_gate.sh",
+}
+
+
+def check_gate_registry_sync():
+    """review P1-7①：phase/command 文档中的 gate 调用 ↔ phase-registry 对账"""
+    reg = _load_gate_registry()
+    if reg is None:
+        return
+    registered = {}
+    for g in reg.get("gates", []):
+        script = g.get("script", "")
+        name = script.split()[0].split("/")[-1]
+        registered[name] = g.get("stage", "?")
+        if _resolve_script(script.split()[0]) is None:
+            errors.append(f"phase-registry gate 脚本不存在: {script}（stage={g.get('stage')}）")
+        stems = {name, name[:-3], name.replace("-gate.sh", ""), g.get("stage", "")} - {""}
+        for doc in g.get("docs", []):
+            f = ROOT / doc
+            if not f.is_file():
+                errors.append(f"phase-registry docs 缺失: {doc}（stage={g.get('stage')}）")
+            elif not any(s in f.read_text(encoding="utf-8") for s in stems):
+                errors.append(f"registry gate {name}（{g.get('stage')}）未在登记文档出现: {doc}")
+    for doc_dir in ("phases", "commands"):
+        for f in sorted((ROOT / doc_dir).glob("*.md")):
+            text = f.read_text(encoding="utf-8")
+            for m in sorted(set(re.findall(r"[A-Za-z0-9_-]*_gate\.sh", text))):
+                if m not in registered and m not in AUX_GATE_ALLOWLIST:
+                    errors.append(
+                        f"{f.relative_to(ROOT)} 提到未注册 gate: {m}"
+                        f"（新增 gate 必须先注册 references/phase-registry.json，或加入 AUX_GATE_ALLOWLIST）"
+                    )
+                elif _resolve_script(m) is None:
+                    errors.append(f"{f.relative_to(ROOT)} 提到的 gate 脚本不存在: {m}")
+
+
+def _known_doc_dirs():
+    """从 devflow_paths.sh 提取 df_zh_dir/df_en_dir 的目录字面量（单一来源）"""
+    known = set()
+    pp = ROOT / "scripts" / "devflow_paths.sh"
+    if pp.is_file():
+        for m in re.finditer(r'echo\s+"docs/([^"\s]+)"', pp.read_text(encoding="utf-8")):
+            known.add(m.group(1))
+    return known
+
+
+def check_doc_path_literals():
+    """review P1-7②：文档产物路径字面量 ↔ devflow_paths.sh 对账"""
+    known = _known_doc_dirs()
+    if not known:
+        errors.append("devflow_paths.sh 未解析出任何 docs/ 目录（路径单一来源失效）")
+        return
+    extra_allow = {"templates"}
+    seg_chars = r"\s/|)\]\"'，。；：`*（）"
+    for doc_dir in ("phases", "commands"):
+        for f in sorted((ROOT / doc_dir).glob("*.md")):
+            text = f.read_text(encoding="utf-8")
+            for seg in sorted(set(re.findall("docs/([^" + seg_chars + "]+)", text))):
+                if any(c in seg for c in ".<>{}$"):
+                    continue  # 文件名 / 占位符 / gates 镜像（docs/<feature>/gates）
+                if seg in known or seg in extra_allow:
+                    continue
+                errors.append(
+                    f"{f.relative_to(ROOT)} 产物路径目录漂移: docs/{seg}"
+                    f"（不在 devflow_paths.sh 目录清单内）"
+                )
+
+
+
+def check_df_quota_words():
+    """review P1-7③：P0b 配额措辞回归守卫——文档口径必须与 artifact_gate.sh 现实一致
+    （DF 按实际发现、零发现须附 ZERO-DF 核查记录；凑数配额是脚本注释点名的反模式）"""
+    stale_patterns = [
+        "每角色 ≥1",
+        "总计 ≥5",
+        "DF 块 ≥5",
+        "归属评委计数各 ≥2",
+        "每角色 ≥1 条、总计 ≥5",
+    ]
+    guard_files = [
+        "phases/00b-PRD评审.md",
+        "subagents/prd-review-committee.md",
+        "templates/PRD评审-模板.md",
+    ]
+    for rel in guard_files:
+        f = ROOT / rel
+        if not f.is_file():
+            continue
+        text = f.read_text(encoding="utf-8")
+        for pat in stale_patterns:
+            if pat in text:
+                errors.append(f"{rel} 出现废弃 DF 配额措辞「{pat}」——口径须为『按实际发现，零发现须附 ZERO-DF 核查记录』")
+    ag = ROOT / "scripts" / "artifact_gate.sh"
+    if ag.is_file() and "AW_MIN" not in ag.read_text(encoding="utf-8"):
+        errors.append("artifact_gate.sh 丢失 AW_MIN 常量——P0b 文档 AW ≥2 口径失去脚本对账锚点")
+
+
 def main():
     skill_ver = get_skill_version()
     if not skill_ver:
@@ -132,6 +253,9 @@ def main():
     check_probe_enum()
     check_spawn_timing()
     check_core_stack_literals()
+    check_gate_registry_sync()
+    check_doc_path_literals()
+    check_df_quota_words()
     if errors:
         print(f"\nCONTRACT CONSISTENCY: FAIL ({len(errors)} errors)")
         for e in errors:

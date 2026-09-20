@@ -1,6 +1,6 @@
 ---
 name: spec
-version: "3.28.3"
+version: "3.28.7"
 description: Use when a user asks to clarify a PRD, produce field-level detailed design, design a database or legacy mapping, or complete /spec without implementing code.
 paths: [docs/PRD/**, docs/需求/**, docs/详细设计/**]
 disable-model-invocation: false
@@ -181,7 +181,7 @@ Chapter numbers are not authoritative; semantic anchors are the machine contract
 ### P2 Gate Check
 
 ```bash
-EXPECT_DATA=1 EXPECT_API=1 bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/详细设计/<feature>-详细设计.md docs/需求/<feature>-验收点.md --mode=<P1 冻结 mode: monolith|total|sub>
+bash "$SKILL_ROOT/scripts/s2_design_coverage_gate.sh" docs/详细设计/<feature>-详细设计.md docs/需求/<feature>-验收点.md --mode=<P1 冻结 mode: monolith|total|sub>
 bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category config
 bash "$SKILL_ROOT/checks/check-arch-pitfalls.sh" --category api
 ```
@@ -293,3 +293,11 @@ If the user requested design only, stop here and report:
 | P2 | `s2_design_coverage_gate.sh` + `check-arch-pitfalls.sh` | any acceptance point not COMPLETE, critical > 0 |
 | P2（迁移） | `s3_migration_mapping_gate.sh` | coverage < 100% for B/C, source count mismatch |
 | P3-P10 | respective gate scripts | see each phase file |
+
+---
+
+## 状态机口径（单命令模式 · P1-6）
+
+- 本命令运行于**单命令模式**：豁免状态机——不调用 `devflow-state.sh complete`，不推进阶段状态、不产出阶段收据链。
+- 执行时必须在输出首部显式携带降级声明：`MODE=single-command STATE_MACHINE=exempt（阶段状态不推进；完整门禁链走 /devflow 编排）`。
+- 需要完整门禁、收据链、checkpoint 恢复与"不可跳过阶段"约束时，改走 `/devflow` 编排路径（commands/devflow.md）。

@@ -199,12 +199,12 @@ rules = [
     {"id": "R1", "anchor": "§5.3.2", "summary": "record_no 自动生成，同日唯一"},
     {"id": "R2", "anchor": "§2.3.2", "summary": "record_name trim 后非空"},
     {"id": "R3", "anchor": "§2.3.2", "summary": "record_status 缺省默认值"},
-    {"id": "R4", "anchor": "§4.3", "summary": "已删除记录不允许更新"},
+    {"id": "R4", "anchor": "§4.2.3", "summary": "已删除记录不允许更新"},
     {"id": "R5", "anchor": "§4.2", "summary": "不可变字段禁止修改"},
     {"id": "R6", "anchor": "§2.3.2", "summary": "乐观锁版本控制"},
-    {"id": "R7", "anchor": "§4.3", "summary": "逻辑删除原子设置"},
-    {"id": "R8", "anchor": "§4.3", "summary": "存在有效关联数据时拒绝删除"},
-    {"id": "R9", "anchor": "§4.3", "summary": "删除后 record_no 永不复用"}]
+    {"id": "R7", "anchor": "§4.2.3", "summary": "逻辑删除原子设置"},
+    {"id": "R8", "anchor": "§4.2.3", "summary": "存在有效关联数据时拒绝删除"},
+    {"id": "R9", "anchor": "§4.2.3", "summary": "删除后 record_no 永不复用"}]
 for _r in rules[1:]:
     _r["unreferenced_reason"] = "写入路径边界校验，主流程不直接引用"
 design = {
@@ -222,7 +222,7 @@ design = {
         "steps": ["字段校验", "TX：生成 record_no → INSERT"], "concurrency": "record_no 唯一约束",
         "result": "返回 id/recordNo", "failure": "校验失败 400；唯一冲突重试后 409",
         "related_objects": ["示例_config"], "side_effects": ["Outbox 审计"],
-        "test_scenarios": ["正常新增", "重名拒绝"], "acceptance_refs": ["M-01-F01-A01"], "anchor": "§4"}],
+        "test_scenarios": ["正常新增", "重名拒绝"], "acceptance_refs": ["M-01-F01-A01"], "anchor": "§4.2.1"}],
     "baseline": {"repo_root": ".", "db_evidence": {"source": "migration_ddl"},
         "entries": [{"id": "BL-1", "target": "backend/demo/DemoService.java", "decision": "ADD",
                      "target_module": "demo 模块", "verify": "DemoServiceTest"}]},

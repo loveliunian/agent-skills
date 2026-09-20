@@ -210,6 +210,11 @@ AFFECTED_TREE_AFTER=$(receipt_evidence_tree "${AFFECTED_FILES[@]:-}")
 DEPLOY_RECEIPT_PATH=$(value DEPLOY_RECEIPT_PATH)
 MONITOR_RECEIPT_PATH=$(value MONITOR_RECEIPT_PATH)
 if [ "$TARGET" = released ]; then
+  # v3.28.4(P0-1)：released 声明同样需要发布授权收据（与 P7 gate 同契约）
+  SC_AUTH="${STATE_DIR:-.devflow}/$CHANGE_ID/authorizations/release.json"
+  if [ ! -f "$SC_AUTH" ]; then
+    fail "TARGET=released requires release authorization: ${SC_AUTH}（见 commands/devflow.md §Release Authorization）"
+  fi
   if [ -z "$DEPLOY_RECEIPT_PATH" ] || [ ! -f "$DEPLOY_RECEIPT_PATH" ]; then
     fail "TARGET=released requires DEPLOY_RECEIPT_PATH"
   elif ! workspace_file "$DEPLOY_RECEIPT_PATH" DEPLOY_RECEIPT_PATH; then

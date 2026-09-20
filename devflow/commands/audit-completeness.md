@@ -1,6 +1,6 @@
 ---
 name: audit-completeness
-version: "3.28.3"
+version: "3.28.7"
 description: >-
   Use when checking Phase completion before transitioning to the next phase, mentions
   "/audit", "/audit-completeness", "检查完成度", "阶段门控", "P3 自检", or "gate self-check".
@@ -332,7 +332,7 @@ exit $rc
 
 ```bash
 # 复盘必须含"上次遗漏了什么"段
-grep -c "上次遗漏\|本次新发现" docs/复盘/<feature>-复盘.md
+grep -c "上次遗漏\|本次新发现" docs/复盘/<feature>-复盘报告.md
 # 必须 ≥ 1
 ```
 

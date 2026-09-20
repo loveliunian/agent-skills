@@ -1,6 +1,6 @@
 ---
 name: devflow-command
-version: "3.28.3"
+version: "3.28.7"
 description: Use when running the complete devflow lifecycle or resuming a checkpoint.
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
@@ -29,6 +29,7 @@ allowed-tools: [read, write, exec, glob, grep, task]
   设计硬约束（铁律 19）：P2 详设与 P3 实现必须遵循物料，脚手架既有设计只作实现载体，
   不得覆盖物料的样式/交互/信息架构；冲突时 `BLOCKED` 回用户裁决。
 - `new` 从 P0 开始；`change`/`extend` 先读取当前实现与已有冻结基线，再从最早受影响阶段恢复。
+- **`change`/`extend` 增量标记（强制）**：详设遵循「新建不标记、增量/修改必标记」——凡触及既有产物（存量表/接口/页面/公共层/事实源）的点以【增量字段】【修改-行为】【追加登记】【扩展-公共层】标记，按 phases/02《增量/修改点标记》三处落点（详设总表/正文内联/实现交接 M-NN 清单）输出；新建物不加标记。
 - `small-change` 先加载 `commands/small-change.md` 扫描项目并分类；结果为 FULL 时自动回到 `change`，不得继续快速路径。
 - `--design-only` 在 **P2a 评审 Gate 通过后**停止（设计完成 = P2 内容校验 + P2a 实施可行性评审，v3.24.0 与 /spec、/plan、/build 统一口径）；只能声明设计完成。
 - 小程序或 APP 在 P2 后必须生成并冻结 `devflow-client.json`；PC Web 也推荐使用同一契约。
@@ -185,6 +186,7 @@ check_skip_authorization() {
 - 无有效收据时最高只能声明 `READY_TO_RELEASE`；不得声明 `RELEASED`，也不得执行任何外部副作用命令。
 - 授权范围以 `scope` 为准；超出范围的副作用需要新的授权。
 - 破坏性 migration、生产数据回填、不可逆操作与 `EXTERNAL`/`IRREVERSIBLE` 副作用一律要求人工批准。
+- **机器执行点（v3.28.4）**：`artifact_gate.sh P7` 与 `small-change --target=released` 均机检本收据——`feature` 匹配、`scope` 含 `deploy`、`authorized_by`/`authorization_source` 非空、`authorized_at` 合法且不超过 24h 时效（过期须重新授权）。
 
 ## Checkpoint recovery
 

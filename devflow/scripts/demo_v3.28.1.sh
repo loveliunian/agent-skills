@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# v3.28.3 快速演示脚本
+# v3.28.7 快速演示脚本
 # 演示：Gate 自动修复建议 + 增量变更模式
 
 set -euo pipefail

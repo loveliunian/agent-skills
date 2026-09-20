@@ -1,6 +1,6 @@
 ---
 name: build
-version: "3.28.3"
+version: "3.28.7"
 description: >-
   Use when implementing backend APIs, frontend pages, or migrations for a new feature after /plan,
   mentions "/build", "build it", "编码实现", "实现这个功能", "写代码", "全栈开发", or "start implementation".
@@ -210,3 +210,11 @@ find "backend/$SERVICE/src/main/resources/db/migration" -name "V*.sql" -type f |
 ```
 
 **通过标准**：脚本输出 "P3 GATE: PASS"（FAIL = 0）
+
+---
+
+## 状态机口径（单命令模式 · P1-6）
+
+- 本命令运行于**单命令模式**：豁免状态机——不调用 `devflow-state.sh complete`，不推进阶段状态、不产出阶段收据链。
+- 执行时必须在输出首部显式携带降级声明：`MODE=single-command STATE_MACHINE=exempt（阶段状态不推进；完整门禁链走 /devflow 编排）`。
+- 需要完整门禁、收据链、checkpoint 恢复与"不可跳过阶段"约束时，改走 `/devflow` 编排路径（commands/devflow.md）。

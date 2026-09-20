@@ -33,11 +33,26 @@ else
   fail "retro missing: $RETRO"
 fi
 
+# v3.28.4(P1-10)：知识分享是人类仪式检查项——显式 not-applicable 出口（skip-log 契约，
+# 与 P2b/P2a/P3CD 同格式：SKIP_P10_SHARING=理由|authorized-by=授权人|at=日期|approval=审批证据）
+P10_NA_LINE=$(grep -E '^SKIP_P10_SHARING=' "${STATE_DIR}/${FEATURE}/skip-log.txt" 2>/dev/null | head -1)
 if [ -f "$KNOWLEDGE" ]; then
   lesson_count=$(grep -cE '^[[:space:]]*-[[:space:]]+' "$KNOWLEDGE" 2>/dev/null || true)
   [ "$lesson_count" -ge 3 ] && pass "knowledge sharing has >=3 lessons" || fail "knowledge sharing has <3 lessons"
+elif [ -n "$P10_NA_LINE" ]; then
+  NA_REASON=$(echo "$P10_NA_LINE" | cut -d'|' -f1 | sed 's/^SKIP_P10_SHARING=//')
+  NA_BY=$(echo "$P10_NA_LINE" | grep -oE 'authorized-by=[^|]*' | cut -d= -f2)
+  NA_AT=$(echo "$P10_NA_LINE" | grep -oE 'at=[^|]*' | cut -d= -f2)
+  NA_EVID=$(echo "$P10_NA_LINE" | grep -oE 'approval=[^|]*' | cut -d= -f2)
+  if [ -n "$NA_REASON" ] && [ -n "${NA_BY//[[:space:]]/}" ] \
+     && echo "$NA_AT" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}([T ][0-9]{2}:[0-9]{2})?' \
+     && [ -n "${NA_EVID//[[:space:]]/}" ]; then
+    pass "knowledge sharing not-applicable（authorized-by=${NA_BY}, at=${NA_AT}, approval=${NA_EVID}）"
+  else
+    fail "SKIP_P10_SHARING 授权行不完整（须含 理由|authorized-by=|at=YYYY-MM-DD|approval=）"
+  fi
 else
-  fail "knowledge sharing missing: $KNOWLEDGE"
+  fail "knowledge sharing missing: ${KNOWLEDGE}（单人/AI 场景可用 skip-log 显式声明 not-applicable：SKIP_P10_SHARING=理由|authorized-by=|at=|approval=）"
 fi
 
 if [ -f "$FEEDBACK" ]; then

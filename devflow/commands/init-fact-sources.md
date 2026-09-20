@@ -1,7 +1,7 @@
 ---
 name: init-fact-sources
 description: "Use when initializing or validating a project's engineering fact sources before detailed design or implementation."
-version: "3.28.3"
+version: "3.28.7"
 license: MIT
 paths: ["docs/**", "scripts/*", "backend/**"]
 compatibility: Devflow agent skill; requires a repository workspace and command execution.
@@ -27,7 +27,7 @@ bash "$SKILL_DIR/scripts/init-fact-sources.sh"
 bash "$SKILL_ROOT/scripts/init-fact-sources.sh" --force
 
 # 4. （如需自定义 DOC_DIR）
-DOC_DIR=docs/design bash "$SKILL_ROOT/scripts/init-fact-sources.sh"
+DOC_DIR=docs/detailed-design bash "$SKILL_ROOT/scripts/init-fact-sources.sh"
 ```
 
 ## 生成的产物

@@ -161,6 +161,15 @@ def check_naming_consistency(design: dict, conventions: dict) -> List[str]:
     
     return issues
 
+
+def _api_fields(api, kind):
+    """v3.28.6 兼容：request/response 既可能是 {anchor, fields} 对象（现行 schema），
+    也可能是旧版字段列表。统一返回字段 dict 列表，非 dict 元素丢弃。"""
+    v = api.get(kind, [])
+    if isinstance(v, dict):
+        v = v.get('fields', [])
+    return [f for f in v if isinstance(f, dict)]
+
 def check_field_mapping_consistency(design: dict, conventions: dict = None) -> List[str]:
     """检查表字段与 API 字段的命名对应关系 (v3.27.16: 支持缩写词规则)"""
     issues = []
@@ -178,8 +187,8 @@ def check_field_mapping_consistency(design: dict, conventions: dict = None) -> L
     for api in apis:
         api_name = api.get('name', '')
         
-        # 检查请求字段
-        for req_field in api.get('request', []):
+        # 检查请求字段（v3.28.6 兼容：request 为 {anchor, fields} 对象或旧版列表均可）
+        for req_field in _api_fields(api, 'request'):
             req_name = req_field.get('name', '')
             
             # 将 camelCase 转为 snake_case 查找对应表字段 (v3.27.16: 传入 conventions)
@@ -201,8 +210,8 @@ def check_field_mapping_consistency(design: dict, conventions: dict = None) -> L
                     f"⚠️  API 请求字段无对应表字段：{api_name}.{req_name} (期望表字段: {snake_name})"
                 )
         
-        # 检查响应字段
-        for resp_field in api.get('response', []):
+        # 检查响应字段（v3.28.6 兼容：response 为 {anchor, fields} 对象或旧版列表均可）
+        for resp_field in _api_fields(api, 'response'):
             resp_name = resp_field.get('name', '')
             snake_name = camel_to_snake(resp_name, conventions)
             
@@ -238,7 +247,7 @@ def check_status_enum_consistency(design: dict) -> List[str]:
     # 2. 从 API 中提取状态枚举值
     api_status = defaultdict(set)
     for api in design.get('apis', []):
-        for field in api.get('request', []) + api.get('response', []):
+        for field in _api_fields(api, 'request') + _api_fields(api, 'response'):
             field_name = field.get('name', '')
             field_note = field.get('note', '').lower()
             
@@ -311,7 +320,7 @@ def check_foreign_key_representation(design: dict) -> List[str]:
             continue
         
         # 收集响应字段
-        response_fields = {f.get('name', '') for f in api.get('response', [])}
+        response_fields = {f.get('name', '') for f in _api_fields(api, 'response')}
         
         # 检查每个外键是否有对应的展开对象
         for fk, ref_table in foreign_keys.items():

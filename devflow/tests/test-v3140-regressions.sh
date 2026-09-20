@@ -466,6 +466,8 @@ HEALTH_HTTP_STATUS=200
 HEALTH_URL=http://127.0.0.1:1/health
 RELEASE_EVIDENCE_PATH=release.out
 EOF
+mkdir -p "$W16/.devflow/r16/authorizations"
+printf '{"feature":"r16","target":"staging","authorized_by":"user","authorization_source":"explicit-user-request","authorized_at":"%s","scope":["deploy"]}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$W16/.devflow/r16/authorizations/release.json"
 NEG=$(cd "$W16" && bash "$ROOT/scripts/artifact_gate.sh" P7 r16 2>&1)
 if echo "$NEG" | grep -q "live HEALTH_URL"; then
   ok "P7 健康地址不可达被阻断"

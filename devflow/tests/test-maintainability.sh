@@ -124,5 +124,37 @@ else
   grep -q 'invalid frontmatter YAML structure: subagents/broken-frontmatter-fixture.md' "$TMP/audit.out" && ok "release audit validates frontmatter YAML structure" || bad "release audit validates frontmatter YAML structure"
 fi
 
+# ---------- 产物路径单一来源（review P0-2e：以 devflow_paths.sh 为正本的 contract 测试） ----------
+# 复盘正本：docs/复盘/<f>-复盘报告.md（p10_feedback_gate.sh:18 同源）
+grep -q 'docs/复盘/<feature>-复盘报告.md' "$ROOT/commands/retro.md" \
+  && ! grep -q '<feature>-复盘\.md' "$ROOT/commands/audit-completeness.md" \
+  && ok "复盘产物路径单一（复盘报告.md）" || bad "复盘产物路径漂移（复盘.md vs 复盘报告.md）"
+# 事故复盘正本：生成规则与 Gate 检查同带日期前缀
+PM_DATED=$(grep -c 'YYYY-MM-DD>-<\(slug\|incident\)>-事故复盘' "$ROOT/commands/postmortem.md" 2>/dev/null || grep -c '\[YYYY-MM-DD\]-\[slug\]-事故复盘' "$ROOT/commands/postmortem.md")
+[ "${PM_DATED:-0}" -ge 2 ] && ok "postmortem 生成/检查文件名一致（带日期）" || bad "postmortem 文件名规则不一致（生成 vs Gate）"
+# 测试报告正本：docs/测试报告/（p6_credential_gate.sh 同源）
+grep -q 'docs/测试报告/<feature>-测试报告.md' "$ROOT/commands/audit-completeness.md" \
+  && ok "测试报告路径单一（docs/测试报告）" || bad "测试报告路径漂移"
+# 性能正本：审计报告 docs/评审/、压测报告 docs/测试/（由 performance.json 渲染）
+grep -q 'docs/评审/<feature>-性能审计报告.md' "$ROOT/commands/performance.md" \
+  && grep -q 'docs/评审/<feature>-性能审计报告.md' "$ROOT/commands/audit-completeness.md" \
+  && ok "性能审计报告路径单一（docs/评审）" || bad "性能审计报告路径漂移"
+grep -q 'docs/测试/<feature>-压测报告.md' "$ROOT/commands/performance.md" \
+  && ok "压测报告路径单一（docs/测试）" || bad "压测报告路径漂移"
+# 幽灵环境变量不再出现（review P0-2d：EXPECT_* 从未被 s2 gate 读取）
+! grep -q 'EXPECT_DATA\|EXPECT_API' "$ROOT/commands/spec.md" \
+  && ok "spec.md 无 EXPECT_* 幽灵变量" || bad "spec.md 仍教用户设 EXPECT_* 幽灵变量"
+# TC 用例编号机检支持中文模块（review P0-5：TC-组织架构-001 必须可被 gate 计数）
+printf '| TC-组织架构-001 | x |\n' > "$TMP/tc-zh.md"
+grep -qE '^\|[[:space:]]*TC-[^[:space:]|]+' "$TMP/tc-zh.md" \
+  && ok "p5 TC 正则支持中文模块名" || bad "p5 TC 正则不认中文模块名"
+
+# ---------- 文档-机器一致性 meta-gate（review P1-7：gate 注册/产物路径/DF 配额三扫描） ----------
+if python3 "$ROOT/scripts/check-contract-consistency.py" > "$TMP/cc.out" 2>&1; then
+  ok "meta-gate: gate 注册/产物路径/DF 配额三扫描全绿"
+else
+  bad "meta-gate 拦截: $(grep '✗' "$TMP/cc.out" | head -3 | tr '\n' ' ')"
+fi
+
 echo "=== MAINTAINABILITY RESULT PASS=$PASS FAIL=$FAIL ==="
 [ "$FAIL" -eq 0 ] || exit 1

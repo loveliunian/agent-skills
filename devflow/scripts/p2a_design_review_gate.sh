@@ -386,9 +386,12 @@ awk '/^```/{infence=!infence; next} !infence' "$REVIEW_PATH" > "$STRIP_FILE"
 
 # v3.24.0(A09)：设计文档标题编号集合（剥离围栏）——AW/探针证据引用的 §x.y
 # 必须解析到真实对象（虚构锚点曾以“结果：§99.99”混过深度子检查）。
+# v3.28.6: 提取改 awk 字节安全实现——§(\302\247) 先剥除再取首个数字节段；
+# ugrep 在 LC_ALL=C 下对「§? 可选前缀」模式只匹配含 § 的行（BSD grep 无此问题），多字节可选匹配禁用 grep。
 DESIGN_HEADINGS_FILE=$(mktemp -t p2a-dhead.XXXXXX)
 awk '/^```/{infence=!infence; next} !infence && /^#{1,6} /' "$DESIGN_PATH" 2>/dev/null \
-  | grep -oE '§?[0-9]+(\.[0-9]+)*' | sed 's/^§//' | sort -u > "$DESIGN_HEADINGS_FILE" || true
+  | awk '{ s=$0; gsub(/\302\247/, "", s); if (match(s, /[0-9]+(\.[0-9]+)*/)) print substr(s, RSTART, RLENGTH) }' \
+  | sort -u > "$DESIGN_HEADINGS_FILE" || true
 
 DF_TOTAL=$(grep -cE '^#### DF-[0-9]+' "$STRIP_FILE" || true)
 pass "DF findings counted without padding (actual: $DF_TOTAL)"
@@ -631,8 +634,27 @@ rm -f "$P0_ID_FILE" "$DESIGN_ID_FILE"
 # ---------- §6 P2 设计覆盖率 = 100% ----------
 echo ""
 echo "=== §6 P2 设计覆盖率 = 100% ==="
+# v3.28.4(P0-4)：--skip=P2 纳入 skip-log 授权契约——无授权行即 P0，收据留 SKIP 痕迹
+P2A_SKIP_OK=0; P2A_SKIP_REASON=""; P2A_SKIP_BY=""; P2A_SKIP_AT=""; P2A_SKIP_EVID=""
 if [ "${SKIP_P2:-0}" -eq 1 ]; then
-  warn "P2 design coverage gate SKIPPED (--skip=P2)"
+  _P2A_SKIP_LOG="${STATE_DIR:-.devflow}/${FEATURE}/skip-log.txt"
+  _P2A_SKIP_LINE=$(grep -E '^SKIP_P2A_COVERAGE=' "$_P2A_SKIP_LOG" 2>/dev/null | head -1)
+  if [ -n "$_P2A_SKIP_LINE" ]; then
+    P2A_SKIP_REASON=$(echo "$_P2A_SKIP_LINE" | cut -d'|' -f1 | sed 's/^SKIP_P2A_COVERAGE=//')
+    P2A_SKIP_BY=$(echo "$_P2A_SKIP_LINE" | grep -oE 'authorized-by=[^|]*' | cut -d= -f2)
+    P2A_SKIP_AT=$(echo "$_P2A_SKIP_LINE" | grep -oE 'at=[^|]*' | cut -d= -f2)
+    P2A_SKIP_EVID=$(echo "$_P2A_SKIP_LINE" | grep -oE 'approval=[^|]*' | cut -d= -f2)
+    if [ -n "$P2A_SKIP_REASON" ] && [ -n "${P2A_SKIP_BY//[[:space:]]/}" ] \
+       && echo "$P2A_SKIP_AT" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}([T ][0-9]{2}:[0-9]{2})?' \
+       && [ -n "${P2A_SKIP_EVID//[[:space:]]/}" ]; then
+      P2A_SKIP_OK=1
+    fi
+  fi
+  if [ "$P2A_SKIP_OK" -eq 1 ]; then
+    warn "P2 design coverage gate SKIPPED (--skip=P2; authorized-by=${P2A_SKIP_BY}, at=${P2A_SKIP_AT}, approval=${P2A_SKIP_EVID})"
+  else
+    p0 "--skip=P2 需要 skip-log 显式授权：.devflow/${FEATURE}/skip-log.txt 一行 SKIP_P2A_COVERAGE=理由|authorized-by=授权人|at=日期|approval=审批证据（同 P2b 契约）"
+  fi
 else
   P2A_LOG=$(mktemp -t p2a-s2.XXXXXX.log)
   # v3.16.26: 总分模式经 P2_DESIGN_MODE=total|sub 传入对应模板契约（默认 monolith）
@@ -662,6 +684,14 @@ fi
 RECEIPT_DIR="${STATE_DIR:-.devflow}/${FEATURE}/gates/P2a"
 mkdir -p "$RECEIPT_DIR"
 P2A_EXIT=$([ "$FAIL" -gt 0 ] && echo 1 || echo 0)
+P2A_SKIP_BLOCK=""
+if [ "${SKIP_P2:-0}" -eq 1 ] && [ "${P2A_SKIP_OK:-0}" -eq 1 ]; then
+  P2A_SKIP_BLOCK="SKIPPED_P2_COVERAGE=1
+SKIP_REASON=$P2A_SKIP_REASON
+AUTHORIZED_BY=$P2A_SKIP_BY
+AUTHORIZED_AT=$P2A_SKIP_AT
+APPROVAL_EVIDENCE=$P2A_SKIP_EVID"
+fi
 GATE_VER=$(sed -n 's/^version: "\([0-9.]*\)"/\1/p; s/^  version: "\([0-9.]*\)"/\1/p' "$(cd "$(dirname "$0")/.." && pwd)/SKILL.md" 2>/dev/null | head -1)
 [ -n "$GATE_VER" ] || { echo "[FATAL] 版本源读取失败，拒绝产出收据"; exit 2; }
 cat > "$RECEIPT_DIR/receipt.txt" <<EOF
@@ -684,6 +714,7 @@ aw_total: $AW_COUNT
 author_id: $AUTHOR_ID
 review_run_id: $RUN_ID
 timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+${P2A_SKIP_BLOCK}
 EOF
 # v3.9.5: mirror receipt into docs/ (version-controlled evidence; .devflow/ was missing in all 4 audited projects)
 DOCS_MIRROR="docs/${FEATURE}/gates/P2a"

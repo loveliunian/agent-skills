@@ -243,6 +243,61 @@ case "$PHASE" in
     ;;
   P7)
     echo "=== P7 部署记录产物 Gate ==="
+    # ---------- v3.28.4(P0-1)：发布授权收据机检（review P0-1——此前 0 技术执行点） ----------
+    # 契约：commands/devflow.md §Release Authorization——feature 匹配、scope 含 deploy、
+    # authorized_by/authorization_source 非空、authorized_at 合法且不早于 24h（时效）。
+    AUTH_FILE="${STATE_DIR:-.devflow}/${FEATURE}/authorizations/release.json"
+    if [ ! -f "$AUTH_FILE" ]; then
+      p0 "missing release authorization: ${AUTH_FILE}（外部副作用须显式人工授权；无收据最高 READY_TO_RELEASE，见 commands/devflow.md §Release Authorization）"
+    else
+      AUTH_OUT=$(AUTH_FEATURE="$FEATURE" AUTH_PATH="$AUTH_FILE" python3 - <<'AUTH_PY'
+import json, os, sys
+from datetime import datetime, timezone
+feature, path = os.environ["AUTH_FEATURE"], os.environ["AUTH_PATH"]
+errs = []
+try:
+    d = json.load(open(path, encoding="utf-8"))
+except Exception as e:
+    print(f"invalid JSON: {e}")
+    sys.exit(1)
+if d.get("feature") != feature:
+    errs.append(f"feature mismatch: {d.get('feature')!r} != {feature!r}")
+if not str(d.get("authorized_by") or "").strip():
+    errs.append("authorized_by 空")
+if not str(d.get("authorization_source") or "").strip():
+    errs.append("authorization_source 空")
+scope = d.get("scope")
+if not isinstance(scope, list) or "deploy" not in scope:
+    errs.append(f"scope 须为含 deploy 的数组（got {scope!r}）")
+at = str(d.get("authorized_at") or "").strip()
+dt = None
+for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+    try:
+        dt = datetime.strptime(at, fmt).replace(tzinfo=timezone.utc)
+        break
+    except ValueError:
+        continue
+if dt is None:
+    errs.append(f"authorized_at 非法时间戳: {at!r}")
+else:
+    age_h = (datetime.now(timezone.utc) - dt).total_seconds() / 3600
+    if age_h < 0:
+        errs.append("authorized_at 在未来")
+    elif age_h > 24:
+        errs.append(f"authorized_at 超过 24h 时效（{age_h:.0f}h）——须重新授权")
+if errs:
+    print("；".join(errs))
+    sys.exit(1)
+sys.exit(0)
+AUTH_PY
+)
+      AUTH_RC=$?
+      if [ "$AUTH_RC" -eq 0 ]; then
+        pass "release authorization valid: $AUTH_FILE"
+      else
+        p0 "release authorization invalid: ${AUTH_FILE}（${AUTH_OUT}）"
+      fi
+    fi
     # v3.22.0: 部署记录中文优先、英文回退
     R="$(df_resolve_doc "$FEATURE" deploy_record .md deploy)"
     [ -n "$R" ] || R="docs/发布/${FEATURE}-部署记录.md"

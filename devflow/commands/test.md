@@ -1,6 +1,6 @@
 ---
 name: test
-version: "3.28.3"
+version: "3.28.7"
 description: Use when a user asks to generate or run unit, integration, browser, load, business, or legacy-migration tests.
 paths: [scripts/**, docs/测试/**, docs/测试用例/**, frontend/**, miniprogram/**, app/**]
 allowed-tools: [read, write, exec, glob, grep, task]
@@ -94,3 +94,11 @@ Any missing runtime, browser, database, graph, or staging evidence remains `运�
 - `docs/测试/<feature>-migration-evidence.env` for B/C
 - `.devflow/<feature>/first-pass-results.tsv`
 - P4/P5/P6 reports required by their phase files
+
+---
+
+## 状态机口径（单命令模式 · P1-6）
+
+- 本命令运行于**单命令模式**：豁免状态机——不调用 `devflow-state.sh complete`，不推进阶段状态、不产出阶段收据链。
+- 执行时必须在输出首部显式携带降级声明：`MODE=single-command STATE_MACHINE=exempt（阶段状态不推进；完整门禁链走 /devflow 编排）`。
+- 需要完整门禁、收据链、checkpoint 恢复与"不可跳过阶段"约束时，改走 `/devflow` 编排路径（commands/devflow.md）。
