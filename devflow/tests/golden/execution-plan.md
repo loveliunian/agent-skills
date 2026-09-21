@@ -3,7 +3,7 @@
 > 生成时间：2026-09-17 10:00:00（UTC）　数据来源：execution-plan.json 结构化产物自动渲染
 
 
-<!-- 审计指纹: execution-plan.json sha256=36376e8205b4332e8802a17264f4da443ff895744a9eba5ef5250ec5d688ba70（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: execution-plan.json sha256=c9f8133763df41df1adeb1d907eec8a102bc3fbe3e3921b34062a94325653f43（由 df_render 自动生成，人工勿改） -->
 
 ## 任务矩阵（Task = 切片；每行 = 一个 exact target）
 

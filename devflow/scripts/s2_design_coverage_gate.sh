@@ -551,8 +551,13 @@ done
 # v3.24.0(A16)：未替换模板变量检查——正文（剥离围栏后）残留的 {xxx}/{业务方填写}
 # 式花括号变量即未完成（实测「操作前置条件：{业务方填写}」曾通过 P2）。围栏内
 # 代码/JSON 示例的 braces 不算；${var} shell 变量不算。
+# v3.28.9（m01-base 复盘·s2/P4b 契约冲突收口）：df_render 机器块
+#（<!-- df:begin:KEY --> … <!-- df:end:KEY -->）内的 {userId} 式 REST 路径参数是
+# 合法字面量——P4b 按逐字匹配消费同一路径，s2 若报其为未替换变量，两个 Gate 就对
+# 同一列提出相反要求（实测项目被迫自写 postrender 围栏化绕过）。现 s2 原生剥离
+# df 机器块，机器块内可保留字面 {path-var}，无需任何渲染后处理。
 S2_STRIP_FILE=$(mktemp -t s2-strip.XXXXXX)
-awk '/^(```|~~~)/{f=!f;next} !f' "$DESIGN" > "$S2_STRIP_FILE" 2>/dev/null || true
+awk '/^(```|~~~)/{f=!f;next} /<!-- df:begin:/{b=1;next} /<!-- df:end:/{b=0;next} b{next} !f' "$DESIGN" > "$S2_STRIP_FILE" 2>/dev/null || true
 BRACE_VARS=$(grep -oE '\{[^{}[:space:]]{1,24}\}' "$S2_STRIP_FILE" 2>/dev/null | grep -v '^\${' | sort | uniq -c | sort -rn | head -5 || true)
 if [ -n "$BRACE_VARS" ]; then
   p0 "unreplaced template variables in body: $(printf '%s' "$BRACE_VARS" | tr '\n' ' ')"

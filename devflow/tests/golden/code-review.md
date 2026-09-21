@@ -3,7 +3,7 @@
 > 审查日期：2026-09-16　审查人：reviewer-agent-b　代码范围：backend/pay/
 
 
-<!-- 审计指纹: code-review.json sha256=e08762aa3b0374bac16d0c911a321eb3c1529b4aa140ceb1f6657547a568a55c（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: code-review.json sha256=2b16a5ceb52a216011414d02156da11bc5a51ad9bca279f07c88d2965801634c（由 df_render 自动生成，人工勿改） -->
 
 ## Gate 机器字段（由 df_render 从 JSON 派生，人工勿改）
 

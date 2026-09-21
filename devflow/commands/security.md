@@ -1,6 +1,6 @@
 ---
 name: security
-version: "3.28.7"
+version: "3.28.10"
 description: >-
   Use when auditing security vulnerabilities, permission gaps, or data exposure risks, mentions
   "/security", "security audit", "安全审计", "权限审计", "auth", "authorization", or "vulnerability scan".

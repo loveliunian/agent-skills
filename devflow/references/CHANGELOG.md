@@ -1,12 +1,111 @@
 ---
 name: changelog
-version: "3.28.7"
+version: "3.28.10"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.28.7
+# Changelog — devflow v1 → v3.28.10
+
+## v3.28.10 (2026-09-21) — m01-base 复盘落地：速度优化三件套（FB-20260921-002/003/004）
+
+来源：m01-base 全链 6.7h 实测复盘的优化调研（用户授权修改已安装 skill）。
+
+- **df_pipeline.py 校验失败自动附契约卡入口**：校验未通过时 stderr 直接打印
+  `gate-contract.sh` 调用提示——契约卡在【写之前】读（原则 7 的强制化落地，
+  m01-base 实测契约对齐占全程 ~25%）。
+- **references/gate-contracts.md 新增《字段级契约速查》**：m01-base 实测踩坑的
+  全部字段级 pattern（ENT-/CST-/OPS-/R\d+/错误码下划线/枚举陷阱/additionalProperties/
+  evidence TSV 列序等）——挂在通用规则节，随每张契约卡自动附带。
+- **新增 scripts/devflow-finalize.sh**：终段收据链一次通过编排
+  （P3b→P4→P6-final→P7→P8 依赖序 + 期间禁止扰动证据 + BASE_URL 可配置）。
+  实测消除收据 SHA 绑定连锁断裂的手工 5-Gate 刷新（~40min）。
+- **新增 scripts/check-samples.sh**：examples/structured 样例漂移检测
+  （对每样例跑 df_validate，FAIL 即退出码 1，可挂 CI）。注意 bash 3.2 多字节
+  变量名解析 bug：变量引用一律加花括号。
+- 存量 feature 不受影响；**skill 文件变更后进行中 feature 需 migrate-tree**。
+
+## v3.28.9 (2026-09-21) — m01-base 复盘落地：评审真实性 / 收据防补票 / git 检查点 / 产物去重
+
+来源：m01-base（组织与权限底座）P0→P10 全链复盘（用户授权修改已安装 skill）。
+本批全部为机检硬化——复盘实测的四类「流程合法但实质空心」通道全部关闭。
+
+**评审真实性（P2a，`review-receipt.sh` / `review-attest-init.sh`）**：
+- 最短评审时长门禁：每角色 begin→complete ≥ `DEVFLOW_REVIEW_MIN_SECONDS`（默认 60s，
+  0=禁用），complete 与 verify 双侧机检——实测 6 角色 started→completed 均 1 秒的
+  「签名仪式」被拒；
+- 同输入重评拦截：input SHA 未变的整轮重评 begin 即拒，豁免须显式
+  `--rerun-reason "<原因>"`（写入 session 台账留痕）——实测第 2/3 轮 input SHA
+  相同仍全套 6 角色重跑；
+- session-id 时钟校验：id 尾部时间戳与当前时钟（UTC 或本地任一口径）漂移 >30 分钟
+  即拒——实测 id 时间与 created_at 漂移近 2 小时；
+- attest 文件名修复：tag 由中文 role（经 tr -c 清洗成下划线，同字数角色互相覆盖）
+  改为 ASCII agent_id；`.devflow/attest-*` 双份存储并入 session attestations/ 单源。
+
+**收据防补票（`devflow-state-complete.sh`）**：
+- complete 时把收据哈希钉进 `phases[P].receipt_sha256`——此后收据被重跑改写，
+  reconcile 与 P7+ 链复查即报「收据在阶段完成后被改写」（实测 P3b/ARCH-PITFALLS
+  收据在阶段 completed 两小时后被重新生成，原证据被覆盖无从追溯）；
+- 收据时序校验：收据 CHECKED_AT/AT 早于阶段 started_at 即拒（旧收据复用）；
+- P3cd 补写 P3c/P3d 的 started_at（实测 P3d.started_at=null）。
+
+**git 检查点（新增 `scripts/git-checkpoint.sh` + complete 强制）**：
+- P2/P3/P6/P10 的 Gate PASS 后必须 commit（消息含收据哈希前 12 位），台账
+  `.devflow/<feature>/git-checkpoints.tsv` 由 complete 强制校验——实测全程 6.7h
+  零 commit 无回滚点；收据时间从此获得 commit 时间交叉验证；
+- 防泄密：`review-keys/` 未被 .gitignore 排除时自动补写；私钥已被 track 即拒绝；
+- 豁免：`DEVFLOW_GIT_CHECKPOINT=off` 或 skip-log 显式授权。
+
+**s2/P4b 契约冲突收口（`s2_design_coverage_gate.sh`）**：
+- §7 未替换花括号检查原生剥离 `<!-- df:begin -->` 机器块——df_render 渲染的
+  api-index 内 `{userId}` 式 REST 路径参数是合法字面量（P4b 按逐字匹配消费同一路径），
+  s2 不再对同一列提出相反要求；项目侧无需再写 postrender 围栏化后处理
+  （FB-20260921-001 的 skill 侧修复）。
+
+**证据落盘（`s6_final_verification_gate.sh`）**：
+- 终验收据绑定的证据（surefire XML/playwright 报告等多位于 target/，mvn clean 即失）
+  统一归档进 `.devflow/<feature>/evidence/P6-final/`，收据改绑归档副本——收据存在
+  但证据蒸发的审计不可复现场景关闭。
+
+**产物去重（新增 `scripts/check-artifact-dupes.sh`，接入 P9 artifact gate）**：
+- 检测同词干 .md/.txt 双写、`-auto` 副本并存、CN/EN 孪生产物（经 devflow_paths.sh
+  kind 后缀映射）、字节级相同文件组——实测单模块 80 份文档中 5 类重复全部命中；
+- 收据镜像 `docs/<feature>/gates/` 豁免（设计内双写，受 cmp 一致性校验约束）。
+
+**SQL 方言前置 lint（新增 `scripts/sql_dialect_lint.sh`，接入 build-watchdog gate）**：
+- 四方言迁移目录（h2/postgresql/oracle/kingbase）静态扫描 MySQL-only 语法
+  （AUTO_INCREMENT/TINYINT/UNSIGNED/ENGINE=/反引号等）——实测 AUTO_INCREMENT 残留
+  在 Flyway 迁移运行才暴露，P3 返工一轮；现在写完 SQL 即拦。
+
+**状态机清理（`devflow-state-core.sh`）**：
+- 新 state 不再生成 `methodology_stages`/`current_stage`（死轨——实测从未推进、与
+  current_phase 永久矛盾）；历史 state 里的残留字段保持读兼容、写入守卫。
+
+**CLAUDE.md 自动块版本同步（`init-fact-sources.sh`）**：
+- 自动块版本号由硬编码 "v3.14" 改为读 SKILL.md 单一事实源；检测块内版本 ≠ skill
+  版本时自动刷新受控块——实测项目 CLAUDE.md 停在 v3.14 与 skill 3.28.8 漂移数月。
+
+**教训库**：新增 L-PROC-005（E2E 冷启动预算三要素）、L-PROC-006（评审深度不可用
+收据仪式替代）。
+
+存量 feature 不受影响（新校验只对新增收据/状态写入生效；未钉定哈希的 completed
+阶段按 legacy 放行）；进行中 feature 在 skill 文件变更后须执行
+`devflow-state.sh migrate-tree`。
+
+## v3.28.8 (2026-09-21) — m01-base 实战沉淀：子代理编排策略
+
+来源：m01-base（组织与权限底座）P0→P10 单线全链实测（6.7h 复盘，用户授权修改已安装 skill）。
+
+- **新增 `concepts/subagent-orchestration.md`**：按阶段的单线/并行/独立子代理决策表、
+  子代理任务书六要素契约（输入正本/产出+验收命令/边界/回传格式/评审附加/收据边界）、
+  P2a/P3b 独立评审子代理流程（认知独立≠收据过程独立）、五条反模式（含
+  「并行子代理共享可变证据文件打断收据 SHA 绑定」实测项）、m01-base 实测基线。
+- **commands/devflow.md 新增《执行编排（子代理策略）》**：P0~P2/P4~P5/P7~P10 单线、
+  P2a/P3b 独立评审子代理（必选）、P3 双端并行、P6 五命令可并行；编排方式不改变 Gate 契约。
+- 存量 feature 不受影响（编排策略为执行指引，不改任何 Gate/schema）；
+  **进行中 feature 在 skill 文件变更后须执行 `devflow-state.sh migrate-tree`**（init 冻结的
+  skill 树哈希会因本批文件变更漂移）。
 
 ## v3.28.7 (2026-09-20) — login-auth 实战沉淀：change/extend 增量/修改点标记约定
 

@@ -164,12 +164,17 @@ echo "============================================="
 gen_cross_platform() {
   local target="$1"
   local platform_label="$2"
+  # v3.28.9: 自动块版本号取自 SKILL.md 单一事实源（devflow_version）——
+  # 此前硬编码 "v3.14"，项目 CLAUDE.md 版本与实际 skill 永久漂移（m01-base 实测）。
+  local skill_ver
+  skill_ver=$(sed -n 's/^version: "\([0-9.]*\)"/\1/p; s/^  version: "\([0-9.]*\)"/\1/p' "$SKILL_DIR/SKILL.md" 2>/dev/null | head -1)
+  skill_ver="${skill_ver:-unknown}"
   # v3.14.1: 已存在的用户文件永不整体覆盖——只更新受控标记块；无标记块时生成候选文件
   if [ -f "$target" ] && [ "$FORCE" -eq 1 ]; then
     if ! grep -q "BEGIN:DEVFLOW-AUTO" "$target" 2>/dev/null; then
       local candidate="${target}.devflow-candidate"
       cat > "$candidate" <<CROSS_EOF
-# $target — 项目入口（由 devflow 自动生成 v3.14）
+# $target — 项目入口（由 devflow 自动生成 v${skill_ver}）
 
 > [!WARNING] 检测到已有 ${target} 但不含 DEVFLOW 自动块。
 > 本内容写入候选文件，请人工核对后合并（自动块以 BEGIN/END:DEVFLOW-AUTO 标记）。
@@ -197,6 +202,15 @@ CROSS_EOF
       return
     fi
   fi
+  # v3.28.9: 版本失配即刷新——旧逻辑只在 --force 时更新自动块，导致存量项目
+  # 的块版本（如 v3.14）与 skill 实际版本漂移数月无人察觉。检测块内版本 ≠ 当前
+  # skill 版本时自动重写（用户手工内容在块外，不受影响）。
+  local block_ver
+  block_ver=$(sed -n '/BEGIN:DEVFLOW-AUTO/,/END:DEVFLOW-AUTO/p' "$target" 2>/dev/null | grep -oE '自动块 v[0-9.]+' | grep -oE '[0-9.]+' | head -1 || true)
+  if [ -f "$target" ] && [ -n "$block_ver" ] && [ "$block_ver" != "$skill_ver" ]; then
+    FORCE=1
+    echo "  [SYNC] 检测到自动块版本 v${block_ver} ≠ skill v${skill_ver}——刷新受控块（手工内容在块外不受影响）"
+  fi
   if [ ! -f "$target" ] || { [ "$FORCE" -eq 1 ] && grep -q "BEGIN:DEVFLOW-AUTO" "$target" 2>/dev/null; }; then
     # v3.14.1: 幂等——已有自动块时先删除旧块再追加，重复 --force 不再累积
     if grep -q "BEGIN:DEVFLOW-AUTO" "$target" 2>/dev/null; then
@@ -205,7 +219,7 @@ CROSS_EOF
     {
     echo "<!-- BEGIN:DEVFLOW-AUTO（此块由 init-fact-sources 维护，手工修改请放在块外） -->"
     cat <<CROSS_EOF
-# $target — devflow 项目入口（自动块 v3.14）
+# $target — devflow 项目入口（自动块 v${skill_ver}）
 
 本项目使用 devflow skill 进行开发。
 

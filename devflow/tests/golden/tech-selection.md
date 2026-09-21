@@ -3,7 +3,7 @@
 > 选型日期：2026-09-16　选型人：张三　评审人：架构师-老周
 
 
-<!-- 审计指纹: tech-selection.json sha256=bbaaa4fdbd8e563ff4b4159710b35b4e119715cc3e7a1cbb3f5ffd35cb7f4c44（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: tech-selection.json sha256=b78e019cadd1517ce6f40999f47f4d765fa8ecb2626207b45faef958f3936b25（由 df_render 自动生成，人工勿改） -->
 
 ## Step 1 现有仓库与硬约束盘点
 

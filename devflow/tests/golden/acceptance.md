@@ -3,7 +3,7 @@
 > 生成时间：2026-09-16 10:05:00（UTC）　数据来源：acceptance.json 结构化产物自动汇总
 
 
-<!-- 审计指纹: acceptance.json sha256=31b5a455d2f415aabdb9ae7e19289e50031a1cba74e1acf2a77d89202711a879（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: acceptance.json sha256=cdfe762c8a40dd231f50065c672735941b90b6c33be2346da39460db9eaf9f26（由 df_render 自动生成，人工勿改） -->
 
 ## 基本信息
 

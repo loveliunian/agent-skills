@@ -497,6 +497,17 @@ AUTH_PY
     R="docs/${FEATURE}-文档索引.md"
     [ -f "$R" ] || R="docs/${FEATURE}-docs-index.md"
     EVIDENCE_PATH="$R"
+    # v3.28.9（m01-base 复盘·产物去重）：docs/ 下近重复（EN/CN 孪生、-auto 副本、
+    # .md/.txt 双写）稀释信源——单一事实只保留一份（收据镜像 docs/<feature>/gates/ 豁免）。
+    _dupes_sh="$(cd "$(dirname "$0")" && pwd)/check-artifact-dupes.sh"
+    if [ -f "$_dupes_sh" ]; then
+      if DUPES_OUT=$(bash "$_dupes_sh" docs "$FEATURE" 2>&1); then
+        pass "artifact dedup (no EN/CN twins, -auto copies, md/txt dual writes)"
+      else
+        p0 "近重复产物并存（EN/CN 孪生、-auto 副本、.md/.txt 双写、字节级重复）"
+        printf '%s\n' "$DUPES_OUT" | head -12 | sed 's/^/    /'
+      fi
+    fi
     if [ ! -f "$R" ]; then
       p0 "missing documentation index: $R"
     else

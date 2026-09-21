@@ -1,6 +1,6 @@
 ---
 name: INDEX-章节锚点
-version: "3.28.7"
+version: "3.28.10"
 description: 章节锚点模板（详设 ↔ skill 章节契约）
 ---
 

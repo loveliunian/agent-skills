@@ -9,6 +9,10 @@ set -o pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 ROOT="$(cd "$TEST_DIR/.." && pwd -P)"
 PASS=0
+# v3.28.9: 时长门禁与同输入拦截是独立机检（见 review-receipt.sh），本测试覆盖协议生命周期——
+# 即时 begin/complete 与同输入多轮在此显式关闭/变基
+export DEVFLOW_REVIEW_MIN_SECONDS=0
+
 FAIL=0
 ok() { echo "[PASS] $1"; PASS=$((PASS + 1)); }
 bad() { echo "[FAIL] $1"; FAIL=$((FAIL + 1)); }
@@ -328,6 +332,8 @@ printf '%s' "$P2A_OUT" | grep -q "independent review receipts verified" \
   || bad "gate receipt verification line missing"
 
 # ---------- A10：修复复审——新一轮必须用新 session 全流程重跑 ----------
+# v3.28.9 同输入拦截：复审前先修改产物（"修复"语义）——输入未变的整轮重评会被拒
+printf '<!-- round-2 fix -->\n' >> "$W/docs/详细设计/pr-详细设计.md"
 SESSION2="rev-pr-002"
 if run_round "$SESSION2"; then
   ok "round-2 re-review with fresh session completes lifecycle (A10)"
@@ -336,6 +342,8 @@ else
 fi
 
 # ---------- A10：错误密钥签名 → 拒绝（begin 协议要求报告尚不存在，先移除） ----------
+# v3.28.9 同输入拦截：新一轮 begin 前同样先变基输入，保证本用例命中签名校验而非重评拦截
+printf '<!-- round-3 wrongkey probe -->\n' >> "$W/docs/详细设计/pr-详细设计.md"
 SESSION3="rev-pr-003"
 rm -f "$REPORT"
 export REVIEW_ATTESTATION_PUBKEY="$WRONG_KEY"

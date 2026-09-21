@@ -3,7 +3,7 @@
 > 执行人：completeness-auditor　执行时间：2026-09-16 10:30
 
 
-<!-- 审计指纹: self-check.json sha256=c67340ca6a706a52d54628eebcd89f43255bd7e630078c8967ffa69b4d3d7c27（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: self-check.json sha256=ac88f2d1a47be10f8eb7c33f194723dbe8331aa58df25bee1cfb29ea554621fa（由 df_render 自动生成，人工勿改） -->
 
 ## 执行信息
 

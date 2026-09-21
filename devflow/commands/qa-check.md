@@ -1,7 +1,7 @@
 ---
 name: qa-check
 description: 一键代码质量检测命令
-version: "3.28.7"
+version: "3.28.10"
 allowed-tools: [read, write, exec, glob, grep, task]
 alwaysApply: true
 ---

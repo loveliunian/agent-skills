@@ -1,6 +1,6 @@
 ---
 name: devflow-command
-version: "3.28.7"
+version: "3.28.10"
 description: Use when running the complete devflow lifecycle or resuming a checkpoint.
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
@@ -61,6 +61,19 @@ P0 → P0b → P1 → P2 → P2a → P2b → P3 → P3b → P3cd
 
 P11 是独立事故复盘，不属于正常交付完成条件。
 
+## 执行编排（子代理策略）
+
+全链执行时按阶段选择单线/并行/独立子代理——**编排方式不改变任何 Gate 契约**（子代理产出仍走同一套 Gate）：
+
+- **P0~P2 / P4~P5 / P7~P10**：主会话单线（契约对齐循环、单一正本原子链、收据链一致性）；
+- **P2a / P3b**：独立上下文子代理评审（必选）——认知独立≠收据的过程独立，评审输入只喂正本文件（详设/验收点/模板），刻意不含编排器的实现过程叙述；
+- **P3**：backend/frontend 并行子代理 ×2（以详设 §3.2 接口契约为唯一耦合点）；
+- **P6**：五类测试命令可并行（CLIENT 依赖前端 dev server、STAGING 依赖后端容器，服务前置须先行就绪）。
+
+子代理任务书六要素（输入正本路径 / 产出+验收命令 / 边界声明 / 结构化回传 / 评审附加契约 /
+收据由编排器两阶段签发——子代理不得自签）、反模式清单与实测基线见
+`concepts/subagent-orchestration.md`（编排前必读）。
+
 ## Gate 参数矩阵
 
 | 阶段 | 命令 |
@@ -84,6 +97,13 @@ P11 是独立事故复盘，不属于正常交付完成条件。
 | P10 | `p10_feedback_gate.sh <feature>` |
 
 实际参数由当前 command/phase 冻结；禁止把上表占位符原样执行。
+
+> **git 检查点（v3.28.9，m01-base 教训：6.7h 全程零 commit 无回滚点）**：P2/P3/P6/P10
+> 的 Gate PASS 后、`devflow-state.sh complete` 之前，必须运行
+> `bash scripts/git-checkpoint.sh <feature> <phase>`——commit 消息携带收据哈希，
+> 台账写入 `.devflow/<feature>/git-checkpoints.tsv`，`complete` 对这四个阶段强制校验
+> 台账条目（豁免仅限 `DEVFLOW_GIT_CHECKPOINT=off` 或 skip-log 显式授权）。收据时间
+> 从此获得 commit 时间交叉验证。
 
 > **架构陷阱门禁（True North 接线）**：P3b Gate 内联执行
 > `check-arch-pitfalls.sh --all --receipt <feature>`（§6 组合口径）——ARCH-PITFALLS

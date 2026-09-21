@@ -3,7 +3,7 @@
 > 配置日期：2026-09-16　配置人：运维-吴九
 
 
-<!-- 审计指纹: monitoring.json sha256=cd7c5f90e5af13a8ce52ac9bbc4e07e14d7643efeab8a5f99314a60abbf71792（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: monitoring.json sha256=de9cdb57e6d73d3d4517d59fde3e852132c5802b95a8261f63b154f600d8317d（由 df_render 自动生成，人工勿改） -->
 
 <!-- P8 Gate 机器可读证据（由 df_render 从 JSON 派生，人工勿改） -->
 METRICS_ENDPOINT=https://staging.demo.example.com/actuator/prometheus

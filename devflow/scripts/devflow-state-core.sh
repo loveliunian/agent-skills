@@ -350,21 +350,25 @@ update_stage_status() {
   local status="$3"  # in_progress | completed | blocked
   local state_file
   state_file=$(get_state_file "$feature")
-  
+
   [ ! -f "$state_file" ] && return 1
-  
+
   local now
   now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-  
+
   # 判断是 P-Phase 还是方法论轨阶段
+  # v3.28.9: 新 state 不再生成 methodology_stages（死轨——m01-base 实测从未推进、
+  # 与 current_phase 永久矛盾）；历史 state 里残留的该轨仅在已存在时可写。
   if echo "$stage" | grep -qE '^P[0-9]'; then
     jq --arg phase "$stage" --arg status "$status" --arg now "$now" \
        '.phases[$phase].status = $status | .updated_at = $now' \
        "$state_file" > "$state_file.tmp" && mv "$state_file.tmp" "$state_file"
-  else
+  elif jq -e 'has("methodology_stages")' "$state_file" >/dev/null 2>&1; then
     jq --arg stage "$stage" --arg status "$status" --arg now "$now" \
        '.methodology_stages[$stage].status = $status | .updated_at = $now' \
        "$state_file" > "$state_file.tmp" && mv "$state_file.tmp" "$state_file"
+  else
+    warn "methodology_stages 已于 v3.28.9 移除（死轨）——忽略对 '$stage' 的状态写入；P-Phase 状态机为准"
   fi
 }
 
@@ -428,8 +432,7 @@ cmd_init() {
   "updated_at": "NOW_PLACEHOLDER",
   
   "current_phase": "P0",
-  "current_stage": "P0",
-  
+
   "phases": {
     "P0":  {"name": "需求澄清",    "status": "in_progress", "started_at": "NOW_PLACEHOLDER", "completed_at": null},
     "P0b": {"name": "PRD评审",    "status": "pending",    "started_at": null,  "completed_at": null},
@@ -450,18 +453,7 @@ cmd_init() {
     "P9":  {"name": "文档更新",    "status": "pending",    "started_at": null,  "completed_at": null},
     "P10": {"name": "知识沉淀",    "status": "pending",    "started_at": null,  "completed_at": null}
   },
-  
-  "methodology_stages": {
-    "P0":  {"name": "需求基线与原子验收点",    "status": "in_progress", "started_at": "NOW_PLACEHOLDER", "completed_at": null},
-    "P1":  {"name": "概设定纲与工程事实源",    "status": "pending",    "started_at": null,  "completed_at": null},
-    "P2":  {"name": "模块详设字段级标准与迁移映射", "status": "pending",    "started_at": null,  "completed_at": null},
-    "P3":  {"name": "试点模块实施",            "status": "pending",    "started_at": null,  "completed_at": null},
-    "P5":  {"name": "两类测试门控",            "status": "pending",    "started_at": null,  "completed_at": null},
-    "P6":  {"name": "图谱构建与全量执行",      "status": "pending",    "started_at": null,  "completed_at": null},
-    "GRAPH_HEALTH": {"name": "图谱健康",       "status": "pending",    "started_at": null,  "completed_at": null},
-    "P10": {"name": "经验反哺",                "status": "pending",    "started_at": null,  "completed_at": null}
-  },
-  
+
   "acceptance_criteria": {
     "count": 0,
     "frozen": 0,
@@ -505,9 +497,6 @@ JEOF
      | .scope.profile_id = $profile
      | .phases = (.phases | to_entries
          | map(.value.started_at = (if .value.started_at == "NOW_PLACEHOLDER" then $now else .value.started_at end))
-         | from_entries)
-     | .methodology_stages = (.methodology_stages | to_entries
-         | map(.value.started_at = (if .value.started_at == "NOW_PLACEHOLDER" then $now else .value.started_at end))
          | from_entries)' \
     "$state_file" > "${state_file}.tmp" && mv "${state_file}.tmp" "$state_file"
   rm -f "${state_file}.bak"
@@ -547,7 +536,7 @@ JEOF
   echo "  Skill 树: $skill_tree_hash"
   success "工作流 $feature 已初始化 ($(devflow_version))"
   echo "  当前阶段: P0 ($(get_phase_name P0))"
-  echo "  兼容字段 current_stage: P0（仅历史兼容；阶段判定以 current_phase/phases 为准）"
+  echo "  阶段判定唯一来源: current_phase / phases（methodology_stages 已于 v3.28.9 移除）"
   echo "  状态文件: $state_file"
   echo "  Gate 目录: $STATE_DIR/${feature}/gates/"
   echo "  前端范围: $frontend_scope"
@@ -938,7 +927,8 @@ cmd_list() {
     echo ""
     echo "  [$count] $feature"
     echo "      阶段: $phase ($(get_phase_name "$phase"))"
-    echo "      方法论轨: $stage ($(get_stage_name "$stage"))"
+    # v3.28.9: methodology_stages 已从新 state 移除；历史残留仅在存在时展示
+    [ -n "$stage" ] && echo "      方法论轨(遗留): $stage ($(get_stage_name "$stage"))"
     echo "      更新: $updated"
   done
   

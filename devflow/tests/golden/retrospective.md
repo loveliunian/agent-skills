@@ -3,7 +3,7 @@
 > 复盘日期：2026-09-16　参与人：张三、李四、王五　周期：2026-09-10 ~ 2026-09-16
 
 
-<!-- 审计指纹: retrospective.json sha256=63e1031faa9ae30680513eeb66b884c3e43de9a22d6937df020c8cc6431ab9de（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: retrospective.json sha256=64fad8d5ec04981912845f596c480dbf2a60699ff5c1d43c8df1bf3c4a282c80（由 df_render 自动生成，人工勿改） -->
 
 ## 阶段合规事实（每行附真实收据路径，禁止无证据自评）
 

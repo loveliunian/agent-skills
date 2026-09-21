@@ -19,6 +19,8 @@ RR="$ROOT/scripts/review-receipt.sh"
 openssl genrsa -out "$TMP/review-attester-private.pem" 2048 >/dev/null 2>&1 || { bad "生成测试 attester 私钥失败"; finish V3203_HARDENING; }
 openssl rsa -in "$TMP/review-attester-private.pem" -pubout -out "$TMP/review-attester-public.pem" >/dev/null 2>&1 || { bad "生成测试 attester 公钥失败"; finish V3203_HARDENING; }
 export REVIEW_ATTESTATION_PUBKEY="$TMP/review-attester-public.pem"
+# v3.28.9: 本测试覆盖收据协议，关闭评审时长门禁（时长机检另行验证）
+export DEVFLOW_REVIEW_MIN_SECONDS=0
 ATTEST_N=0
 make_attestation() { # event role agent feature session input output destination
   local event="$1" role="$2" agent="$3" feature="$4" session="$5" input="$6" output="$7" dest="$8" input_sha output_sha payload sig

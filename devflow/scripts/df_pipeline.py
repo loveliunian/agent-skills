@@ -146,6 +146,12 @@ def main():
     rc = _run(validate_cmd)
     if rc != 0:
         print("[pipeline] 校验未通过，已中止：不渲染、不进 Gate。", file=sys.stderr)
+        # v3.28.10 (FB-20260921-002): 失败即附契约卡入口——字段级契约（枚举/正则/
+        # 列序）应在【写之前】读，而不是靠试错反推（m01-base 实测：契约对齐占全程 ~25%）。
+        _gc = Path(__file__).resolve().parent / "gate-contract.sh"
+        print(f"[pipeline] 字段级契约速查：bash '{_gc}' all "
+              f"｜或按阶段：gate-contract.sh P0|P0b|P1|P2|...（写产物【前】必读）",
+              file=sys.stderr)
         sys.exit(rc)
 
     print("[pipeline] Step 2/2 渲染确定性层 …")

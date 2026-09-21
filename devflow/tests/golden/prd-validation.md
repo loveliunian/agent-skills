@@ -3,7 +3,7 @@
 > 验证日期：2026-09-16　验证人：验证代理　PRD：docs/PRD/demo-pay.md
 
 
-<!-- 审计指纹: prd-validation.json sha256=c00ea8ba5b24aad78be3b7cff702524b236039e709ec98f9622c552cddb55f0c（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: prd-validation.json sha256=34a16047aec63bca6230d99587d96ae61d75e350a1db761b45f89997d9de7a0d（由 df_render 自动生成，人工勿改） -->
 
 <!-- P4 Gate 机器可读结论（由 df_render 从 JSON 派生，人工勿改） -->
 P0_BLOCKERS=0

@@ -541,6 +541,24 @@ EV_ARGS=()
 for _f in "$FINAL_TSV" "$TEST_EV" "$BASELINE_TSV" "$BASELINE_META" "$EXEC_RECORD" "$VERIFY_JSON" "$P6_REPORT" "${_REPORTS[@]:-}" "${EXEC_LOGS[@]:-}"; do
   [ -n "$_f" ] && [ -f "$_f" ] && EV_ARGS+=("$_f")
 done
+# v3.28.9（m01-base 复盘·证据落盘）：绑定证据统一归档进 .devflow/<feature>/evidence/P6-final/
+# 收据哈希绑定的证据多位于 target/（mvn clean 即失、.gitignore 排除）——收据存在但
+# 证据蒸发 = 审计不可复现。已在 .devflow/ 下的证据原路径保留，不重复复制。
+_EV_DIR="$STATE_ROOT/${EFF_FEATURE}/evidence/P6-final"
+mkdir -p "$_EV_DIR"
+_ARCH_ARGS=()
+_i=0
+for _f in "${EV_ARGS[@]:-}"; do
+  [ -n "$_f" ] || continue
+  case "$_f" in
+    "$STATE_ROOT"/*|.devflow/*) _ARCH_ARGS+=("$_f"); continue ;;  # 已在持久层
+  esac
+  _i=$((_i + 1))
+  _dest="$_EV_DIR/$(printf '%02d' "$_i")-$(basename "$_f")"
+  cp "$_f" "$_dest" || { echo "[FATAL] 证据归档失败: $_f → $_dest" >&2; exit 2; }
+  _ARCH_ARGS+=("$_dest")
+done
+EV_ARGS=(${_ARCH_ARGS[@]+"${_ARCH_ARGS[@]}"})
 EV_TREE=$(receipt_evidence_tree "${EV_ARGS[@]:-}")
 P6F_EXIT=$([ "$FAIL" -gt 0 ] && echo 1 || echo 0)
 RECEIPT_DIR="$STATE_ROOT/${EFF_FEATURE}/gates/P6-final"

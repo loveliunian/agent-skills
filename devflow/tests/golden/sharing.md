@@ -3,7 +3,7 @@
 > 分享人：张三　日期：2026-09-16　受众：服务端与测试组
 
 
-<!-- 审计指纹: sharing.json sha256=af5ff8f27585b22d68b4dc8dd3784fe257fbf3c9024c27904947e26d4633a43c（由 df_render 自动生成，人工勿改） -->
+<!-- 审计指纹: sharing.json sha256=46ccf8e832a9476e85c547104958bf46daf59afe8d28130fc681637fc4f5e91d（由 df_render 自动生成，人工勿改） -->
 
 ## 可复用教训（≥3 条）
 

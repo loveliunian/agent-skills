@@ -1,6 +1,6 @@
 ---
 name: deploy
-version: "3.28.7"
+version: "3.28.10"
 description: >-
   Use when deploying to staging or production after P6 and Review Gates pass, mentions
   "/deploy", "部署", "发布", "go live", "上线", "staging", or "production release".

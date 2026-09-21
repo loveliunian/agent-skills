@@ -1,19 +1,29 @@
 #!/usr/bin/env bash
 # =============================================================================
-# review-attest-init.sh · P2a 独立评审证明引导（v3.28.7 · L-EFF-001）
+# review-attest-init.sh · P2a 独立评审证明引导（v3.28.10 · L-EFF-001）
 # -----------------------------------------------------------------------------
 # 背景：review-receipt.sh 两阶段收据要求平台证明（REVIEW_ATTESTATION_PUBKEY +
 # 逐事件 attestation）。协议规定"评审发起方持有私钥"；本脚本把 keygen/签名/
 # begin-all/complete-all 封装为一行命令，避免每次手写。
 # 本 skill 永不自签——私钥由发起方（用户会话）持有，落盘路径在项目 .devflow 下。
+# 信任模型（v3.28.9 明示）：私钥落盘在项目内 → 签名证明的是「编排流程走了两阶段
+# 协议且证据未被误改」，不构成对抗恶意编排者的密码学保证；对抗「仪式化评审」的
+# 是时长/同输入/时钟三道机检（见 review-receipt.sh），不是签名本身。
 #
 # 用法：
 #   bash review-attest-init.sh keygen  <feature>                     # 生成发起方密钥对
 #   bash review-attest-init.sh env     <feature>                     # 打印 REVIEW_ATTESTATION_PUBKEY
 #   bash review-attest-init.sh begin-all   <feature> <session> <design.md> <report.md> \
-#        "AUTHOR:author-01,架构师:arch-01,后端专家:backend-01,前端专家:frontend-01,测试开发:tester-01,DBA:dba-01"
+#        "AUTHOR:author-01,架构师:arch-01,后端专家:backend-01,前端专家:frontend-01,测试开发:tester-01,DBA:dba-01" \
+#        ["<同输入重评豁免原因>"]   # v3.28.9：仅在 input SHA 与历史 session 相同且确需重审时提供
 #   bash review-attest-init.sh complete-all <feature> <session> <design.md> <report.md> "<同上角色表>"
 #     （角色表与 begin-all 相同；报告必须在 begin 之后产出）
+#
+# v3.28.9（m01-base 复盘）：
+#   - attest 临时文件名改用 agent_id（ASCII）——旧实现以中文 role 经 tr -c 清洗，
+#     「架构师」→ 9 个下划线、「测试开发」→ 12 个下划线，同字数角色会互相覆盖；
+#   - 透传 --rerun-reason（同输入重评豁免）；
+#   - complete-all 受最短评审时长门禁约束（DEVFLOW_REVIEW_MIN_SECONDS，默认 60s）。
 # =============================================================================
 set -euo pipefail
 LC_ALL=C
@@ -57,20 +67,24 @@ case "$CMD" in
     ;;
   begin-all|complete-all)
     SESSION="${3:?}"; DESIGN="${4:?}"; REPORT="${5:?}"; ROLES="${6:?}"
+    RERUN_REASON="${7:-}"
     [ -f "$PUB" ] || FAIL "公钥不存在：${PUB}（先 keygen）"
     export REVIEW_ATTESTATION_PUBKEY="$PUB"
     local_isha="$(sha256 "$DESIGN")"
     event="begin"; osha=""
     [ "$CMD" = "complete-all" ] && { event="complete"; [ -f "$REPORT" ] || FAIL "报告不存在（begin 之后再产出）"; osha="$(sha256 "$REPORT")"; }
     if [ "$CMD" = "begin-all" ] && [ -f "$REPORT" ]; then FAIL "报告已存在——协议要求先 begin 全部角色再产出报告"; fi
+    EXTRA=()
+    [ -n "$RERUN_REASON" ] && EXTRA=(--rerun-reason "$RERUN_REASON")
     echo "$ROLES" | tr ',' '\n' | while IFS=: read -r role agent; do
       [ -n "$role" ] && [ -n "$agent" ] || continue
-      tag="$(printf '%s' "$role" | tr -c 'A-Za-z0-9' '_')"
+      # v3.28.9: tag 用 ASCII agent_id——中文 role 经 tr -c 清洗成下划线会碰撞覆盖
       bash "$SCRIPT_DIR/review-attest-init.sh" __sign "$FEATURE" "$SESSION" "$role" "$agent" "$event" "$local_isha" "$osha" "$TMPD/a.json" >/dev/null
-      cp "$TMPD/a.json" ".devflow/$FEATURE/attest-$tag.$event.json"
+      cp "$TMPD/a.json" "$TMPD/attest-$agent.$event.json"
       bash "$SCRIPT_DIR/review-receipt.sh" "$event" --feature "$FEATURE" --role "$role" --agent-id "$agent" \
         --session-id "$SESSION" --input "$DESIGN" --output "$REPORT" \
-        --attestation ".devflow/$FEATURE/attest-$tag.$event.json" >/dev/null \
+        --attestation "$TMPD/attest-$agent.$event.json" \
+        ${EXTRA[@]+"${EXTRA[@]}"} >/dev/null \
         && echo "[OK] $event $role" || FAIL "$event $role 失败"
     done
     ;;

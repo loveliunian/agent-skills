@@ -1,6 +1,6 @@
 ---
 name: frontend-tech-stack
-version: "3.28.7"
+version: "3.28.10"
 description: >-
   前端技术栈约束与版本要求。配合 /devflow P3 编码阶段使用。
   ：Node.js/pnpm 版本约束，i18n 和 a11y 检查项。

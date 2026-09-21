@@ -1,6 +1,6 @@
 ---
 name: small-change
-version: "3.28.7"
+version: "3.28.10"
 description: Use when a user requests a bounded change to an existing project, such as a local UI behavior, configuration, bugfix, optional API addition, validation/default adjustment, or additive persistence update.
 allowed-tools: [read, write, exec, glob, grep, task]
 ---

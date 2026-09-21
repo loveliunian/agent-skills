@@ -16,6 +16,48 @@
 | 证据隔离 | 下游 gate（如 P6-final）会重跑测试改写 surefire 报告——上游 gate（P4）证据须绑定 `.devflow/<feature>/p4-evidence/` 下的快照副本，而非 target/ 活文件（gate 已自动快照） |
 | 评审证明 | P2a 双阶段收据需 `export REVIEW_ATTESTATION_PUBKEY=<workspace>/.devflow/<feature>/review-keys/attest.pub.pem`；缺失时报 signature invalid |
 
+### 字段级契约速查（JSON 正本写作前必读，m01-base 实测沉淀）
+
+> 以下 pattern 来自各 schema + df_validate 跨字段检查——**违反任一即校验失败不渲染**。
+> 通则：`zero_results[].path` 必须指向【真实为空】的集合并落在该 kind 的词汇表内；
+> 集合非空却声明空 = 伪造空声明，同样拦截。
+
+**ID / 命名 pattern（无连字符一律用下划线或紧写）**
+
+| 字段 | pattern | 错误示例 → 正确示例 |
+|---|---|---|
+| design tables[].prd_entity_ref | `^ENT-[0-9]{2,}$` | `ENT-01`（非 `E-1`/`实体1`） |
+| design 表字段 prd_constraint_ref | `^CST-[0-9]{2,}$` | `CST-01`（非 `C-01`） |
+| design apis[].prd_operation_ref | `^OPS-[0-9]{2,}$` | `OPS-01`（非 `OP-01`；且须与 clarification.operations[].id 一致） |
+| rules[].id / acceptance[].rule | `^R[0-9]+$` | `R001`（非 `R-001`） |
+| rules[].error_codes[].code | `^[A-Z][A-Z0-9_]{2,}$` | `M01_ORG_004`（非 `M01-ORG-004`；全局限一，不得两条规则共用） |
+| tech-selection candidates[].id | `^[A-E]$` | `A`（非 `SCHED-A`） |
+| constraints_scan[].constraint_id | `^TC-[A-Z]+-[0-9]{3}$` | `TC-FE-901` |
+| retrospective feedback_id | `^FB-[0-9]{8}-[0-9]{3}$` | `FB-20260921-001` |
+| retrospective phase_facts[].phase | `^P[0-9]+[a-z]?(~P[0-9]+[a-z]?)?$` | `P3~P3b`（非 `P3/P3b/P3cd`） |
+
+**易错的必填字段（schema required + 跨字段）**
+
+| 位置 | 陷阱 |
+|---|---|
+| apis[].request.fields[] | `required`(bool)、`masking`、`rule`、`source` 全必填（无内容写 `-`）；response.fields[] 用 `always`(string 是/否/条件) 且**禁** `required` |
+| apis[].anchor | 必须等于 `detail_anchor`（§3.2.N，不得写概览级 §3.1）；request/response.anchor 同样落到 §3.2.N |
+| pages[].dialogs[].api | 必须含 `§3.2.x` 锚点或精确写 `—` |
+| business_operations | 非 stateless 必须 source_state+target_state 成对；test_scenarios ≥1 |
+| tables[].fields[].ddr | 每个字段必填且指向存在的 decisions[]；DDR↔字段双向无孤儿 |
+| monitoring.machine.alert_test_output | 文件须含 `ALERT_TRIGGERED=`、`RECOVERY_RECORDED=`、`NOTIFICATION_CONFIRMED=` 三行 |
+| retrospective.verify_output | string（报告路径），非 object |
+| test-cases cases[].steps[] | 对象 `{action,expected}`；`result` 为对象 `{executed,status}` |
+| P4 evidence TSV | 列序 `id,code_paths,test_paths,status`——**PASS 必须是末列**，路径逗号分隔且实存 |
+| 前端 devflow-client release_evidence | `artifact=…;version=…;location=…` 且 artifact 路径相对 frontend/ 实存 |
+
+**其它高频坑**
+
+- 枚举字段（storage_strategy/versioning/http_methods/acronyms 等）用 schema 枚举值，说明文字放 notes。
+- `additionalProperties:false` 是常态：多余字段（如把说明塞进对象）会整卡拒绝，说明进 `notes` 或对应文档。
+- P4/P4b/P6-final 的命令型证据：禁止 `>` 重定向（Gate 捕获须非空）、禁止 bash/sh 包装、根目录须有对应工程清单（pom.xml/package.json/pyproject.toml）。
+
+
 ## 路径桥接（s2 × P4b 口径冲突）
 
 design.json 的 api path 若含 `{id}`：渲染进详设 api-index 后触发 s2 花括号 P0；

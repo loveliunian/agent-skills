@@ -165,6 +165,79 @@ _verify_p6_final() {
   return 0
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# v3.28.9（m01-base 复盘·收据防补票）：complete 时把收据哈希钉进 state
+# （phases[P].receipt_sha256）；此后任何重跑/改写都会使哈希失配，
+# reconcile 与 P7+ 链复查据此检出「阶段完成后收据被改写」。
+# 返回 0=通过/未钉（legacy state 无钉）；1=失配（已打印错误）。
+_receipt_pinned_ok() { # <state_file> <phase> <receipt_file>
+  local state_file="$1" phase="$2" receipt="$3"
+  local pinned cur
+  pinned=$(jq -r --arg p "$phase" '.phases[$p].receipt_sha256 // empty' "$state_file" 2>/dev/null || true)
+  [ -n "$pinned" ] || return 0   # 未钉（legacy/新写入前的过渡）——不阻断
+  if [ ! -f "$receipt" ]; then
+    error "收据被删除（阶段完成后）：${receipt}（钉定哈希 ${pinned}）"
+    return 1
+  fi
+  cur=$(hash_file "$receipt")
+  if [ "$cur" != "$pinned" ]; then
+    error "收据在阶段完成后被改写（补票/重跑覆盖）：$receipt"
+    echo "  钉定: $pinned"
+    echo "  当前: $cur"
+    echo "  唯一合法路径：修复问题后按 Gate 契约重跑并走 devflow-state.sh repair/reconcile 显式核销"
+    return 1
+  fi
+  return 0
+}
+
+# v3.28.9（m01-base 复盘·收据时序）：收据生成时间必须晚于阶段开始时间——
+# 拒绝「阶段开始前就存在的旧收据」复用（收据早于 started_at 即可疑）。
+# 返回 0=通过/无法判定（收据无时间行）；1=时序违规。
+_receipt_time_ordered() { # <state_file> <phase> <receipt_file>
+  local state_file="$1" phase="$2" receipt="$3"
+  local rc_time phase_started
+  rc_time=$(sed -n 's/^CHECKED_AT=//p' "$receipt" | head -1)
+  [ -n "$rc_time" ] || rc_time=$(sed -n 's/^AT=//p' "$receipt" | head -1)
+  [ -n "$rc_time" ] || rc_time=$(sed -n 's/^FINISHED_AT=//p' "$receipt" | head -1)
+  [ -n "$rc_time" ] || return 0
+  phase_started=$(jq -r --arg p "$phase" '.phases[$p].started_at // empty' "$state_file" 2>/dev/null || true)
+  [ -n "$phase_started" ] || return 0
+  local t_rc t_ph
+  t_rc=$(jq -rn --arg t "$rc_time" 'try ($t | fromdateiso8601) catch ""' 2>/dev/null || true)
+  t_ph=$(jq -rn --arg t "$phase_started" 'try ($t | fromdateiso8601) catch ""' 2>/dev/null || true)
+  { [ -z "$t_rc" ] || [ -z "$t_ph" ]; } && return 0
+  if [ "$t_rc" -lt "$t_ph" ]; then
+    error "收据时序违规：收据时间 $rc_time 早于阶段开始 ${phase_started}（旧收据复用？）: $receipt"
+    return 1
+  fi
+  return 0
+}
+
+# v3.28.9（m01-base 复盘·git 检查点强制）：P2/P3/P6/P10 完成前必须有 git-checkpoint 台账
+# 条目（Gate PASS 后运行 scripts/git-checkpoint.sh <feature> <phase>）。
+# 豁免：DEVFLOW_GIT_CHECKPOINT=off，或 .devflow/<feature>/skip-log.txt 有对应授权。
+_verify_git_checkpoint() { # <feature> <phase>
+  local feature="$1" phase="$2"
+  if [ "${DEVFLOW_GIT_CHECKPOINT:-on}" = "off" ]; then
+    warn "DEVFLOW_GIT_CHECKPOINT=off——git 检查点校验被显式豁免${phase}"
+    return 0
+  fi
+  if [ -f "$STATE_DIR/$feature/skip-log.txt" ] && grep -q "git-checkpoint.*$phase" "$STATE_DIR/$feature/skip-log.txt" 2>/dev/null; then
+    warn "git-checkpoint $phase 已在 skip-log 显式授权跳过"
+    return 0
+  fi
+  command -v git >/dev/null 2>&1 || { error "git 不可用——回滚能力是硬要求（m01-base 教训：6.7h 零 commit 无回滚点）"; return 1; }
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { error "非 git 仓库——先 git init；确需豁免：DEVFLOW_GIT_CHECKPOINT=off 或 skip-log 授权"; return 1; }
+  local tsv="$STATE_DIR/$feature/git-checkpoints.tsv"
+  [ -f "$tsv" ] || { error "缺 git 检查点台账：${tsv}——Gate PASS 后运行 bash '$SKILL_ROOT/scripts/git-checkpoint.sh' $feature $phase"; return 1; }
+  local commit
+  commit=$(awk -F'\t' -v p="$phase" '$2 == p {print $3; exit}' "$tsv" 2>/dev/null || true)
+  [ -n "$commit" ] || { error "台账中无 $phase 的检查点条目——运行 bash '$SKILL_ROOT/scripts/git-checkpoint.sh' $feature $phase"; return 1; }
+  [ "$commit" = "no-dirty-files" ] && return 0
+  git cat-file -e "${commit}^{commit}" 2>/dev/null || { error "台账指向的 commit 不存在: ${commit}（台账与仓库漂移）"; return 1; }
+  return 0
+}
+
 # === Complete commands ===
 cmd_complete() {
   local feature="$1"
@@ -291,6 +364,18 @@ cmd_complete() {
   # v3.16.8（N29-P2-1/2/3）: 白名单改映射表驱动（P0b/P4b 补入；P3b 软硬口径统一）
   verify_stage_evidence_contract "$receipt_file" "$phase" || return 1
 
+  # v3.28.9: 收据时序——收据时间必须晚于阶段开始（旧收据复用即拒）
+  local _pin_phase="$phase"
+  case "$_pin_phase" in P3c|P3d) _pin_phase="P3cd" ;; esac
+  _receipt_time_ordered "$state_file" "$_pin_phase" "$receipt_file" || return 1
+
+  # v3.28.9: 关键阶段 git 检查点强制（m01-base 教训：全程零 commit 无回滚点）
+  case "$phase" in
+    P2|P3|P6|P10)
+      _verify_git_checkpoint "$feature" "$phase" || return 1
+      ;;
+  esac
+
   # v3.14.11: P7-P10 前置收据链完整性——完整覆盖 P0..P6 全部阶段收据存在且 EXIT_CODE=0。
   # （P5-migration 依赖 B/C 场景，state 未冻结场景前无法机械判断，由 audit-receipts 对已存在收据审计）
   if printf '%s' "$phase" | grep -qE '^P[7-9]$|^P10$'; then
@@ -318,6 +403,11 @@ cmd_complete() {
       #（剥离绑定行使收据降级 legacy 绕过复查的 PoC 被拒；P0b/P4b 同步补入）
       if ! verify_stage_evidence_contract "$STATE_DIR/${feature}/gates/${_pre}/receipt.txt" "$_pre"; then
         error "证据链 ${_pre} 证据绑定复查失败（缺失/被篡改/越界/绑定被剥离）——拒绝完成 $phase"
+        return 1
+      fi
+      # v3.28.9: 链收据钉定复查——completed 阶段的收据若在完成后被改写（补票/重跑覆盖），拒绝推进
+      if ! _receipt_pinned_ok "$state_file" "$_pre" "$STATE_DIR/${feature}/gates/${_pre}/receipt.txt"; then
+        error "证据链 ${_pre} 收据钉定复查失败——拒绝完成 $phase"
         return 1
       fi
     done
@@ -363,13 +453,21 @@ cmd_complete() {
   now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   
   if command -v jq &>/dev/null; then
+    # v3.28.9: 收据哈希钉定——complete 时刻的收据内容固化进 state，此后改写即失配
+    local _rsha
+    _rsha=$(hash_file "$receipt_file")
     # P3cd 是一个 gate 收据，但状态模型仍保留可审计的 P3c/P3d 两个原子阶段。
+    # v3.28.9: P3c/P3d 的 started_at 若为 null 一并补齐（m01-base 实测 P3d.started_at=null）。
     if [ "$phase" = "P3cd" ]; then
-      jq --arg now "$now" \
+      jq --arg now "$now" --arg rsha "$_rsha" \
          '.phases.P3c.status = "completed"
           | .phases.P3c.completed_at = $now
+          | .phases.P3c.started_at = (.phases.P3c.started_at // $now)
           | .phases.P3d.status = "completed"
           | .phases.P3d.completed_at = $now
+          | .phases.P3d.started_at = (.phases.P3d.started_at // $now)
+          | .phases.P3c.receipt_sha256 = $rsha
+          | .phases.P3d.receipt_sha256 = $rsha
           | .current_phase = "P4"
           | .phases.P4.status = "in_progress"
           | .phases.P4.started_at = $now
@@ -381,8 +479,9 @@ cmd_complete() {
       return 0
     fi
 
-    jq --arg phase "$phase" --arg now "$now" \
-       '.phases[$phase].status = "completed" | .phases[$phase].completed_at = $now' \
+    jq --arg phase "$phase" --arg now "$now" --arg rsha "$_rsha" \
+       '.phases[$phase].status = "completed" | .phases[$phase].completed_at = $now
+        | .phases[$phase].receipt_sha256 = $rsha' \
        "$state_file" > "$state_file.tmp" && mv "$state_file.tmp" "$state_file"
     
     # 确定下一个 phase
@@ -528,6 +627,8 @@ cmd_reconcile() {
         error "链完整性断裂: $phase 状态为 completed 但收据缺失/无效/契约不符——拒绝推进后续阶段（请恢复收据或人工核销该状态）"
         return 1
       fi
+      # v3.28.9: 钉定复查——completed 阶段收据在完成后被改写（补票/重跑覆盖）即报漂移
+      _receipt_pinned_ok "$state_file" "$phase" "$receipt" || drift=$((drift + 1))
       continue
     fi
     receipt=$(_reconcile_receipt_path "$feature" "$phase")

@@ -148,6 +148,22 @@ run_all_checks() {
     FAIL=1
   fi
 
+  # v3.28.9（m01-base 复盘·双方言前置）：MySQL-only 语法在 Flyway 迁移运行才暴露
+  # （实测 AUTO_INCREMENT/TINYINT 在 H2 PG 模式失败，P3 返工一轮）——写完 SQL 即静态拦截。
+  echo "[BUILD-WATCHDOG] sql dialect lint..."
+  if [ -x "$SCRIPT_DIR/sql_dialect_lint.sh" ] || [ -f "$SCRIPT_DIR/sql_dialect_lint.sh" ]; then
+    if SQL_LINT=$(bash "$SCRIPT_DIR/sql_dialect_lint.sh" 2>&1); then
+      echo "[BUILD-WATCHDOG] ✓ sql dialect lint PASS"
+    else
+      echo "[BUILD-WATCHDOG] ✗ sql dialect lint FAIL"
+      printf '%s\n' "$SQL_LINT" | head -8 | sed 's/^/    /'
+      BLOCKER_DETAIL="${BLOCKER_DETAIL:+$BLOCKER_DETAIL; }sql-dialect lint"
+      FAIL=1
+    fi
+  else
+    echo "[BUILD-WATCHDOG] ⊝ sql dialect lint skipped: sql_dialect_lint.sh missing"
+  fi
+
   resolve_client_scope
   case "$CLIENT_SCOPE" in
     mini-program|app)

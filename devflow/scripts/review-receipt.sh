@@ -22,6 +22,15 @@
 #            输入/输出 SHA 与当前产物一致；时间窗单调；agent 唯一；
 #            评审者 != 作者；session 台账映射一致。
 #
+# v3.28.9（m01-base 复盘·评审真实性三件套——实测 6 角色 started→completed 均 1 秒、
+# 第 2/3 轮 input SHA 相同仍整轮重跑、session-id 时间戳与 created_at 漂移近 2 小时）：
+#   ① complete/verify 校验每角色评审时长 ≥ DEVFLOW_REVIEW_MIN_SECONDS（默认 60s，
+#     0=禁用）——begin 后立即 complete 的"签名仪式"被拒。
+#   ② begin 拒绝对同一 input SHA 的整轮重评；确需重审须显式 --rerun-reason "<原因>"
+#     （写入 session 台账留痕）。
+#   ③ 首个 begin 校验 session-id 尾部时间戳与当前时钟一致（UTC 或本地任一口径，
+#     容差 30 分钟）。
+#
 # 路径安全：feature/session/agent 必须匹配 ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$
 # 且不得为 "."/".."；收据根 realpath 必须落在 STATE_DIR 内（containment）。
 # 原子性：全部 JSON 经 mktemp+mv 落盘；并发 begin 以锁目录串行化。
@@ -51,6 +60,12 @@ sha256() {
 fail() { echo "[RECEIPT-ERR] $*" >&2; exit 1; }
 
 now_utc() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
+
+# v3.28.9: ISO8601Z → epoch（jq fromdateiso8601，避免引入 python/date 平台差异）
+iso_to_epoch() { jq -rn --arg t "$1" 'try ($t | fromdateiso8601) catch ""' 2>/dev/null; }
+
+# v3.28.9: 评审最短时长阈值（秒）——默认 60，env DEVFLOW_REVIEW_MIN_SECONDS 可调（0=禁用）
+min_review_seconds() { local v="${DEVFLOW_REVIEW_MIN_SECONDS:-60}"; printf '%s' "$v" | grep -qE '^[0-9]+$' && echo "$v" || echo 60; }
 
 # v3.20.3: 路径段白名单——收据目录由 feature/session/agent 拼接，任何一段
 # 允许 "/" 或 ".." 都等于收据可写到 STATE_DIR 外（实证：--feature ../escape）。
@@ -95,7 +110,7 @@ RECEIPTS_BASE() {
 
 # 公共参数解析与校验（begin/complete/verify/status 共用）
 parse_common() {
-  FEATURE="" ROLE="" AGENT_ID="" SESSION_ID="" INPUT_F="" OUTPUT_F="" ATTESTATION=""
+  FEATURE="" ROLE="" AGENT_ID="" SESSION_ID="" INPUT_F="" OUTPUT_F="" ATTESTATION="" RERUN_REASON=""
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --feature)    [ "$#" -ge 2 ] || fail "--feature requires a value"; FEATURE="$2"; shift 2 ;;
@@ -105,6 +120,7 @@ parse_common() {
       --input)      [ "$#" -ge 2 ] || fail "--input requires a value"; INPUT_F="$2"; shift 2 ;;
     --output)     [ "$#" -ge 2 ] || fail "--output requires a value"; OUTPUT_F="$2"; shift 2 ;;
     --attestation) [ "$#" -ge 2 ] || fail "--attestation requires a value"; ATTESTATION="$2"; shift 2 ;;
+    --rerun-reason) [ "$#" -ge 2 ] || fail "--rerun-reason requires a value"; RERUN_REASON="$2"; shift 2 ;; # v3.28.9
       *) fail "unknown arg: $1" ;;
     esac
   done
@@ -152,6 +168,42 @@ cmd_begin() {
 
   local input_sha now input_real output_real attestation_sha attestation_copy
   input_sha=$(sha256 "$INPUT_F") || fail "cannot hash input: $INPUT_F"
+
+  # v3.28.9（② 同输入重评拦截）：既往 session 已评审过同一 input SHA 时，输入未变的
+  # 整轮重评是无意义重复；豁免须显式 --rerun-reason（写入台账留痕）。仅首个 begin 检查。
+  if [ ! -f "$session_file" ]; then
+    local _prior _psha
+    while IFS= read -r _prior; do
+      [ -n "$_prior" ] || continue
+      [ -f "$dir_receipts/$_prior/session.json" ] || continue
+      _psha=$(jq -r '.input_artifact_sha // empty' "$dir_receipts/$_prior/session.json" 2>/dev/null || true)
+      if [ "$_psha" = "$input_sha" ] && [ -z "$RERUN_REASON" ]; then
+        fail "input SHA 已由历史 session '$_prior' 评审过——输入未变更的整轮重评被拒绝；修复产物后重评，或显式 --rerun-reason \"<原因>\" 豁免（记录进台账）"
+      fi
+    done < <(ls -1 "$dir_receipts" 2>/dev/null || true)
+
+    # v3.28.9（③ session-id 时钟漂移）：id 尾部 YYYYMMDD-HHMMSS 须与当前时钟一致
+    # （UTC 或本地任一口径，容差 30 分钟）——实测 id 时间与 created_at 漂移近 2 小时。
+    local _sd _iso _e _d _ref _drift _min_drift
+    _sd=$(printf '%s' "$SESSION_ID" | grep -oE '[0-9]{8}-[0-9]{6}$' | head -1 || true)
+    if [ -n "$_sd" ]; then
+      _iso="$(printf '%s' "$_sd" | cut -c1-4)-$(printf '%s' "$_sd" | cut -c5-6)-$(printf '%s' "$_sd" | cut -c7-8)T$(printf '%s' "$_sd" | cut -c10-11):$(printf '%s' "$_sd" | cut -c12-13):$(printf '%s' "$_sd" | cut -c14-15)Z"
+      _e=$(iso_to_epoch "$_iso")
+      if [ -n "$_e" ]; then
+        _min_drift=""
+        for _d in "$(now_utc)" "$(date +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)"; do
+          [ -n "$_d" ] || continue
+          local _ref_e; _ref_e=$(iso_to_epoch "$_d")
+          [ -n "$_ref_e" ] || continue
+          if [ "$_e" -gt "$_ref_e" ]; then _drift=$((_e - _ref_e)); else _drift=$((_ref_e - _e)); fi
+          if [ -z "$_min_drift" ] || [ "$_drift" -lt "$_min_drift" ]; then _min_drift="$_drift"; fi
+        done
+        if [ -n "$_min_drift" ] && [ "$_min_drift" -gt 1800 ]; then
+          fail "session-id 时间戳 ($_sd) 与当前时钟漂移 $((_min_drift / 60)) 分钟（>30）——检查时区/时钟源后重新生成 session-id"
+        fi
+      fi
+    fi
+  fi
   attestation_sha=$(bash "$(cd "$(dirname "$0")" && pwd)/review-attestation.sh" verify \
     --event begin --feature "$FEATURE" --session-id "$SESSION_ID" --role "$ROLE" --agent-id "$AGENT_ID" \
     --input-sha "$input_sha" --output-sha "" --attestation "$ATTESTATION") || fail "begin attestation is invalid（常见原因：未 export REVIEW_ATTESTATION_PUBKEY，或证明文件与 review-keys/attest.pub.pem 不匹配；先运行 review-attest-init.sh keygen <feature> 并 export REVIEW_ATTESTATION_PUBKEY=$PWD/.devflow/<feature>/review-keys/attest.pub.pem）"
@@ -222,9 +274,11 @@ cmd_begin() {
       --arg input_artifact_path "$input_real" --arg input_artifact_sha "$input_sha" \
       --arg created_at "$now" --arg nonce "$nonce" \
       --arg role "$ROLE" --arg agent "$AGENT_ID" \
+      --arg rerun_reason "${RERUN_REASON:-}" \
       '{session_id:$session_id, feature:$feature,
         input_artifact_path:$input_artifact_path, input_artifact_sha:$input_artifact_sha,
         created_at:$created_at, nonce:$nonce,
+        rerun_reason:(if $rerun_reason == "" then null else $rerun_reason end),
         roles:{($role): $agent}}')
   fi
   atomic_json_write "$session_file" "$new_session"
@@ -268,6 +322,17 @@ cmd_complete() {
   attestation_copy="$dir/attestations/${AGENT_ID}.complete.json"
   cp "$ATTESTATION" "$attestation_copy" || fail "cannot retain complete attestation"
   { [ "$r_started" \< "$now" ] || [ "$r_started" = "$now" ]; } || fail "clock anomaly: started_at $r_started > now $now"
+
+  # v3.28.9（① 最短评审时长）：begin 与 complete 之间必须发生真实评审工作
+  # （探针执行、DF/AW 产出）——m01-base 实测 6 角色 started→completed 均 1 秒。
+  local _min_sec _t0 _t1
+  _min_sec=$(min_review_seconds)
+  if [ "$_min_sec" -gt 0 ]; then
+    _t0=$(iso_to_epoch "$r_started"); _t1=$(iso_to_epoch "$now")
+    if [ -n "$_t0" ] && [ -n "$_t1" ] && [ $((_t1 - _t0)) -lt "$_min_sec" ]; then
+      fail "评审时长 $((_t1 - _t0))s 低于最低要求 ${_min_sec}s（role ${ROLE}）——begin 后立即 complete 不构成评审；微型文档可 DEVFLOW_REVIEW_MIN_SECONDS=<更低值> 重跑"
+    fi
+  fi
 
   local content
   content=$(jq -n \
@@ -357,6 +422,15 @@ cmd_verify() {
       bash "$(cd "$(dirname "$0")" && pwd)/review-attestation.sh" verify --event complete --feature "$FEATURE" --session-id "$SESSION_ID" --role "$r_role" --agent-id "$r_agent" --input-sha "$r_in" --output-sha "$r_out" --attestation "$r_complete_att" >/dev/null 2>&1 || { echo "receipt $rf complete attestation signature invalid"; problems=$((problems+1)); }
     fi
     { [ "$r_start" \< "$r_end" ] || [ "$r_start" = "$r_end" ]; } || { echo "receipt $rf time window invalid: $r_start > $r_end"; problems=$((problems+1)); }
+    # v3.28.9（① 复查）：时长下限在 verify 侧再检一次——防手改收据 JSON 绕过 complete 侧校验
+    local _vmin _vt0 _vt1
+    _vmin=$(min_review_seconds)
+    if [ "$_vmin" -gt 0 ] && [ -n "$r_start" ] && [ -n "$r_end" ]; then
+      _vt0=$(iso_to_epoch "$r_start"); _vt1=$(iso_to_epoch "$r_end")
+      if [ -n "$_vt0" ] && [ -n "$_vt1" ] && [ $((_vt1 - _vt0)) -lt "$_vmin" ]; then
+        echo "receipt $rf review duration $((_vt1 - _vt0))s < ${_vmin}s (role $r_role) — 签名仪式化评审（补写收据？）"; problems=$((problems+1))
+      fi
+    fi
     [ "$r_role" = "AUTHOR" ] && author_agent="$r_agent"
   done
 

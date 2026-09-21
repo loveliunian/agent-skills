@@ -24,6 +24,8 @@ mkrc() { # mkrc <feature> <phase> [evidence-file]
 echo "=== devflow hardening tests (v${SKILL_VER}) ==="
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
+# v3.28.9: 状态机合成收据无 git 检查点——显式关闭（新门禁在 git-checkpoint/complete 单独验证）
+export DEVFLOW_GIT_CHECKPOINT=off
 hash_file_test() { if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | awk '{print $1}'; else sha256sum "$1" | awk '{print $1}'; fi; }
 
 CURRENT_VER=$(sed -n 's/^  version: "\(.*\)"/\1/p' "$ROOT/SKILL.md" | head -1)
