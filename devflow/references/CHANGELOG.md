@@ -1,12 +1,25 @@
 ---
 name: changelog
-version: "3.29.2"
+version: "3.29.3"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
 # Changelog — devflow v1 → v3.29.2
+
+## v3.29.3 (2026-09-22) — 详设图表体系扩展：结构图七类清单 + DB 中立表述 + 渲染步铁律
+
+来源：m01-base 详设可读性增强轮（去 H2 统一 DB、新增 7 张结构图、修复出图点残留与渲染步假失败）。
+
+1. **gate-contracts §s2 图表冻结清单模式**：时序图冻结升级为全图表体系——结构图七类清单
+   （状态机/机制模型/决策链/对象生命周期/页面导航/ER/总清单声明）及各自归位原则；
+   新增**数据库中立表述**（详设正文与图不出现具体产品名，统一 DB 泛称，方言归技术选型
+   与部署文档）；新增**固定流水线顺序铁律**（gen → df_pipeline design → s2，跳过渲染步
+   实测触发 246 处假失败）。
+2. **lessons-learned L-详设-图表体系**：收录多出图点残留（删除正则上下文定位失效）、
+   渲染步省略假失败、DB 绑定方言三类新教训及对策（一类图一个出图点 + 按节分布核验 +
+   双次重渲染 SHA 回归）。
 
 ## v3.29.2 (2026-09-22) — refresh-receipts 对齐声明重写 + P6 双助手安全加固 + 测试调度器去批次屏障
 
