@@ -53,6 +53,9 @@ DevFlow 状态管理 (v3.9.0 dispatcher)
                                     写入 SKILL-TREE-MIGRATION 收据后才更新冻结值）
     client-freeze <feature>         冻结小程序/APP manifest 哈希（P2 完成后、P3 前）
     constraints-freeze <feature>    冻结技术约束契约 SHA（P0 Gate 后、P1 前调用）
+    constraints-inherit <feature> [--from <source>|@latest]
+                                    从既有 feature 继承技术约束机器块（P0 只澄清 delta；
+                                    继承稿仍须 s0 门禁 + constraints-freeze，冻结契约不变）
 
   [complete] 阶段完成与审计:
     complete <feature> <P-phase>    标记 P-阶段完成 (P0, P3, P3b, ...)
@@ -113,6 +116,7 @@ case "${1:-help}" in
   migrate-tree) bash "$CORE"     "$@" ;;
   client-freeze) bash "$CORE"     "$@" ;;
   constraints-freeze) bash "$CORE" "$@" ;;
+  constraints-inherit) bash "$CORE" "$@" ;;
 
   # --- complete ---
   complete)       bash "$COMPLETE" "$@" ;;

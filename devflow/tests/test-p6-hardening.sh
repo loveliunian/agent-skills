@@ -118,6 +118,99 @@ else
   fi
 fi
 
+# ---------- v3.28.12：P6 修复循环增量重跑助手（p6-iterate.sh） ----------
+W6="$TMP/iterate"; mkdir -p "$W6/.devflow/fx"
+cat > "$W6/.devflow/fx/test-evidence.env" <<'EOF'
+UNIT_CMD=mvn test -pl backend/fx -Dtest='CryptoTest'
+INTEGRATION_CMD=mvn test -pl backend/fx
+CLIENT_CMD=npm run test:e2e
+LOAD_CMD=sh -c "exit 7"
+STAGING_CMD=curl -sf http://localhost:18080/health
+EOF
+ITER="$ROOT/scripts/p6-iterate.sh"
+EV_SHA_BEFORE=$(hash_file "$W6/.devflow/fx/test-evidence.env")
+
+# T1: --list 列出五类声明命令（BSD/GNU sed 皆可）
+_iter_list=$(cd "$W6" && bash "$ITER" fx --list 2>/dev/null || true)
+if printf '%s' "$_iter_list" | grep -q "UNIT mvn test -pl backend/fx" \
+   && printf '%s' "$_iter_list" | grep -q "CLIENT npm run test:e2e"; then
+  ok "iterate --list 列出声明命令"
+else
+  bad "iterate --list 未列出声明命令"
+fi
+
+# T2: --dry-run 按运行器拼接过滤参数（不执行、不写日志）
+_splice=$(cd "$W6" && bash "$ITER" fx unit --filter 'LoginFlow*' --dry-run 2>/dev/null || true)
+if printf '%s' "$_splice" | grep -q -- "-Dtest='LoginFlow\\*'" \
+   && [ -z "$(ls "$W6/.devflow/fx/iterations" 2>/dev/null)" ]; then
+  ok "iterate mvn 过滤拼接正确且 dry-run 零执行"
+else
+  bad "iterate mvn 过滤拼接或 dry-run 行为异常: ${_splice}"
+fi
+_splice2=$(cd "$W6" && bash "$ITER" fx client --filter 'login|logout' --dry-run 2>/dev/null || true)
+printf '%s' "$_splice2" | grep -q -- "-- --grep='login|logout'" \
+  && ok "iterate npm 过滤拼接正确（-- 透传）" \
+  || bad "iterate npm 过滤拼接异常: ${_splice2}"
+
+# T3: 危险 filter 字符拒绝；未知套件拒绝
+(cd "$W6" && bash "$ITER" fx unit --filter "Foo';rm" >/dev/null 2>&1) \
+  && bad "iterate 危险字符 filter 未被拒绝" \
+  || ok "iterate 危险字符 filter 被拒绝"
+(cd "$W6" && bash "$ITER" fx smoke >/dev/null 2>&1) \
+  && bad "iterate 未知套件未被拒绝" \
+  || ok "iterate 未知套件被拒绝"
+
+# T4: 整套件运行——退出码透传 + 日志落 iterations/ + test-evidence.env 只读
+(cd "$W6" && bash "$ITER" fx load >/dev/null 2>&1); _load_rc=$?
+_load_log=$(ls "$W6/.devflow/fx/iterations/"*-load.log 2>/dev/null | tail -1)
+if [ "$_load_rc" = "7" ] && [ -n "$_load_log" ] && grep -q '^exit=7$' "$_load_log"; then
+  ok "iterate 退出码透传（7）且日志含 exit=7"
+else
+  bad "iterate 退出码/日志异常（rc=${_load_rc}, log=${_load_log}）"
+fi
+[ "$(hash_file "$W6/.devflow/fx/test-evidence.env")" = "$EV_SHA_BEFORE" ] \
+  && ok "iterate 运行后 test-evidence.env 未被改写（终验事实源只读）" \
+  || bad "iterate 改写了 test-evidence.env"
+
+# ---------- v3.28.12：P6 环境预热（p6-prewarm.sh） ----------
+source "$ROOT/scripts/py_runtime.sh"  # 预热测试需要跨平台 Python 解释器
+W7="$TMP/prewarm"; mkdir -p "$W7/.devflow/fx"
+PW="$ROOT/scripts/p6-prewarm.sh"
+PW_PORT=$( "${DEVFLOW_PY[@]}" -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()' )
+PW_URL="http://127.0.0.1:${PW_PORT}"
+PW_SRV="${DEVFLOW_PY_STR} -m http.server ${PW_PORT} --bind 127.0.0.1"
+
+# T5: --status 未就绪 → 非零退出 + 明确输出（输出捕获后再 grep，避免 pipefail 干扰）
+_pw_status=$(cd "$W7" && bash "$PW" fx --status --health-url "$PW_URL" 2>/dev/null || true)
+printf '%s' "$_pw_status" | grep -q '未就绪' \
+  && ok "prewarm --status 探测未就绪" \
+  || bad "prewarm --status 未报未就绪: ${_pw_status}"
+
+# T6: 启动并等待就绪 → rc=0 + pid 落账
+(cd "$W7" && bash "$PW" fx --backend-cmd "$PW_SRV" --health-url "$PW_URL" --timeout 30 >/dev/null 2>&1) \
+  && grep -q '^backend=' "$W7/.devflow/fx/prewarm/pids.env" \
+  && ok "prewarm 启动后端并就绪（pid 落账）" \
+  || bad "prewarm 启动/就绪/落账异常"
+
+# T7: 幂等复跑 → 已就绪跳过 且 pid 记录不被清空（回归：曾盲目 truncate pids.env）
+_PID_BEFORE=$(cat "$W7/.devflow/fx/prewarm/pids.env" 2>/dev/null)
+(cd "$W7" && bash "$PW" fx --backend-cmd "$PW_SRV" --health-url "$PW_URL" --timeout 10 >/dev/null 2>&1) \
+  && [ "$(cat "$W7/.devflow/fx/prewarm/pids.env" 2>/dev/null)" = "$_PID_BEFORE" ] \
+  && ok "prewarm 幂等复跑保留 pid 记录" \
+  || bad "prewarm 幂等复跑丢失 pid 记录"
+
+# T8: --stop 停止并释放端口
+(cd "$W7" && bash "$PW" fx --stop >/dev/null 2>&1)
+sleep 1
+curl -sf -o /dev/null --max-time 2 "$PW_URL" 2>/dev/null \
+  && bad "prewarm --stop 后端口仍存活" \
+  || ok "prewarm --stop 释放端口"
+
+# T9: 超时未就绪 → rc=3
+(cd "$W7" && bash "$PW" fx --backend-cmd "sleep 60" --health-url "http://127.0.0.1:1/" --timeout 3 >/dev/null 2>&1); _pw_rc=$?
+[ "$_pw_rc" = "3" ] && ok "prewarm 超时返回 3" || bad "prewarm 超时返回 ${_pw_rc}（应 3）"
+(cd "$W7" && bash "$PW" fx --stop >/dev/null 2>&1) || true
+
 echo "══════════════════════════════"
 echo "P6-HARDENING RESULT PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

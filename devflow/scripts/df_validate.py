@@ -1591,6 +1591,21 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace="", 
                 f"（铁律 5：偏离四方言必须冻结设计说明）"
             )
 
+    # 6b. 测试隔离策略自洽（v3.28.14，m01-base 教训：跨类登录态污染 → P3 集成测试三轮返工，
+    # 隔离必须在 P2 冻结而非 P3 才发现）
+    ti = data.get("test_isolation")
+    if ti is None:
+        errors.append(
+            "缺少 test_isolation（测试隔离策略必须在 P2 冻结——"
+            "m01-base 教训：隔离留到 P3 发现即三轮返工）"
+        )
+    elif ti.get("applicable"):
+        if not str(ti.get("strategy") or "").strip():
+            errors.append("test_isolation.applicable=true 但缺少 strategy（隔离手段必须在 P2 冻结：独立库/事务回滚/@Order/自清理登录态等）")
+    else:
+        if not str(ti.get("not_applicable_reason") or "").strip():
+            errors.append("test_isolation.applicable=false 但缺少 not_applicable_reason（不适用必须显式说明为何无任何共享状态）")
+
     # 7. 零结果声明闭环（双向：空集合必须声明；声明必须指向真实空集合）
     empty_collections = []
     if not data.get("tables"):

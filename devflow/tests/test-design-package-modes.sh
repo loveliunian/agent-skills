@@ -218,6 +218,7 @@ design = {
     "tables": [tbl_cfg, tbl_rec], "apis": [api_page, api_create],
     "pages": [{"anchor": "§7.1", "name": "列表页", "permission": "demo:view", "route": "/demo/list", "component": "views/demo/ListPage.vue", "page_type": "列表+详情抽屉"}],
     "rules": rules,
+    "test_isolation": {"applicable": True, "strategy": "类内 @Order + 每类自清理登录态（fixture）"},
     "business_operations": [{"id": "BOP-1", "name": "新增记录", "trigger": "用户提交新增表单",
         "actor": "demo:add 持有者", "input": "name/description", "preconditions": ["name 校验（R2）"],
         "stateless": False, "source_state": "无（新记录）", "target_state": "ACTIVE",
@@ -337,6 +338,7 @@ design = {
                     "test_case": "TC-TOT-001", "status": "COMPLETE"}],
     "tables": [], "apis": [], "pages": [],
     "rules": [{"id": "R1", "anchor": "§4.1", "summary": "跨模块汇总必须幂等"}],
+    "test_isolation": {"applicable": True, "strategy": "类内 @Order + 每类自清理登录态（fixture）"},
     "business_operations": [{"id": "BOP-1", "name": "跨模块结算汇总", "trigger": "每日定时",
         "actor": "调度系统", "stateless": True,
         "steps": ["汇聚各模块结果", "生成汇总并写审计"],
@@ -440,6 +442,8 @@ d["apis"] = []
 d["pages"] = [d["pages"][0]]
 for _dlg in d["pages"][0].get("dialogs", []):
     _dlg["api"] = "—"  # 该场景复用既有接口、本期不新增 APIs——弹窗接口位显式 —（v3.27.9 闭环校验）
+for _act in d["pages"][0].get("actions", []):
+    _act["api"] = "—"  # 同上：apis 清空后操作接口锚点必然悬空，操作接口位显式 —（§7.2↔§3.2 闭环校验）
 d["rules"] = [{"id": "R1", "anchor": "§5", "summary": "重复提交幂等"}]
 _bop = dict(d["business_operations"][0],
     name="界面操作", acceptance_refs=["M01-F01-A01"], anchor="§6.1",

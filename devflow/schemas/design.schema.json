@@ -17,6 +17,7 @@
     "migrations",
     "decisions",
     "business_operations",
+    "test_isolation",
     "baseline",
     "zero_results"
   ],
@@ -185,6 +186,38 @@
         "dialect_exception": {
           "type": "string",
           "description": "四方言不齐时的冻结设计说明（跨字段校验）"
+        }
+      }
+    },
+    "test_isolation": {
+      "type": "object",
+      "description": "测试隔离策略（v3.28.14，m01-base 教训：跨类登录态污染致 P3 集成测试三轮返工——隔离必须在 P2 冻结，不留到 P3 才发现）",
+      "required": [
+        "applicable"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "applicable": {
+          "type": "boolean",
+          "description": "是否存在跨用例/跨类共享状态需要隔离设计（含 DB 种子、登录态、序列、缓存；纯无状态逻辑可 false）"
+        },
+        "strategy": {
+          "type": "string",
+          "minLength": 1,
+          "description": "applicable=true 必填：隔离手段（独立测试库/事务回滚/类内 @Order/每类自清理登录态/unlock 助手等）"
+        },
+        "shared_state": {
+          "type": "string",
+          "description": "跨类共享态清单与处置（登录态/种子数据/序列/缓存——逐项给处置）"
+        },
+        "cleanup": {
+          "type": "string",
+          "description": "脏状态清理约定（try/finally 自清理；置空一律显式 set(field, null)——L-M01-015）"
+        },
+        "not_applicable_reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "applicable=false 必填：须显式说明为何无任何共享状态"
         }
       }
     },

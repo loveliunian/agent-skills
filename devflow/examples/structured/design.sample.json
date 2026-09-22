@@ -3,7 +3,7 @@
   "generated_at": "2026-09-12T10:00:00Z",
   "template": {
     "id": "详细设计-完整版-模板",
-    "version": "3.28.10",
+    "version": "3.29.0",
     "mode": "monolith"
   },
   "acceptance": [
@@ -379,6 +379,12 @@
       "oracle",
       "kingbase"
     ]
+  },
+  "test_isolation": {
+    "applicable": true,
+    "strategy": "集成测试共享应用上下文与 H2 库：每测试类类内 @Order 定序 + 登录态用后即 unlock 自清理（unlock(id) 助手），跨类不依赖彼此残留态",
+    "shared_state": "admin/普通用户登录态（unlock 助手清理）；sys_user 失败计数与锁定字段（用例 try/finally 复位）；组织树种子数据只读不改",
+    "cleanup": "脏状态一律 try/finally 自清理；字段置空必须显式 set(field, null)（MyBatis-Plus updateById 忽略 null——L-M01-015）"
   },
   "zero_results": [
     {

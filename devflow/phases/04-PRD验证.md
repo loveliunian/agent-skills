@@ -1,6 +1,6 @@
 ---
 name: prd-validation
-version: "3.28.10"
+version: "3.29.0"
 description: "Use when validating implementation against PRD requirements through multiple iterations. v2.0 关键变更：P0 阻断项必须全部修复才能进入 Phase 5。"
 ---
 

@@ -522,6 +522,36 @@
       "manifest_sha256": "4dd23bad5c57c4ff9caff86602a2723d834f6d0d1dc1179a0d9fc57fb1a591f6",
       "tree_hash": "3b3f3c46dadeb144c1da68c309a0e47df7a013d83fe250a9598d356e53216119",
       "chain_hash": "df48383b4df7274375a6be057a2cba81c2951460631a0ba525147c3110156b0f"
+    },
+    {
+      "version": "3.28.11",
+      "manifest_sha256": "02d4411bbb732ca95930ba5c9780d87315da7ea4fdad00af8e8ce43e5db332e7",
+      "tree_hash": "b45260ffd4d51921089835f0f2eb30347c992dd43624552c70674726a29c58fe",
+      "chain_hash": "48a60c13bd4cdb0ad4785f9f07453432ec1d95c06a2253d05e8fec784832900c"
+    },
+    {
+      "version": "3.28.12",
+      "manifest_sha256": "03c12ff455eb0b9eabd533738db4ae3323837412489e33d07ae6825e028ee458",
+      "tree_hash": "2f868c7ab43b5b939f77a2a6d17b60e55dbdc31cf9eaa05ec51457a678973e6e",
+      "chain_hash": "c701e44e7b1387a976934ecddec225f49b279744fa6228da8eaea29e8d9c0274"
+    },
+    {
+      "version": "3.28.13",
+      "manifest_sha256": "0178b52f553d20e9345e94b4775a0f58e7346d0131bd5b66b3d735d920665532",
+      "tree_hash": "7c71d4e376a3b7c2924a543c073a36ec6d7e14c0cfcb606034cddd6b49a5a8de",
+      "chain_hash": "81cfa9050be147415af97b102e600c04f60102ca98868679c70e0aad35c7a3e5"
+    },
+    {
+      "version": "3.28.14",
+      "manifest_sha256": "2d01500f241d2b4e462ac703cd8cc9eaa0799594e70857d7c678f547e6afe8e3",
+      "tree_hash": "f88c1f00f25a064c395b931850e80facccacf36bd113a1173b2036e37000acf2",
+      "chain_hash": "ba76a74f7e3e2304ca29de8158baa05e9c7779a59e36775896428ec02b04f1c1"
+    },
+    {
+      "version": "3.29.0",
+      "manifest_sha256": "5b5e46fe24e6093259d157795de217aad2fbbeb21aab42386b3d563167338dbb",
+      "tree_hash": "82146e12090dd2509b7b14c3d658b6cfad05bedede4361826df16337990fa4c5",
+      "chain_hash": "bd30ae80fa368014e76d8f2d60d2c9ef43eeff8a8a1b733d6287616d351bedaf"
     }
   ]
 }

@@ -611,6 +611,85 @@ cmd_constraints_freeze() {
   return 0
 }
 
+# v3.28.13: 项目级约束继承——同项目后续 feature 从既有 feature 继承技术约束
+# 机器块（P0 只澄清 delta；m01-base 复盘 #4：P0 固定开销 ~36min 的压缩点）。
+# 继承不改变任何 Gate 契约：目标 feature 照常跑 s0 门禁 + constraints-freeze，
+# 冻结的仍是目标文件自身 SHA。
+# 用法: devflow-state.sh constraints-inherit <feature> [--from <source>|@latest]
+cmd_constraints_inherit() {
+  local feature="$1"; shift || true
+  local src="@latest"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --from) src="${2:?--from 需要参数}"; shift 2 ;;
+      *) error "constraints-inherit 未知参数: $1"; return 1 ;;
+    esac
+  done
+  local state_file
+  state_file=$(get_state_file "$feature")
+  [ -f "$state_file" ] || { error "工作流 '$feature' 不存在（先 init）"; return 1; }
+  command -v jq >/dev/null 2>&1 || { error "constraints-inherit 需要 jq"; return 1; }
+  source "$SCRIPT_DIR/tech_constraints_lib.sh"
+
+  # 解析来源 feature：@latest = updated_at 最新且已冻结约束的其他 feature
+  local src_state src_feature
+  if [ "$src" = "@latest" ]; then
+    src_feature=$(for s in "$STATE_DIR"/*.state.json; do
+      jq -r 'select(.scope.tech_constraints_sha256 != null) | "\(.updated_at) \(.feature)"' "$s" 2>/dev/null
+    done | awk -v me="$feature" '$2 != me' | sort -r | head -1 | awk '{print $2}')
+    [ -n "$src_feature" ] || { error "无已冻结技术约束的来源 feature（@latest 为空）——首个 feature 用 --from 指定或手写约束"; return 1; }
+  else
+    src_feature="$src"
+    src_state="$STATE_DIR/${src_feature}.state.json"
+    [ -f "$src_state" ] || { error "来源 feature 不存在: $src_feature"; return 1; }
+    jq -e '.scope.tech_constraints_sha256 != null' "$src_state" >/dev/null 2>&1 \
+      || { error "来源 feature 未冻结技术约束（无 tech_constraints_sha256）: $src_feature"; return 1; }
+  fi
+  src_state="$STATE_DIR/${src_feature}.state.json"
+
+  # 来源约束文件必须仍在冻结 SHA 上——不继承已漂移的约束（fail-closed）
+  local src_path src_sha src_frozen
+  src_path=$(jq -r '.scope.tech_constraints_path // empty' "$src_state")
+  src_frozen=$(jq -r '.scope.tech_constraints_sha256 // empty' "$src_state")
+  [ -n "$src_path" ] && [ -f "$src_path" ] || { error "来源约束文件缺失: ${src_path:-<未记录>}"; return 1; }
+  src_sha=$(tc_sha256 "$src_path")
+  [ "$src_sha" = "$src_frozen" ] \
+    || { error "来源约束文件已偏离冻结 SHA（${src_feature} 的约束在其 freeze 后被改写）——先修复来源再继承"; return 1; }
+
+  # 目标文件：已有约束块则拒绝（不静默覆盖）
+  source "$SCRIPT_DIR/devflow_paths.sh"
+  local dst_file
+  dst_file=$(df_resolve_doc "$feature" constraints .md requirements)
+  [ -n "$dst_file" ] || dst_file="$WORKSPACE/docs/需求/${feature}-技术约束.md"
+  if [ -f "$dst_file" ] && grep -q 'DEVFLOW:CONSTRAINTS' "$dst_file"; then
+    error "目标约束文件已存在且含机器契约块，拒绝覆盖: ${dst_file}（增删请直接编辑既有文件）"
+    return 1
+  fi
+
+  # 写目标：说明头 + 来源机器块逐字拷贝；随后自校验（继承块本已合法，失败即 fail-closed）
+  local block
+  block=$(tc_extract_block "$src_path" "DEVFLOW:CONSTRAINTS")
+  [ -n "$block" ] || { error "来源文件无法提取 DEVFLOW:CONSTRAINTS 块: $src_path"; return 1; }
+  mkdir -p "$(dirname "$dst_file")"
+  {
+    echo "# ${feature} 技术约束（继承稿）"
+    echo
+    echo "> 继承自 \`${src_feature}\`（冻结 SHA ${src_frozen:0:12}…，$(date -u +%Y-%m-%dT%H:%M:%SZ) 继承）。"
+    echo "> **继承稿不是冻结态**：P0 只需澄清 delta——增删/改写本 feature 特有约束后，"
+    echo "> 正常走 s0 门禁 + constraints-freeze（冻结的是本文件自身 SHA）。"
+    echo
+    echo "<!-- DEVFLOW:CONSTRAINTS"
+    printf '%s\n' "$block"
+    echo "DEVFLOW:END -->"
+  } > "$dst_file"
+  tc_validate_constraints "$dst_file" >/dev/null 2>&1 \
+    || { error "继承产物机器契约不合法（不应发生——来源已验证合法）: $dst_file"; return 1; }
+  success "已从 ${src_feature} 继承技术约束 → ${dst_file}"
+  echo "  继承约束 SHA: ${src_frozen}"
+  echo "  下一步: 澄清 delta（本 feature 特有约束增删）→ s0_acceptance_gate → constraints-freeze"
+  return 0
+}
+
 # v3.15.1: 显式 skill 树迁移——唯一允许变更 scope.skill_tree_sha256 的入口。
 # 背景：skill 升级后 state 冻结树与收据树不一致会阻断 complete/audit（硬门禁）；
 # 迁移必须显式执行并留痕（FROM_TREE/TO_TREE 双向记录 + 收据双写），绝不静默覆盖。
@@ -957,8 +1036,9 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     migrate-tree)    shift; cmd_migrate_tree "$@" ;;
     client-freeze)   shift; cmd_client_freeze "$@" ;;
     constraints-freeze) shift; cmd_constraints_freeze "$@" ;;
+    constraints-inherit) shift; cmd_constraints_inherit "$@" ;;
     help|--help|-h)
-      echo "用法: devflow-state.sh {init|checkpoint|resume|status|list|repair|migrate-tree|client-freeze|constraints-freeze} <feature> [options]"
+      echo "用法: devflow-state.sh {init|checkpoint|resume|status|list|repair|migrate-tree|client-freeze|constraints-freeze|constraints-inherit} <feature> [options]"
       ;;
     *)
       echo "ERROR: 未知命令: $1" >&2

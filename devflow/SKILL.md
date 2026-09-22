@@ -9,13 +9,13 @@ license: MIT
 compatibility: Requires repo workspace and command execution; build/test/migration commands from frozen runtime profile.
 metadata:
   author: xingyunliushui
-  version: "3.28.10"
-  updated: "2026-09-21"
+  version: "3.29.0"
+  updated: "2026-09-22"
   tags: "prd,design,development,migration,phase-gate,recovery,test-generators"
 allowed-tools: read write exec glob grep task
 ---
 
-# devflow — PRD to production（v3.28.10）
+# devflow — PRD to production（v3.29.1）
 
 本文件是唯一权威入口。历史迁移只查 `references/CHANGELOG.md`；命令、阶段、角色和模板按需加载，不在入口重复。
 
@@ -52,7 +52,7 @@ allowed-tools: read write exec glob grep task
 10. 设计必须显式说明成熟组件复用、公共服务/组件抽取、命名/开发/注释规范及关键设计理由。
 11. 评审必须先跑主责探针再下结论：深层发现（DF）按五字段场景链契约输出，零发现 ✅ 须附核查证据；规范见 `concepts/review-depth-methodology.md`。
 12. 用户/PRD 明确指定的技术组件、版本、许可证或部署方式必须在 P0 冻结为硬约束；P1 只能在约束内评分，偏离必须 `BLOCKED` 并经用户批准后重冻。
-13. P3 前解析 Runtime Profile；核心流程不假设 Maven/Spring/Flyway/JaCoCo/Vue，仅 profile 声明的能力可作验证依据；能力缺失即（命令位现仅参考实现栈可用，详见运行时配置档案）`BLOCKED`。
+13. P3 前解析 Runtime Profile；核心流程不假设 Maven/Spring/Flyway/JaCoCo/Vue，仅 profile 声明的能力可作验证依据；能力缺失（命令位现仅参考实现栈可用，详见 `references/runtime-profile.md`）即 `BLOCKED`。
 14. 部署、迁移、推送、发布等外部副作用必须有显式人工授权收据（`authorizations/release.json`）；无授权时最高声明 `READY_TO_RELEASE`，不得声明 `RELEASED`。
 15. 面向读者文档必须遵循 `concepts/中文文风规范.md`；人工自检、抽查，不设自动文风硬校验或Gate阻断。
 

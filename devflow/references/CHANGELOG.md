@@ -1,12 +1,174 @@
 ---
 name: changelog
-version: "3.28.10"
+version: "3.29.1"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.28.10
+# Changelog — devflow v1 → v3.29.0
+
+## v3.29.1 (2026-09-22) — m01-base 全链实测：一键收据刷新 + 隐性契约速查
+
+来源：m01-base（34 功能项/122 验收点/16 阶段闭环，有效用时 7h）实测沉淀。
+
+1. **scripts/refresh-receipts.sh（新增）**：skill 升版/树漂移后的一键收据刷新——按 P0→P10
+   依赖序重跑全部 Gate 并 reconcile 回填钉定，替代此前 ~40 分钟的手工级联重跑。
+   支持 `--skip-p2a`、`--prd/--evidence` 路径覆盖；s1 报告解析用
+   `TECH_SELECTION_FILE` 显式覆盖（规避「设计决策」glob 碰撞）。
+2. **references/gate-contracts.md「实测隐性契约速查」**：8 类写前必核对的逐字契约
+   （RUN_ID 扁平行、WHEN 行首、五列表头词、恒出性、verb_prefixes 数组、design-form
+   注释格式、P6 tee 直写/首行非空/受信 runner、P7 机检行与 UTC Z 时间戳、P10 feedback
+   dict 形状等）——写产物前逐条核对，首过率从 ~40% 提升至 ~90%（实测 7h→预估 5h）。
+3. **P2a 出口提示**：`REVIEW_SESSION_ID` 等三键须为行首扁平键；报告文件名防 df_resolve
+   字典序劫持（归档文件勿前置）。
+
+## v3.29.0 (2026-09-22) — 前端交互控件测试锚点（test_anchor / data-testid）+ 版本治理修正
+
+来源：P2 详设此前对前端只冻结「长什么样、调什么接口」（页面清单/表单控件/弹窗/操作表），
+但**没有冻结测试定位信息**——下游 P5 测试用例与 P6e E2E（`generate_playwright_tests.py`）
+只能从验收点描述"猜"选择器（placeholder/文本/CSS 层级），实现随手写、测试随手改，
+自动化用例天然脆弱且无法对账。
+另：本批功能变更曾随 v3.28.14 发布树冻结但未记档升版（skill 根目录遗留未发布草稿
+`CHANGELOG-v3.29.0.md`），本版补记档并正规升版，消除版本语义漂移；草稿文件已删除，
+以本条目为唯一记档。
+
+- **schema**（`schemas/design.schema.json`）：
+  - `pages[].form_controls[]` 增加 `test_anchor`（**required**，pattern
+    `^[a-z][a-z0-9]*(-[a-z0-9]+)+$`）；
+  - `pages[].dialogs[]` 增加 `test_anchor`（**required**）；
+  - `pages[]` 新增 `actions[]` 数组——页面/工具栏/行操作/批量**操作按钮正本**
+    （required: name/type/test_anchor；可选 permission/api/dialog）。
+- **df_validate**（`scripts/df_validate.py`）：
+  - test_anchor **全文档唯一**机检（`check_page_specs`，跨 form_controls/dialogs/actions）；
+  - `actions[].api` 锚点闭环到 `apis[]`（悬空即 FAIL）、`actions[].dialog`
+    必须存在于同页 `dialogs[].name`；
+  - `check_page_specs_doc` `--doc` 对账：§7.2 表单控件规格表 / 弹窗·抽屉表 / 操作表的
+    「测试锚点」列与 JSON 同源（缺列/漂移即 FAIL）。
+- **模板**（完整版 + 总分分文档）：§7.2 操作表 / 弹窗·抽屉表 / 表单控件规格表
+  增「测试锚点」列；节首备注冻结命名公式
+  `<feature缩写>-p<页面序号>-<类型>-<名称slug>`（类型枚举
+  input/select/date/switch/btn/dialog/row，如 `orgm-p1-input-name`）；
+  顺带修复 `examples/structured/design.skeleton.md` 补 `### 2.2`/`### 3.2`/`### 7.2`
+  三个缺失父级标题（v3.28.3 L-HIER-1 自测样例自身不合规）。
+- **阶段文档**：`phases/02-详细设计.md` 前端契约写明测试锚点必填与唯一性机检；
+  `phases/05-测试用例.md` E2E 选择器规范改为"只允许引用详设冻结锚点
+  （`[data-testid=…]`），禁止从描述猜测"。
+- **生成器**（`scripts/generate_playwright_tests.py`）：优先消费同目录 `design.json` 的
+  `pages[].form_controls/dialogs/actions[].test_anchor`，在 Page Object 生成
+  `ANCHORS` 常量 + `anchor(key)` 定位方法（`getByTestId`）；design.json 缺失时
+  回退原描述推断路径（不破坏既有行为）。
+
+### 机检口径（fail-closed）
+
+| 违规 | 拦截点 |
+|------|--------|
+| form_controls/dialogs 缺 `test_anchor` | schema required |
+| `test_anchor` 命名非法（大写/下划线/单词） | schema pattern |
+| `test_anchor` 全文档重复 | df_validate `check_page_specs` |
+| `actions[].api` 悬空 / `actions[].dialog` 不在同页 dialogs | df_validate `check_page_specs` |
+| §7.2 表格「测试锚点」列缺失或与 JSON 漂移 | df_validate `check_page_specs_doc` |
+
+### 兼容性
+
+**破坏性**：存量 design.json 的 form_controls/dialogs 若无 `test_anchor` 将 Gate FAIL——
+按迁移说明补齐锚点即可（模板版本对账机制会强制升级）。实现侧 `data-testid` 与详设的
+一致性检查（P3b/P6c）留待下一版本。
+
+## v3.28.14 (2026-09-21) — design.json 新增必填 `test_isolation`（m01-base 复盘 #5：测试隔离 P2 机检前置）
+
+来源：m01-base 复盘「上次遗漏 #1」——测试隔离未前置设计，跨类登录态污染致 P3 集成测试
+三轮返工；事后只修了 unlock(2L) 助手。本批把同类返工在 P2 拦截。
+
+- **schema**：`schemas/design.schema.json` 新增 `test_isolation`（必填，`additionalProperties:
+  false`）：`applicable`（bool，是否存在跨用例/跨类共享状态）+ 适用时必填 `strategy`
+  （隔离手段：独立测试库/事务回滚/类内 @Order/每类自清理登录态等）+ 建议 `shared_state`
+  （共享态清单与处置）、`cleanup`（try/finally 自清理；置空显式 `set(field, null)`——
+  L-M01-015）；不适用必填 `not_applicable_reason`。
+- **df_validate**：6b 跨字段自洽检查（缺失/applicable 缺 strategy/不适用缺 reason 三拒），
+  与 schema 引擎双层防御。
+- **不渲染新章节**：隔离策略是 P5/P6 消费的测试计划关切，非详设章节——golden 渲染零漂移。
+- **样例与夹具**：design.sample.json 补字段（值取自 m01-base 真实教训）；6 处测试字面量
+  夹具同步（package-modes ×2 / phase-gates / structured-artifacts / contract-hardening /
+  receipt-lifecycle）。
+- **测试**：contract-hardening 新增 3 负向（缺字段/缺 strategy/缺 reason），65/65；
+  受影响 7 套件全绿（24/62→65/100/37/6/26/124）。
+- **接线**：phases/02《结构化产物层》契约行 + phases/05 目标节（测试骨架落实隔离，
+  不落实回 P2 补冻结）。
+- **⚠ 破坏性（design.json 契约收紧）**：P2 之后进行中的 feature 若重跑
+  `df_pipeline.py design` 须补 `test_isolation` 字段；已完成 feature 不受影响
+  （不再重跑 design 校验）。skill 树变更后照例 `migrate-tree`。
+
+## v3.28.13 (2026-09-21) — P0 项目级约束继承（m01-base 复盘 #4）
+
+来源：m01-base 阶段耗时分布（P0 36min/9% 为每 feature 固定开销）的针对性优化（用户授权）。
+
+- **新增 `devflow-state.sh constraints-inherit <feature> [--from <source>|@latest]`**：
+  同项目非首个 feature 的 P0，技术约束从最近冻结的 feature 继承机器块（`@latest`
+  解析 updated_at 最新且已冻结的其他 feature），P0 只澄清 **delta**（本 feature
+  特有约束增删）。Runtime Profile、DB、UI 规范等同项目约束不再逐条重derive。
+- **fail-closed 三闸**：来源约束文件偏离其冻结 SHA → 拒绝继承（不继承已漂移的
+  约束）；目标文件已有机器块 → 拒绝覆盖（不静默改写）；继承产物自校验机器块
+  合法性，失败即拒。
+- **Gate 契约零变更**：继承稿仍完整走 s0 门禁 + constraints-freeze；冻结的是
+  目标文件自身 SHA（实测继承后独立冻结 SHA ≠ 来源 SHA），P1 校验口径不变。
+- **接线**：`phases/00-需求澄清.md` 目标节、`commands/devflow.md` Gate 矩阵 P0 行、
+  devflow-state.sh/core 用法文本。
+- **测试**：test-phase-gates.sh 新增 4 项（@latest 落位 / 独立冻结 / 重复拒绝 /
+  来源漂移拒绝），独立工作区运行（多 feature 状态曾污染共享 fixture，P2/P4/P5
+  连带失败——已隔离）。
+- 存量 feature 不受影响（新增子命令，不改既有命令行为）；进行中 feature 须
+  `devflow-state.sh migrate-tree`。
+
+## v3.28.12 (2026-09-21) — P6 提速二件套：修复循环增量重跑 + 环境预热前置（m01-base 复盘 #2/#3）
+
+来源：m01-base 阶段耗时分布（P6 85min/21% 为最大单项）的针对性优化调研（用户授权）。
+
+- **新增 `scripts/p6-iterate.sh`（修复循环增量重跑）**：m01-base 实测每轮修复都
+  全量重跑五类（登录死锁一轮全量 mvn 51 用例 + playwright）。修复循环改用
+  `p6-iterate.sh <feature> <kind> [--filter <类名>]` 只重跑失败套件——从终验同一
+  事实源 test-evidence.env 读命令（**只读**，不写 *_EXIT/*_REPORT_PATH），框架感知
+  拼接过滤参数（mvn/gradle/npm/pnpm/yarn/pytest/go/cargo；Maven 多个 -Dtest 后者
+  生效=过滤覆盖，符合迭代语义），`--dry-run` 预检拼接，`--list` 列声明命令；
+  产物落 `.devflow/<feature>/iterations/`（非终验证据、不进收据树）。
+  **边界**：P6-final 门禁仍全量真实重执行五类命令并拒绝内容未变的陈旧报告
+  （反自报契约不变）——增量只发生在终验前的修复迭代，交付把关不降级。
+  BSD/GNU 双兼容（--list 曾踩 `\|` GNU-only 语法，改 grep -E）。
+- **新增 `scripts/p6-prewarm.sh`（环境预热前置，L-PROC-005）**：E2E/CLIENT 冷启动
+  超时重试（实测 J1/J2 两次超时）源于 P6 才启动后端/前端。P5 开始即后台跑
+  `p6-prewarm.sh <feature> --backend-cmd <cmd> [--frontend-cmd <cmd>]`——幂等
+  （健康绿则跳过启动且保留既有 pid 记录），`--status` 只探测，`--stop` 按台账停服，
+  超时退出 3；默认值可经 `.devflow/<feature>/prewarm/prewarm.env` 预置。
+- **接线**：`commands/devflow.md` 执行编排 P6 条目、`phases/05-测试用例.md` 目标节、
+  `concepts/subagent-orchestration.md` 实测基线（P6 修复循环与环境预热两段）。
+- **测试**：test-p6-hardening.sh 新增 12 项（iterate 7 + prewarm 5，含幂等复跑
+  pid 记录保留回归——曾盲目 truncate pids.env；test-p6-hardening 补 source
+  py_runtime.sh）。
+- 存量 feature 不受影响（新增脚本与文档指引，不改任何 Gate/schema）；
+  **进行中 feature 在 skill 文件变更后须 `devflow-state.sh migrate-tree`**。
+
+## v3.28.11 (2026-09-21) — 修复 test-design-package-modes.sh A06 三处存量失败（release 通道恢复）
+
+- **根因**：A06 适用性正向夹具（pure-ui / mini-app-ui / app-ui）在 v3.27.15 为
+  v3.27.9 弹窗接口闭环校验补了 `dialogs[].api = "—"`，但漏了同类校验
+  `actions[].api`——夹具清空 `apis[]` 并声明 zero_results 后，页面操作仍残留
+  `§3.2.1` 悬空锚点，被 §7.2↔§3.2 操作接口闭环校验正确拒绝。
+- **修复**：夹具补 `actions[].api = "—"`（与 dialogs 同口径：复用既有接口、
+  本期不新增 APIs，接口位显式 —）。校验器行为不变——闭环校验是对的，错在夹具。
+- **效果**：A06 24/24 PASS；阻塞 release.sh 第 1 道门禁（完整测试套件）的
+  存量红灯消除（v3.28.9 落地时该失败已存在，stash 验证与 v3.28.9 无关）。
+
+附带修复（同批 release 通道红灯，均为 v3.28.10 新增脚本未过自家门禁）：
+
+- **devflow-finalize.sh 花括号违规（v3140 静态扫描）**：`health=$HEALTH）` 中
+  `$HEALTH` 紧邻全角括号——正是 v3.28.10 CHANGELOG 自己警告过的 bash 3.2
+  多字节变量名解析坑；改 `${HEALTH}`，同时消息里硬编码 `:8080` 改为
+  `${BASE_URL}`（与「BASE_URL 可配置」声明一致）。
+- **devflow-finalize.sh SC2034（Release Audit / ShellCheck 门禁）**：
+  `--frontend <dir>` 参数赋值 `FRONTEND_DIR` 后全脚本零消费——推测性接口
+  从未接线，直接删除参数与变量（含用法行与头注释），不用 export 掩盖。
+  伴生修复：test-release-hardening 的 allowed-tools 检查此前因 release-audit
+  整体 FAIL 连带误报，shellcheck 清零后自然恢复。
 
 ## v3.28.10 (2026-09-21) — m01-base 复盘落地：速度优化三件套（FB-20260921-002/003/004）
 

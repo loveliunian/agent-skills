@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# devflow-finalize.sh — 终段收据链一次通过编排（v3.28.10，FB-20260921-003）
+# devflow-finalize.sh — 终段收据链一次通过编排（v3.29.0，FB-20260921-003）
 # =============================================================================
 # 背景（m01-base 实测）：P3b/P4/P6-final 的收据绑定证据文件会被后续任何测试运行
 # 改写——收据 SHA 绑定断裂 → P7/P8 的 receipt chain audit 连锁失败 → 被迫手工
@@ -7,7 +7,7 @@
 # 固化为一个复合动作。
 #
 # 用法:
-#   bash scripts/devflow-finalize.sh <feature> [--service <svc>] [--frontend <dir>]
+#   bash scripts/devflow-finalize.sh <feature> [--service <svc>]
 #        [--skip-p3b] [--skip-p4] [--skip-p8]
 #
 # 顺序（依赖驱动，不可调换）:
@@ -26,13 +26,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 FEATURE="${1:-}"
 shift || true
 SERVICE="m01-base-service"
-FRONTEND_DIR="frontend"
 SKIP_P3B=0; SKIP_P4=0; SKIP_P8=0
 BASE_URL="${M01_BASE_URL:-http://localhost:8080}"
 while [ $# -gt 0 ]; do
   case "$1" in
     --service) SERVICE="${2:?}"; shift 2 ;;
-    --frontend) FRONTEND_DIR="${2:?}"; shift 2 ;;
     --skip-p3b) SKIP_P3B=1; shift ;;
     --skip-p4) SKIP_P4=1; shift ;;
     --skip-p8) SKIP_P8=1; shift ;;
@@ -40,7 +38,7 @@ while [ $# -gt 0 ]; do
     *) echo "[finalize] 未知参数: $1" >&2; exit 2 ;;
   esac
 done
-[ -n "$FEATURE" ] || { echo "用法: $0 <feature> [--service <svc>] [--frontend <dir>] [--skip-p3b|--skip-p4|--skip-p8]"; exit 2; }
+[ -n "$FEATURE" ] || { echo "用法: $0 <feature> [--service <svc>] [--skip-p3b|--skip-p4|--skip-p8]"; exit 2; }
 STATE=".devflow/$FEATURE.state.json"
 [ -f "$STATE" ] || { echo "[finalize][P0] state 不存在: $STATE"; exit 2; }
 
@@ -64,7 +62,7 @@ run_gate() { # <name> <cmd...>
 HEALTH=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 "${BASE_URL}/api/actuator/health" 2>/dev/null || echo 000)
 case "$HEALTH" in
   2[0-9][0-9]) echo "[finalize] 后端容器: $HEALTH ✓" ;;
-  *) echo "[finalize][P0] 后端未运行（:8080 health=$HEALTH）——P6-final STAGING/LOAD 需要真实容器；先启动后端再执行本命令" >&2; exit 2 ;;
+  *) echo "[finalize][P0] 后端未运行（${BASE_URL} health=${HEALTH}）——P6-final STAGING/LOAD 需要真实容器；先启动后端再执行本命令" >&2; exit 2 ;;
 esac
 
 # 顺序 1/4: P3b 代码审查（刷新 findings 收据绑定）

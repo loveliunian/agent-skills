@@ -281,6 +281,7 @@ cat > "$WS2/.devflow/pure/design.json" <<EOF
   "acceptance": [{"id": "M-01-F01-A01", "prd_anchor": "docs/prd-pure.md#L1", "page": "—", "api": "—", "data": "—", "rule": "R1", "test_case": "TC-PURE-001", "status": "COMPLETE"}],
   "tables": [], "apis": [], "pages": [],
   "rules": [{"id": "R1", "anchor": "§5", "summary": "纯计算校验"}],
+  "test_isolation": {"applicable": true, "strategy": "类内 @Order + 每类自清理登录态（fixture）"},
   "business_operations": [{"id": "BOP-1", "name": "执行纯计算", "trigger": "请求触发", "actor": "调用方", "stateless": true, "steps": ["读入", "计算", "返回"], "result": "返回计算结果", "failure": "输入非法返回 400", "test_scenarios": ["正常", "非法输入"], "acceptance_refs": ["M-01-F01-A01"], "anchor": "§6"}],
   "baseline": {"repo_root": ".", "db_evidence": {"source": "none"}, "entries": [{"id": "BL-1", "target": "backend/pure/CalcService.java", "decision": "ADD", "target_module": "pure 模块", "verify": "CalcServiceTest"}]},
   "client": {"scope": "not-applicable", "not_applicable_reason": "纯计算无前端"},
@@ -589,6 +590,22 @@ P3_DRIFT=$(cd "$WP3" && bash "$ROOT/scripts/p3_security_perf_gate.sh" p3f --waiv
 printf '%s' "$P3_DRIFT" | grep -qE "渲染产物不一致|双正本漂移" \
   && ok "perf report P95 drift vs JSON rejected (P1)" \
   || bad "perf dual-source drift not caught"
+
+# ---------- v3.28.14：test_isolation 测试隔离策略必须 P2 冻结（m01-base 教训前置） ----------
+cd "$WORK" || exit 1
+"${DEVFLOW_PY[@]}" - <<'PYEOF'
+import json, copy
+src = json.load(open("design.json"))
+variants = {}
+d = copy.deepcopy(src); d.pop("test_isolation"); variants["ti-no-field"] = d
+d = copy.deepcopy(src); d["test_isolation"].pop("strategy"); variants["ti-no-strategy"] = d
+d = copy.deepcopy(src); d["test_isolation"] = {"applicable": False}; variants["ti-no-reason"] = d
+for n, v in variants.items():
+    json.dump(v, open(f"{n}.json", "w"), ensure_ascii=False)
+PYEOF
+check_rc 1 "test_isolation 缺失被拒（P2 必须冻结隔离策略）" "${DEVFLOW_PY[@]}" "$V" --kind design --input ti-no-field.json --criteria criteria.md --doc doc.md
+check_rc 1 "test_isolation applicable=true 缺 strategy 被拒" "${DEVFLOW_PY[@]}" "$V" --kind design --input ti-no-strategy.json --criteria criteria.md --doc doc.md
+check_rc 1 "test_isolation applicable=false 缺 not_applicable_reason 被拒" "${DEVFLOW_PY[@]}" "$V" --kind design --input ti-no-reason.json --criteria criteria.md --doc doc.md
 
 echo "=== design contract hardening RESULT PASS=$PASS FAIL=$FAIL ==="
 [ "$FAIL" -eq 0 ] || exit 1

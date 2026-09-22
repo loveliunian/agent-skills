@@ -178,3 +178,16 @@ design.json 的 api path 若含 `{id}`：渲染进详设 api-index 后触发 s2 
 - 知识分享 ≥3 条 `- ` 列表项；feedback.md 由 `--out-feedback` 渲染。
 - phase 字段正则 `^P[0-9]+[a-z]?(~P[0-9]+[a-z]?)?$`：P3-build/P6-credential 等带连字符名
   不合法——改用 P3b/P6c/P6f 别名并在 skip_note 注明真实收据路径。
+
+### 实测隐性契约速查（v3.29.1，m01-base 全链沉淀——写产物【前】逐条核对）
+- **s2/P0b 渲染产物头**：`> 模板版本：\`x.y.z\`` 行必须与模板 frontmatter 逐字一致（升版后连带改 JSON template.version 与文档行，两处任一漂移即 P0）。
+- **s2 §5 业务规则**：WHEN 行必须顶格（行首 WHEN，禁 `>` 引用前缀）；规则编号必须 `R1. 摘要` 形式；每个 WHEN 配一张 `sequenceDiagram`（数量 ≥ WHEN 数）。
+- **s2 表格列**：五列表头首列必须 `字段名`；响应六列必须 `恒出性`（非 `恒出`）。
+- **s2 模板身份**：文档头须有 `> 模板 ID：\`模板名\`` 与 `> 模板版本：\`x.y.z\`` 两个独立行。
+- **P2a**：报告头须有 `AUTHOR_ID=`、`REVIEWER_ID=`、`REVIEW_SESSION_ID=` 三个**行首扁平键**（表格行不算）；角色行 4 列且结论列恰为 `✅`；DF 块内须有 `- 归属评委：<角色>` 行；REPORT 文件名按 df_resolve 字典序首选（勿让 `-r1` 归档版抢在正式版前）。
+- **P2a 评审命令**：`npm --silent run test:e2e`（--silent 消除 npm 首行空行，报告首行非占位）；`| tee 报告路径` 直写且每轮内容必须变化。
+- **P6 五类证据**：X_CMD 由 Gate 从仓库根 bash -c 重跑，stdout 捕获须非空（禁纯 `> 文件` 重定向）；用 `| tee 报告` 直写报告且每轮内容变化；REPORT 文件彼此互异且与终验报告本体不冲突；首行不得为空/纯 ok/pass；LOAD 首词仅受信 runner（curl 只属 STAGING），用 `npm run load` 包装探活循环；`ENVIRONMENT=dev|staging` 须写入 env 文件；CLIENT_CMD 在 env 中一行三件套齐全（漏行=执行记录 4≠5）。
+- **P4b evidence TSV**：四列表头须 `acceptance_id`（非 `ID`）；路径用逗号分隔的真实文件；全部行 status=PASS。
+- **P7**：授权收据 `authorized_at` 用 UTC `Z` 格式（`+08:00` 被判非法）；`DEV_PRIVILEGED=false` 须显式；artifact.path 须为真实文件（指向 target/*.jar 并实算 64hex SHA）；回滚 triggers/steps 为字符串数组。
+- **P10**：`feedback` 为单个 dict（feedback_id/scope=project/status/skill_modify_approved/root_cause/target_files/decision），非数组；`rollback_triggers` 为字符串数组；phase 字段不含连字符（P3cd→归并、P3-build→skip_note 注明）。
+- **s1 报告解析 glob 碰撞**：`tech_selection` 的中文后缀「设计决策」会松散匹配《数据库设计决策》——两文档并存时用 `TECH_SELECTION_FILE=<准确路径>` 显式覆盖。

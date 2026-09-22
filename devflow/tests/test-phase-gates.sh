@@ -236,6 +236,7 @@ cat > "$TMP/.devflow/foo/design.json" <<EOF
   ],
   "client": {"scope": "not-applicable", "not_applicable_reason": "fixture 纯服务端，无前端"},
   "migrations": {"applicable": true, "dialects": ["h2", "postgresql", "oracle", "kingbase"]},
+  "test_isolation": {"applicable": true, "strategy": "类内 @Order + 每类自清理登录态（fixture）"},
   "business_operations": [{"id": "BOP-1", "name": "分页查询 foo", "trigger": "用户请求列表", "actor": "foo:view 持有者", "stateless": true, "steps": ["校验 page>=1（R1）", "查询并返回分页结果"], "result": "返回分页数据", "failure": "参数越界返回 400", "test_scenarios": ["正常查询", "page<1 拒绝"], "acceptance_refs": ["M-01-F01-A01"], "anchor": "§6"}],
   "baseline": {"repo_root": ".", "db_evidence": {"source": "migration_ddl"}, "entries": [{"id": "BL-1", "target": "backend/x/src/main/java/foo/FooController.java", "decision": "MODIFY", "existing_contract": "FooController#list 现有分页查询，响应结构不变", "related_acceptance": ["M-01-F01-A01"], "verify": "FooControllerTest"}]},
   "decisions": [
@@ -319,6 +320,52 @@ bash "$ROOT/tests/mk_p0_artifacts.sh" foo "$TMP" >/dev/null 2>&1
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/s0_acceptance_gate.sh" foo); then ok "P0 fixture"; else bad "P0 fixture"; fi
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/devflow-state.sh" constraints-freeze foo >/dev/null 2>&1); then :; else bad "constraints-freeze fixture"; fi
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/s1_fact_sources_gate.sh" docs/detailed-design); then ok "P1 fixture"; else bad "P1 fixture"; fi
+
+# v3.28.13：constraints-inherit 项目级约束继承（@latest / 独立冻结 / 重复拒绝 / 来源漂移拒绝）
+# 独立工作区——不污染本文件后续 foo fixture（多 feature 状态会干扰 P2/P4 扫描）
+_W_INH=$(mktemp -d "${TMPDIR:-/tmp}/pg-inherit.XXXXXX")
+mkdir -p "$_W_INH/docs/需求"
+(cd "$_W_INH" && WORKSPACE="$_W_INH" bash "$ROOT/scripts/devflow-state.sh" init src --frontend=not-applicable >/dev/null 2>&1)
+cat > "$_W_INH/docs/需求/src-技术约束.md" <<'EOF'
+# src 技术约束
+
+<!-- DEVFLOW:CONSTRAINTS
+constraint_id=TC-TECH-001
+type=MUST_USE
+subject=workflow-engine
+required_product=camunda
+required_version=7.24.0
+status=FROZEN
+confirmed=true
+DEVFLOW:END -->
+EOF
+(cd "$_W_INH" && WORKSPACE="$_W_INH" bash "$ROOT/scripts/devflow-state.sh" constraints-freeze src >/dev/null 2>&1)
+(cd "$_W_INH" && WORKSPACE="$_W_INH" bash "$ROOT/scripts/devflow-state.sh" init dst --frontend=not-applicable >/dev/null 2>&1)
+if (cd "$_W_INH" && WORKSPACE="$_W_INH" bash "$ROOT/scripts/devflow-state.sh" constraints-inherit dst >/dev/null 2>&1) \
+   && grep -q 'DEVFLOW:CONSTRAINTS' "$_W_INH/docs/需求/dst-技术约束.md" 2>/dev/null; then
+  ok "constraints-inherit @latest 生成继承稿（机器块落位）"
+else
+  bad "constraints-inherit @latest 未生成继承稿"
+fi
+if (cd "$_W_INH" && WORKSPACE="$_W_INH" bash "$ROOT/scripts/devflow-state.sh" constraints-freeze dst >/dev/null 2>&1); then
+  ok "继承稿可通过 constraints-freeze（per-feature 独立冻结）"
+else
+  bad "继承稿未能冻结"
+fi
+if (cd "$_W_INH" && WORKSPACE="$_W_INH" bash "$ROOT/scripts/devflow-state.sh" constraints-inherit dst >/dev/null 2>&1); then
+  bad "constraints-inherit 重复继承未被拒绝"
+else
+  ok "constraints-inherit 重复继承被拒绝（不静默覆盖）"
+fi
+# 来源漂移拒绝：src 约束文件追加字节后，显式 --from src 继承须失败
+printf '\n<!-- drift -->\n' >> "$_W_INH/docs/需求/src-技术约束.md"
+(cd "$_W_INH" && WORKSPACE="$_W_INH" bash "$ROOT/scripts/devflow-state.sh" init dst2 --frontend=not-applicable >/dev/null 2>&1)
+if (cd "$_W_INH" && WORKSPACE="$_W_INH" bash "$ROOT/scripts/devflow-state.sh" constraints-inherit dst2 --from src >/dev/null 2>&1); then
+  bad "constraints-inherit 来源 SHA 漂移未被拒绝"
+else
+  ok "constraints-inherit 来源 SHA 漂移被拒绝（fail-closed）"
+fi
+rm -rf "$_W_INH"
 # v3.27.14：scaffold_audit 登记但报告缺《脚手架重合度审计》章节 → s1 拦截（铁律 18 接线）
 printf '{"feature":"foo","scaffold_audit":[{"domain":"F01","verdict":"裁剪"}]}\n' > "$TMP/.devflow/foo/tech-selection.json"
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/s1_fact_sources_gate.sh" docs/detailed-design >/dev/null 2>&1); then

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Gate 诊断与修复建议系统 v3.28.10
+# Gate 诊断与修复建议系统 v3.29.0
 # 用途：为所有 Gate 失败提供具体的修复建议
 
 set -euo pipefail

@@ -89,6 +89,7 @@ cat > "$W/.devflow/pr/design.json" <<EOF
   "acceptance": [{"id": "M-01-F01-A01", "prd_anchor": "docs/需求/pr-prd.md#L1", "page": "—", "api": "—", "data": "—", "rule": "R1", "test_case": "TC-PR-001", "status": "COMPLETE"}],
   "tables": [], "apis": [], "pages": [],
   "rules": [{"id": "R1", "anchor": "§5", "summary": "输入校验"}],
+  "test_isolation": {"applicable": true, "strategy": "类内 @Order + 每类自清理登录态（fixture）"},
   "business_operations": [{"id": "BOP-1", "name": "执行纯计算", "trigger": "请求触发", "actor": "调用方", "stateless": true, "steps": ["读入", "计算", "返回"], "result": "返回计算结果", "failure": "输入非法返回 400", "test_scenarios": ["正常", "非法输入"], "acceptance_refs": ["M-01-F01-A01"], "anchor": "§6"}],
   "baseline": {"repo_root": ".", "db_evidence": {"source": "none"}, "entries": [{"id": "BL-1", "target": "backend/pure/CalcService.java", "decision": "ADD", "target_module": "pure 模块", "verify": "CalcServiceTest"}]},
   "client": {"scope": "not-applicable", "not_applicable_reason": "纯计算无前端"},

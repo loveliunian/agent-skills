@@ -1,7 +1,7 @@
 ---
 name: frontend-dev
 subagent_type: generalPurpose
-version: "3.28.10"
+version: "3.29.0"
 responsibility: "实现一个垂直切片的客户端页面、API 调用、路由和可达性证据。"
 allowed-tools: [read, write, exec, grep, glob]
 ---

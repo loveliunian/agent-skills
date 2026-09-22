@@ -1,7 +1,7 @@
 ---
 name: scope-reviewer
 subagent_type: generalPurpose
-version: "3.28.10"
+version: "3.29.0"
 description: >-
   Adversarial reviewer #3 of 3. Use when running /review,
   checks "scope & alignment" angle: 1) is implementation aligned with PRD

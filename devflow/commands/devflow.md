@@ -1,6 +1,6 @@
 ---
 name: devflow-command
-version: "3.28.10"
+version: "3.29.0"
 description: Use when running the complete devflow lifecycle or resuming a checkpoint.
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
@@ -68,7 +68,11 @@ P11 是独立事故复盘，不属于正常交付完成条件。
 - **P0~P2 / P4~P5 / P7~P10**：主会话单线（契约对齐循环、单一正本原子链、收据链一致性）；
 - **P2a / P3b**：独立上下文子代理评审（必选）——认知独立≠收据的过程独立，评审输入只喂正本文件（详设/验收点/模板），刻意不含编排器的实现过程叙述；
 - **P3**：backend/frontend 并行子代理 ×2（以详设 §3.2 接口契约为唯一耦合点）；
-- **P6**：五类测试命令可并行（CLIENT 依赖前端 dev server、STAGING 依赖后端容器，服务前置须先行就绪）。
+- **P6**：五类测试命令可并行（CLIENT 依赖前端 dev server、STAGING 依赖后端容器，服务前置须先行就绪——
+  P5 开始即后台跑 `p6-prewarm.sh` 预热，幂等可重复执行，L-PROC-005 冷启动预算前置消化）；
+  **修复循环增量重跑（v3.28.12）**：测试失败→修复后用 `p6-iterate.sh <feature> <kind> [--filter <类名>]`
+  只重跑失败套件（`--dry-run` 预检拼接），产物落 `.devflow/<feature>/iterations/`（非终验证据、
+  只读 test-evidence.env）——收敛后 P6-final 仍全量真实重执行五类命令，反自报契约不变。
 
 子代理任务书六要素（输入正本路径 / 产出+验收命令 / 边界声明 / 结构化回传 / 评审附加契约 /
 收据由编排器两阶段签发——子代理不得自签）、反模式清单与实测基线见
@@ -78,7 +82,7 @@ P11 是独立事故复盘，不属于正常交付完成条件。
 
 | 阶段 | 命令 |
 |---|---|
-| P0 | `s0_acceptance_gate.sh <feature>`；通过后立即 `devflow-state.sh constraints-freeze <feature>`（冻结技术约束 SHA，P1 强制校验） |
+| P0 | 非首个 feature 先 `devflow-state.sh constraints-inherit <feature>`（继承机器块，只澄清 delta，v3.28.13）→ `s0_acceptance_gate.sh <feature>`；通过后立即 `devflow-state.sh constraints-freeze <feature>`（冻结技术约束 SHA，P1 强制校验） |
 | P0b | `artifact_gate.sh P0b <feature>` |
 | P1 | `s1_fact_sources_gate.sh docs/详细设计`（校验技术选型机读绑定 + 约束文件 SHA 与 state 一致） |
 | P2 | `df_pipeline.py design`（design.json 校验 + 详设确定性层渲染，失败关闭）→ `s2_design_coverage_gate.sh <design> <criteria> [--mode=monolith|total|sub]`（详设必须逐条引用 constraint_id；design.json 存在时 §2c 强制对账；总分模式须有 design-package.json 设计包清单——子集并集=冻结分母，缺文档即失败）；B/C 再跑 `s3_migration_mapping_gate.sh` |

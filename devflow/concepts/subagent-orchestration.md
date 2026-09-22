@@ -1,6 +1,6 @@
 ---
 name: subagent-orchestration
-version: "3.28.10"
+version: "3.29.0"
 description: >-
   全链执行时的子代理编排策略：哪些阶段单线、哪些并行、独立评审子代理的任务书契约，
   以及反模式清单。来源：m01-base（组织与权限底座）P0→P10 单线全链实测（6.7h）复盘。
@@ -91,5 +91,14 @@ description: >-
 | 最耗时 | P6-final 90min、P3 85min、P2 70min |
 | 契约对齐占比 | ~25%（枚举/类型/列序/锚点） |
 | 并行化预估 | P3 并行省 ~40min；契约循环不可并行 |
+
+**P6 修复循环（v3.28.12）**：m01-base 实测每轮修复都全量重跑五类（登录死锁一轮
+全量 mvn 51 用例 + playwright）。修复循环改用 `scripts/p6-iterate.sh <feature>
+<kind> [--filter <类名>]` 只重跑失败套件（框架感知拼接 mvn -Dtest / playwright
+--grep 等；产物落 `.devflow/<feature>/iterations/`，只读 test-evidence.env）——
+**P6-final 门禁仍全量真实重执行五类命令**（反自报契约不变），收敛后照常走终验。
+**环境预热**：P5 开始即后台跑 `scripts/p6-prewarm.sh <feature> --backend-cmd <cmd>
+[--frontend-cmd <cmd>]`（幂等，健康绿则跳过），后端/前端在测试设计期间预热，
+消化 L-PROC-005 的 E2E 冷启动超时预算。
 
 后续项目可对照本基线评估编排收益；偏离 ±50% 以上时先查契约对齐方式是否退化。

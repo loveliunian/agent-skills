@@ -456,6 +456,7 @@ cat > d-backend.json <<'EOF'
   "acceptance": [{"id": "M-01-F01-A01", "prd_anchor": "criteria.md#M-01-F01-A01", "page": "—", "api": "—", "data": "—", "rule": "R1", "test_case": "TC-B-001", "status": "COMPLETE"}],
   "tables": [], "apis": [], "pages": [],
   "rules": [{"id": "R1", "anchor": "§5", "summary": "校验"}],
+  "test_isolation": {"applicable": true, "strategy": "类内 @Order + 每类自清理登录态（fixture）"},
   "business_operations": [{"id": "BOP-1", "name": "执行每日汇总", "trigger": "每日 02:00 定时触发", "actor": "调度系统", "stateless": true, "steps": ["读取上游输入", "计算并写出结果"], "result": "任务完成并写审计", "failure": "失败按退避重试并告警", "test_scenarios": ["正常汇总", "输入缺失跳过并告警"], "acceptance_refs": ["M-01-F01-A01"], "anchor": "§6.1"}],
   "baseline": {"repo_root": ".", "db_evidence": {"source": "none"}, "entries": [{"id": "BL-1", "target": "backend/job/SummaryJob.java", "decision": "ADD", "target_module": "job 模块（同类模式参照现有 ExportJob）", "verify": "SummaryJobTest"}]},
   "client": {"scope": "not-applicable", "not_applicable_reason": "纯后端"},
