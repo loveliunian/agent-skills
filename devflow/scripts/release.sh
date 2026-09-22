@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# release.sh · 唯一发布入口（版本随 SKILL.md 单一事实源动态读取，本文件不写死版本号；当前 v3.29.4）
+# release.sh · 唯一发布入口（版本随 SKILL.md 单一事实源动态读取，本文件不写死版本号；当前 v3.29.5）
 # 前置：版本升级先跑 `scripts/bump-version.sh <new-version>`（本入口只发布当前版本）。
 # 通用化发布链（Runtime Profile + 发布授权 + Secret scan；详见 CHANGELOG）。
 # 原子事务化（自 v3.20.8）——旧流程第 5 步落不可变 manifest、第 6 步才查副本，
@@ -24,6 +24,20 @@ STAGED_MANIFEST=$(mktemp -t devflow-staged.XXXXXX) || { echo "[FAIL] 无法创�
 trap 'rm -f "$STAGED_MANIFEST"' EXIT
 
 # ---------- Phase A：只读预检 ----------
+# v3.29.5: Git 快照门禁前置——脏树必须在跑测试（109s）前就失败（旧版在第 6 步才查）
+if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  DIRTY=$(git -C "$ROOT" status --porcelain 2>/dev/null | head -5)
+  if [ -n "$DIRTY" ]; then
+    echo "  [FAIL] Git 工作树有未提交变更——发布前必须先提交（HEAD 快照须版本一致）:"
+    printf '    %s\n' "$DIRTY"
+    echo "  提示: git add -A && git commit（克隆 HEAD 不得触发版本门禁失败）"
+    FAIL=1
+  else
+    echo "  [OK] Git 工作树干净（HEAD 快照一致）"
+  fi
+fi
+
+if [ "$FAIL" -eq 0 ]; then
 step "1/8 完整测试套件 (run-tests.sh)"
 if bash "$ROOT/tests/run-tests.sh"; then echo "  [OK] 完整测试 PASS"; else echo "  [FAIL] 完整测试 FAIL"; FAIL=1; fi
 
@@ -47,23 +61,11 @@ else
   echo "  [FAIL] shellcheck 不可用——ShellCheck 门禁不可跳过"; FAIL=1
 fi
 
-step "6/8 树 hash 一致性（Git 快照 + state 冻结对照——硬门禁）"
-# v3.29.4: Git 快照门禁——发布时工作树必须干净。审计实证：脏树发布后 HEAD 快照
-# 版本不一致（部分文件新版本号），克隆者跑版本门禁即 98 项失败；此前 release 不查 Git。
-if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  DIRTY=$(git -C "$ROOT" status --porcelain 2>/dev/null | head -5)
-  if [ -n "$DIRTY" ]; then
-    echo "  [FAIL] Git 工作树有未提交变更——发布前必须先提交（HEAD 快照须版本一致）:"
-    printf '    %s\n' "$DIRTY"
-    echo "  提示: git add -A && git commit（确保克隆 HEAD 不触发版本门禁失败）"
-    FAIL=1
-  else
-    echo "  [OK] Git 工作树干净（HEAD 快照一致）"
-  fi
-fi
+step "6/8 树 hash 一致性（state 冻结对照——硬门禁）"
 # v3.15.1: ① skill 发布树内不得包含任何项目 state 文件（测试垃圾入库即 FAIL）；
 # ② 显式提供的外部 state（DEVFLOW_RELEASE_STATES，冒号或换行分隔）冻结树必须等于当前发布树。
 # v3.20.3: 移入只读预检段（原第 7 步在 manifest 落盘后，失败同样制造半发布态）。
+# Git 工作树检查已前置到 Phase A 开头（v3.29.5：脏树需在跑测试前失败）。
 EMBEDDED_STATES=$(find "$ROOT" -name "*.state.json" 2>/dev/null | head -5)
 if [ -n "$EMBEDDED_STATES" ]; then
   echo "  [FAIL] 发布树内发现项目 state 文件（测试垃圾不得入库）:"
@@ -141,6 +143,7 @@ else
     FAIL=1
   fi
 fi
+fi   # v3.29.5: Phase A 步骤包裹（FAIL≠0 时整体跳过——脏树场景秒失败，不跑全量测试）
 
 # ---------- Phase A/B 分界 ----------
 if [ "$FAIL" -ne 0 ]; then
@@ -211,13 +214,18 @@ else
   else
     echo "  [FAIL] 发布过程树漂移：stage=$STAGED_TREE final=$FINAL_TREE"; FAIL=1; B_ROLLBACK_NEEDED=1
   fi
-  # v3.29.4: 发布后 manifest Git 跟踪检查（manifest 刚生成，未提交即未跟踪——响亮 WARN：
-  # 若不提交，HEAD 快照就缺本次发布记录，克隆者门禁失败）
-  if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
-     && ! git -C "$ROOT" ls-files --error-unmatch "references/manifest/${RELEASE_VERSION}.json" >/dev/null 2>&1; then
-    echo "  [WARN] 新 manifest 未被 Git 跟踪——发布完成后立即提交，否则 HEAD 快照缺发布记录:"
-    echo "         git -C $ROOT add references/manifest/${RELEASE_VERSION}.json references/manifest/CHAIN.json"
-    echo "         git -C $ROOT commit -m 'v${RELEASE_VERSION}: release manifest+ledger'"
+  # v3.29.5: 首次发布的新 manifest 未提交 → READY_TO_COMMIT（exit 3，不回滚——
+  # manifest 是待提交产物，区别于失败回滚；提交后复跑 release.sh 才达 RELEASED）。
+  # 注：references/manifest/ 不参与树哈希（tree_files 排除），提交 manifest 不产生树漂移。
+  if [ "$MANIFEST_EXISTS" = "0" ] \
+     && git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo ""
+    echo "RELEASE GATE: READY_TO_COMMIT — manifest+台账已生成（本地发布完成，非 Git 发布完成）"
+    echo "  提交后复跑 release.sh 完成 RELEASED 验证:"
+    echo "    git -C $ROOT add references/manifest/${RELEASE_VERSION}.json references/manifest/CHAIN.json"
+    echo "    git -C $ROOT commit -m 'v${RELEASE_VERSION}: release manifest+ledger'"
+    echo "    bash scripts/release.sh"
+    exit 3
   fi
 fi
 
@@ -229,7 +237,7 @@ fi
 
 echo ""
 if [ "$FAIL" -eq 0 ]; then
-  echo "RELEASE GATE: ALL GREEN — 发布完成（manifest+台账+副本直连一致）"
+  echo "RELEASE GATE: RELEASED — 发布完成（manifest+台账+副本直连一致，Git 快照自洽）"
   exit 0
 fi
 echo "RELEASE GATE: FAIL — 已回滚 manifest 占位；副本失联时跑仓库级 sync.sh 修复后重跑（check-copies.sh 只读幂等）"

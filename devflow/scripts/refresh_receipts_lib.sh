@@ -87,6 +87,13 @@ refresh_receipts_run() {
     return 1
   fi
 
+  # v3.29.5: 冻结策略 A + 遗留迁移证据冲突（A 免迁移收据——旧 B/C 证据残留须先清理，防审计歧义）
+  if [ "$FROZEN_STRAT" = "A" ] && [ -f "$MIG_ENV" ]; then
+    echo "[FAIL] 冻结策略 A（仅新建表、免迁移收据）但存在遗留迁移证据: $MIG_ENV" >&2
+    echo "       旧 B/C 证据与冻结策略冲突——删除或归档该证据后重跑（stale-evidence）" >&2
+    return 1
+  fi
+
   local PASS=0
   # 失败即停（铁律 8）：任一 Gate 非零 → 立即终止，不执行后续 Gate
   gate() { local name="$1"; shift

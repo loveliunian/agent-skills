@@ -241,7 +241,17 @@ else
   bad "T8d 无冻结自报未拒绝（rc=${_rc}）"
 fi
 
-# ── T9 --skip-p2a 合法化 ──
+# T8e（v3.29.5）: 冻结策略 A + 遗留迁移证据冲突
+W8E="$TMP/t8e"; init_fixture "$W8E" True A
+RC_LOG="$W8E/invocations.log"; export RC_LOG
+mkdir -p "$W8E/docs/测试"
+printf 'scenario=C\n' > "$W8E/docs/测试/fx-migration-evidence.env"
+_out=$(run_orch "$W8E"); _rc=$?
+if [ "$_rc" = "1" ] && printf '%s' "$_out" | grep -q "遗留迁移证据\|stale-evidence"; then
+  ok "T8e 冻结 A + 遗留证据 → FAIL（stale-evidence 冲突）"
+else
+  bad "T8e A-证据冲突未拒绝（rc=${_rc}）"
+fi
 W9="$TMP/t9"; init_fixture "$W9" True B
 RC_LOG="$W9/invocations.log"; export RC_LOG
 _out=$(run_orch "$W9" RF_SKIP_P2A=1); _rc=$?

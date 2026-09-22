@@ -9,13 +9,13 @@ license: MIT
 compatibility: Requires repo workspace and command execution; build/test/migration commands from frozen runtime profile.
 metadata:
   author: xingyunliushui
-  version: "3.29.4"
+  version: "3.29.5"
   updated: "2026-09-22"
   tags: "prd,design,development,migration,phase-gate,recovery,test-generators"
 allowed-tools: read write exec glob grep task
 ---
 
-# devflow — PRD to production（v3.29.4）
+# devflow — PRD to production（v3.29.5）
 
 本文件是唯一权威入口。历史迁移只查 `references/CHANGELOG.md`；命令、阶段、角色和模板按需加载，不在入口重复。
 

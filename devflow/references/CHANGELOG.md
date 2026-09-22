@@ -1,12 +1,32 @@
 ---
 name: changelog
-version: "3.29.4"
+version: "3.29.5"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.29.4
+# Changelog — devflow v1 → v3.29.5
+
+## v3.29.5 (2026-09-22) — Git 门禁负向回归 + READY_TO_COMMIT/RELEASED 语义 + 冻结 A 遗留证据冲突
+
+来源：外部审计第四轮（非阻断 P2）——Git 门禁无负向回归、首发未提交 manifest 仍输出
+ALL GREEN、冻结策略 A 与遗留迁移证据未做冲突检查。
+
+1. **Git 快照门禁负向回归（P2）**：新增 `tests/test-release-git-gate.sh`（临时 Git 仓库
+   fixture，3 钉）：脏工作树 → release FAIL；首发新 manifest 未提交 → READY_TO_COMMIT；
+   manifest 提交后复跑 → RELEASED。防门禁日后重构退化。
+2. **READY_TO_COMMIT / RELEASED 语义区分（P2）**：首次生成新 manifest 后不再输出
+   ALL GREEN——`RELEASE GATE: READY_TO_COMMIT`（exit 3，不回滚：manifest 为待提交产物；
+   提示提交 manifest+CHAIN 后复跑 release.sh）；复跑达 `RELEASE GATE: RELEASED`（exit 0）。
+   非 Git 环境维持 RELEASED（READY_TO_COMMIT 语义仅对 Git 仓库）。
+3. **Git 门禁前置（顺带）**：脏树检查从第 6 步移到 Phase A 最前——脏树场景秒失败
+   （此前仍会跑完 ~109s 全量测试才 FAIL）；Phase A 步骤整体包裹于 FAIL=0 条件。
+4. **冻结策略 A + 遗留迁移证据冲突（P2）**：design.json 冻结 strategy=A 但目录存在
+   `<feature>-migration-evidence.env` → FAIL 并给出 stale-evidence 清理提示（A 免迁移收据；
+   旧 B/C 证据残留造成审计歧义）。test-refresh-receipts +1 钉（23/23）。
+5. 事实确认：`references/manifest/*` 不参与 skill 树哈希（tree_files 整体排除）——提交
+   manifest 不产生树漂移，READY→RELEASED 复跑闭环自洽。
 
 ## v3.29.4 (2026-09-22) — Git 快照门禁 + Gate 后门移除 + 迁移冻结源对账 + prewarm CLI 校验
 

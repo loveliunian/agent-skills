@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 增量变更验证脚本 v3.29.4
+# 增量变更验证脚本 v3.29.5
 # 用途：验证增量变更是否正确完成
 
 set -euo pipefail

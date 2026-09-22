@@ -28,6 +28,7 @@ SUITES=(
   "test-maintainability.sh:可维护性"
   "test-small-change.sh:小改动"
   "test-release-hardening.sh:发布硬化"
+  "test-release-git-gate.sh:Git快照门禁"
   "test-structured-artifacts.sh:结构化产物"
   "test-structured-artifacts-phase-docs.sh:结构化产物-全阶段(v3.25.0)"
   "test-design-contract-hardening.sh:详设契约硬化（v3.24.0）"
