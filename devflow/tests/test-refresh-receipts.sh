@@ -16,12 +16,13 @@ bad() { FAIL=$((FAIL+1)); echo "[FAIL] $1"; }
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/refresh-receipts-test.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
-# T1 未知参数
+# T1 未知参数（注意：字符串里变量一律 ${} 花括号——bash 3.2 set -u 下 $var 紧跟
+# 全角字符会把多字节并入变量名报 unbound，v3.29.2 实测）
 _out=$(bash "$R" fx --bogus-flag 2>&1); _rc=$?
 if [ "$_rc" = "2" ] && printf '%s' "$_out" | grep -q "用法"; then
   ok "未知参数拒绝（exit 2 + 用法）"
 else
-  bad "未知参数未正确拒绝（rc=$_rc）: $_out"
+  bad "未知参数未正确拒绝（rc=${_rc}）: ${_out}"
 fi
 
 # T2 缺参（--prd / --evidence 无值）——不得出现 unbound variable
@@ -29,23 +30,23 @@ _out=$(bash "$R" fx --prd 2>&1); _rc=$?
 if [ "$_rc" = "2" ] && ! printf '%s' "$_out" | grep -q "unbound"; then
   ok "--prd 缺参拒绝（exit 2，无 unbound）"
 else
-  bad "--prd 缺参处理异常（rc=$_rc）: $_out"
+  bad "--prd 缺参处理异常（rc=${_rc}）: ${_out}"
 fi
 _out=$(bash "$R" fx --evidence 2>&1); _rc=$?
 if [ "$_rc" = "2" ] && ! printf '%s' "$_out" | grep -q "unbound"; then
   ok "--evidence 缺参拒绝（exit 2，无 unbound）"
 else
-  bad "--evidence 缺参处理异常（rc=$_rc）: $_out"
+  bad "--evidence 缺参处理异常（rc=${_rc}）: ${_out}"
 fi
 
 # T3 feature 白名单（路径穿越）
 _out=$(bash "$R" "../escape" 2>&1); _rc=$?
-[ "$_rc" = "2" ] && ok "路径穿越 feature 拒绝（exit 2）" || bad "路径穿越 feature 未拒绝（rc=$_rc）"
+[ "$_rc" = "2" ] && ok "路径穿越 feature 拒绝（exit 2）" || bad "路径穿越 feature 未拒绝（rc=${_rc}）"
 
 # T4 Gate 清单完整性（静态声明 vs SKILL.md Gate 矩阵）
 _missing=""
 for _g in s0 P0b P1 design s2 P2a P2b P3build P3 P3b P3cd P4 P4b P5 s5migB s5migC s6acc p6cred s6final P7 P8 P9 P10; do
-  grep -qE "^gate ${_g}( |$)" "$R" || _missing="$_missing $_g"
+  grep -qE "^[[:space:]]*gate ${_g}( |$)" "$R" || _missing="$_missing $_g"
 done
 [ -z "$_missing" ] && ok "Gate 清单覆盖 P0→P10 全矩阵（22 Gate）" || bad "Gate 清单缺失:$_missing"
 grep -q 'reconcile "$FEATURE" --apply' "$R" \
@@ -63,7 +64,7 @@ if [ "$_rc" = "1" ] && [ -n "$_logroot" ] \
   ok "失败即停：s0 失败 exit 1，后续 Gate 未执行（日志数=1）"
 else
   _n=$([ -n "$_logroot" ] && ls "$_logroot" | wc -l | tr -d ' ' || echo 0)
-  bad "fail-fast 行为异常（rc=$_rc, 日志数=$_n）: $(printf '%s' "$_out" | tail -3)"
+  bad "fail-fast 行为异常（rc=${_rc}, 日志数=${_n}）: $(printf '%s' "$_out" | tail -3)"
 fi
 
 echo ""

@@ -1,6 +1,6 @@
 ---
 name: sensitive-data-policy
-version: "3.29.1"
+version: "3.29.2"
 description: 敏感信息机器契约——禁止持久化明文秘密、输出前脱敏、Secret 命中即 BLOCKED。
 ---
 

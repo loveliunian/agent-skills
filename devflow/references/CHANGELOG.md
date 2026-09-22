@@ -1,12 +1,48 @@
 ---
 name: changelog
-version: "3.29.1"
+version: "3.29.2"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.29.1
+# Changelog — devflow v1 → v3.29.2
+
+## v3.29.2 (2026-09-22) — refresh-receipts 对齐声明重写 + P6 双助手安全加固 + 测试调度器去批次屏障
+
+来源：外部审计三项发现——P0：refresh-receipts.sh 与文档承诺严重不符；P1：P6 提速助手
+安全与可靠性边界；P1：run-tests.sh 批次屏障空耗。
+
+1. **scripts/refresh-receipts.sh 重写（P0）**：此前跑完 P5 直接跳 P10，漏
+   P5-migration/P6 accuracy/P6 credential/P6-final/P7/P8/P9，无 reconcile，Gate 失败
+   仍继续跑——"40 分钟一键刷新"实为漏跑不可跳过阶段的假提速。现按 SKILL.md Gate
+   矩阵补全 **22 Gate**（P0→P10 全链）；失败即停（铁律 8：首个 Gate 非零立即终止并
+   回显日志尾部）；末尾 `reconcile --apply` 对账回填；feature 白名单
+   （devflow_feature_validate）；严格参数解析（未知参数/缺参 exit 2 + 用法，修复
+   `--prd` 缺参 `$2: unbound variable`）；日志迁至
+   `.devflow/<feature>/refresh-logs/<TS>/`；P5-migration 证据 env 不存在时显式 SKIP
+   （迁移策略 A 无迁移证据，不再静默）。新增 `tests/test-refresh-receipts.sh`
+   （8 钉：参数/白名单/22 Gate 清单对账/fail-fast 动态验证仅执行到首个失败 Gate）。
+2. **p6-prewarm.sh 加固**：feature 白名单；prewarm.env 白名单化加载（非 KEY=VALUE 行
+   或值含 `;|&<>$\` 一律拒绝，防 source 注入）；`--stop` 三重防护——pid 正整数校验、
+   **PID+启动时间（lstart）双匹配身份核验**（PID 复用必然新 lstart，陈旧/被复用记录
+   不误杀；argv[0] 重写场景如 framework Python 也能正确核验）、未处置条目保留
+   pids.env 不清档；每服务**独立就绪超时窗**（修复共用 SECONDS 全局变量致后端等待
+   挤占前端超时）；pid 记录按 label 去重重写（修复追加模式累积陈旧记录），记录扩为
+   pid+cmd+lstart 三行。
+3. **p6-iterate.sh 加固**：feature 白名单；运行器识别支持 `./mvnw`、`./gradlew`
+   （及 `.cmd` 变体）——此前只匹配裸 mvnw/gradlew；`--filter` 缺参显式 exit 2。
+4. **run-tests.sh 调度器修复**：旧实现每攒满 JOBS 个任务调用一次裸 `wait`，等整批
+   全部结束才启动下一批（批次屏障；注释宣称"一个 slot 空出才启动下一组"与行为不符）。
+   改为 `kill -0` 轮询回收的真 slot 补位调度（bash 3.2 无 `wait -n` 的等价实现）。
+   全量实测 **203s → 111s**（-45%，本机 26 组，含新增收据刷新器组）。
+5. **SKILL.md 口径诚实化**：「每个环节的 md 产物有 JSON 正本」改为分阶段接入现状——
+   已 Gate 强制闭环仅 5 处（P0 acceptance、P2 design、P3c security、P3d performance、
+   P6 verification），其余 13 处 Gate 侧待接入；P4b/P3-build/P5-migration/
+   P6 accuracy·credential 暂无专属 JSON 正本。此前把目标口径表述成了既成事实。
+6. **bash 3.2 `set -u` 多字节雷（新钉）**：`$var` 紧跟全角字符时，set -u 展开路径会
+   把多字节字节并入变量名报 unbound（实测 `$_esc2）`）；后续测试字符串变量一律
+   `${var}` 花括号防护，教训记入本条目。
 
 ## v3.29.1 (2026-09-22) — m01-base 全链实测：一键收据刷新 + P6 提速双工具 + 隐性契约速查
 

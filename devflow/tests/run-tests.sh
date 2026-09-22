@@ -20,6 +20,7 @@ SUITES=(
   "test-golden-renders.sh:渲染黄金样本"
   "test-schema-guards.sh:schema 契约守卫"
   "test-state.sh:state 机"
+  "test-refresh-receipts.sh:收据刷新器"
   "test-client-platforms.sh:客户端平台"
   "test-phase-gates.sh:阶段门控"
   "test-v3140-regressions.sh:v3.14.0 回归"
@@ -118,24 +119,42 @@ run_group() {
 
 if [ "$PARALLEL" = "1" ]; then
   # v3.26.1: 并发度 job pool（旧版 23 组无上限并发，10 核机器上严重过订阅——最慢组
-  # 隔离跑 73s 被拖到并行 624s）。默认并发 = 物理核数（RUN_TESTS_JOBS 覆盖，上限=组数）；
-  # 一个 slot 空出才启动下一组。兼容 macOS/Git Bash 3.2（无 wait -n）：用 SIGCHLD 计数。
+  # 隔离跑 73s 被拖到并行 624s）。默认并发 = 物理核数（RUN_TESTS_JOBS 覆盖，上限=组数）。
+  # v3.29.2: 修复批次屏障——旧实现每攒满 JOBS 个任务调用一次裸 wait，等整批全部结束
+  # 才启动下一批（注释宣称"一个 slot 空出才启动下一组"与行为不符，实测全量多耗 ~40%）。
+  # 现为真·slot 补位调度：kill -0 轮询回收已结束组（bash 3.2 无 wait -n 的等价实现；
+  # bash 对已退出后台任务即时收尸，kill -0 失败即槽位空闲），一个 slot 空出立即补下一组。
   JOBS="${RUN_TESTS_JOBS:-$(sysctl -n hw.physicalcpu 2>/dev/null || nproc 2>/dev/null || echo 4)}"
   case "$JOBS" in ''|*[!0-9]*) JOBS=4 ;; esac
   [ "$JOBS" -gt "${#SUITES[@]}" ] && JOBS="${#SUITES[@]}"
-  echo "[run-tests] 并行模式：job pool，并发度 ${JOBS}（RUN_TESTS_JOBS 可覆盖）"
-  running=0
-  for entry in "${SUITES[@]}"; do
-    script="${entry%%:*}"; label="${entry#*:}"
-    run_group "$script" "$label" &
-    running=$((running + 1))
-    if [ "$running" -ge "$JOBS" ]; then
-      # bash 3.2 无 wait -n：等任意一个后台作业结束（SIGCHLD 唤醒），再回收已完成项
-      wait
-      running=0
+  echo "[run-tests] 并行模式：slot 补位调度，并发度 ${JOBS}（RUN_TESTS_JOBS 可覆盖）"
+  PIDS=()
+  IDX=0; TOTAL=${#SUITES[@]}
+  while [ "$IDX" -lt "$TOTAL" ] || [ "${#PIDS[@]}" -gt 0 ]; do
+    # 填满空闲 slot
+    while [ "$IDX" -lt "$TOTAL" ] && [ "${#PIDS[@]}" -lt "$JOBS" ]; do
+      _entry="${SUITES[$IDX]}"; IDX=$((IDX + 1))
+      _script="${_entry%%:*}"; _label="${_entry#*:}"
+      run_group "$_script" "$_label" &
+      PIDS+=("$!")
+    done
+    # 回收已结束 slot（组级 rc 已由 run_group 写入 summary.tsv）
+    _i=0; _reaped=0
+    while [ "$_i" -lt "${#PIDS[@]}" ]; do
+      if ! kill -0 "${PIDS[$_i]}" 2>/dev/null; then
+        wait "${PIDS[$_i]}" 2>/dev/null
+        PIDS=("${PIDS[@]:0:$_i}" "${PIDS[@]:$((_i + 1))}")
+        _reaped=1
+      else
+        _i=$((_i + 1))
+      fi
+    done
+    # 仍有任务在跑或未启动：无回收进展时短暂让渡（组级超时由 run_group 自身计时）
+    if [ "$IDX" -lt "$TOTAL" ] || [ "${#PIDS[@]}" -gt 0 ]; then
+      [ "$_reaped" = "1" ] || sleep 0.5
     fi
   done
-  wait
+  wait 2>/dev/null || true
 else
   for entry in "${SUITES[@]}"; do
     script="${entry%%:*}"; label="${entry#*:}"

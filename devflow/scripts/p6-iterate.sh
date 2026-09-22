@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# p6-iterate.sh · P6 修复循环增量重跑（v3.29.1）
+# p6-iterate.sh · P6 修复循环增量重跑（v3.29.2）
 #
 # 用法:
 #   bash scripts/p6-iterate.sh <feature> <unit|integration|client|load|staging> [--filter <expr>] [--dry-run]
@@ -20,12 +20,16 @@
 #   - 迭代产物只存在于 .devflow/<feature>/iterations/，不进入任何收据证据树。
 #
 # --filter 按命令首词做框架感知拼接（Maven 多个 -Dtest 时后者生效=过滤覆盖，符合迭代语义）：
-#   mvn/mvnw → -Dtest='<expr>'   gradle/gradlew → --tests '<expr>'
+#   mvn/mvnw/./mvnw → -Dtest='<expr>'   gradle/gradlew/./gradlew → --tests '<expr>'
 #   npm → -- --grep='<expr>'     pnpm/yarn → --grep '<expr>'
 #   pytest → -k '<expr>'         go → -run '<expr>'    cargo → '<expr>'
 #   其他运行器不支持过滤 → 拒绝执行（exit 2），去掉 --filter 即整套件重跑。
 #   expr 含引号/反引号/$/;/&/反斜杠一律拒绝（防 eval 注入）。
 set -uo pipefail
+
+SKILL="$(cd "$(dirname "$0")/.." && pwd -P)"
+# shellcheck source=devflow_feature.sh
+. "$SKILL/scripts/devflow_feature.sh"
 
 FEATURE="${1:-}"
 KIND_ARG="${2:-}"
@@ -38,10 +42,11 @@ usage() {
 }
 
 [ -n "$FEATURE" ] && [ -n "$KIND_ARG" ] || { usage; exit 2; }
+devflow_feature_validate "$FEATURE" || exit 2
 shift 2 || true
 while [ $# -gt 0 ]; do
   case "$1" in
-    --filter) FILTER="${2:?--filter 需要参数}"; shift 2 ;;
+    --filter) [ $# -ge 2 ] || { echo "[iterate] --filter 缺少参数" >&2; usage; exit 2; }; FILTER="$2"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     *) echo "[iterate] 未知参数: $1" >&2; usage; exit 2 ;;
   esac
@@ -70,14 +75,15 @@ CMD=$(sed -n "s/^${KIND_UP}_CMD=//p" "$EV" | head -1)
 [ -n "$CMD" ] || { echo "[iterate] ${KIND_UP}_CMD 未声明于 ${EV}" >&2; exit 2; }
 
 FIRST=$(printf '%s' "$CMD" | awk '{print $1}')
+FIRST="${FIRST#./}"   # 识别 ./mvnw、./gradlew 包装器（v3.29.2：此前只匹配裸 mvnw/gradlew）
 FULL_CMD="$CMD"
 if [ -n "$FILTER" ]; then
   if printf '%s' "$FILTER" | grep -qE "[\"'\`\$;&\\]"; then
     echo "[iterate] --filter 含危险字符（引号/反引号/\$/;/&/反斜杠被拒）: ${FILTER}" >&2; exit 2
   fi
   case "$FIRST" in
-    mvn|mvnw)        FULL_CMD="${CMD} -Dtest='${FILTER}'" ;;
-    gradle|gradlew)  FULL_CMD="${CMD} --tests '${FILTER}'" ;;
+    mvn|mvnw|mvnw.cmd)      FULL_CMD="${CMD} -Dtest='${FILTER}'" ;;
+    gradle|gradlew|gradlew.cmd) FULL_CMD="${CMD} --tests '${FILTER}'" ;;
     npm)             FULL_CMD="${CMD} -- --grep='${FILTER}'" ;;
     pnpm|yarn)       FULL_CMD="${CMD} --grep '${FILTER}'" ;;
     pytest)          FULL_CMD="${CMD} -k '${FILTER}'" ;;

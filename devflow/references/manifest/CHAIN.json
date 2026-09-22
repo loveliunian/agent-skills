@@ -558,6 +558,12 @@
       "manifest_sha256": "1cbd016ae7fea075c540dad6164999c028a916b25db0f7f2259d391d486df60f",
       "tree_hash": "4773ec95a0130caebad40db1d08f3d86b4a828152fb3980a68d550f098bdf498",
       "chain_hash": "47144778cad168338d7076ed096ace9659bd1ff50708404ad2f7cea11e109cb3"
+    },
+    {
+      "version": "3.29.2",
+      "manifest_sha256": "bb18b3cfcafbafcff16e4aba5c62c4b58e4b4282228236c8e104003a70abfb72",
+      "tree_hash": "456aa93737b3829254188bbe1d1b6b4dae3d4c4ddea2cc8468d69a52cafe5005",
+      "chain_hash": "0bd5f5460f6b4f3b1ccf51b9fabb2b6c8c43f2924c7f34fb7da911d5dca0650c"
     }
   ]
 }

@@ -1,6 +1,6 @@
 ---
 name: prd-vs-code
-version: "3.29.1"
+version: "3.29.2"
 description: Use when a user asks to compare frozen PRD acceptance points with implementation evidence or run the P4b completeness Gate.
 paths: ["docs/PRD/**", "docs/详细设计/**", "docs/测试/**", "backend/**", "frontend/**"]
 allowed-tools: [read, write, exec, glob, grep, task]

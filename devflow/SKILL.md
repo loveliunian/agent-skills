@@ -9,13 +9,13 @@ license: MIT
 compatibility: Requires repo workspace and command execution; build/test/migration commands from frozen runtime profile.
 metadata:
   author: xingyunliushui
-  version: "3.29.1"
+  version: "3.29.2"
   updated: "2026-09-22"
   tags: "prd,design,development,migration,phase-gate,recovery,test-generators"
 allowed-tools: read write exec glob grep task
 ---
 
-# devflow — PRD to production（v3.29.1）
+# devflow — PRD to production（v3.29.2）
 
 本文件是唯一权威入口。历史迁移只查 `references/CHANGELOG.md`；命令、阶段、角色和模板按需加载，不在入口重复。
 
@@ -75,11 +75,11 @@ allowed-tools: read write exec glob grep task
 - 所有 Gate **中文优先、英文回退**：历史英文路径（`docs/requirements/`、`<feature>-unit-report.md` 等）继续被接受，在途项目无需迁移。
 - 机器契约层**不翻译**：`.devflow/` 下 `receipt.txt`/`*.state.json`/`<kind>.json`/`*.tsv`/`*.env`/`gates/` 及 stage 名（P0-P10）、feature 标识保留英文。
 
-### 全阶段结构化产物（v3.25.2）
+### 全阶段结构化产物（v3.25.2 起，分阶段接入中）
 
-每个环节的 md 产物有 JSON 正本，按 schema 契约填 `.devflow/<feature>/<kind>.json`，经 `df_pipeline.py <kind>` 校验渲染进 Gate，空集合须 `zero_results` 声明。kind↔阶段映射见上表。
+关键环节的 md 产物配 JSON 正本：按 schema 契约填 `.devflow/<feature>/<kind>.json`，经 `df_pipeline.py <kind>` 校验，空集合须 `zero_results` 声明。kind↔阶段映射见上表。
 
-Gate 强制矩阵（P0/P2/P3c/P3d/P6）见 `references/structured-artifacts.md`。
+**当前已 Gate 强制闭环（5）**：P0 acceptance、P2 design、P3c security、P3d performance、P6 verification。其余环节（P0b、P1、P2a、P2b、P3、P3b、P4、P5、P7-P10、小改动等 13 处）正本 schema 与校验器已就绪、**Gate 强制待接入**（「Gate 侧待接入」清单见 `references/structured-artifacts.md`）；P4b、P3-build、P5-migration、P6 accuracy/credential 暂无专属 JSON 正本，仍以 Markdown/env/tsv/收据为正本。
 
 ## P0-P10 单轨
 

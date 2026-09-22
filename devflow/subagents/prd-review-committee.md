@@ -1,11 +1,11 @@
 ---
 name: prd-review-committee
-version: "3.29.1"
+version: "3.29.2"
 description: P0b PRD 评审团 Agent 定义（5角色：业务/后端/前端交互/测试开发/安全合规，DF/AW 深度契约）
 allowed-tools: [read, write, exec, grep, glob, task]
 ---
 
-# PRD 评审团 Agent 定义 v3.29.1
+# PRD 评审团 Agent 定义 v3.29.2
 
 > 本文件定义 P0b PRD 评审的 5 个评审角色及其问题库。
 > **深度规范**：遵循 `concepts/review-depth-methodology.md`——深层发现（DF）五字段缺一无效；DF 按实际发现（五字段缺一无效；零发现须附 ZERO-DF 核查记录，禁止凑数）、AW ≥2；歧义术语必须形成决议；禁止零发现直接 ✅。

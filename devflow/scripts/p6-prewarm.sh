@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# p6-prewarm.sh · P6 环境预热（v3.29.1）
+# p6-prewarm.sh · P6 环境预热（v3.29.2）
 #
 # 用法:
 #   bash scripts/p6-prewarm.sh <feature> --backend-cmd <cmd> [--frontend-cmd <cmd>] [选项]
@@ -21,17 +21,39 @@
 #   --timeout <sec>       就绪等待上限（默认 180；0=只启动不等待）
 #
 # 退出码：0=就绪/已就绪；2=参数错误；3=超时未就绪。
+# v3.29.2 加固：feature 白名单（devflow_feature_validate，封堵路径穿越）；prewarm.env
+#   白名单化加载（仅纯 KEY=VALUE，值含 ;|&<>$/反引号 一律拒绝——防 source 注入）；
+#   --stop 校验 pid 为正整数且进程命令行与启动时记录一致（防陈旧 PID 复用误杀）；
+#   每服务独立就绪超时（修复共用 SECONDS 全局变量挤占）；pid 记录按 label 去重（不再累积）。
 set -uo pipefail
 
+SKILL="$(cd "$(dirname "$0")/.." && pwd -P)"
+# shellcheck source=devflow_feature.sh
+. "$SKILL/scripts/devflow_feature.sh"
+
+usage() { echo "用法: $0 <feature> --backend-cmd <cmd>|--status|--stop [选项]" >&2; }
+
 FEATURE="${1:-}"
-[ -n "$FEATURE" ] || { echo "用法: $0 <feature> --backend-cmd <cmd>|--status|--stop [选项]" >&2; exit 2; }
+[ -n "$FEATURE" ] || { usage; exit 2; }
+devflow_feature_validate "$FEATURE" || exit 2
 shift || true
 
 PREWARM_DIR=".devflow/${FEATURE}/prewarm"
 EV="${PREWARM_DIR}/prewarm.env"
-# 项目侧一次性写好的默认值（KEY=VALUE，值不含引号空格）；路径由 feature 名拼接
-# shellcheck source=/dev/null
-[ -f "$EV" ] && . "$EV"
+# 项目侧一次性写好的默认值；路径由 feature 名拼接。
+# 安全加载：仅接受注释/空行/纯 KEY=VALUE 行，值含 ;|&<>$` 等一律整体拒绝（防 source 注入）
+if [ -f "$EV" ]; then
+  if grep -vE '^[[:space:]]*(#|$|[A-Za-z_][A-Za-z0-9_]*=)' "$EV" | grep -q .; then
+    echo "[prewarm] $EV 含非 KEY=VALUE 行——拒绝加载（只接受注释/空行/KEY=VALUE）" >&2
+    exit 2
+  fi
+  if grep -vE '^[[:space:]]*(#|$)' "$EV" | grep -qE '[;|&<>$`]'; then
+    echo "[prewarm] $EV 值含危险字符（;|&<>\$/反引号）——拒绝加载（防 source 注入）" >&2
+    exit 2
+  fi
+  # shellcheck source=/dev/null
+  . "$EV"
+fi
 
 BACKEND_CMD="${BACKEND_CMD:-}"
 FRONTEND_CMD="${FRONTEND_CMD:-}"
@@ -40,13 +62,18 @@ FRONTEND_URL="${FRONTEND_URL:-http://localhost:5173}"
 TIMEOUT="${TIMEOUT:-180}"
 MODE="warm"
 
+need_value() { # <flag> <下一个参数存在性> —— 缺值即 exit 2（不再依赖 \${2:?} 的 unbound 退出）
+  echo "[prewarm] $1 缺少参数" >&2
+  exit 2
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
-    --backend-cmd)  BACKEND_CMD="${2:?}"; shift 2 ;;
-    --frontend-cmd) FRONTEND_CMD="${2:?}"; shift 2 ;;
-    --health-url)   HEALTH_URL="${2:?}"; shift 2 ;;
-    --frontend-url) FRONTEND_URL="${2:?}"; shift 2 ;;
-    --timeout)      TIMEOUT="${2:?}"; shift 2 ;;
+    --backend-cmd)  [ $# -ge 2 ] || need_value "$1";  BACKEND_CMD="$2";  shift 2 ;;
+    --frontend-cmd) [ $# -ge 2 ] || need_value "$1";  FRONTEND_CMD="$2"; shift 2 ;;
+    --health-url)   [ $# -ge 2 ] || need_value "$1";  HEALTH_URL="$2";   shift 2 ;;
+    --frontend-url) [ $# -ge 2 ] || need_value "$1";  FRONTEND_URL="$2"; shift 2 ;;
+    --timeout)      [ $# -ge 2 ] || need_value "$1";  TIMEOUT="$2";      shift 2 ;;
     --status)       MODE="status"; shift ;;
     --stop)         MODE="stop"; shift ;;
     *) echo "[prewarm] 未知参数: $1" >&2; exit 2 ;;
@@ -59,15 +86,38 @@ probe() { # <url> —— 2xx 即就绪
 
 if [ "$MODE" = "stop" ]; then
   if [ -f "${PREWARM_DIR}/pids.env" ]; then
+    _keep=0
     while IFS='=' read -r _name _pid; do
       case "$_name" in ''|'#'*) continue ;; esac
-      if kill "$_pid" 2>/dev/null; then
-        echo "[prewarm] 已停止 ${_name}（pid=${_pid}）"
-      else
+      case "$_name" in *.cmd) continue ;; esac   # 伴生命令行记录行（label.cmd=…），非 pid 行
+      case "$_pid" in ''|*[!0-9]*|0)
+        echo "[prewarm] ${_name} 记录非法（pid='${_pid}' 非正整数）——跳过且保留记录（须人工核查）" >&2
+        _keep=1
+        continue ;;
+      esac
+      # 身份核验：PID+启动时间（lstart）双匹配——PID 复用必然新 lstart，陈旧记录不误杀
+      _expect_ls=$(grep -m1 "^${_name}.lstart=" "${PREWARM_DIR}/pids.env" | cut -d= -f2-)
+      _cur=$(ps -p "$_pid" -o command= 2>/dev/null || true)
+      _ls_now=$(ps -p "$_pid" -o lstart= 2>/dev/null || true)
+      if [ -z "$_cur" ]; then
         echo "[prewarm] ${_name}（pid=${_pid}）已不在运行"
+      elif [ -n "$_expect_ls" ] && [ -n "$_ls_now" ] && [ "$_ls_now" = "$_expect_ls" ]; then
+        if kill "$_pid" 2>/dev/null; then
+          echo "[prewarm] 已停止 ${_name}（pid=${_pid}，lstart 身份核验通过）"
+        else
+          echo "[prewarm] ${_name}（pid=${_pid}）kill 失败——保留记录" >&2
+          _keep=1
+        fi
+      else
+        echo "[prewarm] ⚠ pid=${_pid} 已非本脚本启动的 ${_name} 实例（lstart 不符或旧格式记录）——不误杀，保留记录待人工核查" >&2
+        _keep=1
       fi
     done < "${PREWARM_DIR}/pids.env"
-    rm -f "${PREWARM_DIR}/pids.env"
+    if [ "$_keep" = "0" ]; then
+      rm -f "${PREWARM_DIR}/pids.env"
+    else
+      echo "[prewarm] 存在未处置条目——pids.env 保留（人工核查后可删除）"
+    fi
   else
     echo "[prewarm] 无已记录的服务（${PREWARM_DIR}/pids.env 不存在）"
   fi
@@ -89,8 +139,18 @@ fi
 
 mkdir -p "$PREWARM_DIR" || { echo "[prewarm] 无法创建 ${PREWARM_DIR}" >&2; exit 2; }
 
-start_and_wait() { # <label> <cmd> <url> <log> —— 返回 0=就绪 3=超时
-  local label="$1" cmd="$2" url="$3" log="$4" pid rc
+record_pid() { # <label> <pid> <cmd> —— 按 label 去重重写（修复追加模式累积陈旧记录）
+  local label="$1" pid="$2" cmd="$3" tmp="${PREWARM_DIR}/pids.env.tmp"
+  local lstart; lstart=$(ps -p "$pid" -o lstart= 2>/dev/null || true)
+  { grep -vE "^${label}(=|\\.cmd=|\\.lstart=)" "${PREWARM_DIR}/pids.env" 2>/dev/null || true
+    printf '%s=%s\n' "$label" "$pid"
+    printf '%s.cmd=%s\n' "$label" "$cmd"
+    printf '%s.lstart=%s\n' "$label" "$lstart"
+  } > "$tmp" && mv "$tmp" "${PREWARM_DIR}/pids.env"
+}
+
+start_and_wait() { # <label> <cmd> <url> <log> —— 返回 0=就绪 3=超时（每服务独立超时窗）
+  local label="$1" cmd="$2" url="$3" log="$4" pid rc t0 deadline
   if probe "$url"; then
     echo "[prewarm] ${label} 已就绪（${url}），跳过启动（保留既有 pid 记录）"
     return 0
@@ -99,15 +159,17 @@ start_and_wait() { # <label> <cmd> <url> <log> —— 返回 0=就绪 3=超时
   echo "[prewarm] 启动 ${label}: ${cmd}"
   nohup sh -c "exec ${cmd}" >> "$log" 2>&1 &
   pid=$!
-  echo "${label}=${pid}" >> "${PREWARM_DIR}/pids.env"
+  record_pid "$label" "$pid" "$cmd"
   if [ "$TIMEOUT" = "0" ]; then
     echo "[prewarm] ${label} 已后台启动（pid=${pid}），--timeout 0 不等待"
     return 0
   fi
   rc=3
-  while [ "$SECONDS" -lt "$TIMEOUT" ]; do
+  t0=$SECONDS
+  deadline=$(( SECONDS + TIMEOUT ))   # 每服务独立窗口（修复共用 SECONDS 挤占）
+  while [ "$SECONDS" -lt "$deadline" ]; do
     if probe "$url"; then
-      echo "[prewarm] ${label} 就绪（pid=${pid}，${SECONDS}s 内）"
+      echo "[prewarm] ${label} 就绪（pid=${pid}，$(( SECONDS - t0 ))s 内）"
       rc=0
       break
     fi

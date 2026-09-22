@@ -1,6 +1,6 @@
 ---
 name: subagent-orchestration
-version: "3.29.1"
+version: "3.29.2"
 description: >-
   全链执行时的子代理编排策略：哪些阶段单线、哪些并行、独立评审子代理的任务书契约，
   以及反模式清单。来源：m01-base（组织与权限底座）P0→P10 单线全链实测（6.7h）复盘。

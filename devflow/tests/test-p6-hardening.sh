@@ -211,6 +211,44 @@ curl -sf -o /dev/null --max-time 2 "$PW_URL" 2>/dev/null \
 [ "$_pw_rc" = "3" ] && ok "prewarm 超时返回 3" || bad "prewarm 超时返回 ${_pw_rc}（应 3）"
 (cd "$W7" && bash "$PW" fx --stop >/dev/null 2>&1) || true
 
+# ── v3.29.2 加固钉 ──
+# T10: --stop 身份核验——非法 pid 跳过保留；存活但非本脚本启动的进程不误杀且保留记录
+W8="$TMP/stop"; mkdir -p "$W8/.devflow/fx/prewarm"
+sleep 30 &
+_victim=$!
+printf 'ghost=999999999\nbadpid=notanum\nfrontend=%s\nfrontend.cmd=/bin/false --never-started-by-us\n' "$_victim" \
+  > "$W8/.devflow/fx/prewarm/pids.env"
+_stop_out=$(cd "$W8" && bash "$PW" fx --stop 2>&1)
+printf '%s' "$_stop_out" | grep -q "非正整数" \
+  && ok "stop 非法 pid（非正整数）跳过" || bad "stop 非法 pid 未正确处置: $_stop_out"
+printf '%s' "$_stop_out" | grep -q "不误杀" \
+  && ok "stop PID 身份不符不误杀" || bad "stop 身份核验缺失（可能误杀复用 PID）: $_stop_out"
+kill -0 "$_victim" 2>/dev/null \
+  && ok "被冒名记录的存活进程未被杀（kill -0 通过）" || bad "存活进程被误杀"
+[ -f "$W8/.devflow/fx/prewarm/pids.env" ] \
+  && ok "存在未处置条目时 pids.env 保留" || bad "未处置条目下 pids.env 被清空"
+kill "$_victim" 2>/dev/null || true
+
+# T11: iterate 识别 ./mvnw 包装器（v3.29.2：此前只匹配裸 mvnw）
+W9="$TMP/iter2"; mkdir -p "$W9/.devflow/fx"
+printf "UNIT_CMD=./mvnw test -pl backend/fx\n" > "$W9/.devflow/fx/test-evidence.env"
+_splice3=$(cd "$W9" && bash "$ITER" fx unit --filter 'Pay*' --dry-run 2>/dev/null)
+printf '%s' "$_splice3" | grep -q -- "-Dtest='Pay\*'" \
+  && ok "iterate ./mvnw 过滤拼接正确" || bad "iterate ./mvnw 未识别: $_splice3"
+
+# T12: feature 白名单（路径穿越拒绝，双脚本）
+(cd "$W6" && bash "$ITER" "../escape" unit >/dev/null 2>&1); _esc1=$?
+(cd "$W7" && bash "$PW" "../escape" --status >/dev/null 2>&1); _esc2=$?
+{ [ "$_esc1" = "2" ] && [ "$_esc2" = "2" ]; } \
+  && ok "feature 白名单拒绝路径穿越（iterate rc=${_esc1}, prewarm rc=${_esc2}）" \
+  || bad "路径穿越未拒绝（iterate=${_esc1}, prewarm=${_esc2}）"
+
+# T13: prewarm.env 注入拒绝（值含危险字符 → exit 2，不 source）
+W10="$TMP/envinj"; mkdir -p "$W10/.devflow/fx/prewarm"
+printf 'BACKEND_CMD=echo hi; rm -rf /\n' > "$W10/.devflow/fx/prewarm/prewarm.env"
+(cd "$W10" && bash "$PW" fx --status >/dev/null 2>&1); _inj=$?
+[ "$_inj" = "2" ] && ok "prewarm.env 危险值拒绝加载（exit 2）" || bad "prewarm.env 注入未拒绝（rc=${_inj}）"
+
 echo "══════════════════════════════"
 echo "P6-HARDENING RESULT PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

@@ -1,10 +1,10 @@
 ---
 name: devflow-routing
-version: "3.29.1"
+version: "3.29.2"
 description: devflow 命令、阶段、Gate 与人工资源注册表。
 ---
 
-# devflow 路由索引（v3.29.1）
+# devflow 路由索引（v3.29.2）
 
 本文件只负责路由。执行规则以 `SKILL.md`、对应 command/phase 和 `concepts/core.md` 为准。
 
