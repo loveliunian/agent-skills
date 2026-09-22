@@ -21,19 +21,20 @@ COPY="$TMP/skill"; mkdir -p "$COPY"
 [ -f "$COPY/scripts/release.sh" ] || { echo "[test] skill 复制失败" >&2; exit 2; }
 (cd "$COPY" && git init -q && git config user.email "t@t" && git config user.name "t" \
   && git add -A && git commit -qm "init fixture")
-# 模拟"当前版本首次发布"：先补 CHANGELOG 条目（版本门禁硬性要求），再副本 bump 到
-# 无 manifest 的新版本（旧 manifest 保留——台账链需 parent；当前 manifest 缺失=合法首发态）
-python3 - "$COPY/references/CHANGELOG.md" <<'PYEOF'
+# 模拟"当前版本首次发布"：动态取"当前版本 patch+1"（硬编码会与真实版本碰撞——
+# bump 空转且 manifest 已存在）；先补 CHANGELOG 条目（版本门禁硬性要求），再副本
+# bump 到无 manifest 的新版本（旧 manifest 保留——台账链需 parent；当前 manifest 缺失=首发态）
+FIX_VER=$(bash "$ROOT/scripts/gate-version.sh" | awk -F. '{printf "%d.%d.%d", $1,$2,$3+1}')
+python3 - "$COPY/references/CHANGELOG.md" "$FIX_VER" <<'PYEOF'
 import sys
-p=sys.argv[1]; s=open(p).read()
-entry="## v3.29.5 (2026-09-22) — fixture release entry\n\nfixture.\n\n"
+p=sys.argv[1]; v=sys.argv[2]; s=open(p).read()
 lines=s.split('\n')
-# 插在 H1 之后（首行空行后的标题行前）
 i=next(i for i,l in enumerate(lines) if l.startswith('## '))
-lines[i:i]=entry.rstrip('\n').split('\n')+['']
+entry=(f"## v{v} (2026-09-22) — fixture release entry","","fixture.","")
+lines[i:i]=list(entry)
 open(p,'w').write('\n'.join(lines))
 PYEOF
-(cd "$COPY" && bash scripts/bump-version.sh 3.29.5 >/dev/null 2>&1 \
+(cd "$COPY" && bash scripts/bump-version.sh "$FIX_VER" >/dev/null 2>&1 \
   && git add -A && git commit -qm "bump fixture")
 RUN_REL() {
   (cd "$COPY" \
