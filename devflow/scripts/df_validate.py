@@ -1582,6 +1582,12 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace="", 
         if not mig.get("not_applicable_reason"):
             errors.append("migrations.applicable=false 但缺少 not_applicable_reason（铁律 5：不适用须冻结设计说明）")
     else:
+        _strat = mig.get("strategy")
+        if _strat not in ("A", "B", "C"):
+            errors.append(
+                "migrations.applicable=true 但缺少冻结 strategy（须 A|B|C：A=仅新建表免迁移收据，"
+                "B/C=数据迁移互斥策略——收据刷新与命令行 --migration 以本字段为唯一事实源）"
+            )
         dl = mig.get("dialects", [])
         if len(set(dl)) != len(dl):
             errors.append(f"migrations.dialects 存在重复: {dl}")

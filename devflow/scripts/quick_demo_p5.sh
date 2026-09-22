@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# P5 测试生成快速演示 v3.29.3
+# P5 测试生成快速演示 v3.29.4
 # 用途：30 秒演示 P5 自动生成测试流程
 
 set -euo pipefail

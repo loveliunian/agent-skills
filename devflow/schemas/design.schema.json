@@ -167,6 +167,10 @@
         "applicable": {
           "type": "boolean"
         },
+        "strategy": {
+          "enum": ["A", "B", "C"],
+          "description": "applicable=true 必填（跨字段校验）：冻结迁移策略——A=仅新建表无老系统数据迁移（免迁移收据）；B/C=有数据迁移的互斥策略（对应 P5-migration 收据）。收据刷新与命令行 --migration 以本字段为唯一事实源"
+        },
         "dialects": {
           "type": "array",
           "description": "适用时四方言齐全（h2/postgresql/oracle/kingbase），偏离须 dialect_exception",

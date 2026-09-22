@@ -3,7 +3,7 @@
   "generated_at": "2026-09-12T10:00:00Z",
   "template": {
     "id": "详细设计-完整版-模板",
-    "version": "3.29.3",
+    "version": "3.29.4",
     "mode": "monolith"
   },
   "acceptance": [
@@ -378,7 +378,8 @@
       "postgresql",
       "oracle",
       "kingbase"
-    ]
+    ],
+    "strategy": "B"
   },
   "test_isolation": {
     "applicable": true,

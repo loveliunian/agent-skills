@@ -271,6 +271,11 @@ else
   bad "成功停止后 pids.env 未清档（lstart 行被误判为非法 pid）"
 fi
 
+# T17（v3.29.4）: CLI --timeout 统一校验（此前命令行覆盖 env 后 abc 未被拒）
+W12="$TMP/clitimeout"; mkdir -p "$W12/.devflow/fx"
+(cd "$W12" && bash "$PW" fx --timeout abc --status >/dev/null 2>&1); _ct=$?
+[ "$_ct" = "2" ] && ok "CLI --timeout abc → exit 2（参数错误）" || bad "CLI --timeout 非整数未拒（rc=${_ct}）"
+
 echo "══════════════════════════════"
 echo "P6-HARDENING RESULT PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

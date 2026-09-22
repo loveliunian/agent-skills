@@ -230,7 +230,7 @@ design = {
         "entries": [{"id": "BL-1", "target": "backend/demo/DemoService.java", "decision": "ADD",
                      "target_module": "demo 模块", "verify": "DemoServiceTest"}]},
     "client": {"scope": "pc-web", "journeys": [{"name": "列表查看", "page": "§7.1", "evidence": "真实浏览器"}]},
-    "migrations": {"applicable": True, "dialects": ["h2", "postgresql", "oracle", "kingbase"]},
+    "migrations": {"applicable": True, "strategy": "B", "dialects": ["h2", "postgresql", "oracle", "kingbase"]},
     "decisions": [
         {"id": "DDR-1", "topic": "字段与命名", "reason": "遵循 §12 规范条目：小写+下划线，varchar 长度按上限量化"},
         {"id": "DDR-2", "topic": "全局状态存储", "reason": "状态数固定 3 个，tinyint 足够", "unreferenced_reason": "全局决策，覆盖多表状态字段"}],
@@ -472,7 +472,7 @@ if name in ("pure-ui", "mini-app-ui", "app-ui"):
     else:
         d["client"] = {"scope": "app", "journeys": [{"name": "列表查看", "page": "§7.2.1", "evidence": "真机"}]}
 else:
-    d["migrations"] = {"applicable": True, "dialects": ["h2", "postgresql", "oracle", "kingbase"]}
+    d["migrations"] = {"applicable": True, "strategy": "B", "dialects": ["h2", "postgresql", "oracle", "kingbase"]}
     d["pages"] = []
     d["client"] = {"scope": "not-applicable", "not_applicable_reason": "MQ 消费者"}
     d["integrations"] = [{"id": "INT-1", "name": "订单事件消费", "direction": "inbound",

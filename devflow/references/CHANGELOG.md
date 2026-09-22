@@ -1,12 +1,39 @@
 ---
 name: changelog
-version: "3.29.3"
+version: "3.29.4"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.29.3
+# Changelog — devflow v1 → v3.29.4
+
+## v3.29.4 (2026-09-22) — Git 快照门禁 + Gate 后门移除 + 迁移冻结源对账 + prewarm CLI 校验
+
+来源：外部审计第三轮——Git HEAD 快照坏（98 项版本门禁失败、manifest 未跟踪）、
+生产 Gate 替换环境变量后门、迁移策略未与冻结事实源对账；prewarm CLI --timeout 未校验；
+图表体系诚实标注（规范已落地、机器闭环未实现）。
+
+1. **release.sh Git 快照门禁（P0）**：发布预检要求 Git 工作树干净——脏树发布曾使 HEAD
+   快照版本不一致（克隆者版本门禁 98 项失败）；发布后检查新 manifest 的 Git 跟踪状态，
+   未跟踪即响亮 WARN 并给出提交命令。非 Git 环境（无仓库）自动跳过。
+2. **Gate 替换后门移除（P0）**：生产脚本不再接受 `DEVFLOW_REFRESH_GATE_DIR` 环境变量
+   （此前真实项目可借此绕过构建/审查/P6-final/部署）。编排逻辑抽为
+   `scripts/refresh_receipts_lib.sh`（refresh_receipts_run，Gate 目录仅由 CLI 固定传入；
+   测试经 `source` 库函数注入桩目录——不再经普通环境变量）。生产入口“后门移除”有测试钉死
+   （只查非注释行，移除说明本身不触发）。
+3. **迁移策略冻结源对账（P0）**：design.json `migrations.strategy`（新增 schema 字段，
+   enum A|B|C，applicable=true 必填——df_validate 交叉校验）成为唯一事实源：
+   A=仅新建表免迁移收据；B/C=数据迁移互斥策略。命令行 `--migration` 只能与冻结值相等
+   （不等/无冻结自报均 FAIL）；CLI 省略时自动取冻结值；迁移证据在但策略未冻结判状态
+   不一致 FAIL。样例/夹具同步（含旧适用项目）。
+4. **p6-prewarm CLI 校验（P1）**：参数解析后统一校验最终 TIMEOUT 为非负整数（CLI 直接
+   覆盖 env 值——此前 env 已校验也不能信；abc 继续执行返回普通未就绪是缺陷）。
+5. **图表体系诚实标注（P2）**：v3.29.3 图表体系（七类结构图/DB 中立/固定流水线）补标
+   “文档规范已落地、机器闭环未实现”（CHANGELOG + gate-contracts）——不得宣称 Gate 强制。
+6. **测试**：test-refresh-receipts 20 钉 → **22 钉**（新增生产后门移除钉、冻结源语义
+   四场景：自动取值/CLI 不等/证据-策略不一致/无冻结自报）；test-p6-hardening +2 钉
+   （CLI timeout、清档复核，29/29）。
 
 ## v3.29.3 (2026-09-22) — 详设图表体系扩展 + refresh-receipts 树漂移自洽/场景互斥/合法 skip
 
@@ -21,6 +48,9 @@ disable-model-invocation: false
 2. **lessons-learned L-详设-图表体系**：收录多出图点残留（删除正则上下文定位失效）、
    渲染步省略假失败、DB 绑定方言三类新教训及对策（一类图一个出图点 + 按节分布核验 +
    双次重渲染 SHA 回归）。
+   > **落地边界（v3.29.4 补标）**：本批图表体系是**文档规范已落地、机器闭环未实现**——
+   > 无 design schema 图表字段、结构图清单 validator、图表章节归位 Gate、DB 产品名扫描、
+   > 双次渲染 SHA 稳定性测试；不得宣称七类图表已被 Gate 强制或冻结，机器执行排下版。
 3. **scripts/refresh-receipts.sh 第二轮修复（审计 P0/P1）**：
    - 前置 state 冻结树检查——漂移即拒绝并指示显式 `devflow-state.sh migrate-tree`；
      加 `--migrate-tree` 才随本脚本执行（显式留痕 FROM/TO 收据，绝不静默覆盖）；

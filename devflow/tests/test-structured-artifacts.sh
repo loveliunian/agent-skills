@@ -460,7 +460,7 @@ cat > d-backend.json <<'EOF'
   "business_operations": [{"id": "BOP-1", "name": "执行每日汇总", "trigger": "每日 02:00 定时触发", "actor": "调度系统", "stateless": true, "steps": ["读取上游输入", "计算并写出结果"], "result": "任务完成并写审计", "failure": "失败按退避重试并告警", "test_scenarios": ["正常汇总", "输入缺失跳过并告警"], "acceptance_refs": ["M-01-F01-A01"], "anchor": "§6.1"}],
   "baseline": {"repo_root": ".", "db_evidence": {"source": "none"}, "entries": [{"id": "BL-1", "target": "backend/job/SummaryJob.java", "decision": "ADD", "target_module": "job 模块（同类模式参照现有 ExportJob）", "verify": "SummaryJobTest"}]},
   "client": {"scope": "not-applicable", "not_applicable_reason": "纯后端"},
-  "migrations": {"applicable": true, "dialects": ["h2", "postgresql", "oracle", "kingbase"]},
+  "migrations": {"applicable": true, "strategy": "B", "dialects": ["h2", "postgresql", "oracle", "kingbase"]},
   "decisions": [{"id": "DDR-1", "topic": "全局命名", "reason": "统一规范", "unreferenced_reason": "无表字段"}],
   "zero_results": [{"path": "pages", "reason": "无前端"}, {"path": "apis", "reason": "纯内部定时任务"}, {"path": "tables", "reason": "复用既有表"}, {"path": "resources", "reason": "无跨请求资源占用"}, {"path": "operations", "reason": "无资源即无补偿链"}, {"path": "integrations", "reason": "无外部调用"}, {"path": "configs", "reason": "无新增配置键"}]
 }

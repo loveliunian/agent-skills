@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# p6-prewarm.sh · P6 环境预热（v3.29.3）
+# p6-prewarm.sh · P6 环境预热（v3.29.4）
 #
 # 用法:
 #   bash scripts/p6-prewarm.sh <feature> --backend-cmd <cmd> [--frontend-cmd <cmd>] [选项]
@@ -87,6 +87,11 @@ while [ $# -gt 0 ]; do
     *) echo "[prewarm] 未知参数: $1" >&2; exit 2 ;;
   esac
 done
+
+# v3.29.4: 最终 TIMEOUT 统一校验——CLI --timeout 直接覆盖 env 值（env 已校验过也不能信）
+case "$TIMEOUT" in ''|*[!0-9]*)
+  echo "[prewarm] --timeout 必须为非负整数，收到: ${TIMEOUT}" >&2; exit 2 ;;
+esac
 
 probe() { # <url> —— 2xx 即就绪
   curl -sf -o /dev/null --max-time 3 "$1" 2>/dev/null

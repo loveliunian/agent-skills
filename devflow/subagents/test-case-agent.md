@@ -1,7 +1,7 @@
 ---
 name: test-case-agent
 subagent_type: generalPurpose
-version: "3.29.3"
+version: "3.29.4"
 description: >-
   Use when generating test cases from a detailed design, mentions
   "测试用例", "test cases", "test case generation", or "用例".

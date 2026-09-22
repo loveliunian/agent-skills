@@ -235,7 +235,7 @@ cat > "$TMP/.devflow/foo/design.json" <<EOF
     {"id": "R2", "anchor": "§5", "summary": "name 非空且 <=128 字符", "unreferenced_reason": "写入路径边界校验，查询主流程不直接引用"}
   ],
   "client": {"scope": "not-applicable", "not_applicable_reason": "fixture 纯服务端，无前端"},
-  "migrations": {"applicable": true, "dialects": ["h2", "postgresql", "oracle", "kingbase"]},
+  "migrations": {"applicable": true, "strategy": "B", "dialects": ["h2", "postgresql", "oracle", "kingbase"]},
   "test_isolation": {"applicable": true, "strategy": "类内 @Order + 每类自清理登录态（fixture）"},
   "business_operations": [{"id": "BOP-1", "name": "分页查询 foo", "trigger": "用户请求列表", "actor": "foo:view 持有者", "stateless": true, "steps": ["校验 page>=1（R1）", "查询并返回分页结果"], "result": "返回分页数据", "failure": "参数越界返回 400", "test_scenarios": ["正常查询", "page<1 拒绝"], "acceptance_refs": ["M-01-F01-A01"], "anchor": "§6"}],
   "baseline": {"repo_root": ".", "db_evidence": {"source": "migration_ddl"}, "entries": [{"id": "BL-1", "target": "backend/x/src/main/java/foo/FooController.java", "decision": "MODIFY", "existing_contract": "FooController#list 现有分页查询，响应结构不变", "related_acceptance": ["M-01-F01-A01"], "verify": "FooControllerTest"}]},

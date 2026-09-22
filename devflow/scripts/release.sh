@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# release.sh · 唯一发布入口（版本随 SKILL.md 单一事实源动态读取，本文件不写死版本号；当前 v3.29.3）
+# release.sh · 唯一发布入口（版本随 SKILL.md 单一事实源动态读取，本文件不写死版本号；当前 v3.29.4）
 # 前置：版本升级先跑 `scripts/bump-version.sh <new-version>`（本入口只发布当前版本）。
 # 通用化发布链（Runtime Profile + 发布授权 + Secret scan；详见 CHANGELOG）。
 # 原子事务化（自 v3.20.8）——旧流程第 5 步落不可变 manifest、第 6 步才查副本，
@@ -47,7 +47,20 @@ else
   echo "  [FAIL] shellcheck 不可用——ShellCheck 门禁不可跳过"; FAIL=1
 fi
 
-step "6/8 树 hash 一致性（state 冻结对照——硬门禁）"
+step "6/8 树 hash 一致性（Git 快照 + state 冻结对照——硬门禁）"
+# v3.29.4: Git 快照门禁——发布时工作树必须干净。审计实证：脏树发布后 HEAD 快照
+# 版本不一致（部分文件新版本号），克隆者跑版本门禁即 98 项失败；此前 release 不查 Git。
+if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  DIRTY=$(git -C "$ROOT" status --porcelain 2>/dev/null | head -5)
+  if [ -n "$DIRTY" ]; then
+    echo "  [FAIL] Git 工作树有未提交变更——发布前必须先提交（HEAD 快照须版本一致）:"
+    printf '    %s\n' "$DIRTY"
+    echo "  提示: git add -A && git commit（确保克隆 HEAD 不触发版本门禁失败）"
+    FAIL=1
+  else
+    echo "  [OK] Git 工作树干净（HEAD 快照一致）"
+  fi
+fi
 # v3.15.1: ① skill 发布树内不得包含任何项目 state 文件（测试垃圾入库即 FAIL）；
 # ② 显式提供的外部 state（DEVFLOW_RELEASE_STATES，冒号或换行分隔）冻结树必须等于当前发布树。
 # v3.20.3: 移入只读预检段（原第 7 步在 manifest 落盘后，失败同样制造半发布态）。
@@ -197,6 +210,14 @@ else
     echo "  [OK] 树 hash 与 stage 一致（发布过程无漂移）"
   else
     echo "  [FAIL] 发布过程树漂移：stage=$STAGED_TREE final=$FINAL_TREE"; FAIL=1; B_ROLLBACK_NEEDED=1
+  fi
+  # v3.29.4: 发布后 manifest Git 跟踪检查（manifest 刚生成，未提交即未跟踪——响亮 WARN：
+  # 若不提交，HEAD 快照就缺本次发布记录，克隆者门禁失败）
+  if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+     && ! git -C "$ROOT" ls-files --error-unmatch "references/manifest/${RELEASE_VERSION}.json" >/dev/null 2>&1; then
+    echo "  [WARN] 新 manifest 未被 Git 跟踪——发布完成后立即提交，否则 HEAD 快照缺发布记录:"
+    echo "         git -C $ROOT add references/manifest/${RELEASE_VERSION}.json references/manifest/CHAIN.json"
+    echo "         git -C $ROOT commit -m 'v${RELEASE_VERSION}: release manifest+ledger'"
   fi
 fi
 
