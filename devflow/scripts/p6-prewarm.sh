@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# p6-prewarm.sh · P6 环境预热（v3.29.2）
+# p6-prewarm.sh · P6 环境预热（v3.29.3）
 #
 # 用法:
 #   bash scripts/p6-prewarm.sh <feature> --backend-cmd <cmd> [--frontend-cmd <cmd>] [选项]
@@ -41,16 +41,24 @@ shift || true
 PREWARM_DIR=".devflow/${FEATURE}/prewarm"
 EV="${PREWARM_DIR}/prewarm.env"
 # 项目侧一次性写好的默认值；路径由 feature 名拼接。
-# 安全加载：仅接受注释/空行/纯 KEY=VALUE 行，值含 ;|&<>$` 等一律整体拒绝（防 source 注入）
+# 安全加载：仅接受注释/空行行 + 五个白名单键（BACKEND_CMD/FRONTEND_CMD/HEALTH_URL/
+# FRONTEND_URL/TIMEOUT）的纯 KEY=VALUE 行——其他变量名（PATH/IFS 等可劫持后续
+# curl/ps/nohup/mv 行为的键）与含 ;|&<>$` 的值一律整体拒绝（防 source 注入）
 if [ -f "$EV" ]; then
-  if grep -vE '^[[:space:]]*(#|$|[A-Za-z_][A-Za-z0-9_]*=)' "$EV" | grep -q .; then
-    echo "[prewarm] $EV 含非 KEY=VALUE 行——拒绝加载（只接受注释/空行/KEY=VALUE）" >&2
+  if grep -vE '^[[:space:]]*(#|$)' "$EV" | grep -qvE '^(BACKEND_CMD|FRONTEND_CMD|HEALTH_URL|FRONTEND_URL|TIMEOUT)='; then
+    echo "[prewarm] $EV 含白名单外变量名（只允许 BACKEND_CMD/FRONTEND_CMD/HEALTH_URL/FRONTEND_URL/TIMEOUT）——拒绝加载" >&2
     exit 2
   fi
   if grep -vE '^[[:space:]]*(#|$)' "$EV" | grep -qE '[;|&<>$`]'; then
     echo "[prewarm] $EV 值含危险字符（;|&<>\$/反引号）——拒绝加载（防 source 注入）" >&2
     exit 2
   fi
+  TIMEOUT_VAL=$(sed -n 's/^TIMEOUT=//p' "$EV" | head -1)
+  case "$TIMEOUT_VAL" in '')
+  ;; *[!0-9]*)
+    echo "[prewarm] $EV TIMEOUT 必须为非负整数——拒绝加载" >&2
+    exit 2 ;;
+  esac
   # shellcheck source=/dev/null
   . "$EV"
 fi
@@ -89,7 +97,7 @@ if [ "$MODE" = "stop" ]; then
     _keep=0
     while IFS='=' read -r _name _pid; do
       case "$_name" in ''|'#'*) continue ;; esac
-      case "$_name" in *.cmd) continue ;; esac   # 伴生命令行记录行（label.cmd=…），非 pid 行
+      case "$_name" in *.cmd|*.lstart) continue ;; esac   # 伴生记录行（label.cmd=/label.lstart=），非 pid 行
       case "$_pid" in ''|*[!0-9]*|0)
         echo "[prewarm] ${_name} 记录非法（pid='${_pid}' 非正整数）——跳过且保留记录（须人工核查）" >&2
         _keep=1

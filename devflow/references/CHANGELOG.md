@@ -6,11 +6,12 @@ paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.29.2
+# Changelog — devflow v1 → v3.29.3
 
-## v3.29.3 (2026-09-22) — 详设图表体系扩展：结构图七类清单 + DB 中立表述 + 渲染步铁律
+## v3.29.3 (2026-09-22) — 详设图表体系扩展 + refresh-receipts 树漂移自洽/场景互斥/合法 skip
 
-来源：m01-base 详设可读性增强轮（去 H2 统一 DB、新增 7 张结构图、修复出图点残留与渲染步假失败）。
+来源：m01-base 详设可读性增强轮（去 H2 统一 DB、新增 7 张结构图、修复出图点残留与渲染步假失败）；
+外部审计第二轮（refresh-receipts 树漂移不自洽、B/C 双跑覆盖收据、--skip-p2a 假成功、prewarm 两处细节）。
 
 1. **gate-contracts §s2 图表冻结清单模式**：时序图冻结升级为全图表体系——结构图七类清单
    （状态机/机制模型/决策链/对象生命周期/页面导航/ER/总清单声明）及各自归位原则；
@@ -20,6 +21,31 @@ disable-model-invocation: false
 2. **lessons-learned L-详设-图表体系**：收录多出图点残留（删除正则上下文定位失效）、
    渲染步省略假失败、DB 绑定方言三类新教训及对策（一类图一个出图点 + 按节分布核验 +
    双次重渲染 SHA 回归）。
+3. **scripts/refresh-receipts.sh 第二轮修复（审计 P0/P1）**：
+   - 前置 state 冻结树检查——漂移即拒绝并指示显式 `devflow-state.sh migrate-tree`；
+     加 `--migrate-tree` 才随本脚本执行（显式留痕 FROM/TO 收据，绝不静默覆盖）；
+   - 末尾终验 state `current_phase` 必须达 `COMPLETED`——修复 reconcile --apply
+     停驻仍返回 0 被误判"全部通过"的缺陷（停驻时 FAIL 并回显停驻阶段与日志）；
+   - P5-migration 场景互斥：`--migration <A|B|C>` 显式指定（A=免收据显式 SKIP；
+     有证据未指定 → FAIL 拒绝猜测），修复 B/C 双跑覆盖同一 `P5-migration/receipt.txt`
+     （B 项目最终留下场景 C 收据）；改用三参契约 `<feature> <A|B|C> <evidence>`；
+   - `--skip-p2a` 合法化：必须存在 skip-log.txt 四字段授权行（对齐 P2b skip 契约），
+     写当前版本+当前树的 SKIPPED 收据，否则拒绝（不再假成功、不再留下过期收据）；
+   - 通用性：`--service`（默认=feature，多服务/异名项目）、`--design-mode
+     monolith|total|sub`（透传 s2 模板契约）、py_runtime.sh 跨平台 Python
+     （此前硬编码 python3）；
+   - 测试钩子 `DEVFLOW_REFRESH_GATE_DIR`（仅测试桩用）。
+4. **tests/test-refresh-receipts.sh 8 钉 → 20 钉**：新增编排级验证（测试桩 Gate +
+   **真实状态机** devflow-state.sh）：全链正向 init→22 Gate→reconcile→COMPLETED
+   （含 P0→P5→P10 执行序断言）、树漂移拒绝/显式迁移双路径、迁移场景互斥、
+   合法 skip 终态、reconcile 停驻 rc=0 假成功行为钉。
+5. **p6-prewarm.sh 第二轮加固**：`--stop` 解析跳过 `*.lstart` 伴生行（此前被当作
+   非法 pid 记 `KEEP`，成功停止后 pids.env 永不清档）；prewarm.env 变量名白名单
+   （仅 BACKEND_CMD/FRONTEND_CMD/HEALTH_URL/FRONTEND_URL/TIMEOUT 五键——封堵
+   PATH/IFS 劫持后续 curl/ps/nohup）+ TIMEOUT 非负整数校验；
+   test-p6-hardening +3 钉（28/28）。
+6. **SKILL.md**：停止条件的收据刷新指引更新（--migrate-tree/--migration/COMPLETED
+   终验口径）。
 
 ## v3.29.2 (2026-09-22) — refresh-receipts 对齐声明重写 + P6 双助手安全加固 + 测试调度器去批次屏障
 

@@ -79,7 +79,7 @@ allowed-tools: read write exec glob grep task
 
 关键环节的 md 产物配 JSON 正本：按 schema 契约填 `.devflow/<feature>/<kind>.json`，经 `df_pipeline.py <kind>` 校验，空集合须 `zero_results` 声明。kind↔阶段映射见上表。
 
-**当前已 Gate 强制闭环（5）**：P0 acceptance、P2 design、P3c security、P3d performance、P6 verification。其余环节（P0b、P1、P2a、P2b、P3、P3b、P4、P5、P7-P10、小改动等 13 处）正本 schema 与校验器已就绪、**Gate 强制待接入**（「Gate 侧待接入」清单见 `references/structured-artifacts.md`）；P4b、P3-build、P5-migration、P6 accuracy/credential 暂无专属 JSON 正本，仍以 Markdown/env/tsv/收据为正本。
+**当前已 Gate 强制闭环（5）**：P0 acceptance、P2 design、P3c security、P3d performance、P6 verification；其余环节正本 schema 与校验器已就绪、**Gate 强制待接入**（清单见 `references/structured-artifacts.md`）；P4b、P3-build、P5-migration、P6 accuracy/credential 暂无专属 JSON 正本。
 
 ## P0-P10 单轨
 
@@ -102,6 +102,6 @@ P11 只用于独立事故复盘，不计入正常交付链。
 - 输入、冻结哈希或证据漂移：回到最早受影响阶段。
 - Gate 非零或独立审计不可用：报告 `BLOCKED`，不得继续或自签。
 - 用户明确授权的合法跳过必须写入 `.devflow/<feature>/skip-log.txt`；P3、P4b、P6、P7-P10 不可跳过。
-- Skill 升版或树漂移致收据 VERSION 失配：用 `scripts/refresh-receipts.sh <feature>` 按 P0→P10 依赖序一键刷新收据并 reconcile 回填（支持 `--skip-p2a`），替代手工级联重跑。
+- Skill 升版或树漂移：`scripts/refresh-receipts.sh <feature>` 一键刷新收据并 reconcile 回填——漂移须 `--migrate-tree` 显式迁移；迁移场景 `--migration <A|B|C>` 互斥；`--skip-p2a` 须 skip-log 授权行；终验以 state COMPLETED 为准。
 
 发布技能自身前必须运行唯一发布入口 `bash scripts/release.sh`（含完整测试、版本一致性、Release Audit、ShellCheck、Manifest、副本对账、树 hash 七道门禁，任一失败即禁止发布）。

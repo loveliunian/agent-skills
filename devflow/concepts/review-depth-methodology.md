@@ -1,6 +1,6 @@
 ---
 name: review-depth-methodology
-version: "3.29.2"
+version: "3.29.3"
 description: 评审深度方法论（P0b PRD 评审与 P2a 详设评审共用）。定义深层发现契约、六类深挖探针、对抗场景走查、分层配额与浅层信号黑名单。
 ---
 

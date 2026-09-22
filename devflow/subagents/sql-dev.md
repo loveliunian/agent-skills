@@ -1,7 +1,7 @@
 ---
 name: sql-dev
 subagent_type: shell
-version: "3.29.2"
+version: "3.29.3"
 responsibility: "实现一个垂直切片的迁移脚本与菜单/权限 seed。"
 allowed-tools: [read, write, exec, grep, glob]
 ---

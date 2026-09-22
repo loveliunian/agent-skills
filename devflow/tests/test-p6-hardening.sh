@@ -249,6 +249,28 @@ printf 'BACKEND_CMD=echo hi; rm -rf /\n' > "$W10/.devflow/fx/prewarm/prewarm.env
 (cd "$W10" && bash "$PW" fx --status >/dev/null 2>&1); _inj=$?
 [ "$_inj" = "2" ] && ok "prewarm.env 危险值拒绝加载（exit 2）" || bad "prewarm.env 注入未拒绝（rc=${_inj}）"
 
+# T14（v3.29.3）: prewarm.env 白名单外变量名拒绝（PATH/IFS 等可劫持后续工具链为）
+W11="$TMP/envname"; mkdir -p "$W11/.devflow/fx/prewarm"
+printf 'PATH=/usr/evil\nBACKEND_CMD=sleep 1\n' > "$W11/.devflow/fx/prewarm/prewarm.env"
+(cd "$W11" && bash "$PW" fx --status >/dev/null 2>&1); _nm=$?
+[ "$_nm" = "2" ] && ok "prewarm.env 白名单外变量名拒绝（PATH 劫持被阻）" || bad "prewarm.env 变量名未校验（rc=${_nm}）"
+
+# T15（v3.29.3）: TIMEOUT 非负整数校验
+printf 'TIMEOUT=abc\n' > "$W11/.devflow/fx/prewarm/prewarm.env"
+(cd "$W11" && bash "$PW" fx --status >/dev/null 2>&1); _to=$?
+[ "$_to" = "2" ] && ok "prewarm.env TIMEOUT 非整数拒绝" || bad "TIMEOUT 未校验（rc=${_to}）"
+
+# T16（v3.29.3）: 全部条目成功停止后 pids.env 清档（lstart 行不再被误判为非法 pid）
+PW_PORT2=$( "${DEVFLOW_PY[@]}" -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()' )
+PW_URL2="http://127.0.0.1:${PW_PORT2}"
+(cd "$W7" && bash "$PW" fx --backend-cmd "${DEVFLOW_PY_STR} -m http.server ${PW_PORT2} --bind 127.0.0.1" --health-url "$PW_URL2" --timeout 20 >/dev/null 2>&1)
+(cd "$W7" && bash "$PW" fx --stop >/dev/null 2>&1)
+if [ ! -f "$W7/.devflow/fx/prewarm/pids.env" ]; then
+  ok "全部条目处置完毕后 pids.env 清档（lstart 行不误判）"
+else
+  bad "成功停止后 pids.env 未清档（lstart 行被误判为非法 pid）"
+fi
+
 echo "══════════════════════════════"
 echo "P6-HARDENING RESULT PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1
