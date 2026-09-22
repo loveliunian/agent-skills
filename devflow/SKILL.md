@@ -9,7 +9,7 @@ license: MIT
 compatibility: Requires repo workspace and command execution; build/test/migration commands from frozen runtime profile.
 metadata:
   author: xingyunliushui
-  version: "3.29.0"
+  version: "3.29.1"
   updated: "2026-09-22"
   tags: "prd,design,development,migration,phase-gate,recovery,test-generators"
 allowed-tools: read write exec glob grep task
@@ -102,5 +102,6 @@ P11 只用于独立事故复盘，不计入正常交付链。
 - 输入、冻结哈希或证据漂移：回到最早受影响阶段。
 - Gate 非零或独立审计不可用：报告 `BLOCKED`，不得继续或自签。
 - 用户明确授权的合法跳过必须写入 `.devflow/<feature>/skip-log.txt`；P3、P4b、P6、P7-P10 不可跳过。
+- Skill 升版或树漂移致收据 VERSION 失配：用 `scripts/refresh-receipts.sh <feature>` 按 P0→P10 依赖序一键刷新收据并 reconcile 回填（支持 `--skip-p2a`），替代手工级联重跑。
 
 发布技能自身前必须运行唯一发布入口 `bash scripts/release.sh`（含完整测试、版本一致性、Release Audit、ShellCheck、Manifest、副本对账、树 hash 七道门禁，任一失败即禁止发布）。

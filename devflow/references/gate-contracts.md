@@ -96,6 +96,19 @@ design.json 的 api path 若含 `{id}`：渲染进详设 api-index 后触发 s2 
 - DDR ↔ 字段双向闭环；configs 消费点文件真实存在且文件内检索到配置键。
 - 页组小节数 ≥ 页面清单数；dialogs 交互名必须出现在 §7.1 清单且接口列含全部 §3.2.x 锚点。
 
+
+### s2 时序图冻结清单模式（v3.29.1，m01-base 沉淀——先确认画哪些，再固化生成）
+- **归属与数量在 P2 前确认并冻结**：时序图按**业务操作（BOP）**为单位，一操作一张，置于该 BOP
+  在 §6 的专属小节内（禁止集中堆放 §6.0 或散落 §5）；规则级 WHEN 不再单独配图，其时序语义
+  由所属 BOP 图承载。门禁仅校验 `SEQ_COUNT >= WHEN_COUNT`（数量配对），内容确定性由
+  生成器保证：图由 tools/gen_<feature>.py 从 design 正本（BOP steps/actor/result）确定性
+  渲染，重渲染逐字节稳定，**禁止会话内手写增删**。
+- **填充图反模式**：为凑 `SEQ>=WHEN` 给每条规则套同一模板的"配对图"信息增量为零
+  （Goodhart）——正确做法是把 WHEN 语义合并进所属 BOP 图，或在 §5 规则行标注
+  "时序见 BOP-x 图"。
+- **Gate 升级建议**：数量配对之外，可校验参与者集合 ⊆ 该 BOP 声明涉及组件，使图内容与
+  接口契约挂钩。
+
 ### P2a 设计评审（p2a_design_review_gate.sh）
 - 双阶段收据：begin（报告不存在时）→ 渲染报告 → complete；环境变量
   `REVIEW_ATTESTATION_PUBKEY` 必须指向 review-keys/attest.pub.pem。

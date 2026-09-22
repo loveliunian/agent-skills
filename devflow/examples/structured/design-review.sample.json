@@ -3,7 +3,7 @@
   "generated_at": "2026-09-16T10:25:00Z",
   "template": {
     "id": "详细设计评审报告-模板",
-    "version": "3.29.0"
+    "version": "3.29.1"
   },
   "feature_name": "演示支付",
   "design_doc": "docs/详细设计/demo-pay-详细设计.md",

@@ -6,9 +6,9 @@ paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.29.0
+# Changelog — devflow v1 → v3.29.1
 
-## v3.29.1 (2026-09-22) — m01-base 全链实测：一键收据刷新 + 隐性契约速查
+## v3.29.1 (2026-09-22) — m01-base 全链实测：一键收据刷新 + P6 提速双工具 + 隐性契约速查
 
 来源：m01-base（34 功能项/122 验收点/16 阶段闭环，有效用时 7h）实测沉淀。
 
@@ -22,6 +22,16 @@ disable-model-invocation: false
    dict 形状等）——写产物前逐条核对，首过率从 ~40% 提升至 ~90%（实测 7h→预估 5h）。
 3. **P2a 出口提示**：`REVIEW_SESSION_ID` 等三键须为行首扁平键；报告文件名防 df_resolve
    字典序劫持（归档文件勿前置）。
+4. **scripts/p6-prewarm.sh（补记档）**：P6 环境预热——P5 测试设计期间后台启动后端容器与
+   前端 dev server 并轮询健康，P6 开始即热（复盘速度优化 #3，教训 L-PROC-005：
+   E2E/CLIENT 冷启动超时重试，实测 J1/J2 两次超时）。幂等（已健康即跳过）；`--status`
+   只读探测、`--stop` 停止；日志与 PID 落 `.devflow/<feature>/prewarm/`（非终验证据，
+   不进收据树）。实际已随 v3.29.0 发布树入库但当时未记档，此处补记。
+5. **scripts/p6-iterate.sh（补记档）**：P6 修复循环增量重跑——从终验同一事实源
+   `.devflow/<feature>/test-evidence.env` 读取指定套件命令只重跑该套件，支持
+   `--filter` 按测试类/用例过滤与 `--dry-run` 预检；输出写 `iterations/` 与终验证据
+   严格分离（复盘速度优化 #2：改一行→全量五类重跑是实测最大时间坑）。实际已随
+   v3.29.0 发布树入库但当时未记档，此处补记。
 
 ## v3.29.0 (2026-09-22) — 前端交互控件测试锚点（test_anchor / data-testid）+ 版本治理修正
 

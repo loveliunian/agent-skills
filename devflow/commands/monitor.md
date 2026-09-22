@@ -1,6 +1,6 @@
 ---
 name: monitor
-version: "3.29.0"
+version: "3.29.1"
 description: >-
   Use when configuring application monitoring after P6 testing, mentions
   "/monitor", "监控", "监控配置", "prometheus", "metrics", "actuator", or "observability setup".
