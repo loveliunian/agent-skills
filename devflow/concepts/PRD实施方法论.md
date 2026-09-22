@@ -1,6 +1,6 @@
 ---
 name: PRD实施方法论
-version: "3.29.5"
+version: "3.29.6"
 description: >-
   PRD → 详设 → 代码实施 闭环路径方法论。
   Use when following the PRD-to-code implementation methodology.

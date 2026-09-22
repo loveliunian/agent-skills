@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# gate-contract.sh — 输出指定阶段的 Gate 契约卡（v3.29.5，FB-20260919-001）
+# gate-contract.sh — 输出指定阶段的 Gate 契约卡（v3.29.6，FB-20260919-001）
 # 用法：gate-contract.sh <P0|P0b|P1|P2|P2a|P2b|P3|P3b|P3cd|P4|P4b|P5|P6|P7|P8|P9|P10|all>
 # 目的：让 Agent 在产出物写作【前】读到门禁契约，消除「渲染→跑gate→失败→反查脚本」试错循环。
 set -euo pipefail

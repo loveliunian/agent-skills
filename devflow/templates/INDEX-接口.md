@@ -1,6 +1,6 @@
 ---
 name: INDEX-接口
-version: "3.29.5"
+version: "3.29.6"
 description: 接口索引模板（详设接口设计节 + Controller 注解 + 与 auto 生成版并存）
 ---
 

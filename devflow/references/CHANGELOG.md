@@ -1,12 +1,25 @@
 ---
 name: changelog
-version: "3.29.5"
+version: "3.29.6"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.29.5
+# Changelog — devflow v1 → v3.29.6
+
+## v3.29.6 (2026-09-22) — Git 门禁 fixture 动态版本修正（正式发布版）
+
+来源：v3.29.5 首发后发现测试 fixture 硬编码 3.29.5 与真实版本碰撞（副本 bump 空转、
+manifest 已存在），改为动态“当前版本 patch+1”。该修复改变了树，按 Git 门禁纪律
+（已发布 manifest 与树漂移须升版）正式版定为 3.29.6。
+
+1. **test-release-git-gate fixture 动态化**：副本 bump 目标改为 `gate-version` patch+1
+   （未来版本均有效）；CHANGELOG 条目同步动态插入。3/3 全绿。
+2. v3.29.5 的功能内容（Git 门禁负向回归、READY_TO_COMMIT/RELEASED 语义、门禁前置、
+   冻结 A stale-evidence 冲突）全部保留——见 v3.29.5 条目。
+3. 流程实证：首发 → READY_TO_COMMIT（exit 3）；树随后变更 → 旧 manifest 漂移被门禁
+   正确捕获 → 升版重走；两阶段发布纪律在真实仓库首次完整落地。
 
 ## v3.29.5 (2026-09-22) — Git 门禁负向回归 + READY_TO_COMMIT/RELEASED 语义 + 冻结 A 遗留证据冲突
 
