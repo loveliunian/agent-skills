@@ -1,10 +1,10 @@
 ---
 name: devflow-readme
-version: "3.30.10"
+version: "3.30.11"
 description: devflow 的非权威导航页。
 ---
 
-# devflow v3.30.10
+# devflow v3.30.11
 
 `SKILL.md` 是唯一权威入口；本文件只用于人工导航，不重复流程、Gate 或执行规则。
 

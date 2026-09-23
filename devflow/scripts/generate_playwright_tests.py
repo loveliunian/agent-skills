@@ -166,7 +166,7 @@ class PlaywrightTestGenerator:
         if not self.design_anchors:
             return ""
         entries = ",\n".join(
-            f"    // {a['page']} · {a['kind']} · {a['label']}\n"
+            f"    // {ts_doc(a['page'])} · {a['kind']} · {ts_doc(a['label'])}\n"
             f"    '{a['anchor']}': '{a['anchor']}'"
             for a in self.design_anchors
         )

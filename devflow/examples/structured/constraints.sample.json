@@ -3,7 +3,7 @@
   "generated_at": "2026-09-16T10:10:00Z",
   "template": {
     "id": "技术约束-模板",
-    "version": "3.30.10"
+    "version": "3.30.11"
   },
   "feature_name": "演示支付",
   "prd_doc": "docs/PRD/demo-pay.md",

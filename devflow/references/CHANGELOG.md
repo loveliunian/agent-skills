@@ -1,12 +1,19 @@
 ---
 name: changelog
-version: "3.30.10"
+version: "3.30.11"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.30.10
+# Changelog — devflow v1 → v3.30.11
+
+## v3.30.11 (2026-09-24) — 子代理第 6 轮：锚点块 label 裸插收口（收敛）
+
+来源：第 6 轮终验——v3.30.10 的 label 修复未覆盖 `_anchor_members_block` L169 行注释
+（page/label 无 pattern 且裸插，PoC：`\n` 换行逃逸 // 注释 → execSync 活代码落入
+Page Object）。过 ts_doc 后 PoC 零残留。第 6 轮其余全部插入点核对通过
+（schema pattern 锁定/已转义/缺席锁定三分法逐一验证）。
 
 ## v3.30.10 (2026-09-24) — 子代理第 5 轮：生成器转义终版（feature/table_name/label 收口）
 
