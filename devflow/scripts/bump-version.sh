@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bump-version.sh · 版本升级唯一入口（v3.30.8 审查报告 P0-1 配套）
+# bump-version.sh · 版本升级唯一入口（v3.30.9 审查报告 P0-1 配套）
 # 用法: bash scripts/bump-version.sh <new-version>
 # 覆盖: SKILL.md + commands/phases/subagents/references/concepts/templates 前matter+标题
 #       + scripts banner + structured samples template.version + agents/devflow.md

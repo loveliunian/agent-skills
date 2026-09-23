@@ -1,12 +1,28 @@
 ---
 name: changelog
-version: "3.30.8"
+version: "3.30.9"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.30.8
+# Changelog — devflow v1 → v3.30.9
+
+## v3.30.9 (2026-09-24) — 子代理第 4 轮（收敛轮）：生成器转义补全覆盖
+
+来源：第 4 轮收敛判定——除生成器转义覆盖不全（F1/F2）外全部 PASS（含 audit hash_file
+同口径、repin 授权模型自洽、摘钉 FAIL 无存量误伤、P0 反伪基线、maintenance/hooks
+快扫）。本版补齐转义到全部自由文本插入点。
+
+1. **generate_junit_tests.py 补 7 处**：not-found endpoint（第 4 处 endpoint 裸插）、
+   fail() 描述、Javadoc 来源/业务规则行（`*/` 闭注释注入——java_doc 引入 `⁄`
+   替换）、方法名 `_to_camel_case`→`safe_ident`、jsonPath 字段名、
+   _build_sample_json 字段名。
+2. **generate_playwright_tests.py 补 4 处**：Page Object 头注释（`*/` 注入——
+   ts_doc）、describe 标题与 API 路径的 feature 裸插、锚点块注释。
+3. PoC 复验：design.json 定点注入（`*/ Runtime.exec`、`"); evil()`）→ 生成输出
+   零残留（全部转义为字面量内容）。
+4. 第 4 轮验证清单全 PASS（详见审计记录）；判定**修完本版即收敛**。
 
 ## v3.30.8 (2026-09-24) — 子代理第 3 轮审计：钉定对账修复 + repin 授权 + 生成器注入收口（5 项）
 

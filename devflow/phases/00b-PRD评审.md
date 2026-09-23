@@ -1,6 +1,6 @@
 ---
 name: prd-review
-version: "3.30.8"
+version: "3.30.9"
 description: "Use when reviewing PRD documents to ensure requirements are complete, feasible, and aligned with business goals."
 number-scheme: legacy-P-retained
 devflow-phase: P0b

@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 
+def java_doc(v: str) -> str:
+    """Javadoc 块注释安全化（v3.30.9：*/ 闭注释注入收口）"""
+    return java_str(v).replace("*/", "*\u2044")
+
+
+
 def java_str(v: str) -> str:
     """Java 字符串字面量转义（v3.30.8）"""
     return str(v).replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "")
@@ -152,7 +158,7 @@ import static org.hamcrest.Matchers.*;
  * {controller_name} 单元测试
  * 
  * 生成时间: {datetime.now().isoformat()}
- * 来源: design.json - {description}
+ * 来源: design.json - {java_doc(description)}
  */
 @WebMvcTest({controller_name}.class)
 class {test_class_name} {{
@@ -185,13 +191,13 @@ class {test_class_name} {{
         assertions = []
         for field in response_fields[:3]:  # 只断言前3个字段
             field_name = field.get('name', 'unknown')
-            assertions.append(f'            .andExpect(jsonPath("$.{field_name}").exists())')
+            assertions.append(f'            .andExpect(jsonPath("$.{safe_ident(field_name)}").exists())')
         
         method_lower = method.lower()
         
         return f"""    @Test
     @WithMockUser(authorities = {{"ROLE_ADMIN"}})
-    void test{self._to_camel_case(description)}_Success() throws Exception {{
+    void test{safe_ident(description)}_Success() throws Exception {{
         // Given: 准备测试数据
         // TODO: Mock service 返回值
         
@@ -247,7 +253,7 @@ class {test_class_name} {{
         // TODO: Mock service 抛出 NotFoundException
         
         // When & Then: 期望返回 404 Not Found
-        mockMvc.perform({method.lower()}("{test_endpoint}")
+        mockMvc.perform({method.lower()}("{java_str(test_endpoint)}")
                 .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isNotFound());
     }}
@@ -278,7 +284,7 @@ import static org.mockito.Mockito.*;
  * {service_name} 单元测试
  * 
  * 生成时间: {datetime.now().isoformat()}
- * 业务规则: {rule_id} - {description}
+ * 业务规则: {java_doc(rule_id)} - {java_doc(description)}
  */
 @ExtendWith(MockitoExtension.class)
 class {test_class_name} {{
@@ -303,7 +309,7 @@ class {test_class_name} {{
         // When: 执行业务方法
         
         // Then: 验证结果
-        fail("测试用例待实现: {description}");
+        fail("测试用例待实现: {java_str(description)}");
     }}
     
     @Test
@@ -441,7 +447,7 @@ class {test_class_name} {{
             else:
                 value = f'\\\"{name}_value\\\"'
             
-            pairs.append(f'\\\"{name}\\\":{value}')
+            pairs.append(f'\\\"{java_str(name)}\\\":{value}')
         
         return "{" + ",".join(pairs) + "}"
     

@@ -3,7 +3,7 @@
   "generated_at": "2026-09-12T10:00:00Z",
   "template": {
     "id": "详细设计-完整版-模板",
-    "version": "3.30.8",
+    "version": "3.30.9",
     "mode": "monolith"
   },
   "acceptance": [

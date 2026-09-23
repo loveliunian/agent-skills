@@ -1,7 +1,7 @@
 ---
 name: arch-review
 description: 代码架构审查命令
-version: "3.30.8"
+version: "3.30.9"
 allowed-tools: [read, write, exec, glob, grep, task]
 alwaysApply: true
 ---

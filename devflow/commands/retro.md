@@ -1,6 +1,6 @@
 ---
 name: retro
-version: "3.30.8"
+version: "3.30.9"
 description: >-
   Use when conducting a retrospective or lessons-learned session after a feature ships, mentions
   "/retro", "复盘", "回顾", "retrospective", "知识沉淀", "lessons learned", or "post-mortem".

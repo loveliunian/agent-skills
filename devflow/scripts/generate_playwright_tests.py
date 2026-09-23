@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+
+def ts_doc(v: str) -> str:
+    """TS 块注释安全化（v3.30.9：*/ 闭注释注入收口）"""
+    return ts_str(v).replace("*/", "*\u2044")
+
+
 def ts_str(v: str) -> str:
     """TS 双引号字符串字面量转义（v3.30.8：PRD 自由文本→生成代码的注入面收口）"""
     return str(v).replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"').replace("\n", "\\n").replace("\r", "").replace("`", "\\`")
@@ -99,15 +105,15 @@ class PlaywrightTestGenerator:
             
             # 简单推断：从描述中提取页面名称
             if '列表' in description or 'list' in description.lower():
-                pages['ListPage'].append(f"// {point_id}: {description}")
+                pages['ListPage'].append(f"// {ts_doc(point_id)}: {ts_doc(description)}")
             elif '新增' in description or '创建' in description or 'create' in description.lower():
-                pages['CreatePage'].append(f"// {point_id}: {description}")
+                pages['CreatePage'].append(f"// {ts_doc(point_id)}: {ts_doc(description)}")
             elif '编辑' in description or '修改' in description or 'edit' in description.lower():
-                pages['EditPage'].append(f"// {point_id}: {description}")
+                pages['EditPage'].append(f"// {ts_doc(point_id)}: {ts_doc(description)}")
             elif '详情' in description or 'detail' in description.lower():
-                pages['DetailPage'].append(f"// {point_id}: {description}")
+                pages['DetailPage'].append(f"// {ts_doc(point_id)}: {ts_doc(description)}")
             else:
-                pages['CommonPage'].append(f"// {point_id}: {description}")
+                pages['CommonPage'].append(f"// {ts_doc(point_id)}: {ts_doc(description)}")
         
         return pages
     
@@ -374,7 +380,7 @@ import {{ {feature_pascal}EditPage }} from './pages/{feature_pascal}EditPage';
  * 验收点数量: {len(points)}
  */
 
-test.describe('{self.feature} - {feature_num}', () => {{
+test.describe('{safe_feature(self.feature)} - {feature_num}', () => {{
   test.beforeEach(async ({{ page }}) => {{
     // 登录并设置测试环境
     // TODO: 实现登录逻辑
@@ -408,7 +414,7 @@ test.describe('{self.feature} - {feature_num}', () => {{
     }};
     
     // When: 调用 API
-    const response = await request.post('/api/{self.feature}', {{
+    const response = await request.post('/api/{safe_feature(self.feature)}', {{
       data: testData
     }});
     

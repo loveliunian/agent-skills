@@ -1,7 +1,7 @@
 ---
 name: tech-selection-agent
 subagent_type: generalPurpose
-version: "3.30.8"
+version: "3.30.9"
 responsibility: "/spec 前置技术选型阶段。生成 ≥3 维决策矩阵(功能/成本/风险),输出到 docs/详细设计/<feature>-技术选型.md。"
 description: >-
   Use when analyzing technology options for a new feature, mentions
