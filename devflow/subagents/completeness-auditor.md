@@ -1,7 +1,7 @@
 ---
 name: completeness-auditor
 subagent_type: generalPurpose
-version: "3.30.3"
+version: "3.30.4"
 description: >-
   Use when checking Phase completion gates before transitioning, mentions
   "/audit-completeness", "gate check", "完成度", or "P3 自检".

@@ -492,6 +492,7 @@ W17="$TMP/r17"; export WORKSPACE="$W17"
 bash "$ROOT/scripts/devflow-state.sh" init r17 --frontend=not-applicable >/dev/null 2>&1
 # v3.15.2: 基线收据不再能 complete P0——夹具写真实 Gate 收据
 printf "EXIT_CODE=0\nVERSION=p0@%s\nPHASE=P0\nSKILL_TREE=%s\n" "$SKILL_VER" "$TREE" > "$W17/.devflow/r17/gates/P0/receipt.txt"
+gj_bind_lines r17 "$W17" P0 >> "$W17/.devflow/r17/gates/P0/receipt.txt"
 bash "$ROOT/scripts/devflow-state.sh" complete r17 P0 >/dev/null 2>&1
 mkdir -p "$W17/docs/r17/gates/P0"
 cp "$W17/.devflow/r17/gates/P0/receipt.txt" "$W17/docs/r17/gates/P0/receipt.txt"

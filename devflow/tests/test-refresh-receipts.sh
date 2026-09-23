@@ -71,13 +71,35 @@ make_stub_gates() { # <dir>
 hash_fn() { if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | awk "{print \$1}"; else sha256sum "$1" | awk "{print \$1}"; fi; }
 EVID=".devflow/fx/evidence-stub.txt"
 ESH=$(hash_fn "$PWD/$EVID" 2>/dev/null)
+binds_for() { # <ph> → 该收据目录对应的必备 TAG 集（v3.30.4 映射）
+  case "$1" in
+    P0) printf "ACCEPTANCE\\n" ;;
+    P0b) printf "PRD_REVIEW\\n" ;;
+    P1) printf "TECH_SELECTION\\nCLARIFICATION\\nCONSTRAINTS\\n" ;;
+    P2a) printf "DESIGN_REVIEW\\n" ;;
+    P2b) printf "DEMO_SIGNOFF\\n" ;;
+    P3) printf "SELF_CHECK\\n" ;;
+    P3b) printf "CODE_REVIEW\\n" ;;
+    P4) printf "PRD_VALIDATION\\n" ;;
+    P5) printf "TEST_CASES\\n" ;;
+    P7) printf "DEPLOYMENT\\n" ;;
+    P8) printf "MONITORING\\n" ;;
+    P9) printf "DOCS_INDEX\\n" ;;
+    P10) printf "RETROSPECTIVE\\nSHARING\\n" ;;
+  esac
+}
 emit() { # <path-phase> <version> [extra-lines] [phase-line 覆盖]
   local ph="$1" ver="$2" extra="${3:-}"
   local pl="${4:-$ph}"
   local d=".devflow/fx/gates/$ph"
+  local _bt
   mkdir -p "$d" "docs/fx/gates/$ph"
   { printf "EXIT_CODE=0\nVERSION=%s\nPHASE=%s\nSKILL_TREE=%s\n" "$ver" "$pl" "$TREE"
     [ -n "$extra" ] && printf "%b\n" "$extra"
+    while IFS= read -r _bt; do
+      [ -n "$_bt" ] || continue
+      printf "%s_JSON=%s/.devflow/fx/evidence-stub.txt\n%s_JSON_SHA256=%s\n" "$_bt" "$PWD" "$_bt" "$ESH"
+    done < <(binds_for "$ph")
     printf "PASS=1 FAIL=0 WARN=0\nCHECKED_AT=2026-09-22T00:00:00Z\n"
   } > "$d/receipt.txt"
   cp "$d/receipt.txt" "docs/fx/gates/$ph/receipt.txt"

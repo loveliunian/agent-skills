@@ -177,6 +177,47 @@ _verify_json_pairs() { # <receipt>
   return 0
 }
 
+# v3.30.4: 阶段必备 JSON 绑定行检测（剥离即 FAIL——镜像 v3.16.8 对 EVIDENCE 行的
+# 同类收口）：v3.30.0 起 13 处 Gate + P0 的收据必然携带 *_JSON=path 绑定行（gj 库
+# fail-closed 产出）；阈值以上缺行 = 被剥离（剥两行即可让正本篡改对 audit 隐形——
+# 实证 PoC：P5 终态收据剥 TEST_CASES_JSON* + 篡改 json → audit rc=0 放行）。
+# 豁免：EXIT_CODE≠0（失败轮）、SKIPPED=1（合法跳过）、版本 < 3.30.0（legacy WARN 语义）。
+verify_stage_json_binding() { # <receipt> <stage>
+  local receipt="$1" stage="$2" ver vernum _rc _skip _tag
+  [ -f "$receipt" ] || return 0
+  _rc=$(grep '^EXIT_CODE=' "$receipt" | head -1 | cut -d= -f2)
+  [ "${_rc:-1}" = "0" ] || return 0
+  grep -q '^SKIPPED=1' "$receipt" && return 0
+  ver=$(sed -n 's/^VERSION=//p' "$receipt" | head -1)
+  vernum="${ver##*@}"
+  printf '%s' "$vernum" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+' || return 0
+  [ "$(printf '%s\n3.30.0\n' "$vernum" | awk 'NR==1{a=$0} NR==2{b=$0} END{n=split(a,av,"."); m=split(b,bv,"."); k=(n>m?n:m); for(i=1;i<=k;i++){x=av[i]+0; y=bv[i]+0; if(x>y){print 1;exit} else if(x<y){print 0;exit}} print 1}')" = "1" ] || return 0
+  case "$stage" in
+    P0)          set -- ACCEPTANCE_JSON ;;
+    P0b)         set -- PRD_REVIEW_JSON ;;
+    P1)          set -- TECH_SELECTION_JSON CLARIFICATION_JSON CONSTRAINTS_JSON ;;
+    P2a)         set -- DESIGN_REVIEW_JSON ;;
+    P2b)         set -- DEMO_SIGNOFF_JSON ;;
+    P3)          set -- SELF_CHECK_JSON ;;
+    P3b)         set -- CODE_REVIEW_JSON ;;
+    P4)          set -- PRD_VALIDATION_JSON ;;
+    P5)          set -- TEST_CASES_JSON ;;
+    P7)          set -- DEPLOYMENT_JSON ;;
+    P8)          set -- MONITORING_JSON ;;
+    P9)          set -- DOCS_INDEX_JSON ;;
+    P10)         set -- RETROSPECTIVE_JSON SHARING_JSON ;;
+    SMALL-CHANGE) set -- SMALL_CHANGE_JSON ;;
+    *)           return 0 ;;
+  esac
+  for _tag do
+    if ! grep -q "^${_tag}=" "$receipt"; then
+      echo "[EVIDENCE] ${stage} 终态收据缺 ${_tag} 绑定行（版本 $vernum ≥ 3.30.0 必然产出——缺行即被剥离，正本篡改将脱离审计）: $receipt"
+      return 1
+    fi
+  done
+  return 0
+}
+
 verify_receipt_evidence() {
   local receipt_file="$1"
   local paths_json tree_stored tree_calc f resolved ev_path ev_sha actual _ws_base

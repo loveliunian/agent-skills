@@ -17,16 +17,18 @@ mkrc() { # mkrc <feature> <phase> [evidence-file]
     fi
     paths=$(jq -cn --arg p "$ev" '[$p]')
     tree=$(cd "$d" && receipt_evidence_tree "$ev")
-    printf "EXIT_CODE=0\nVERSION=p4-validation@%s\nPHASE=P4\nSKILL_TREE=%s\nEVIDENCE_PATHS_JSON=%s\nEVIDENCE_TREE_SHA256=%s\nPASS=1 FAIL=0 WARN=0\n" \
-      "$SKILL_VER" "$TREE" "$paths" "$tree" > "$d/.devflow/$f/gates/$ph/receipt.txt"
+    _binds4=$(gj_bind_lines "$f" "$d" "P4")
+    printf "EXIT_CODE=0\nVERSION=p4-validation@%s\nPHASE=P4\nSKILL_TREE=%s\nEVIDENCE_PATHS_JSON=%s\nEVIDENCE_TREE_SHA256=%s\n%b\nPASS=1 FAIL=0 WARN=0\n" \
+      "$SKILL_VER" "$TREE" "$paths" "$tree" "$_binds4" > "$d/.devflow/$f/gates/$ph/receipt.txt"
     cp "$d/.devflow/$f/gates/$ph/receipt.txt" "$d/docs/$f/gates/$ph/receipt.txt"
     return
   fi
+  _binds=$(gj_bind_lines "$f" "$d" "$ph")
   if [ -n "$ev" ]; then
-    printf "EXIT_CODE=0\nVERSION=g@${SKILL_VER}\nPHASE=%s\nSKILL_TREE=%s\nEVIDENCE_PATH=%s\nEVIDENCE_SHA256=%s\nPASS=1 FAIL=0 WARN=0\n" \
-      "$ph" "$TREE" "$ev" "$(hash_file_test "$d/$ev" 2>/dev/null || true)" > "$d/.devflow/$f/gates/$ph/receipt.txt"
+    printf "EXIT_CODE=0\nVERSION=g@${SKILL_VER}\nPHASE=%s\nSKILL_TREE=%s\nEVIDENCE_PATH=%s\nEVIDENCE_SHA256=%s\n%b\nPASS=1 FAIL=0 WARN=0\n" \
+      "$ph" "$TREE" "$ev" "$(hash_file_test "$d/$ev" 2>/dev/null || true)" "$_binds" > "$d/.devflow/$f/gates/$ph/receipt.txt"
   else
-    printf "EXIT_CODE=0\nVERSION=g@${SKILL_VER}\nPHASE=%s\nSKILL_TREE=%s\nPASS=1 FAIL=0 WARN=0\n" "$ph" "$TREE" > "$d/.devflow/$f/gates/$ph/receipt.txt"
+    printf "EXIT_CODE=0\nVERSION=g@${SKILL_VER}\nPHASE=%s\nSKILL_TREE=%s\n%b\nPASS=1 FAIL=0 WARN=0\n" "$ph" "$TREE" "$_binds" > "$d/.devflow/$f/gates/$ph/receipt.txt"
   fi
   cp "$d/.devflow/$f/gates/$ph/receipt.txt" "$d/docs/$f/gates/$ph/receipt.txt"
 }
@@ -249,6 +251,7 @@ jq '.current_phase = "P4" | .phases.P0.status="completed" | .phases.P0b.status="
 (cd "$W82A" && for _ph in P0 P0b P1 P2 P2a P2b P3 P3b P3cd; do mkrc p4a "$_ph"; done)
 mkdir -p "$W82A/.devflow/p4a/gates/P4" "$W82A/docs/p4a/gates/P4"
 printf 'EXIT_CODE=0\nVERSION=g@%s\nPHASE=P4\nSKILL_TREE=%s\nEVIDENCE_PATH=%s/../outside-stable-A.txt\nEVIDENCE_SHA256=%s\nPASS=1 FAIL=0 WARN=0\n' "$SKILL_VER" "$TREE" "$W82A" "$_OSA" > "$W82A/.devflow/p4a/gates/P4/receipt.txt"
+gj_bind_lines p4a "$W82A" P4 >> "$W82A/.devflow/p4a/gates/P4/receipt.txt"
 cp "$W82A/.devflow/p4a/gates/P4/receipt.txt" "$W82A/docs/p4a/gates/P4/receipt.txt"
 _RUNA=$(cd "$W82A" && WORKSPACE="$W82A" bash "$ROOT/scripts/devflow-state.sh" complete p4a P4 2>&1)
 if printf '%s' "$_RUNA" | grep -q '新证据树字段缺失'; then
@@ -265,6 +268,7 @@ jq '.current_phase = "P4" | .phases.P0.status="completed" | .phases.P0b.status="
 (cd "$W82B" && for _ph in P0 P0b P1 P2 P2a P2b P3 P3b P3cd; do mkrc p4b "$_ph"; done)
 mkdir -p "$W82B/.devflow/p4b/gates/P4" "$W82B/docs/p4b/gates/P4"
 printf 'EXIT_CODE=0\nVERSION=g@%s\nPHASE=P4\nSKILL_TREE=%s\nEVIDENCE_PATH=../outside-stable-B.txt\nEVIDENCE_SHA256=%s\nPASS=1 FAIL=0 WARN=0\n' "$SKILL_VER" "$TREE" "$_OSB" > "$W82B/.devflow/p4b/gates/P4/receipt.txt"
+gj_bind_lines p4b "$W82B" P4 >> "$W82B/.devflow/p4b/gates/P4/receipt.txt"
 cp "$W82B/.devflow/p4b/gates/P4/receipt.txt" "$W82B/docs/p4b/gates/P4/receipt.txt"
 _RUNB=$(cd "$W82B" && WORKSPACE="$W82B" bash "$ROOT/scripts/devflow-state.sh" complete p4b P4 2>&1)
 if printf '%s' "$_RUNB" | grep -q '新证据树字段缺失'; then
@@ -347,6 +351,7 @@ jq '.current_phase = "P4" | .phases.P0.status="completed" | .phases.P0b.status="
 (cd "$W85" && for _ph in P0 P1 P2 P2a P2b P3; do mkrc p4c "$_ph"; done; mkrc p4c P0b evidence-p4c.txt; mkrc p4c P3b evidence-p4c.txt; mkrc p4c P3cd evidence-p4c.txt)
 mkdir -p "$W85/.devflow/p4c/gates/P4" "$W85/docs/p4c/gates/P4"
 printf 'EXIT_CODE=0\nVERSION=g@%s\nPHASE=P4\nSKILL_TREE=%s\nEVIDENCE_PATH=evidence-p4c.txt\nEVIDENCE_SHA256=%s\nREPORT_PATH=/etc/hosts\nREPORT_SHA256=%s\nPASS=1 FAIL=0 WARN=0\n' "$SKILL_VER" "$TREE" "$_RPC_SHA" "$_HOSTS2" > "$W85/.devflow/p4c/gates/P4/receipt.txt"
+gj_bind_lines p4c "$W85" P4 >> "$W85/.devflow/p4c/gates/P4/receipt.txt"
 cp "$W85/.devflow/p4c/gates/P4/receipt.txt" "$W85/docs/p4c/gates/P4/receipt.txt"
 _RPCR=$(cd "$W85" && WORKSPACE="$W85" bash "$ROOT/scripts/devflow-state.sh" complete p4c P4 2>&1)
 if printf '%s' "$_RPCR" | grep -q '新证据树字段缺失'; then

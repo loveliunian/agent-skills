@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# devflow_profile.sh · Runtime Profile 解析与能力门禁（v3.30.3）
+# devflow_profile.sh · Runtime Profile 解析与能力门禁（v3.30.4）
 # =============================================================================
 # PROFILE_ID 冻结于 state.scope.profile_id（devflow-state.sh init --profile=<id>，
 # 须存在 references/profiles/<id>.md）。未冻结的历史项目按参考实现

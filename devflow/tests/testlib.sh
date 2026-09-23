@@ -71,3 +71,38 @@ gj_copy_sample() {
       || sed -i "s/\"feature\": *\"[^\"]*\"/\"feature\": \"$feature\"/" "$dst"
   fi
 }
+
+# gj_bind_lines <feature> <ws> <stage> — v3.30.4：为手造收据补阶段必备 *_JSON 绑定行
+# （真实 gate 经 gate_json_lib 必然产出；夹具模拟现实须同步）。创建稳定绑定文件并
+# 输出 TAG_JSON/TAG_JSON_SHA256 行对（供追加进收据体）。
+gj_bind_lines() {
+  local f="$1" ws="$2" stage="$3" bf sha tag out=""
+  bf="$ws/.devflow/$f/json-bind/$stage.json"
+  mkdir -p "$(dirname "$bf")"
+  [ -f "$bf" ] || printf '{"stage":"%s"}\n' "$stage" > "$bf"
+  sha=$(hash_file_test "$bf" 2>/dev/null || shasum -a 256 "$bf" | awk '{print $1}')
+  for tag in $(gj_stage_tags "$stage"); do
+    out="${out}${tag}_JSON=${bf}
+${tag}_JSON_SHA256=${sha}
+"
+  done
+  printf '%s' "$out"
+}
+gj_stage_tags() {
+  case "$1" in
+    P0) echo "ACCEPTANCE" ;;
+    P0b) echo "PRD_REVIEW" ;;
+    P1) echo "TECH_SELECTION CLARIFICATION CONSTRAINTS" ;;
+    P2a) echo "DESIGN_REVIEW" ;;
+    P2b) echo "DEMO_SIGNOFF" ;;
+    P3) echo "SELF_CHECK" ;;
+    P3b) echo "CODE_REVIEW" ;;
+    P4) echo "PRD_VALIDATION" ;;
+    P5) echo "TEST_CASES" ;;
+    P7) echo "DEPLOYMENT" ;;
+    P8) echo "MONITORING" ;;
+    P9) echo "DOCS_INDEX" ;;
+    P10) echo "RETROSPECTIVE SHARING" ;;
+    SMALL-CHANGE) echo "SMALL_CHANGE" ;;
+  esac
+}

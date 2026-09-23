@@ -1,12 +1,33 @@
 ---
 name: changelog
-version: "3.30.3"
+version: "3.30.4"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.30.3
+# Changelog — devflow v1 → v3.30.4
+
+## v3.30.4 (2026-09-23) — 绑定行剥离阈值检测（JSON 正本篡改隐形漏洞收口）
+
+来源：对抗性复查 PoC 实证——终态收据剥掉两行 `*_JSON` 绑定 + 篡改正本 →
+audit-receipts 全绿放行（绑定行无"阈值以上缺行=被剥离"检测；v3.16.8 对 EVIDENCE
+行收过同类洞，`*_JSON` 行未收）。
+
+1. **`verify_stage_json_binding`（devflow_receipt.sh）**：阶段→必备 TAG 映射
+   （P0/P0b/P1×3/P2a/P2b/P3/P3b/P4/P5/P7-P10×2/SMALL-CHANGE），版本 ≥ 3.30.0 的
+   终态收据缺对应 `TAG_JSON=` 行即拒。豁免：EXIT_CODE≠0（失败轮）、SKIPPED=1
+   （合法跳过）、legacy 版本（渐进迁移）。
+2. **双路接线**：complete/reconcile（verify_stage_evidence_contract 顶部——推进
+   路径同口径拒绝剥离收据）+ audit-receipts（终态收据 "stage JSON binding
+   stripped" FAIL）。
+3. **端到端钉（report-regressions +1）**：剥两行+篡改 → audit FAIL 且含
+   binding stripped 消息；恢复守卫显式化（恢复 gate 失败不再静默）。
+4. **夹具全线适配**（模拟现实——真实 gate 必然产出绑定行）：testlib 新增
+   `gj_bind_lines`/`gj_stage_tags` 助手；rounds/evidence-hardening 双 mkrc、
+   state/v3140/refresh 桩 emit、P4 旧契约变体、P10 终态夹具（含 state-init 基线
+   覆盖修正）逐一补绑定。途中修掉自引入的三处夹具 bug（$() 剥尾换行致 SHA 与
+   PASS 行粘连、单引号 common 内嵌套引号被吃、静默 cp||true 掩盖恢复失败）。
 
 ## v3.30.3 (2026-09-23) — 图表闭环测试升级为真实 gate 级端到端
 

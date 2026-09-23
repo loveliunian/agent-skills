@@ -340,6 +340,11 @@ while IFS= read -r receipt_file; do
   [ -n "$_rc_exit" ] || _rc_exit=0
   verify_receipt_evidence "$receipt_file"
   _ev_rc=$?
+  # v3.30.4: 阶段必备 *_JSON 绑定行检测（剥离即 FAIL——终态收据，镜像 v3.16.8 EVIDENCE 行收口）
+  if [ "$_ev_rc" -eq 0 ] && ! verify_stage_json_binding "$receipt_file" "$stage_name"; then
+    fail "stage JSON binding stripped: ${stage_name}（终态收据缺必备 *_JSON 绑定行——正本篡改将脱离审计）"
+    continue
+  fi
   if [ "$_ev_rc" -eq 0 ]; then
     pass "evidence binding verified: $stage_name"
   elif [ "$_ev_rc" -eq 1 ] && [ "${_rc_exit:-1}" = "0" ]; then

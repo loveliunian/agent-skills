@@ -16,6 +16,7 @@ if command -v jq >/dev/null 2>&1 && \
    WORKSPACE="$TMP/basic" bash "$ROOT/scripts/devflow-state.sh" init state-fixture >/dev/null && \
    # v3.15.2: 基线收据不再构成 P0 证据——夹具写真实 s0 格式 Gate 收据（覆盖 init 基线）
    printf "EXIT_CODE=0\nVERSION=p0@%s\nPHASE=P0\nSKILL_TREE=%s\n" "$SKILL_VER" "$TREE" > "$TMP/basic/.devflow/state-fixture/gates/P0/receipt.txt" && \
+   gj_bind_lines state-fixture "$TMP/basic" P0 >> "$TMP/basic/.devflow/state-fixture/gates/P0/receipt.txt" && \
    WORKSPACE="$TMP/basic" bash "$ROOT/scripts/devflow-state.sh" checkpoint state-fixture "P0 passed" >/dev/null && \
    WORKSPACE="$TMP/basic" bash "$ROOT/scripts/devflow-state.sh" complete state-fixture P0 >/dev/null && \
    jq -e '.current_phase == "P0b" and .phases.P0.status == "completed" and .checkpoints[0].note == "P0 passed"' "$TMP/basic/.devflow/state-fixture.state.json" >/dev/null; then

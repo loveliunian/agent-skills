@@ -7,7 +7,8 @@ set -u
 
 echo "=== devflow report-regression tests ==="
 TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+RRG_KEEP="${RRG_KEEP:-0}"
+if [ "$RRG_KEEP" = "1" ]; then echo "[keep] TMP=$TMP"; else trap 'rm -rf "$TMP"' EXIT; fi
 mkdir -p "$TMP/docs/test-cases" "$TMP/docs/test" "$TMP/frontend/node_modules" "$TMP/docs/requirements"
 cat > "$TMP/docs/requirements/foo-acceptance-criteria.md" <<'EOF'
 | M-01-F01-A01 | 待验证 |
@@ -64,6 +65,23 @@ else
   bad "Gate JSON 绑定重验未拦截删除（${_DEL}）"
 fi
 cp "$_TCASES.keep" "$_TCASES" && rm -f "$_TCASES.keep"
+# v3.30.4: 剥离攻击端到端——剥两行绑定 + 篡改正本 → audit-receipts 必须拦截
+# （此前的洞：绑定行无阈值检测，剥离后正本篡改对 audit 隐形——实证 PoC 后收口）
+cp "$_TCASES" "$_TCASES.keep2"
+sed -i '' '/^TEST_CASES_JSON=/d;/^TEST_CASES_JSON_SHA256=/d' "$TMP/.devflow/foo/gates/P5/receipt.txt"
+cp "$TMP/.devflow/foo/gates/P5/receipt.txt" "$TMP/docs/foo/gates/P5/receipt.txt"
+printf '\n//stripped-and-tampered\n' >> "$_TCASES"
+if (cd "$TMP" && bash "$ROOT/scripts/audit-receipts.sh" foo .devflow docs >/dev/null 2>&1); then
+  bad "剥离绑定行+篡改正本未被 audit 拦截（v3.30.4 阈值检测失效）"
+else
+  _STRIP=$(cd "$TMP" && bash "$ROOT/scripts/audit-receipts.sh" foo .devflow docs 2>&1 | grep -c "binding stripped" || true)
+  [ "${_STRIP:-0}" -ge 1 ] && ok "剥离攻击被拦截（stage JSON binding stripped → FAIL）" || bad "拦截消息缺失（非预期路径拒绝）"
+fi
+cp "$_TCASES.keep2" "$_TCASES" && rm -f "$_TCASES.keep2"
+# 恢复收据本体：重跑 p5 gate 产出带新绑定行的合法收据（后续镜像一致性 audit 依赖）
+(cd "$TMP" && STATE_DIR="$TMP/.devflow" bash "$ROOT/scripts/p5_test_cases_gate.sh" foo docs/test-cases/foo-test-cases.md >/dev/null 2>&1) \
+  || bad "剥离钉恢复步骤失败（p5 gate 未重写收据）"
+cp "$TMP/.devflow/foo/gates/P5/receipt.txt" "$TMP/docs/foo/gates/P5/receipt.txt"
 
 if (cd "$TMP" && STATE_DIR="$TMP/.devflow" bash "$ROOT/scripts/s5_migration_gate.sh" foo B docs/test/migration.env >/dev/null) && \
    [ -f "$TMP/.devflow/foo/gates/P5-migration/receipt.txt" ] && \
@@ -85,9 +103,11 @@ else
   bad "credential scan excludes generated dependency directories"
 fi
 
-if (cd "$TMP" && bash "$ROOT/scripts/audit-receipts.sh" foo "$TMP/.devflow" "$TMP/docs" >/dev/null); then
+_MA=$(cd "$TMP" && bash "$ROOT/scripts/audit-receipts.sh" foo "$TMP/.devflow" "$TMP/docs" 2>&1 || true)
+if [ -z "$(printf '%s' "$_MA" | grep -E "^\[FAIL\]")" ]; then
   ok "receipt audit accepts matching internal and document mirrors"
 else
+  printf '%s\n' "$_MA" | grep -E "^\[FAIL\]|stripped|缺" | head -3
   bad "receipt audit accepts matching internal and document mirrors"
 fi
 

@@ -40,6 +40,8 @@ error()  { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 # old 契约走 verify_evidence_receipt（保留 REPORT_PATH 校验）。
 verify_stage_evidence_contract() {
   local receipt="$1" stage="$2"
+  # v3.30.4: 阶段必备 *_JSON 绑定行（剥离即拒——与 audit-receipts 同口径，阈值 3.30.0）
+  verify_stage_json_binding "$receipt" "$stage" || return 1
   local contract kind threshold ver vernum ge
   contract=$(receipt_stage_contract "$stage")
   [ "$contract" != "none" ] || return 0

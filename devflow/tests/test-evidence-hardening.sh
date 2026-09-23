@@ -18,12 +18,13 @@ mkrc() { # mkrc <feature> <phase> [evidence-file]
   else
     printf "EXIT_CODE=0\nVERSION=g@${SKILL_VER}\nPHASE=%s\nSKILL_TREE=%s\nPASS=1 FAIL=0 WARN=0\n" "$ph" "$TREE" > "$d/.devflow/$f/gates/$ph/receipt.txt"
   fi
+  gj_bind_lines "$f" "$d" "$ph" >> "$d/.devflow/$f/gates/$ph/receipt.txt"
   cp "$d/.devflow/$f/gates/$ph/receipt.txt" "$d/docs/$f/gates/$ph/receipt.txt"
 }
 
 echo "=== devflow hardening tests (v${SKILL_VER}) ==="
 TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+if [ "${EH_KEEP:-0}" = 1 ]; then echo "[keep] TMP=$TMP"; else trap 'rm -rf "$TMP"' EXIT; fi
 # v3.28.9: 状态机合成收据无 git 检查点——显式关闭（新门禁在 git-checkpoint/complete 单独验证）
 export DEVFLOW_GIT_CHECKPOINT=off
 hash_file_test() { if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | awk '{print $1}'; else sha256sum "$1" | awk '{print $1}'; fi; }
@@ -35,6 +36,7 @@ WORKSPACE="$TMP/state" bash "$ROOT/scripts/devflow-state.sh" init phase-fixture 
 for phase in P2 P2a P2b P6; do
   mkdir -p "$TMP/state/.devflow/phase-fixture/gates/$phase"
   printf "EXIT_CODE=0\nVERSION=g@${SKILL_VER}\nPHASE=%s\nSKILL_TREE=%s\nARTIFACT_HASH=no-artifacts\n" "$phase" "$TREE" > "$TMP/state/.devflow/phase-fixture/gates/$phase/receipt.txt"
+  gj_bind_lines phase-fixture "$TMP/state" "$phase" >> "$TMP/state/.devflow/phase-fixture/gates/$phase/receipt.txt"
 done
 jq '.current_phase = "P2" | .phases.P0.status = "completed" | .phases.P0b.status = "completed" | .phases.P1.status = "completed" | .phases.P2.status = "in_progress"' "$TMP/state/.devflow/phase-fixture.state.json" > "$TMP/state/state.tmp" && \
   mv "$TMP/state/state.tmp" "$TMP/state/.devflow/phase-fixture.state.json"
@@ -156,6 +158,9 @@ jq '.current_phase = "P10" | .phases.P0.status="completed" | .phases.P0b.status=
   cd "$TMP" || exit 1
   # v3.16.8（N29-P2-1/2）: 契约阶段（P0b/P3b/P3cd/P4b/P5）带 ev（映射硬口径——
   # P4 若已被真实 gate 产出则 continue 跳过，其收据自带绑定）
+  # v3.30.4: P0 基线（state-init@）须被真实格式收据覆盖（否则 complete P10 的
+  # 前缀复查按缺 ACCEPTANCE_JSON 拒——基线收据本就不构成 Gate 证据）
+  rm -f .devflow/foo/gates/P0/receipt.txt
   for _ph in P0 P1 P2 P2a P2b P3 P6; do
     [ -f ".devflow/foo/gates/$_ph/receipt.txt" ] && continue
     mkrc foo "$_ph"
@@ -178,10 +183,11 @@ jq '.current_phase = "P10" | .phases.P0.status="completed" | .phases.P0b.status=
   printf "EXIT_CODE=0\nVERSION=p6-final@${SKILL_VER}\nPHASE=P6-final\nSKILL_TREE=%s\nEVIDENCE_PATHS_JSON=%s\nEVIDENCE_TREE_SHA256=%s\nPRODUCER_ROLE=final-verifier\nSESSION_ID=s1\nENVIRONMENT=staging\nPASS=8 FAIL=0 WARN=0\n" "$TREE" "$_FJ" "$_FT" > .devflow/foo/gates/P6-final/receipt.txt
   cp .devflow/foo/gates/P6-final/receipt.txt docs/foo/gates/P6-final/receipt.txt
 )
-if WORKSPACE="$TMP" bash "$ROOT/scripts/devflow-state.sh" complete foo P10 >/dev/null && \
-   [ "$(jq -r '.current_phase' "$TMP/.devflow/foo.state.json")" = "COMPLETED" ]; then
+_P10RC=0; _P10DBG=$(WORKSPACE="$TMP" bash "$ROOT/scripts/devflow-state.sh" complete foo P10 2>&1) || _P10RC=$?
+if [ "$_P10RC" = "0" ] && [ "$(jq -r '.current_phase' "$TMP/.devflow/foo.state.json")" = "COMPLETED" ]; then
   ok "state consumes the P10 receipt and enters terminal state"
 else
+  printf '%s\n' "$_P10DBG" | grep -E "ERROR|缺" | head -3
   bad "state consumes the P10 receipt and enters terminal state"
 fi
 
@@ -757,6 +763,7 @@ fi
 W52b="$TMP/v3152b"
 WORKSPACE="$W52b" bash "$ROOT/scripts/devflow-state.sh" init gate52 --frontend=not-applicable >/dev/null 2>&1
 printf "EXIT_CODE=0\nVERSION=p0@%s\nPHASE=P0\nSKILL_TREE=%s\nPASS=1 FAIL=0 WARN=0\n" "$SKILL_VER" "$TREE" > "$W52b/.devflow/gate52/gates/P0/receipt.txt"
+gj_bind_lines gate52 "$W52b" P0 >> "$W52b/.devflow/gate52/gates/P0/receipt.txt"
 if WORKSPACE="$W52b" bash "$ROOT/scripts/devflow-state.sh" complete gate52 P0 >/dev/null 2>&1 && \
    [ "$(jq -r '.current_phase' "$W52b/.devflow/gate52.state.json")" = "P0b" ]; then
   ok "s0 格式 Gate 收据（PHASE=P0）可完成 P0（正向闭环）"
