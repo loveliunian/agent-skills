@@ -1,7 +1,7 @@
 ---
 name: performance-auditor
 subagent_type: generalPurpose
-version: "3.30.4"
+version: "3.30.5"
 description: >-
   Use when auditing performance, mentions "/performance", "performance audit", "性能审计",
   "slow query", "N+1", "优化", or "性能分析".

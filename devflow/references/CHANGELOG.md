@@ -1,12 +1,35 @@
 ---
 name: changelog
-version: "3.30.4"
+version: "3.30.5"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.30.4
+# Changelog — devflow v1 → v3.30.5
+
+## v3.30.5 (2026-09-23) — 伪 SKIPPED 绕过收口（豁免即攻击面）+ dirname 层级修复
+
+来源：对抗性复查"上轮修复的豁免即新攻击面"——PoC 实证：终态收据剥绑定行 +
+手加 `SKIPPED=1` + 篡改正本 → audit 全绿放行（SKIPPED 豁免无授权核验）。
+
+1. **SKIPPED 豁免双重授权核验（verify_stage_json_binding）**：声明 SKIPPED 的收据
+   须同时满足——① 四字段授权（SKIP_REASON/AUTHORIZED_BY/AUTHORIZED_AT/
+   APPROVAL_EVIDENCE 非空）；② skip-log.txt 存在 `SKIP_<STAGE>=` 行且
+   authorized-by 与收据 AUTHORIZED_BY 一致。缺一即拒（"伪跳过拒绝"/"skip-log
+   无对应授权行"）。合法路径（P2b/refresh P2a skip 收据）天然满足。
+2. **豁免变体核验（无缺陷确认）**：EXIT_CODE=1 篡改（state=completed 收据变失败轮）
+   被拦 ✓；版本降级 3.29.9 被 check_versions 拦 ✓——唯 SKIPPED 是真洞。
+3. **dirname 层级 bug（Linux 全量抓到）**：skip-log 推导原两层 dirname 只到
+   gates 目录（`_feat` 误取 "gates"）→ skip-log 永远找不到、合法跳过全被误拒。
+   修为三层。流程教训：**改共享校验器后必须双平台复跑全量**（本轮 macOS 只跑了
+   定向套件，漏掉 T9b 回归，Linux 容器兜底抓到）。
+4. **测试侧两处自坑修复**：① 合法豁免钉 grep 模式太窄（不含 "binding stripped"）
+   → 修复前假绿（与被测 bug 互相掩盖）；② `set -o pipefail` 下 if 条件内
+   `长输出 | grep -q` 因早退 SIGPIPE 使管道 rc 恒假 → 改捕获后判定（伪跳过钉
+   曾因 此恒假误报"未被拒"）。
+5. **三态行为钉（report-regressions +3）**：无字段伪跳过拒；四字段但 skip-log
+   缺授权行拒；合法授权豁免通过（模式覆盖全部绑定相关 FAIL）。
 
 ## v3.30.4 (2026-09-23) — 绑定行剥离阈值检测（JSON 正本篡改隐形漏洞收口）
 

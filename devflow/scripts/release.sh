@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# release.sh · 唯一发布入口（版本随 SKILL.md 单一事实源动态读取，本文件不写死版本号；当前 v3.30.4）
+# release.sh · 唯一发布入口（版本随 SKILL.md 单一事实源动态读取，本文件不写死版本号；当前 v3.30.5）
 # 前置：版本升级先跑 `scripts/bump-version.sh <new-version>`（本入口只发布当前版本）。
 # 通用化发布链（Runtime Profile + 发布授权 + Secret scan；详见 CHANGELOG）。
 # 原子事务化（自 v3.20.8）——旧流程第 5 步落不可变 manifest、第 6 步才查副本，

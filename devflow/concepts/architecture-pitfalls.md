@@ -1,6 +1,6 @@
 ---
 name: architecture-pitfalls
-version: "3.30.4"
+version: "3.30.5"
 description: |
   从 `docs/架构升级改造计划.md` 54 项 D-XX 偏差、21 项 G 守卫、44 项 B 改进中归纳的
   通用化"架构陷阱"清单。**任何项目在任何 Phase 切换前都应自检**。

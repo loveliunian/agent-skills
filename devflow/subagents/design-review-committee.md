@@ -1,6 +1,6 @@
 ---
 name: design-review-committee
-version: "3.30.4"
+version: "3.30.5"
 description: 详设 P2a 五角色独立评审委员会；角色、探针和收据必须与 Gate 一致
 allowed-tools: [read, write, exec, grep, glob, task]
 ---

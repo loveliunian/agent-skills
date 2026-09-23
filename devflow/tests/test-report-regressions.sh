@@ -68,7 +68,8 @@ cp "$_TCASES.keep" "$_TCASES" && rm -f "$_TCASES.keep"
 # v3.30.4: 剥离攻击端到端——剥两行绑定 + 篡改正本 → audit-receipts 必须拦截
 # （此前的洞：绑定行无阈值检测，剥离后正本篡改对 audit 隐形——实证 PoC 后收口）
 cp "$_TCASES" "$_TCASES.keep2"
-sed -i '' '/^TEST_CASES_JSON=/d;/^TEST_CASES_JSON_SHA256=/d' "$TMP/.devflow/foo/gates/P5/receipt.txt"
+sed -i '' '/^TEST_CASES_JSON=/d;/^TEST_CASES_JSON_SHA256=/d' "$TMP/.devflow/foo/gates/P5/receipt.txt" 2>/dev/null || \
+  sed -i '/^TEST_CASES_JSON=/d;/^TEST_CASES_JSON_SHA256=/d' "$TMP/.devflow/foo/gates/P5/receipt.txt"
 cp "$TMP/.devflow/foo/gates/P5/receipt.txt" "$TMP/docs/foo/gates/P5/receipt.txt"
 printf '\n//stripped-and-tampered\n' >> "$_TCASES"
 if (cd "$TMP" && bash "$ROOT/scripts/audit-receipts.sh" foo .devflow docs >/dev/null 2>&1); then
@@ -81,6 +82,38 @@ cp "$_TCASES.keep2" "$_TCASES" && rm -f "$_TCASES.keep2"
 # 恢复收据本体：重跑 p5 gate 产出带新绑定行的合法收据（后续镜像一致性 audit 依赖）
 (cd "$TMP" && STATE_DIR="$TMP/.devflow" bash "$ROOT/scripts/p5_test_cases_gate.sh" foo docs/test-cases/foo-test-cases.md >/dev/null 2>&1) \
   || bad "剥离钉恢复步骤失败（p5 gate 未重写收据）"
+cp "$TMP/.devflow/foo/gates/P5/receipt.txt" "$TMP/docs/foo/gates/P5/receipt.txt"
+
+# v3.30.5: 伪 SKIPPED 三态——无字段伪跳过拒；有字段无 skip-log 拒；合法授权豁免
+_RR="$TMP/.devflow/foo/gates/P5/receipt.txt"
+_rm_bak="$TMP/p5-receipt.bak"; cp "$_RR" "$_rm_bak"
+sed -i '' -e '/^TEST_CASES_JSON=/d' -e '/^TEST_CASES_JSON_SHA256=/d' "$_RR" 2>/dev/null || sed -i -e '/^TEST_CASES_JSON=/d' -e '/^TEST_CASES_JSON_SHA256=/d' "$_RR"
+printf 'SKIPPED=1\n' >> "$_RR"
+cp "$_RR" "$TMP/docs/foo/gates/P5/receipt.txt"
+_FAKE=$(cd "$TMP" && bash "$ROOT/scripts/audit-receipts.sh" foo .devflow docs 2>&1 || true)
+if printf '%s' "$_FAKE" | grep -q "伪跳过拒绝"; then
+  ok "伪 SKIPPED（无四字段）被拒"
+else
+  bad "伪 SKIPPED 未被拒（四字段核验失效）"
+fi
+printf 'SKIP_REASON=r\nAUTHORIZED_BY=someone\nAUTHORIZED_AT=2026-09-23T00:00Z\nAPPROVAL_EVIDENCE=ev\n' >> "$_RR"
+cp "$_RR" "$TMP/docs/foo/gates/P5/receipt.txt"
+_NOLOG=$(cd "$TMP" && bash "$ROOT/scripts/audit-receipts.sh" foo .devflow docs 2>&1 || true)
+if printf '%s' "$_NOLOG" | grep -qE "skip-log 无对应授权行"; then
+  ok "SKIPPED 四字段但 skip-log 缺授权行被拒"
+else
+  bad "skip-log 授权核验失效"
+fi
+printf 'SKIP_P5=授权说明|authorized-by=someone|at=2026-09-23|approval=ev\n' >> "$TMP/.devflow/foo/skip-log.txt"
+_OKSKIP=$(cd "$TMP" && bash "$ROOT/scripts/audit-receipts.sh" foo .devflow docs 2>&1 || true)
+# 模式须覆盖全部绑定相关 FAIL（v3.30.5b 教训：只匹配两消息时 binding stripped 假绿）
+if printf '%s' "$_OKSKIP" | grep -qE "(伪跳过|skip-log 无对应授权行|binding stripped: P5)"; then
+  bad "合法 SKIPPED 授权被误拒（$(printf '%s' "$_OKSKIP" | grep -E "伪跳过|skip-log 无对应|binding stripped" | head -1)）"
+else
+  ok "合法 SKIPPED（四字段+skip-log 匹配）豁免通过"
+fi
+cp "$_rm_bak" "$_RR" && rm -f "$_rm_bak"
+cp "$_RR" "$TMP/docs/foo/gates/P5/receipt.txt"
 cp "$TMP/.devflow/foo/gates/P5/receipt.txt" "$TMP/docs/foo/gates/P5/receipt.txt"
 
 if (cd "$TMP" && STATE_DIR="$TMP/.devflow" bash "$ROOT/scripts/s5_migration_gate.sh" foo B docs/test/migration.env >/dev/null) && \

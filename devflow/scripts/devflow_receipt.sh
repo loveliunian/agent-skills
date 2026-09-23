@@ -187,7 +187,30 @@ verify_stage_json_binding() { # <receipt> <stage>
   [ -f "$receipt" ] || return 0
   _rc=$(grep '^EXIT_CODE=' "$receipt" | head -1 | cut -d= -f2)
   [ "${_rc:-1}" = "0" ] || return 0
-  grep -q '^SKIPPED=1' "$receipt" && return 0
+  # v3.30.5: SKIPPED 豁免须双重授权核验（伪 SKIPPED=1 绕过绑定检测的 PoC 收口）——
+  # 收据四字段（reason/by/at/approval）+ skip-log 对应阶段授权行（authorized-by 一致）
+  if grep -q '^SKIPPED=1' "$receipt"; then
+    local _sr _sb _sa _se _feat _slog _sline
+    _sr=$(sed -n 's/^SKIP_REASON=//p' "$receipt" | head -1)
+    _sb=$(sed -n 's/^AUTHORIZED_BY=//p' "$receipt" | head -1)
+    _sa=$(sed -n 's/^AUTHORIZED_AT=//p' "$receipt" | head -1)
+    _se=$(sed -n 's/^APPROVAL_EVIDENCE=//p' "$receipt" | head -1)
+    if [ -z "$_sr" ] || [ -z "$_sb" ] || [ -z "$_sa" ] || [ -z "$_se" ]; then
+      echo "[EVIDENCE] ${stage} 收据声明 SKIPPED 但缺四字段授权（SKIP_REASON/AUTHORIZED_BY/AUTHORIZED_AT/APPROVAL_EVIDENCE）——伪跳过拒绝: $receipt"
+      return 1
+    fi
+    # v3.30.5b: 三层 dirname——receipt=<ws>/.devflow/<feature>/gates/<stage>/receipt.txt
+    # （两层只到 gates，_feat 误取 "gates" → skip-log 永远找不到——Linux 全量抓到）
+    _feat=$(basename "$(dirname "$(dirname "$(dirname "$receipt")")")")
+    _slog="${WORKSPACE:-$PWD}/.devflow/$_feat/skip-log.txt"
+    _sline=""
+    [ -f "$_slog" ] && _sline=$(grep "^SKIP_${stage}=" "$_slog" | head -1)
+    if [ -z "$_sline" ] || ! printf '%s' "$_sline" | grep -qF "authorized-by=$_sb"; then
+      echo "[EVIDENCE] ${stage} SKIPPED 收据在 skip-log 无对应授权行（需 SKIP_${stage}=…authorized-by=${_sb}）: $receipt"
+      return 1
+    fi
+    return 0
+  fi
   ver=$(sed -n 's/^VERSION=//p' "$receipt" | head -1)
   vernum="${ver##*@}"
   printf '%s' "$vernum" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+' || return 0
