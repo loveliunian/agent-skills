@@ -406,6 +406,39 @@ else
   p0 "关键流程缺时序图：WHEN=${WHEN_COUNT} sequenceDiagram=${SEQ_COUNT}（每个关键流程必须 WHEN 伪代码 + Mermaid 时序图成对）"
 fi
 
+# ---------- v3.30.0: 图表体系机器闭环（diagrams.structure_charts + DB 中立扫描） ----------
+# DB 产品名扫描：详设正文与图不出现具体数据库产品名（方言归技术选型/DB 设计决策/部署文档）。
+# 词边界匹配防 H2 误报（如标题编号）；扫描对象=详设主文档本身。
+DB_HITS=$(grep -nE '\b(H2|MySQL|PostgreSQL|Postgres|Oracle|KingbaseES|Kingbase|openGauss|达梦|人大金仓)\b' "$DESIGN" 2>/dev/null | head -5 || true)
+if [ -n "$DB_HITS" ]; then
+  echo "$DB_HITS" | sed 's/^/    │ /'
+  p0 "详设正文出现具体数据库产品名（DB 中立表述：统一 DB 泛称，方言归《技术选型》《数据库设计决策》与部署文档）"
+else
+  pass "DB 中立扫描：详设无具体数据库产品名"
+fi
+
+# 结构图登记 ↔ 文档落位对账：design.json diagrams.structure_charts 登记的每类图，
+# 其 mermaid 关键词必须在文档中出现（渲染确定性由 gen 工具 + 双次渲染 SHA 测试保证）
+DGN_JSON="${STATE_DIR:-.devflow}/${EFF_FEATURE}/design.json"
+if [ -f "$DGN_JSON" ] && command -v jq >/dev/null 2>&1; then
+  _CH_N=$(jq -r '(.diagrams.structure_charts // []) | length' "$DGN_JSON" 2>/dev/null || echo 0)
+  if [ "${_CH_N:-0}" -gt 0 ]; then
+    _CH_BAD=0
+    while IFS=$'\t' read -r _ct _cs; do
+      [ -n "$_ct" ] || continue
+      case "$_ct" in
+        状态机|对象生命周期) _kw="stateDiagram-v2" ;;
+        *)                   _kw="flowchart" ;;
+      esac
+      if ! grep -q "$_kw" "$DESIGN"; then
+        p0 "结构图登记 ${_ct}（${_cs}）但文档缺 ${_kw} 图——渲染或登记漂移（一类一处，图随内容走）"
+        _CH_BAD=$((_CH_BAD + 1))
+      fi
+    done < <(jq -r '(.diagrams.structure_charts // [])[] | [.type, .section] | @tsv' "$DGN_JSON" 2>/dev/null)
+    [ "$_CH_BAD" -eq 0 ] && pass "结构图登记 ↔ 文档落位对账通过（${_CH_N} 类）"
+  fi
+fi
+
 # ---------- §6a 设计一致性 Linter 检查 (v3.28.1 新增) ----------
 echo ""
 echo "=== §6a 设计一致性 Linter ==="

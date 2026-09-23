@@ -9,13 +9,13 @@ license: MIT
 compatibility: Requires repo workspace and command execution; build/test/migration commands from frozen runtime profile.
 metadata:
   author: xingyunliushui
-  version: "3.29.7"
+  version: "3.30.0"
   updated: "2026-09-22"
   tags: "prd,design,development,migration,phase-gate,recovery,test-generators"
 allowed-tools: read write exec glob grep task
 ---
 
-# devflow — PRD to production（v3.29.7）
+# devflow — PRD to production（v3.30.0）
 
 本文件是唯一权威入口。历史迁移只查 `references/CHANGELOG.md`；命令、阶段、角色和模板按需加载，不在入口重复。
 
@@ -79,7 +79,7 @@ allowed-tools: read write exec glob grep task
 
 关键环节的 md 产物配 JSON 正本：按 schema 契约填 `.devflow/<feature>/<kind>.json`，经 `df_pipeline.py <kind>` 校验，空集合须 `zero_results` 声明。kind↔阶段映射见上表。
 
-**当前已 Gate 强制闭环（5）**：P0 acceptance、P2 design、P3c security、P3d performance、P6 verification；其余环节正本 schema 与校验器已就绪、**Gate 强制待接入**（清单见 `references/structured-artifacts.md`）；P4b、P3-build、P5-migration、P6 accuracy/credential 暂无专属 JSON 正本。
+**Gate 强制闭环（v3.30.0 起全量，收据绑定 `*_JSON`+SHA256）**：P0/P0b/P1 三正本/P2/P2a/P2b/P3/P3b/P3c/P3d/P4/P5/P6/P7/P8/P9/P10 双正本/小改动；P4b、P3-build、P5-migration、P6 accuracy/credential 暂无专属 JSON 正本。
 
 ## P0-P10 单轨
 

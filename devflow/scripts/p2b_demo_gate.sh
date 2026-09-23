@@ -15,6 +15,11 @@ fi
 source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
 # v3.22.0: 文档层中文化（中文优先、英文回退）
 source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
+# v3.30.0: Gate JSON 强制（demo-signoff 正本——需 py_runtime + 强制库）
+source "$(cd "$(dirname "$0")" && pwd)/py_runtime.sh"
+source "$(cd "$(dirname "$0")" && pwd)/gate_json_lib.sh"
+# shellcheck disable=SC2034  # GJ_SKILL 由 gate_json_lib 函数消费
+GJ_SKILL="$(cd "$(dirname "$0")/.." && pwd)"
 devflow_feature_validate "$FEATURE" || exit 2
 
 FAIL=0; PASS=0; WARN=0
@@ -58,7 +63,8 @@ if [ "$_skip_ok" = "1" ]; then
     echo "EXIT_CODE=0"
     echo "VERSION=p2b@$(bash "$(dirname "$0")/gate-version.sh")"
     echo "SKILL_TREE=$(bash "$(dirname "$0")/gate-skill-tree.sh" 2>/dev/null || echo unknown)"
-    echo "PHASE=P2b"
+  echo "PHASE=P2b"
+  printf '%s' "$GJ_BIND"
     echo "SKIPPED=1"
     echo "SKIP_REASON=$SKIP_REASON"
     echo "AUTHORIZED_BY=${SKIP_BY:-}"
@@ -116,6 +122,8 @@ fi
 
 # ---------- 收据（双写 .devflow + docs 镜像） ----------
 STATE_DIR="${STATE_DIR:-.devflow}"
+# v3.30.0: demo-signoff JSON 正本强制
+gj_enforce demo-signoff || { echo "P2b RESULT: demo-signoff JSON 正本未通过"; exit 1; }
 RECEIPT_DIR="$STATE_DIR/${FEATURE}/gates/P2b"
 mkdir -p "$RECEIPT_DIR" 2>/dev/null
 EXIT_CODE=$([ "$FAIL" -gt 0 ] && echo 1 || echo 0)

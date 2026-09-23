@@ -26,6 +26,11 @@ if [ -n "$FEATURE" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+# v3.30.0: Gate JSON 强制（self-check 正本）
+source "$SCRIPT_DIR/py_runtime.sh"
+source "$SCRIPT_DIR/gate_json_lib.sh"
+# shellcheck disable=SC2034  # GJ_SKILL 由 gate_json_lib 函数消费
+GJ_SKILL="$(cd "$SCRIPT_DIR/.." && pwd)"
 # v3.28.1: 详设正文解析共用库（渲染块 + 旧版手写两类版式）
 source "$SCRIPT_DIR/design_parse_lib.sh"
 # v3.22.0: 文档层中文化（中文优先、英文回退）
@@ -266,6 +271,8 @@ if [ "$NEW_PAGES" -gt 0 ]; then
 fi
 
 echo "P3 RESULT: PASS=$PASS FAIL=$FAIL"
+# v3.30.0: self-check JSON 正本强制
+gj_enforce self-check || { echo "[P0] self-check JSON 正本未通过"; exit 1; }
 # ---------- 收据双写（v3.9.6：与其他 gate 对齐） ----------
 RECEIPT_DIR="$STATE_DIR/${FEATURE:?FEATURE is required for receipt (default fallback removed v3.14.0)}/gates/P3"
 mkdir -p "$RECEIPT_DIR" 2>/dev/null
@@ -274,6 +281,7 @@ mkdir -p "$RECEIPT_DIR" 2>/dev/null
   echo "VERSION=p3@$(bash "$(dirname "$0")/gate-version.sh")"
   echo "SKILL_TREE=$(bash "$(dirname "$0")/gate-skill-tree.sh" 2>/dev/null || echo unknown)"
   echo "PHASE=P3"
+  printf '%s' "$GJ_BIND"
   echo "PASS=$PASS FAIL=$FAIL"
   echo "CHECKED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > "$RECEIPT_DIR/receipt.txt" 2>/dev/null

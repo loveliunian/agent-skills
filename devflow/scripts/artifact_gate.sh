@@ -604,6 +604,19 @@ echo "RESULT: PASS=$PASS FAIL=$FAIL WARN=$WARN"
 
 # ---------- 收据双写（v3.9.6：与其他 gate 对齐） ----------
 STATE_DIR="${STATE_DIR:-.devflow}"
+# v3.30.0: Gate JSON 强制——按 PHASE 映射 kind（P0b=prd-review；P7=deployment；
+# P8=monitoring；P9=docs-index）。此前四阶段仅管线强制，Gate 侧可绕过管线。
+source "$SCRIPT_DIR/gate_json_lib.sh"
+# shellcheck disable=SC2034  # GJ_SKILL 由 gate_json_lib 函数消费
+GJ_SKILL="$(cd "$SCRIPT_DIR/.." && pwd)"
+case "$PHASE" in
+  P0b) _kind="prd-review" ;;
+  P7)  _kind="deployment" ;;
+  P8)  _kind="monitoring" ;;
+  P9)  _kind="docs-index" ;;
+  *) echo "[P0] artifact gate 未知 PHASE: ${PHASE}" >&2; exit 2 ;;
+esac
+gj_enforce "$_kind" || { echo "[P0] ${_kind} JSON 正本未通过 Gate 强制"; exit 1; }
 RECEIPT_DIR="$STATE_DIR/${FEATURE}/gates/${PHASE}"
 mkdir -p "$RECEIPT_DIR" 2>/dev/null
 EXIT_CODE=$([ "$FAIL" -gt 0 ] && echo 1 || echo 0)
@@ -612,6 +625,7 @@ EXIT_CODE=$([ "$FAIL" -gt 0 ] && echo 1 || echo 0)
   echo "VERSION=artifact@$(bash "$(dirname "$0")/gate-version.sh")"
   echo "SKILL_TREE=$(bash "$(dirname "$0")/gate-skill-tree.sh" 2>/dev/null || echo unknown)"
   echo "PHASE=$PHASE"
+  printf '%s' "$GJ_BIND"
   echo "EVIDENCE_PATH=$EVIDENCE_PATH"
   if [ -n "$EVIDENCE_PATH" ] && [ -f "$EVIDENCE_PATH" ]; then echo "EVIDENCE_SHA256=$(hash_file "$EVIDENCE_PATH")"; else echo "EVIDENCE_SHA256=missing"; fi
   echo "PASS=$PASS FAIL=$FAIL WARN=$WARN"

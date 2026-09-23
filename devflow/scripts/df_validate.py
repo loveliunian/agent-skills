@@ -1612,6 +1612,27 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace="", 
         if not str(ti.get("not_applicable_reason") or "").strip():
             errors.append("test_isolation.applicable=false 但缺少 not_applicable_reason（不适用必须显式说明为何无任何共享状态）")
 
+    # 6c. 图表体系登记自洽（v3.30.0 机器闭环：七类结构图登记 + 归位锚格式）
+    dg = data.get("diagrams") or {}
+    _CHART_TYPES = ("状态机", "机制模型", "决策链", "对象生命周期", "页面导航", "ER")
+    _seen_chart = set()
+    for i, ch in enumerate(dg.get("structure_charts") or []):
+        t = str(ch.get("type") or "")
+        sec = str(ch.get("section") or "")
+        if t not in _CHART_TYPES:
+            errors.append(
+                f"diagrams.structure_charts[{i}].type 非法: {t or '空'}"
+                f"（须为 {'/'.join(_CHART_TYPES)}——总清单声明是 §6.0 文档行为，不作 type 登记）"
+            )
+        if t in _seen_chart:
+            errors.append(f"diagrams.structure_charts[{i}].type 重复登记: {t}（一类一处，图随内容走）")
+        _seen_chart.add(t)
+        if not re.match(r"^§?\d+(\.\d+)*$", sec):
+            errors.append(
+                f"diagrams.structure_charts[{i}].section 归位锚非法: {sec or '空'}"
+                f"（须为 §x.y 章节锚，如 §2.3/§4/§7.1）"
+            )
+
     # 7. 零结果声明闭环（双向：空集合必须声明；声明必须指向真实空集合）
     empty_collections = []
     if not data.get("tables"):

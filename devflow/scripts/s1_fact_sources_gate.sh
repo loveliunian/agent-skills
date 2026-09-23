@@ -16,6 +16,10 @@ export LC_ALL
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 SKILL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
+# v3.30.0: Gate JSON 强制（tech-selection/clarification/constraints 三正本）
+source "$SCRIPT_DIR/gate_json_lib.sh"
+# shellcheck disable=SC2034  # GJ_SKILL 由 gate_json_lib 函数消费
+GJ_SKILL="$SKILL_ROOT"
 TEMPLATES_DIR="$SKILL_ROOT/templates"
 
 FAIL=0; PASS=0; WARN=0
@@ -473,6 +477,11 @@ echo "P1 RESULT: PASS=$PASS FAIL=$FAIL WARN=$WARN"
 echo "========================================"
 
 STATE_DIR="${STATE_DIR:-.devflow}"
+# v3.30.0: 三 JSON 正本强制（tech-selection 的 --constraints 对账；缺一阻断）
+FEATURE="$EFF_FEATURE"
+gj_enforce tech-selection || { echo "[P0] tech-selection JSON 正本未通过"; exit 1; }
+gj_enforce clarification || { echo "[P0] clarification JSON 正本未通过"; exit 1; }
+gj_enforce constraints || { echo "[P0] constraints JSON 正本未通过"; exit 1; }
 RECEIPT_DIR="$STATE_DIR/${EFF_FEATURE}/gates/P1"
 mkdir -p "$RECEIPT_DIR"
 EXIT_CODE=$([ "$FAIL" -gt 0 ] && echo 1 || echo 0)
@@ -480,6 +489,7 @@ EXIT_CODE=$([ "$FAIL" -gt 0 ] && echo 1 || echo 0)
   echo "EXIT_CODE=$EXIT_CODE"
   echo "VERSION=p1@$(bash "$(dirname "$0")/gate-version.sh")"
   echo "PHASE=P1"
+  printf '%s' "$GJ_BIND"
   echo "SKILL_TREE=$(bash "$(dirname "$0")/gate-skill-tree.sh" 2>/dev/null || echo unknown)"
   echo "ARTIFACTS=$DOC_DIR/_commons.md,$DOC_DIR/_权限矩阵.md,$DOC_DIR/_环境与账号.md,$DOC_DIR/_菜单Seed索引.md,$DOC_DIR/INDEX-章节锚点.md,$DOC_DIR/INDEX-表.md,$DOC_DIR/INDEX-接口.md,$TECH_CONSTRAINTS,$TECH_REPORT"
   if [ -f "$TECH_CONSTRAINTS" ]; then

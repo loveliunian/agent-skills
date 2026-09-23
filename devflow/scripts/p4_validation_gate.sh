@@ -11,6 +11,11 @@ source "$SCRIPT_DIR/devflow_feature.sh"
 source "$SCRIPT_DIR/devflow_receipt.sh"
 # v3.22.0: 文档层中文化（中文优先、英文回退）
 source "$SCRIPT_DIR/devflow_paths.sh"
+# v3.30.0: Gate JSON 强制（prd-validation 正本）
+source "$SCRIPT_DIR/py_runtime.sh"
+source "$SCRIPT_DIR/gate_json_lib.sh"
+# shellcheck disable=SC2034  # GJ_SKILL 由 gate_json_lib 函数消费
+GJ_SKILL="$(cd "$SCRIPT_DIR/.." && pwd)"
 devflow_feature_validate "$FEATURE" || exit 2
 
 WORKSPACE="${WORKSPACE:-$PWD}"
@@ -27,6 +32,8 @@ CRITERIA="$(df_resolve_doc "$FEATURE" acceptance .md requirements)"
 [ -n "$CRITERIA" ] || CRITERIA="docs/需求/${FEATURE}-验收点.md"
 
 PASS=0; FAIL=0
+# v3.30.0: prd-validation JSON 正本强制（FAIL 声明后置）
+gj_enforce prd-validation || { echo "[P0] prd-validation JSON 正本未通过"; exit 1; }
 P4_STARTED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 pass() { echo "[PASS] $*"; PASS=$((PASS + 1)); }
 p0() { echo "[P0] $*"; FAIL=$((FAIL + 1)); }
@@ -140,6 +147,7 @@ if [ "$EXIT_CODE" = 0 ]; then
 fi
 {
   echo "COMMAND=p4_validation_gate.sh $FEATURE"; echo "EXIT_CODE=$EXIT_CODE"; echo "PHASE=P4"
+  printf '%s' "$GJ_BIND"
   echo "VERSION=p4-validation@$(bash "$SCRIPT_DIR/gate-version.sh")"; echo "SKILL_TREE=$(bash "$SCRIPT_DIR/gate-skill-tree.sh" 2>/dev/null || echo unknown)"
   echo "REPORT=$REPORT"; echo "P4_CMD=$P4_CMD"; echo "P4_RESULTS_PATH=$RESULTS_PATH"
   echo "EVIDENCE_PATHS_JSON=$EVIDENCE_PATHS_JSON"; echo "EVIDENCE_TREE_SHA256=$EVIDENCE_TREE_SHA256"

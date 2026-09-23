@@ -12,6 +12,8 @@ set -o pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 ROOT="$(cd "$TEST_DIR/.." && pwd -P)"
+# v3.30.0: gj_copy_sample（testlib 助手）——Gate JSON 强制夹具
+source "$TEST_DIR/testlib.sh"
 PASS=0
 FAIL=0
 ok() { echo "[PASS] $1"; PASS=$((PASS + 1)); }
@@ -417,6 +419,7 @@ printf '# c\n| M-01-F01-A01 | FROZEN |\n' > "$WCB/docs/requirements/cb-acceptanc
 printf '# review\n' > "$WCB/docs/review/cb-design-review-report.md"
 printf '{"feature":"cb","baseline":{"repo_root":".","entries":[{"id":"BL-1","target":"backend/x/Foo.java","decision":"MODIFY","existing_contract":"x","verify":"t"}]}}\n' \
   > "$WCB/.devflow/cb/design.json"
+gj_copy_sample design-review cb "$WCB"
 CB_OUT=$(cd "$WCB" && bash "$ROOT/scripts/p2a_design_review_gate.sh" cb 2>&1 || true)
 printf '%s' "$CB_OUT" | grep -q "CODE-BASELINE execution row missing" \
   && ok "p2a requires CODE-BASELINE probe when baseline has MODIFY (A02/§5)" \

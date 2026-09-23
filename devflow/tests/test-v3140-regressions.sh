@@ -75,6 +75,7 @@ echo "本功能需与 CRM 系统对接获取客户数据。" >> "$W4/docs/detail
   for i in $(seq 1 9); do echo "#### DF-$i 深层发现"; done   # 故意只有标题、五字段全缺
   for i in 1 2 3; do echo "- AW-$i 场景：x｜走查路径：y｜结果：z"; done
 } > "$W4/docs/review/p2a-design-review-report.md"
+gj_copy_sample design-review p2a "$W4"
 R4_OUT=$(cd "$W4" && bash "$ROOT/scripts/p2a_design_review_gate.sh" p2a 2>&1 || true)
 if printf '%s' "$R4_OUT" | grep -q "incomplete DF blocks"; then
   ok "p2a 五字段缺失 DF 被判无效（incomplete DF blocks）"
@@ -223,6 +224,12 @@ cat > "$W25/docs/detailed-design/r25-tech-selection.md" <<'EOF'
 | 风险 | 4 | 2 |
 ## 决策结论
 用户确认: YES
+## 脚手架重合度审计
+| 组件 | 重合点 | 判定（裁剪/复用/新建） |
+|---|---|---|
+| util | 日期工具 | 复用 |
+## 规范遵循
+规范基线对照通过。
 ## 硬约束绑定
 <!-- DEVFLOW:CONSTRAINT-BINDINGS
 constraint_id=TC-TECH-002
@@ -234,6 +241,9 @@ EOF
 bash "$ROOT/tests/mk_design_conventions.sh" r25 "$W25" >/dev/null 2>&1
 bash "$ROOT/tests/mk_design_conventions.sh" r25 "$W25" >/dev/null 2>&1
 (cd "$W25" && bash "$ROOT/scripts/devflow-state.sh" constraints-freeze r25 >/dev/null 2>&1)
+gj_copy_sample tech-selection r25 "$W25"
+gj_copy_sample clarification r25 "$W25"
+gj_copy_sample constraints r25 "$W25"
 if (cd "$W25" && bash "$ROOT/scripts/s1_fact_sources_gate.sh" docs/detailed-design >/dev/null 2>&1); then
   ok "P1 合规 MUST_NOT_USE（selected=camunda）放行——'未引入X'类自然语言不再参与判定"
 else
@@ -597,6 +607,7 @@ bash "$ROOT/scripts/devflow-state.sh" init r22 --frontend=not-applicable >/dev/n
 printf '# d\n' > "$W22/docs/detailed-design/r22-design.md"
 printf '# c\n| M-01-F01-A01 | FROZEN |\n' > "$W22/docs/requirements/r22-acceptance-criteria.md"
 printf '# review\n' > "$W22/docs/review/r22-design-review-report.md"
+gj_copy_sample design-review r22 "$W22"
 R22_OUT=$(cd "$W22" && bash "$ROOT/scripts/p2a_design_review_gate.sh" r22 2>&1 || true)
 if printf '%s' "$R22_OUT" | grep -q "AUTHOR_ID missing"; then
   ok "P2a 缺独立 reviewer/session 收据被阻断"
@@ -700,6 +711,12 @@ cat > "$W25/docs/detailed-design/r25-tech-selection.md" <<'EOF'
 | 风险 | 4 | 2 |
 ## 决策结论
 用户确认: YES
+## 脚手架重合度审计
+| 组件 | 重合点 | 判定（裁剪/复用/新建） |
+|---|---|---|
+| util | 日期工具 | 复用 |
+## 规范遵循
+规范基线对照通过。
 ## 硬约束绑定
 <!-- DEVFLOW:CONSTRAINT-BINDINGS
 constraint_id=TC-TECH-002
@@ -710,6 +727,9 @@ DEVFLOW:END -->
 EOF
 bash "$ROOT/tests/mk_design_conventions.sh" r25 "$W25" >/dev/null 2>&1
 (cd "$W25" && bash "$ROOT/scripts/devflow-state.sh" constraints-freeze r25 >/dev/null 2>&1)
+gj_copy_sample tech-selection r25 "$W25"
+gj_copy_sample clarification r25 "$W25"
+gj_copy_sample constraints r25 "$W25"
 if (cd "$W25" && bash "$ROOT/scripts/s1_fact_sources_gate.sh" docs/detailed-design >/dev/null 2>&1); then
   ok "P1 合规 MUST_NOT_USE（selected=camunda）放行——'未引入X'类自然语言不再参与判定"
 else

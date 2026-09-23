@@ -58,8 +58,9 @@ W77="$TMP/v3166bnd"; mkdir -p "$W77/docs/review" "$W77/docs/detailed-design" "$W
 printf '# d\nM-01-F01-A01\n' > "$W77/docs/detailed-design/foo-design.md"
 printf '# c\nM-01-F01-A01\n' > "$W77/docs/requirements/foo-acceptance-criteria.md"
 printf '# r\nDEVELOPER_ID: alice\nREVIEWER_ID: bob\nREVIEW_SESSION_ID: s1\nM-01-F01-A01 ok\n' > "$W77/docs/review/foo-code-review-report.md"
-(cd "$W77" && bash "$ROOT/scripts/p3b_code_review_gate.sh" foo >/dev/null 2>&1 || true)
 WORKSPACE="$W77" bash "$ROOT/scripts/devflow-state.sh" init foo --frontend=not-applicable >/dev/null 2>&1
+gj_copy_sample code-review foo "$W77"
+(cd "$W77" && bash "$ROOT/scripts/p3b_code_review_gate.sh" foo >/dev/null 2>&1 || true)
 jq '.current_phase = "P3b" | .phases.P0.status="completed" | .phases.P0b.status="completed" | .phases.P1.status="completed" | .phases.P2.status="completed" | .phases.P2a.status="completed" | .phases.P2b.status="completed" | .phases.P3.status="completed" | .phases.P3b.status="in_progress"' "$W77/.devflow/foo.state.json" > "$W77/s.tmp" && mv "$W77/s.tmp" "$W77/.devflow/foo.state.json"
 _EXT_T=$(receipt_evidence_tree /etc/hosts)
 for _rf in "$W77/.devflow/foo/gates/P3b/receipt.txt" "$W77/docs/foo/gates/P3b/receipt.txt"; do
@@ -186,8 +187,9 @@ W76="$TMP/v3167rec"; mkdir -p "$W76/docs/review" "$W76/docs/detailed-design" "$W
 printf '# d\nM-01-F01-A01\n' > "$W76/docs/detailed-design/foo-design.md"
 printf '# c\nM-01-F01-A01\n' > "$W76/docs/requirements/foo-acceptance-criteria.md"
 printf '# r\nDEVELOPER_ID: alice\nREVIEWER_ID: bob\nREVIEW_SESSION_ID: s1\nM-01-F01-A01 ok\n' > "$W76/docs/review/foo-code-review-report.md"
-(cd "$W76" && bash "$ROOT/scripts/p3b_code_review_gate.sh" foo >/dev/null 2>&1 || true)
 WORKSPACE="$W76" bash "$ROOT/scripts/devflow-state.sh" init foo --frontend=not-applicable >/dev/null 2>&1
+gj_copy_sample code-review foo "$W76"
+(cd "$W76" && bash "$ROOT/scripts/p3b_code_review_gate.sh" foo >/dev/null 2>&1 || true)
 jq '.current_phase = "P3b" | .phases.P0.status="completed" | .phases.P0b.status="completed" | .phases.P1.status="completed" | .phases.P2.status="completed" | .phases.P2a.status="completed" | .phases.P2b.status="completed" | .phases.P3.status="completed" | .phases.P3b.status="in_progress"' "$W76/.devflow/foo.state.json" > "$W76/s.tmp" && mv "$W76/s.tmp" "$W76/.devflow/foo.state.json"
 # v3.16.7: P0..P3 合法收据（g@ 版本 + 双镜像）——P0 覆盖 state-init 基线（基线收据
 # 不构成 Gate 证据，reconcile 链完整性会先拒它）
@@ -216,8 +218,9 @@ W82="$TMP/v3167old"; mkdir -p "$W82/docs/review" "$W82/docs/detailed-design" "$W
 printf '# d\nM-01-F01-A01\n' > "$W82/docs/detailed-design/foo-design.md"
 printf '# c\nM-01-F01-A01\n' > "$W82/docs/requirements/foo-acceptance-criteria.md"
 printf '# r\nDEVELOPER_ID: alice\nREVIEWER_ID: bob\nREVIEW_SESSION_ID: s1\nM-01-F01-A01 ok\n' > "$W82/docs/review/foo-code-review-report.md"
-(cd "$W82" && bash "$ROOT/scripts/p3b_code_review_gate.sh" foo >/dev/null 2>&1 || true)
 WORKSPACE="$W82" bash "$ROOT/scripts/devflow-state.sh" init foo --frontend=not-applicable >/dev/null 2>&1
+gj_copy_sample code-review foo "$W82"
+(cd "$W82" && bash "$ROOT/scripts/p3b_code_review_gate.sh" foo >/dev/null 2>&1 || true)
 jq '.current_phase = "P3b" | .phases.P0.status="completed" | .phases.P0b.status="completed" | .phases.P1.status="completed" | .phases.P2.status="completed" | .phases.P2a.status="completed" | .phases.P2b.status="completed" | .phases.P3.status="completed" | .phases.P3b.status="in_progress"' "$W82/.devflow/foo.state.json" > "$W82/s.tmp" && mv "$W82/s.tmp" "$W82/.devflow/foo.state.json"
 (cd "$W82" && for _ph in P0 P0b P1 P2 P2a P2b P3; do mkrc foo "$_ph"; done)
 # 站点 1：devflow_receipt.sh 旧契约分支——剥新契约绑定行、换 EVIDENCE_PATH=/etc/hosts
@@ -277,8 +280,9 @@ W83="$TMP/v3167rec7"; mkdir -p "$W83/docs/review" "$W83/docs/detailed-design" "$
 printf '# d\nM-01-F01-A01\n' > "$W83/docs/detailed-design/p7r-design.md"
 printf '# c\nM-01-F01-A01\n' > "$W83/docs/requirements/p7r-acceptance-criteria.md"
 printf '# r\nDEVELOPER_ID: alice\nREVIEWER_ID: bob\nREVIEW_SESSION_ID: s1\nM-01-F01-A01 ok\n' > "$W83/docs/review/p7r-code-review-report.md"
-(cd "$W83" && bash "$ROOT/scripts/p3b_code_review_gate.sh" p7r >/dev/null 2>&1 || true)
 WORKSPACE="$W83" bash "$ROOT/scripts/devflow-state.sh" init p7r --frontend=not-applicable >/dev/null 2>&1
+gj_copy_sample code-review p7r "$W83"
+(cd "$W83" && bash "$ROOT/scripts/p3b_code_review_gate.sh" p7r >/dev/null 2>&1 || true)
 jq '.current_phase = "P7" | .phases.P0.status="completed" | .phases.P0b.status="completed" | .phases.P1.status="completed" | .phases.P2.status="completed" | .phases.P2a.status="completed" | .phases.P2b.status="completed" | .phases.P3.status="completed" | .phases.P3b.status="completed" | .phases.P3c.status="completed" | .phases.P3d.status="completed" | .phases.P4.status="completed" | .phases.P4b.status="completed" | .phases.P5.status="completed" | .phases.P6.status="completed" | .phases.P7.status="in_progress"' "$W83/.devflow/p7r.state.json" > "$W83/s.tmp" && mv "$W83/s.tmp" "$W83/.devflow/p7r.state.json"
 printf 'p7-evidence\n' > "$W83/evidence-p7.txt"
 # v3.16.8（N29-P2-1/2）: P0b/P4b 移入绑定组（映射硬口径）
@@ -700,7 +704,7 @@ else
 fi
 
 # T28f (P1-3): 最终层 symlink 指向 workspace 外稳定文件 → verify 拒（用户 PoC 复刻）
-W100="$TMP/v31611link"; _EXTF=$(mktemp -t v31611ext)
+W100="$TMP/v31611link"; _EXTF=$(mktemp -t v31611extXXXXXX)
 printf 'external-stable-content\n' > "$_EXTF"
 mkdir -p "$W100/.devflow/fx/gates/P3b"
 ln -s "$_EXTF" "$W100/evidence-link"
@@ -801,7 +805,7 @@ fi
 
 # T30b（P1）：报告绝对路径在 workspace 外时，Gate 本身必须拒绝，不能等到 state 才报错。
 W105="$TMP/v31612external"; _mkfull "$W105"
-_EXT105=$(mktemp -t devflow316-external-report)
+_EXT105=$(mktemp -t devflow316-external-reportXXXXXX)
 (cd "$W105" && make test-report KIND=UNIT >/dev/null)
 cp "$W105/.devflow/fx/reports/unit-report.txt" "$_EXT105"
 _EXT105_SHA=$(hash_file_test "$_EXT105")

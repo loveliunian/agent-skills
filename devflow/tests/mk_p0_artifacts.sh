@@ -162,6 +162,16 @@ cat > "$WS/docs/detailed-design/$FEATURE-设计决策.md" <<EOF
 
 design_doc_structure_mode=monolith
 
+## 脚手架重合度审计
+
+| 组件 | 重合点 | 判定（裁剪/复用/新建） |
+|------|--------|----------------------|
+| util | 日期工具 | 复用 |
+
+## 规范遵循
+
+规范基线对照通过。
+
 ## 约束绑定
 
 <!-- DEVFLOW:CONSTRAINT-BINDINGS

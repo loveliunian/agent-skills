@@ -79,6 +79,12 @@ p4-verify:
 	printf 'ID\tSTATUS\nM-01-F01-A01\tPASS\n' > docs/test/foo-p4-results.tsv
 	printf 'P4 fixture executed\n'
 EOF
+gj_copy_sample prd-validation foo "$TMP"
+# 样例自带 demo-pay 的 machine 证据路径——重定向到本夹具实际生成的文件（validator 验文件存在）
+jq ".feature=\"foo\" | .machine.p4_results_path=\"docs/test/foo-p4-results.tsv\" | .machine.validation_evidence=\"docs/test/foo-fixture-evidence.txt\" | .prd_doc=\"docs/PRD/foo.md\"" \
+  "$TMP/.devflow/foo/prd-validation.json" > "$TMP/pv.tmp" && mv "$TMP/pv.tmp" "$TMP/.devflow/foo/prd-validation.json"
+printf "fixture evidence\n" > "$TMP/docs/test/foo-fixture-evidence.txt"
+printf 'ID\tSTATUS\nM-01-F01-A01\tPASS\n' > "$TMP/docs/test/foo-p4-results.tsv"
 if (cd "$TMP" && bash "$ROOT/scripts/p4_validation_gate.sh" foo >/dev/null) && \
    [ -f "$TMP/.devflow/foo/gates/P4/receipt.txt" ]; then
   ok "P4 validation gate writes a P4 receipt"
@@ -129,6 +135,14 @@ DECISION=fix
 SCOPE=project
 STATUS=PROPOSED
 EOF
+gj_copy_sample retrospective foo "$TMP"
+# 样例 phase_facts 指向 demo-pay 收据——重定向 foo 夹具实际收据（validator 验文件存在）
+jq '.feature="foo"
+  | .phase_facts=[
+    {phase:"P0", gate_result:"PASS", receipt_path:".devflow/foo/gates/P0/receipt.txt", skip_note:""},
+    {phase:"P4", gate_result:"PASS", receipt_path:".devflow/foo/gates/P4/receipt.txt", skip_note:""}
+  ]' "$TMP/.devflow/foo/retrospective.json" > "$TMP/rt.tmp" && mv "$TMP/rt.tmp" "$TMP/.devflow/foo/retrospective.json"
+gj_copy_sample sharing foo "$TMP"
 if (cd "$TMP" && bash "$ROOT/scripts/p10_feedback_gate.sh" foo >/dev/null) && \
    [ -f "$TMP/.devflow/foo/gates/P10/receipt.txt" ]; then
   ok "P10 feedback gate writes a P10 receipt without mutating the skill"
@@ -401,6 +415,13 @@ else
   ok "P7 缺 release.json 授权收据被拒（review P0-1）"
 fi
 mv "$TMP/p7/.devflow/foo/authorizations/release.json.bak" "$TMP/p7/.devflow/foo/authorizations/release.json"
+# v3.30.0: P7/P8/P9 的 artifact gate 需对应 JSON 正本
+gj_copy_sample deployment foo "$TMP/p7"
+jq ".feature=\"foo\" | .release_evidence_path=\"docs/deploy/foo-deploy-record.md\"" "$TMP/p7/.devflow/foo/deployment.json" > "$TMP/dp.tmp" && mv "$TMP/dp.tmp" "$TMP/p7/.devflow/foo/deployment.json"
+gj_copy_sample monitoring foo "$TMP/p7"
+# machine 证据路径指向 P8 夹具的真实文件（log-query-result/alert-rules/alert-test-out：
+# validator 验实质内容——dummy 文件会被占位/行数检查拦截）
+jq ".feature=\"foo\" | .machine.log_query_evidence=\"log-query-result.txt\" | .machine.alert_test_output=\"alert-test-out.txt\" | .machine.alert_rule=\"alert-rules.yml\"" "$TMP/p7/.devflow/foo/monitoring.json" > "$TMP/mn.tmp" && mv "$TMP/mn.tmp" "$TMP/p7/.devflow/foo/monitoring.json"
 if (cd "$TMP/p7" && bash "$ROOT/scripts/artifact_gate.sh" P7 foo >/dev/null); then
   ok "P7 accepts deployment evidence with identity artifact environment health and build-info binding"
 else
@@ -564,6 +585,18 @@ cat > "$TMP/p7/docs/guides/release.md" <<'EOF'
 当前版本暂不支持导出能力，下版本规划发布。
 导出能力的兼容方案正在评审中。
 EOF
+gj_copy_sample docs-index foo "$TMP/p7"
+python3 - "$TMP/p7" <<'PYEOF'
+import json, hashlib, sys
+ws=sys.argv[1]; dp=ws+"/.devflow/foo/docs-index.json"
+d=json.load(open(dp))
+mp=[("USER_DOC","docs/guides/user.md"),("DEVELOPER_DOC","docs/guides/developer.md"),
+    ("API_DOC","docs/guides/api.md"),("OPERATIONS_DOC","docs/guides/operations.md"),
+    ("RELEASE_NOTES","docs/guides/release.md")]
+d["docs"]=[{"kind":k,"path":v,
+             "sha256":hashlib.sha256(open(f"{ws}/{v}","rb").read()).hexdigest()} for k,v in mp]
+json.dump(d,open(dp,"w"),ensure_ascii=False,indent=1)
+PYEOF
 cat > "$TMP/p7/docs/foo-docs-index.md" <<EOF
 USER_DOC=docs/guides/user.md
 USER_DOC_SHA256=$(hash_file_test "$TMP/p7/docs/guides/user.md")
@@ -950,6 +983,9 @@ W65="$TMP/v3163strip"; mkdir -p "$W65/docs/review" "$W65/docs/detailed-design" "
 printf '# d\nM-01-F01-A01\n' > "$W65/docs/detailed-design/foo-design.md"
 printf '# c\nM-01-F01-A01\n' > "$W65/docs/requirements/foo-acceptance-criteria.md"
 printf '# r\nDEVELOPER_ID: alice\nREVIEWER_ID: bob\nREVIEW_SESSION_ID: s1\nM-01-F01-A01 ok\n' > "$W65/docs/review/foo-code-review-report.md"
+# v3.30.0: p3b gate 产出收据需 state + code-review JSON
+(cd "$W65" && bash "$ROOT/scripts/devflow-state.sh" init foo --frontend=not-applicable >/dev/null 2>&1)
+gj_copy_sample code-review foo "$W65"
 (cd "$W65" && bash "$ROOT/scripts/p3b_code_review_gate.sh" foo >/dev/null 2>&1 || true)
 rm "$W65/docs/review/foo-code-review-report.md"
 for _rf in "$W65/.devflow/foo/gates/P3b/receipt.txt" "$W65/docs/foo/gates/P3b/receipt.txt"; do
@@ -998,6 +1034,8 @@ W69="$TMP/v3164strip3"; mkdir -p "$W69/docs/review" "$W69/docs/detailed-design" 
 printf '# d\nM-01-F01-A01\n' > "$W69/docs/detailed-design/foo-design.md"
 printf '# c\nM-01-F01-A01\n' > "$W69/docs/requirements/foo-acceptance-criteria.md"
 printf '# r\nDEVELOPER_ID: alice\nREVIEWER_ID: bob\nREVIEW_SESSION_ID: s1\nM-01-F01-A01 ok\n' > "$W69/docs/review/foo-code-review-report.md"
+(cd "$W69" && bash "$ROOT/scripts/devflow-state.sh" init foo --frontend=not-applicable >/dev/null 2>&1)
+gj_copy_sample code-review foo "$W69"
 (cd "$W69" && bash "$ROOT/scripts/p3b_code_review_gate.sh" foo >/dev/null 2>&1 || true)
 rm "$W69/docs/review/foo-code-review-report.md"
 for _rf in "$W69/.devflow/foo/gates/P3b/receipt.txt" "$W69/docs/foo/gates/P3b/receipt.txt"; do

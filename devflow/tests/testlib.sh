@@ -55,3 +55,19 @@ d = {
 json.dump(d, open(out, "w", encoding="utf-8"), ensure_ascii=False)
 PY
 }
+
+# gj_copy_sample <kind> <feature> <ws> — v3.30.0：为 Gate JSON 强制复制合法样例正本
+# 到 .devflow/<feature>/<kind>.json（样例经 schema 校验；顶层 feature 字段对齐）。
+gj_copy_sample() {
+  local kind="$1" feature="$2" ws="$3"
+  local src="$ROOT/examples/structured/${kind}.sample.json"
+  local dst="$ws/.devflow/$feature/$kind.json"
+  [ -f "$src" ] || { echo "[gj_copy_sample] 样例缺失: $src" >&2; return 1; }
+  mkdir -p "$(dirname "$dst")"
+  cp "$src" "$dst"
+  # 顶层 feature 字段（若有）对齐本 fixture
+  if grep -q '"feature"' "$dst"; then
+    sed -i '' "s/\"feature\": *\"[^\"]*\"/\"feature\": \"$feature\"/" "$dst" 2>/dev/null \
+      || sed -i "s/\"feature\": *\"[^\"]*\"/\"feature\": \"$feature\"/" "$dst"
+  fi
+}

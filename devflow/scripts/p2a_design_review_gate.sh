@@ -25,6 +25,11 @@
 set -uo pipefail
 # v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
 source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
+# v3.30.0: Gate JSON 强制闭环（design-review 正本——此前仅管线强制，Gate 侧可绕过）
+source "$(dirname "${BASH_SOURCE[0]}")/gate_json_lib.sh"
+# shellcheck disable=SC2034  # GJ_SKILL/STATE_DIR 由 gate_json_lib 函数消费
+GJ_SKILL="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+STATE_DIR="${STATE_DIR:-.devflow}"
 LC_ALL=C
 export LC_ALL
 
@@ -93,6 +98,9 @@ echo "=== §0 基础产物存在性 ==="
 [ -f "$DESIGN_PATH" ] && pass "design exists: $DESIGN_PATH" || { p0 "design missing: $DESIGN_PATH"; exit 1; }
 [ -f "$REVIEW_PATH" ] && pass "review report exists: $REVIEW_PATH" || p0 "review report missing"
 [ -f "$CRITERIA_PATH" ] && pass "acceptance criteria exists: $CRITERIA_PATH" || { p0 "acceptance missing"; exit 1; }
+
+# v3.30.0: design-review JSON 正本强制（缺失/校验失败即阻断，在进入映射检查前）
+gj_enforce design-review || { p0 "design-review JSON 正本未通过 Gate 强制"; exit 1; }
 
 # ---------- §0b PRD-to-Design 映射完备性前置检查 (v3.28.1 新增) ----------
 echo ""
@@ -701,6 +709,7 @@ EXIT_CODE=$P2A_EXIT
 VERSION=p2a@$GATE_VER
 SKILL_TREE=$(bash "$(dirname "$0")/gate-skill-tree.sh" 2>/dev/null || echo unknown)
 PHASE=P2a
+${GJ_BIND}
 PASS=$PASS FAIL=$FAIL WARN=$WARN
 P2a 设计评审 Gate · v3.14.0
 ========================

@@ -3,6 +3,9 @@
 source "$(dirname "${BASH_SOURCE[0]}")/../scripts/py_runtime.sh"
 source "$(cd "$(dirname "$0")" && pwd)/testlib.sh"
 
+# v3.29.8（Linux 实证）: 可移植 in-place sed（BSD -i "" vs GNU -i 互不兼容）
+sed_inplace() { local f="$1"; shift; local t; t=$(mktemp); sed "$@" "$f" > "$t" && mv "$t" "$f"; }
+
 echo "=== devflow phase gate tests ==="
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -85,6 +88,12 @@ cat > "$TMP/docs/detailed-design/foo-tech-selection.md" <<'EOF'
 用户确认: YES
 ## 详设文档结构决策
 design_doc_structure_mode=monolith
+## 脚手架重合度审计
+| 组件 | 重合点 | 判定（裁剪/复用/新建） |
+|---|---|---|
+| util | 日期工具 | 复用 |
+## 规范遵循
+规范基线对照通过。
 ## 硬约束绑定
 <!-- DEVFLOW:CONSTRAINT-BINDINGS
 constraint_id=TC-TECH-001
@@ -201,8 +210,7 @@ BIGINT 用于主键以覆盖长期增长；INT 用于页码因其业务上限明
 fixture 评审通过。
 EOF
 # 模板版本从模板 frontmatter 动态派生（防止 skill 升版后夹具硬编码漂移）
-sed -i '' "s/__TEMPLATE_VERSION__/$(sed -n 's/^version: "\([0-9.]*\)"/\1/p' "$ROOT/templates/详细设计-完整版-模板.md" | head -1)/" \
-  "$TMP/docs/detailed-design/foo-design.md"
+sed_inplace "$TMP/docs/detailed-design/foo-design.md" "s/__TEMPLATE_VERSION__/$(sed -n 's/^version: "\([0-9.]*\)"/\1/p' "$ROOT/templates/详细设计-完整版-模板.md" | head -1)/"
 
 # v3.17.1: §2c design.json 必填——夹具同步产出结构化产物层（概览↔详细定义 + DDR↔字段闭环）
 mkdir -p "$TMP/.devflow/foo"
@@ -246,8 +254,7 @@ cat > "$TMP/.devflow/foo/design.json" <<EOF
   "zero_results": [{"path": "resources", "reason": "无跨请求资源占用"}, {"path": "operations", "reason": "无资源即无补偿链"}, {"path": "integrations", "reason": "无外部调用"}, {"path": "configs", "reason": "无新增配置键"}]
 }
 EOF
-sed -i '' "s/__TEMPLATE_VERSION__/$(sed -n 's/^version: "\([0-9.]*\)"/\1/p' "$ROOT/templates/详细设计-完整版-模板.md" | head -1)/" \
-  "$TMP/.devflow/foo/design.json"
+sed_inplace "$TMP/.devflow/foo/design.json" "s/__TEMPLATE_VERSION__/$(sed -n 's/^version: "\([0-9.]*\)"/\1/p' "$ROOT/templates/详细设计-完整版-模板.md" | head -1)/"
 
 for f in _commons.md _权限矩阵.md _环境与账号.md _菜单Seed索引.md INDEX-章节锚点.md INDEX-表.md INDEX-接口.md; do
   cat > "$TMP/docs/detailed-design/$f" <<EOF
@@ -319,6 +326,10 @@ if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/devflow-state.sh" init foo
 bash "$ROOT/tests/mk_p0_artifacts.sh" foo "$TMP" >/dev/null 2>&1
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/s0_acceptance_gate.sh" foo); then ok "P0 fixture"; else bad "P0 fixture"; fi
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/devflow-state.sh" constraints-freeze foo >/dev/null 2>&1); then :; else bad "constraints-freeze fixture"; fi
+gj_copy_sample tech-selection foo "$TMP"
+# 本夹具报告不含 scaffold_audit/standards 渲染章节——置空登记（s1 交叉检查：登记非空则要求章节）
+gj_copy_sample clarification foo "$TMP"
+gj_copy_sample constraints foo "$TMP"
 if (cd "$TMP" && WORKSPACE="$TMP" bash "$ROOT/scripts/s1_fact_sources_gate.sh" docs/detailed-design); then ok "P1 fixture"; else bad "P1 fixture"; fi
 
 # v3.28.13：constraints-inherit 项目级约束继承（@latest / 独立冻结 / 重复拒绝 / 来源漂移拒绝）
@@ -404,7 +415,7 @@ REVEOF
 if (cd "$TMP" && bash "$ROOT/scripts/s4_first_pass_snapshot.sh" record foo first-pass-test.tsv first-pass-review.md); then ok "P4 record fixture"; else bad "P4 record fixture"; fi
 # record 后校验 review 提取真实生效（markdown → per-ID TSV），防止提取管道再静默断裂
 if [ "$(wc -l < "$TMP/.devflow/foo/first-pass-review.tsv" | tr -d ' ')" -ge 2 ] \
-   && grep -q '^M-01-F01-A01\tPASS$' "$TMP/.devflow/foo/first-pass-review.tsv"; then
+   && awk -F'\t' '$1=="M-01-F01-A01" && $2=="PASS"' "$TMP/.devflow/foo/first-pass-review.tsv" | grep -q .; then
   ok "s4 record 从 markdown 评审表提取 per-ID 明细（BSD awk 通用）"
 else
   bad "s4 record review 提取断裂（tsv 行数/内容不符）"
@@ -418,6 +429,9 @@ RV="$TMP/rv-p3b"; mkdir -p "$RV/docs/review" "$RV/docs/detailed-design" "$RV/doc
 printf '# design\nM-01-F01-A01\n' > "$RV/docs/detailed-design/foo-design.md"
 printf '# criteria\nM-01-F01-A01\n' > "$RV/docs/requirements/foo-acceptance-criteria.md"
 printf '# review\nDEVELOPER_ID: alice\nREVIEWER_ID: alice\nREVIEW_SESSION_ID: s1\nM-01-F01-A01 ok\n' > "$RV/docs/review/foo-code-review-report.md"
+# v3.30.0: p3b 需 state + code-review JSON 正本（负向探针的后续检查仍失败 ✓）
+(cd "$RV" && bash "$ROOT/scripts/devflow-state.sh" init foo --frontend=not-applicable >/dev/null 2>&1)
+gj_copy_sample code-review foo "$RV"
 (cd "$RV" && bash "$ROOT/scripts/p3b_code_review_gate.sh" foo >/dev/null 2>&1) && bad "p3b 同人自签被阻断" || ok "p3b 同人自签被阻断（DEVELOPER_ID=REVIEWER_ID）"
 printf '# review\n开发者: alice\n审查者: bob\n' > "$RV/docs/review/foo-code-review-report.md"
 (cd "$RV" && bash "$ROOT/scripts/p3b_code_review_gate.sh" foo >/dev/null 2>&1) && bad "p3b 缺结构化角色字段被阻断" || ok "p3b 缺结构化角色字段被阻断（缺失即 P0）"

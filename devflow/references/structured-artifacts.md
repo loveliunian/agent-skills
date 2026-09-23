@@ -1,4 +1,4 @@
-# 结构化产物层 · Gate 强制矩阵（v3.29.7）
+# 结构化产物层 · Gate 强制矩阵（v3.30.0）
 
 > 正本契约与管线口径见 `SKILL.md`「全阶段结构化产物」；本文是各阶段 Gate 对 JSON 正本的
 > 强制状态与接线模式的唯一明细页。
@@ -12,8 +12,8 @@
 | P3c | security | `p3_security_perf_gate.sh` | ✅ 已强制（v3.25.2） | `SECURITY_JSON_SHA256` |
 | P3d | performance | `p3_security_perf_gate.sh` | ✅ 已强制（v3.25.2） | `PERFORMANCE_JSON_SHA256` |
 | P6 | verification | `s6_final_verification_gate.sh` | ✅ 已强制（校验 + 执行记录对账） | 证据树 |
-| P0b | prd-review | `artifact_gate.sh P0b` | 管线已强制（校验失败不渲染）；Gate 侧待接入 | — |
-| P1 | tech-selection / clarification / constraints | `s1_fact_sources_gate.sh` | 同上 | — |
+| P0b | prd-review | `artifact_gate.sh P0b` | ✅ 已强制（v3.30.0 Gate 侧接入） | `PRD_REVIEW_JSON` + SHA256 |
+| P1 | tech-selection / clarification / constraints | `s1_fact_sources_gate.sh` | ✅ 已强制（v3.30.0，三正本逐一） | 三组 `*_JSON` + SHA256 |
 | P2a | design-review | `p2a_design_review_gate.sh` | 同上 | — |
 | P2b | demo-signoff | `p2b_demo_gate.sh` | 同上 | — |
 | P3 | self-check | `p3_completion_gate.sh` | 同上 | — |
@@ -23,8 +23,8 @@
 | P7 | deployment | `artifact_gate.sh P7` | 同上 | — |
 | P8 | monitoring | `artifact_gate.sh P8` | 同上 | — |
 | P9 | docs-index | `artifact_gate.sh P9` | 同上 | — |
-| P10 | retrospective / sharing | `p10_feedback_gate.sh` | 同上 | — |
-| 小改动 | small-change | `small-change-gate.sh` | 同上 | — |
+| P10 | retrospective / sharing | `p10_feedback_gate.sh` | ✅ 已强制（v3.30.0，双正本） | 双组 `*_JSON` + SHA256 |
+| 小改动 | small-change | `small-change-gate.sh` | ✅ 已强制（v3.30.0 Gate 侧接入） | `SMALL_CHANGE_JSON` + SHA256 |
 
 ## 接线模式（其余阶段照抄即可）
 

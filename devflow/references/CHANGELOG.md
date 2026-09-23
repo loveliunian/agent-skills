@@ -1,12 +1,51 @@
 ---
 name: changelog
-version: "3.29.7"
+version: "3.30.0"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.29.7
+# Changelog — devflow v1 → v3.30.0
+
+## v3.30.0 (2026-09-23) — Gate JSON 全量强制 + 图表体系机器闭环 + Linux/跨平台实证
+
+来源：三项长期待办集中落地（外部审计确认的口径缺口）。次版本号进位（Major-ish）：
+Gate 强制矩阵从 5 处扩到全量、图表体系从文档规范升级为机器闭环、Linux 实证修复三类
+跨平台缺陷。
+
+1. **Gate JSON 强制闭环全量接入（任务 1）**：13 处"Gate 侧待接入"全部接线——
+   新增 `scripts/gate_json_lib.sh`（gj_enforce：解析正本 → fail-closed 校验 →
+   收据绑定 `KIND_JSON`+SHA256，audit 重验即篡改拦截）。接线矩阵：P0b/P7/P8/P9
+   （artifact_gate 按 PHASE 映射 prd-review/deployment/monitoring/docs-index）、
+   P1（s1：tech-selection/clarification/constraints 三正本）、P2a design-review、
+   P2b demo-signoff、P3 self-check、P3b code-review、P4 prd-validation、
+   P5 test-cases、P10 retrospective+sharing 双正本、小改动 small-change。
+   `references/structured-artifacts.md` 矩阵全面更新（待接入字样清零）。
+   测试夹具同步补正本（testlib 新增 gj_copy_sample 助手 + 各套件定向适配）。
+2. **图表体系机器闭环（任务 2）**：
+   - design.schema.json 新增 `diagrams` 字段（structure_charts 六类登记，一类一处；
+     section 归位锚 §x.y；db_neutral 声明）；
+   - df_validate 6c：type 枚举/归位锚格式/重复登记三项机检；
+   - s2 新增 DB 中立扫描（详设正文词边界匹配 H2/MySQL/PostgreSQL/Oracle/Kingbase/
+     达梦/人大金仓 等，命中即 P0——方言归《技术选型》《数据库设计决策》与部署文档）
+     与结构图登记↔文档 mermaid 关键词落位对账；
+   - tests/test-design-diagrams.sh（6 钉）：validator 契约、DB 扫描正反例、落位匹配、
+     **双次渲染 SHA 稳定性**（design.sample 两次渲染逐字节一致）。
+   - gate-contracts/SKILL.md 的"规范已落地、机器闭环未实现"边界标注更新为已闭环。
+3. **Linux 实证修复（任务 3，Docker ubuntu:24.04 + bash 5.2 全量跑通）**：
+   - devflow-state-core.sh：`[[:<:]]/[[:>:]]` 是 BSD 专有（GNU sed 报 Invalid
+     character class name，v3.26.2 的双平台声明有误）——改为非词字符捕获 + 行首/行尾
+     分支的可移植写法（BSD/GNU 输出逐字节一致验证）；
+   - test-phase-gates：`sed -i ''`（BSD 专属）×2 → sed_inplace 可移植 helper；
+     s4 断言 grep '\t'（GNU 不解释）→ awk -F'\t'；
+   - test-evidence-hardening-rounds：mktemp 模板补 XXXXXX（GNU 硬要求）；
+   - preflight-port.sh：lsof/nc 均缺时 bash 内建 /dev/tcp 兜底（精简容器可用）；
+   - 容器环境依赖：python3-yaml（Codex metadata 校验）。
+   实证结果：Linux 全量 28 组全绿（唯一失败=发布前 manifest 漂移，属设计内预期）。
+4. **Windows Git Bash**：静态兼容维护（无原生环境）——BSD sed/mktemp/grep-t 三类
+   高频雷已在本批清除（Git Bash 的 GNU 工具链同受益）；运行级验证仍属未验证边界。
+
 
 ## v3.29.7 (2026-09-23) — 发布双后门关闭 + Git 判定抽库（fixture 秒级，392s→151s）
 

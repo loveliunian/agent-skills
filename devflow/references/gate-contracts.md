@@ -99,10 +99,10 @@ design.json 的 api path 若含 `{id}`：渲染进详设 api-index 后触发 s2 
 
 ### s2 图表冻结清单模式（v3.29.1 起，v3.29.3 扩至结构图——先确认画哪些，再固化生成）
 
-> **落地边界（v3.29.4 标记）**：本节及七类结构图、DB 中立表述、固定流水线顺序目前是
-> **文档规范已落地、机器闭环未实现**——design schema 图表字段、结构图清单 validator、
-> 图表章节归位 Gate、DB 产品名扫描、双次渲染 SHA 稳定性测试均未建；不得宣称七类图表
-> 已被 Gate 强制或冻结。机器执行验证排下版。
+> **机器闭环（v3.30.0 起生效）**：design schema 新增 `diagrams` 字段（structure_charts
+> 六类登记 + db_neutral 声明，一类一处）；df_validate 6c 校验 type 枚举/归位锚格式/重复登记；
+> s2 扫描详设 DB 产品名（词边界，命中即 P0）并对账登记图 ↔ 文档 mermaid 关键词落位；
+> 双次渲染 SHA 稳定性由 tests/test-design-diagrams.sh 钉死（gen 确定性契约）。
 - **归属与数量在 P2 前确认并冻结**：时序图按**业务操作（BOP）**为单位，一操作一张，置于该 BOP
   在 §6 的专属小节内（禁止集中堆放 §6.0 或散落 §5）；规则级 WHEN 不再单独配图，其时序语义
   由所属 BOP 图承载。门禁仅校验 `SEQ_COUNT >= WHEN_COUNT`（数量配对），内容确定性由

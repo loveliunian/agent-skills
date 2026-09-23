@@ -47,6 +47,7 @@ EOF
 
 MICRO=$(cd "$W" && bash "$ROOT/scripts/small-change-gate.sh" classify order-filter 2>&1; echo "rc=$?")
 if printf '%s' "$MICRO" | grep -q 'DECISION=MICRO' && printf '%s' "$MICRO" | grep -q 'rc=0$'; then ok "UI behavior is MICRO"; else bad "UI behavior is MICRO"; fi
+gj_copy_sample small-change order-filter "$W"
 VERIFY=$(cd "$W" && bash "$ROOT/scripts/small-change-gate.sh" verify order-filter 2>&1; echo "rc=$?")
 if printf '%s' "$VERIFY" | grep -q 'STATUS=MERGE_READY' && printf '%s' "$VERIFY" | grep -q 'rc=0$'; then ok "MICRO verification writes MERGE_READY receipt"; else bad "MICRO verification writes MERGE_READY receipt"; fi
 
@@ -96,6 +97,7 @@ cp "$W/.devflow/order-filter/small-change.env" "$W/.devflow/order-filter/persist
   printf 'AFFECTED_PATHS=backend/svc/src/main/resources/db/migration/h2/V2__add_filter_hint.sql,backend/svc/src/main/resources/db/migration/postgresql/V2__add_filter_hint.sql,backend/svc/src/main/resources/db/migration/oracle/V2__add_filter_hint.sql,backend/svc/src/main/resources/db/migration/kingbase/V2__add_filter_hint.sql\n'
   printf 'MIGRATION_VERIFY_CMD=awk '\''BEGIN { print "four dialect migrations verified" }'\''\n'
 } > "$W/.devflow/order-filter/persistence.tmp" && mv "$W/.devflow/order-filter/persistence.tmp" "$W/.devflow/order-filter/persistence.env"
+gj_copy_sample small-change order-filter "$W"
 PERSIST=$(cd "$W" && bash "$ROOT/scripts/small-change-gate.sh" verify order-filter .devflow/order-filter/persistence.env 2>&1; echo "rc=$?")
 if printf '%s' "$PERSIST" | grep -q 'STATUS=MERGE_READY' && printf '%s' "$PERSIST" | grep -q 'rc=0$'; then ok "additive persistence change verifies four dialect files"; else bad "additive persistence change verifies four dialect files"; fi
 

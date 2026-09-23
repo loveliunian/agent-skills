@@ -11,6 +11,12 @@ source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
 # v3.27.1: 路径解析统一走 devflow_paths（中文优先、英文回退）——旧版验收点路径
 # 纯英文硬编码，中文命名走完 P0 的项目到 P5 必失败（审查报告发现 3）。
 source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
+# v3.30.0: Gate JSON 强制（test-cases 正本）
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/py_runtime.sh"
+source "$SCRIPT_DIR/gate_json_lib.sh"
+# shellcheck disable=SC2034  # GJ_SKILL 由 gate_json_lib 函数消费
+GJ_SKILL="$(cd "$SCRIPT_DIR/.." && pwd)"
 devflow_feature_validate "$FEATURE" || exit 2
 
 if [ -z "$CASES" ]; then
@@ -166,6 +172,8 @@ echo "=== Gate Summary ==="
 echo "PASS: ${PASS}, FAIL: ${FAIL}, WARN: ${WARN}"
 
 RECEIPT_DIR="$STATE_DIR/$FEATURE/gates/P5"
+# v3.30.0: test-cases JSON 正本强制（df_validate test-cases 支持 --criteria 验收点对账）
+gj_enforce test-cases || { echo "[P0] test-cases JSON 正本未通过"; exit 1; }
 mkdir -p "$RECEIPT_DIR"
 EXIT_CODE=$([ "$FAIL" -gt 0 ] && echo 1 || echo 0)
 {
@@ -173,6 +181,7 @@ EXIT_CODE=$([ "$FAIL" -gt 0 ] && echo 1 || echo 0)
   echo "VERSION=p5-test-cases@$(bash "$(dirname "$0")/gate-version.sh")"
   echo "SKILL_TREE=$(bash "$(dirname "$0")/gate-skill-tree.sh" 2>/dev/null || echo unknown)"
   echo "PHASE=P5"
+  printf '%s' "$GJ_BIND"
   echo "EVIDENCE_PATH=$CASES"
   if [ -n "$CASES" ] && [ -f "$CASES" ]; then echo "EVIDENCE_SHA256=$(hash_file "$CASES")"; else echo "EVIDENCE_SHA256=missing"; fi
   echo "PASS=$PASS FAIL=$FAIL WARN=$WARN"

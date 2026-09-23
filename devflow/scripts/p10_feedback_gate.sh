@@ -8,6 +8,12 @@ FEATURE="${1:-}"
 source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
 # v3.22.0: 文档层中文化（中文优先、英文回退）
 source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
+# v3.30.0: Gate JSON 强制（retrospective + sharing 双正本）
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/py_runtime.sh"
+source "$SCRIPT_DIR/gate_json_lib.sh"
+# shellcheck disable=SC2034  # GJ_SKILL 由 gate_json_lib 函数消费
+GJ_SKILL="$(cd "$SCRIPT_DIR/.." && pwd)"
 devflow_feature_validate "$FEATURE" || exit 2
 
 # v3.15.5: STATE_DIR 前置——FEEDBACK 此前写死 .devflow/，隔离部署（STATE_DIR 自定义）下
@@ -100,11 +106,15 @@ else
 fi
 
 RECEIPT_DIR="$STATE_DIR/${FEATURE}/gates/P10"
+# v3.30.0: 双 JSON 正本强制（sharing 的 not-applicable 是其 JSON 内声明，不免除正本存在）
+gj_enforce retrospective || { echo "[P0] retrospective JSON 正本未通过"; exit 1; }
+gj_enforce sharing || { echo "[P0] sharing JSON 正本未通过"; exit 1; }
 mkdir -p "$RECEIPT_DIR"
 EXIT_CODE=$([ "$FAIL" -eq 0 ] && echo 0 || echo 1)
 {
   echo "EXIT_CODE=$EXIT_CODE"
   echo "PHASE=P10"
+  printf '%s' "$GJ_BIND"
   echo "VERSION=p10-feedback@$(bash "$(dirname "$0")/gate-version.sh")"
   echo "SKILL_TREE=$(bash "$(dirname "$0")/gate-skill-tree.sh" 2>/dev/null || echo unknown)"
   echo "RETRO=$RETRO"

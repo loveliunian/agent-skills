@@ -9,6 +9,7 @@ set -o pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 ROOT="$(cd "$TEST_DIR/.." && pwd -P)"
 PASS=0
+source "$TEST_DIR/testlib.sh"
 # v3.28.9: 时长门禁与同输入拦截是独立机检（见 review-receipt.sh），本测试覆盖协议生命周期——
 # 即时 begin/complete 与同输入多轮在此显式关闭/变基
 export DEVFLOW_REVIEW_MIN_SECONDS=0
@@ -322,6 +323,7 @@ else
   bad "round-1 receipt lifecycle failed"
 fi
 
+gj_copy_sample design-review pr "$W"
 P2A_OUT=$(cd "$W" && bash "$ROOT/scripts/p2a_design_review_gate.sh" pr 2>&1 || true)
 if (cd "$W" && bash "$ROOT/scripts/p2a_design_review_gate.sh" pr >/dev/null 2>&1); then
   ok "FULL P2a Gate PASSES with signed receipts and deep-contract report (A08)"

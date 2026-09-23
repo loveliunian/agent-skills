@@ -256,6 +256,11 @@ VALIDATION_EVIDENCE=docs/test/fx-raw.log
 P4_CMD=make p4-verify STATUS=$1
 P4_RESULTS_PATH=docs/test/fx-p4-results.tsv
 EOF
+  (cd "$w" && bash "$ROOT/scripts/devflow-state.sh" init fx --frontend=not-applicable >/dev/null 2>&1)
+  gj_copy_sample prd-validation fx "$w"
+  printf 'ID\tSTATUS\nM-01-F01-A01\tPASS\nM-01-F01-A02\t%s\n' "$1" > "$w/docs/test/fx-p4-results.tsv"
+  jq '.feature="fx" | .machine.p4_results_path="docs/test/fx-p4-results.tsv" | .machine.validation_evidence="docs/test/fx-raw.log" | .prd_doc="docs/PRD/fx.md"' "$w/.devflow/fx/prd-validation.json" > "$w/pv.tmp"
+  mv "$w/pv.tmp" "$w/.devflow/fx/prd-validation.json"
   printf '%s\n' "$w"
 }
 

@@ -33,6 +33,7 @@ SUITES=(
   "test-structured-artifacts-phase-docs.sh:结构化产物-全阶段(v3.25.0)"
   "test-design-contract-hardening.sh:详设契约硬化（v3.24.0）"
   "test-design-package-modes.sh:设计包与三模式（v3.24.0）"
+  "test-design-diagrams.sh:图表体系机器闭环"
   "test-review-receipt-lifecycle.sh:收据生命周期与完整 P2a 正向（v3.24.0）"
   "test-prompt-refs.sh:提示词引用完整性（v3.24.0）"
   "test-evidence-hardening.sh:证据硬化-核心"

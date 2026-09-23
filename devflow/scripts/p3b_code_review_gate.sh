@@ -17,6 +17,11 @@ export LC_ALL
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 SKILL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
+# v3.30.0: Gate JSON 强制（code-review 正本）
+source "$SCRIPT_DIR/py_runtime.sh"
+source "$SCRIPT_DIR/gate_json_lib.sh"
+# shellcheck disable=SC2034  # GJ_SKILL 由 gate_json_lib 函数消费
+GJ_SKILL="$SKILL_ROOT"
 
 FAIL=0; PASS=0; WARN=0
 P3B_STARTED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -225,6 +230,8 @@ else
   p0 "arch pitfalls 检查失败（收据 EXIT_CODE 非 0——详见 gates/ARCH-PITFALLS/）"
 fi
 
+# v3.30.0: code-review JSON 正本强制
+gj_enforce code-review || { p0 "code-review JSON 正本未通过 Gate 强制"; FAIL=$((FAIL+1)); }
 # ---------- 收据 ----------
 # v3.15.5: STATE_DIR 同口径——此前写死 .devflow/，隔离部署下收据落错目录（audit 误报"state 标记完成但无收据"）
 RECEIPT_DIR="${STATE_DIR:-.devflow}/${FEATURE}/gates/P3b"
@@ -261,6 +268,7 @@ ENVIRONMENT=${ENVIRONMENT:-dev}
 VERSION=p3b@$GATE_VER
 SKILL_TREE=$(bash "$(dirname "$0")/gate-skill-tree.sh" 2>/dev/null || echo unknown)
 PHASE=P3b
+$(printf '%s' "$GJ_BIND")
 PASS=$PASS FAIL=$FAIL WARN=$WARN
 feature: $FEATURE
 service: $SERVICE

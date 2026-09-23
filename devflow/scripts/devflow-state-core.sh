@@ -117,12 +117,17 @@ generate_from_template() {
   
   # 替换多种占位符模式
   # v3.26.2: FEATURE 采用词边界替换——旧 s/FEATURE/x/g 曾会误伤 FEATURED/FEATURE_TABLE
-  # 等英文词（潜在数据损坏）；[[:<:]]/[[:>:]] 在 BSD sed（macOS）与 GNU sed（Linux/Git
-  # Bash）均受支持。占位符 {FeatureName} 保持原样。
+  # 等英文词（潜在数据损坏）。
+  # v3.29.8（Linux 实证修复）: v3.26.2 声称 [[:<:]]/[[:>:]] 双平台支持是错的——GNU sed
+  # 直接报 "Invalid character class name"（Linux 全量测试抓到的首个跨平台缺陷）。
+  # 改为双方都支持的可移植写法：非词字符捕获 + 行首/行尾分支（词字符类 [:alnum:] 双平台
+  # 一致）。feature 经白名单校验（[A-Za-z0-9._-]），替换侧无 &\/ 转义风险。
   local temp_file
   temp_file=$(mktemp)
   sed -e "s/{FeatureName}/${feature}/g" \
-      -e "s/[[:<:]]FEATURE[[:>:]]/${feature}/g" \
+      -e "s/FEATURE\([^A-Za-z0-9_]\)/${feature}\1/g" \
+      -e "s/FEATURE\$/${feature}/" \
+      -e "s/\([^A-Za-z0-9_]\)FEATURE/\1${feature}/g" \
       "$template_path" > "$temp_file"
   
   mv "$temp_file" "$output_path"

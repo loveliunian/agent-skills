@@ -141,6 +141,9 @@ REVIEW_SESSION_ID=rs-1
 P1 问题：无
 覆盖 M-01-F01-A01
 EOF
+# v3.30.0: p3b 需 state + code-review JSON
+(cd "$W4" && bash "$S/devflow-state.sh" init f1 --frontend=not-applicable >/dev/null 2>&1)
+gj_copy_sample code-review f1 "$W4"
 in_dir "$W4" bash "$S/p3b_code_review_gate.sh" f1 order-service
 out="$(last_out)"
 if printf '%s\n' "$out" | grep -q "证据树哈希计算失败"; then
@@ -311,12 +314,21 @@ mkdir -p "$W9"
 # ---------- 10. 模板 FEATURE 词边界替换（v3.26.2） ----------
 # generate_from_template 的 s/FEATURE/x/g 曾会误伤 FEATURED 等英文词。
 # 三层钉住：① 静态断言 gate 脚本已用词边界；② sed 语义行为探针；③ 真实模板生成仍工作。
-expect_contains 'scripts/devflow-state-core.sh' '\[\[:<:\]\]FEATURE\[\[:>:\]\]' \
-  "state-core 使用词边界 FEATURE 替换"
-sed_probe="$(printf 'word FEATURE here\\nFEATURED stays\\n' | sed -e "s/[[:<:]]FEATURE[[:>:]]/f1/g")"
-printf '%s\\n' "$sed_probe" | grep -q "word f1 here" && printf '%s\\n' "$sed_probe" | grep -q "FEATURED stays" \
-  && ok "sed 词边界语义：整词替换、FEATURED 不误伤" \
-  || bad "sed 词边界语义失效（${sed_probe}）"
+# v3.29.8（Linux 实证）: [[:<:]]/[[:>:]] 是 BSD 专有——GNU sed 直接 Invalid character
+# class name。断言改为可移植实现的语义探针（非词字符捕获 + 行首/行尾分支）。
+grep -qF "FEATURE\([^A-Za-z0-9_]" "$ROOT/scripts/devflow-state-core.sh" \
+  && ok "state-core 使用可移植词边界 FEATURE 替换" \
+  || bad "state-core 词边界 FEATURE 替换实现缺失"
+sed_probe="$(printf "word FEATURE here\nFEATURED stays\nFEATURE\n" | sed -e "s/FEATURE[^A-Za-z0-9_]/f1 /g" -e "s/FEATURE\$/f1/" -e "s/[^A-Za-z0-9_]FEATURE/f1/g")"
+_probe_ok=1
+printf "%s\n" "$sed_probe" | grep -q "word f1 here" || _probe_ok=0
+printf "%s\n" "$sed_probe" | grep -q "FEATURED stays" || _probe_ok=0
+printf "%s\n" "$sed_probe" | grep -q "^f1$" || _probe_ok=0
+if [ "$_probe_ok" = "1" ]; then
+  ok "sed 词边界语义：整词替换、FEATURED 不误伤、行尾命中（双平台可移植）"
+else
+  bad "sed 词边界语义失效（${sed_probe}）"
+fi
 W10="$TMP/tpl"
 mkdir -p "$W10/docs/out"
 in_dir "$W10" bash "$S/devflow-state-template.sh" generate myfeat P0 docs/out/gen.md

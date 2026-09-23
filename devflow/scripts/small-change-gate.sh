@@ -7,6 +7,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 SKILL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
 source "$SCRIPT_DIR/devflow_feature.sh"
 source "$SCRIPT_DIR/devflow_receipt.sh"
+# v3.30.0: Gate JSON 强制（small-change 正本）
+source "$SCRIPT_DIR/py_runtime.sh"
+source "$SCRIPT_DIR/gate_json_lib.sh"
+# shellcheck disable=SC2034  # GJ_SKILL 由 gate_json_lib 函数消费
+GJ_SKILL="$SKILL_ROOT"
 
 MODE="${1:-}"
 CHANGE_ID="${2:-}"
@@ -15,6 +20,9 @@ CONTRACT="${3:-}"
 devflow_feature_validate "$CHANGE_ID" || exit 2
 CONTRACT="${CONTRACT:-${STATE_DIR:-.devflow}/$CHANGE_ID/small-change.env}"
 [ -f "$CONTRACT" ] || { echo "[P0] small-change contract missing: $CONTRACT"; exit 1; }
+# v3.30.0: small-change 的 feature 目录即 CHANGE_ID——供 gate_json_lib 解析正本
+FEATURE="$CHANGE_ID"
+devflow_feature_validate "$FEATURE" || exit 2
 
 value() { sed -n "s/^$1=//p" "$CONTRACT" 2>/dev/null | head -1; }
 fail() { echo "[P0] $*"; FAIL=$((FAIL + 1)); }
@@ -236,6 +244,8 @@ if [ "$TARGET" = released ]; then
 fi
 
 RECEIPT_DIR="$STATE_ROOT/gates/SMALL-CHANGE"
+# v3.30.0: small-change JSON 正本强制
+gj_enforce small-change || { fail "small-change JSON 正本未通过"; RESULT_EXIT=1; }
 mkdir -p "$RECEIPT_DIR"
 RECEIPT="$RECEIPT_DIR/receipt.txt"
 EVIDENCE=("$CONTRACT" "$PROJECT_SCAN_EVIDENCE" "$CHANGE_REPORT")
@@ -262,6 +272,7 @@ COMMAND=small-change-gate.sh verify $CHANGE_ID
 EXIT_CODE=$RESULT_EXIT
 VERSION=small-change@$GATE_VERSION
 PHASE=SMALL-CHANGE
+printf '%s' "$GJ_BIND"
 SKILL_TREE=$(bash "$SCRIPT_DIR/gate-skill-tree.sh")
 EVIDENCE_PATHS_JSON=$EVIDENCE_JSON
 EVIDENCE_TREE_SHA256=$EVIDENCE_TREE

@@ -32,6 +32,8 @@ printf '\nFINDING|P0|P0-1|STATUS=CLOSED|legacy issue fixed\nM-01-F01-A01 mapped\
 printf '# design\nM-01-F01-A01\n' > "$W_P3B/docs/detailed-design/fx-design.md"
 printf '# criteria\nM-01-F01-A01\n' > "$W_P3B/docs/requirements/fx-acceptance-criteria.md"
 printf 'class Svc {}\n' > "$W_P3B/backend/svc/src/main/java/Svc.java"
+(cd "$W_P3B" && bash "$ROOT/scripts/devflow-state.sh" init fx --frontend=not-applicable >/dev/null 2>&1)
+gj_copy_sample code-review fx "$W_P3B"
 P3B_OUT=$(cd "$W_P3B" && bash "$ROOT/scripts/p3b_code_review_gate.sh" fx svc 2>&1; echo "rc=$?")
 if printf '%s' "$P3B_OUT" | grep -q 'rc=0$'; then
   ok "P3b accepts populated official template and ignores narrative P0 headings"

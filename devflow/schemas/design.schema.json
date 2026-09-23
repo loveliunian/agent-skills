@@ -168,7 +168,11 @@
           "type": "boolean"
         },
         "strategy": {
-          "enum": ["A", "B", "C"],
+          "enum": [
+            "A",
+            "B",
+            "C"
+          ],
           "description": "applicable=true 必填（跨字段校验）：冻结迁移策略——A=仅新建表无老系统数据迁移（免迁移收据）；B/C=有数据迁移的互斥策略（对应 P5-migration 收据）。收据刷新与命令行 --migration 以本字段为唯一事实源"
         },
         "dialects": {
@@ -562,6 +566,51 @@
             "type": "string",
             "description": "confidence 为 low/medium 时的原因（跨字段校验）"
           }
+        }
+      }
+    },
+    "diagrams": {
+      "type": "object",
+      "description": "图表体系登记（v3.30.0 机器闭环）：结构图七类登记 + DB 中立声明。时序图仍由 BOP steps 派生（SEQ>=WHEN 由 s2 数量配对），不在此登记。",
+      "additionalProperties": false,
+      "properties": {
+        "structure_charts": {
+          "type": "array",
+          "description": "结构图登记（图随内容走，每项=一类一处）：type 六类枚举；section 为归位章节（§x.y）；渲染确定性由 gen 工具保证（双次渲染 SHA 稳定性由测试钉）",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "section"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "状态机",
+                  "机制模型",
+                  "决策链",
+                  "对象生命周期",
+                  "页面导航",
+                  "ER"
+                ],
+                "description": "结构图类型（总清单声明是 §6.0 文档行为，不作为 type 登记）"
+              },
+              "section": {
+                "type": "string",
+                "minLength": 2,
+                "description": "归位章节锚（如 §2.3/§4/§7.1）——s2 校验文档对应章节存在该类 mermaid 图"
+              },
+              "title": {
+                "type": "string",
+                "description": "图标题（可选）"
+              }
+            }
+          }
+        },
+        "db_neutral": {
+          "type": "boolean",
+          "description": "详设正文与图 DB 中立声明：true 时 s2 扫描详设不得出现具体数据库产品名（方言归技术选型/DB 设计决策/部署文档）"
         }
       }
     }
