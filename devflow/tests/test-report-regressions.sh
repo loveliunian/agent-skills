@@ -44,6 +44,27 @@ else
   bad "P5 test-case gate is the primary receipt with counters"
 fi
 
+# v3.30.1: Gate JSON 绑定对重验行为钉——篡改/删除正本，重验必须拦截
+_TCASES="$TMP/.devflow/foo/test-cases.json"
+cp "$_TCASES" "$_TCASES.keep"
+cp "$_TCASES" "$_TCASES.bak"
+printf '\n// tampered\n' >> "$_TCASES"
+_TAMPER=$(cd "$TMP" && WORKSPACE="$TMP" bash -c "source '$ROOT/scripts/devflow_receipt.sh' && verify_receipt_evidence '.devflow/foo/gates/P5/receipt.txt' 2>&1 || true")
+if printf '%s' "$_TAMPER" | grep -q "TEST_CASES_JSON 哈希不匹配"; then
+  ok "Gate JSON 绑定重验：篡改正本被拦截（哈希不匹配）"
+else
+  bad "Gate JSON 绑定重验未拦截篡改（${_TAMPER}）"
+fi
+mv "$_TCASES.bak" "$_TCASES"
+rm -f "$_TCASES"
+_DEL=$(cd "$TMP" && WORKSPACE="$TMP" bash -c "source '$ROOT/scripts/devflow_receipt.sh' && verify_receipt_evidence '.devflow/foo/gates/P5/receipt.txt' 2>&1 || true")
+if printf '%s' "$_DEL" | grep -q "TEST_CASES_JSON 绑定文件缺失"; then
+  ok "Gate JSON 绑定重验：删除正本被拦截（绑定文件缺失）"
+else
+  bad "Gate JSON 绑定重验未拦截删除（${_DEL}）"
+fi
+cp "$_TCASES.keep" "$_TCASES" && rm -f "$_TCASES.keep"
+
 if (cd "$TMP" && STATE_DIR="$TMP/.devflow" bash "$ROOT/scripts/s5_migration_gate.sh" foo B docs/test/migration.env >/dev/null) && \
    [ -f "$TMP/.devflow/foo/gates/P5-migration/receipt.txt" ] && \
    [ -f "$TMP/docs/foo/gates/P5-migration/receipt.txt" ]; then

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# py_runtime.sh · 统一 Python 解释器解析 v3.30.0
+# py_runtime.sh · 统一 Python 解释器解析 v3.30.1
 # 用法：source scripts/py_runtime.sh 后以 "${DEVFLOW_PY[@]}" 调用、devflow_py_ok 判可用。
 # 解析顺序：python3 → python（须 3.x 探测通过）→ py -3；全缺时回退字面 python3，
 # 保持与历史版本一致的"command not found"失败语义（守护点走 devflow_py_ok 优雅降级）。

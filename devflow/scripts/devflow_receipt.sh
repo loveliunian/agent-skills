@@ -144,10 +144,46 @@ _receipt_tree_verify() {
 # ${WORKSPACE:-$PWD} 内（物理归一，防 ../ 词法逃逸与符号链接逃逸）；
 # v3.16.6（N27-P3-2）: 相对路径以 workspace 为基归一解析（此前依赖调用方 cwd，
 # 非 workspace 根 cwd 下对真实收据一律误拒）。
+# v3.30.1: 通用 *_JSON / *_JSON_SHA256 绑定对重验——Gate JSON 强制（gate_json_lib）写入的
+# 收据绑定行此前无任何重验逻辑（声明"audit 重验即拦截"不成立，本批修复）。规则：
+# 每个形如 ^[A-Z0-9_]+_JSON=<path> 的行，若存在同名 _JSON_SHA256=<64hex> 配对行，
+# 则验：路径物理归一 + workspace 边界 + 文件存在 + 哈希一致。EVIDENCE_PATHS_JSON
+# 是数组形式（无同名 _SHA256 配对），自然跳过，仍由专有逻辑处理。
+_verify_json_pairs() { # <receipt>
+  local receipt="$1" line tag path want actual resolved _ws_base
+  _ws_base=$(_receipt_ws_base)
+  [ -n "$_ws_base" ] || { echo "[EVIDENCE] workspace 不可解析（${WORKSPACE:-$PWD}）: $receipt"; return 1; }
+  while IFS= read -r line; do
+    tag="${line%%=*}"; path="${line#*=}"
+    [ "$tag" = "EVIDENCE_PATHS_JSON" ] && continue
+    want=$(sed -n "s/^${tag}_SHA256=//p" "$receipt" | head -1)
+    [ -n "$want" ] || continue
+    printf '%s' "$want" | grep -qE '^[0-9a-f]{64}$' || {
+      echo "[EVIDENCE] ${tag}_SHA256 非法（非 64hex）: $receipt"; return 1; }
+    resolved=$(_receipt_norm_file "$path" 2>/dev/null)
+    if [ -z "$resolved" ]; then
+      echo "[EVIDENCE] ${tag} 路径不可解析: ${path}（收据 ${receipt}）"; return 1
+    fi
+    case "$resolved" in
+      "$_ws_base"|"$_ws_base"/*) ;;
+      *) echo "[EVIDENCE] ${tag} 证据越出 workspace: ${path}（收据 ${receipt}）"; return 1 ;;
+    esac
+    [ -f "$resolved" ] || {
+      echo "[EVIDENCE] ${tag} 绑定文件缺失: ${path}（收据 ${receipt}）——JSON 正本删除后审计必须阻断"; return 1; }
+    actual=$(_receipt_sha256_file "$resolved")
+    [ "$actual" = "$want" ] || {
+      echo "[EVIDENCE] ${tag} 哈希不匹配: ${path}（收据 ${receipt}）——JSON 正本篡改后审计必须阻断"; return 1; }
+  done < <(grep -E '^[A-Z0-9_]+_JSON=' "$receipt" 2>/dev/null)
+  return 0
+}
+
 verify_receipt_evidence() {
   local receipt_file="$1"
   local paths_json tree_stored tree_calc f resolved ev_path ev_sha actual _ws_base
   [ -f "$receipt_file" ] || { echo "[EVIDENCE] receipt missing: $receipt_file"; return 1; }
+
+  # v3.30.1: Gate JSON 绑定对重验（*_JSON + *_JSON_SHA256——篡改/删除/越界即拒）
+  _verify_json_pairs "$receipt_file" || return 1
 
   tree_stored=$(sed -n 's/^EVIDENCE_TREE_SHA256=//p' "$receipt_file" | head -1)
   paths_json=$(sed -n 's/^EVIDENCE_PATHS_JSON=//p' "$receipt_file" | head -1)

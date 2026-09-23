@@ -1,12 +1,30 @@
 ---
 name: changelog
-version: "3.30.0"
+version: "3.30.1"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.30.0
+# Changelog — devflow v1 → v3.30.1
+
+## v3.30.1 (2026-09-23) — Gate JSON 绑定对重验补全（v3.30.0 声明缺口修复）
+
+来源：v3.30.0 发布后全量复查发现：收据写入的 `*_JSON`/`*_JSON_SHA256` 绑定行
+**没有任何重验逻辑**——两个收据校验器（verify_receipt_evidence/verify_evidence_receipt）
+只认 EVIDENCE_* 字段，"audit 重验即篡改拦截"的声明不成立（JSON 正本被篡改/删除后
+audit 仍 PASS）。本批补全使声明为真。
+
+1. **`_verify_json_pairs`（scripts/devflow_receipt.sh）**：通用绑定对重验——收据中每个
+   `^[A-Z0-9_]+_JSON=<path>` 行若存在同名 `_JSON_SHA256=<64hex>` 配对，即验：
+   路径物理归一 + workspace 边界 + 文件存在 + 哈希一致（篡改/删除/越界三类均阻断）。
+   EVIDENCE_PATHS_JSON 为数组形式（无同名配对）自然跳过，仍由专有逻辑处理。
+2. **接线**：新契约校验器（verify_receipt_evidence）直接调用；旧契约校验器
+   （verify_evidence_receipt——P0b/P3cd/P5/P7-P10/P4b 路径）以 fail-closed 方式调用
+   （校验库未加载即拒绝，不静默跳过）。
+3. **行为钉（test-report-regressions +2）**：篡改正本 → "哈希不匹配"拦截；删除正本 →
+   "绑定文件缺失"拦截。开发过程中套件自身的恢复逻辑曾因**一字节之差**（feature 字段
+   重命名版 vs 原始 sample）被 audit 拦截——反向实证绑定是字节级真实生效的。
 
 ## v3.30.0 (2026-09-23) — Gate JSON 全量强制 + 图表体系机器闭环 + Linux/跨平台实证
 

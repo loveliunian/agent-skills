@@ -205,6 +205,14 @@ devflow_version() {
 
 verify_evidence_receipt() {
   local receipt_file="$1" phase="$2" evidence_path expected actual resolved_path declared_phase version expected_ver
+  # v3.30.1: Gate JSON 绑定对重验（与 verify_receipt_evidence 同口径——旧契约收据
+  # （P0b/P3cd/P5/P7-P10/P4b）同样携带 *_JSON 绑定行，删除/篡改正本须阻断）
+  if type _verify_json_pairs >/dev/null 2>&1; then
+    _verify_json_pairs "$receipt_file" || return 1
+  else
+    echo "[EVIDENCE] 校验库不完整（_verify_json_pairs 缺失——devflow_receipt.sh 未加载）fail-closed" >&2
+    return 1
+  fi
   declared_phase=$(sed -n 's/^PHASE=//p' "$receipt_file" | head -1)
   version=$(sed -n 's/^VERSION=//p' "$receipt_file" | head -1)
   [ "$declared_phase" = "$phase" ] || { error "Gate 收据阶段不匹配: $declared_phase != $phase"; return 1; }
