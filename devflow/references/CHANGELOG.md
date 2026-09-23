@@ -1,12 +1,19 @@
 ---
 name: changelog
-version: "3.30.11"
+version: "3.30.12"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.30.11
+# Changelog — devflow v1 → v3.30.12
+
+## v3.30.12 (2026-09-24) — 子代理第 7 轮：JUnit fields[].name 裸插收口（收敛达成）
+
+来源：第 7 轮收敛确认——Playwright 已干净、29/29 全绿；JUnit 残留同类注入 2 处
+（`fields[].name` 无 pattern：L230 行注释 `
+` 逃逸 + L457 样例值破字符串字面量）。
+java_doc/java_str 收口后 PoC 零残留零执行。
 
 ## v3.30.11 (2026-09-24) — 子代理第 6 轮：锚点块 label 裸插收口（收敛）
 

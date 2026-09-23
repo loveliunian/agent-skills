@@ -1,6 +1,6 @@
 ---
 name: devflow-state
-version: "3.30.11"
+version: "3.30.12"
 description: >-
   Use when initializing, checkpointing, resuming, or checking status of a devflow workflow,
   mentions "/devflow-state", "/checkpoint", "/resume", "/workflow-status", or "工作流状态".

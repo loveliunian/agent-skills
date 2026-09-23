@@ -227,7 +227,7 @@ class {test_class_name} {{
         return f"""    @Test
     @WithMockUser(authorities = {{"ROLE_ADMIN"}})
     void testValidation_Missing{_safe_pascal(field_name)}() throws Exception {{
-        // Given: 缺少必填参数 {field_name}
+        // Given: 缺少必填参数 {java_doc(field_name)}
         String invalidJson = "{{\\"invalid\\": \\"data\\"}}";
         
         // When & Then: 期望返回 400 Bad Request
@@ -454,7 +454,7 @@ class {test_class_name} {{
             elif 'bool' in field_type.lower():
                 value = 'true'
             else:
-                value = f'\\\"{name}_value\\\"'
+                value = f'\\\"{java_str(name)}_value\\\"'
             
             pairs.append(f'\\\"{java_str(name)}\\\":{value}')
         
