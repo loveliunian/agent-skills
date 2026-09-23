@@ -290,6 +290,8 @@ else
   bad "migrate-tree 写入迁移收据并更新冻结树"
 fi
 printf "EXIT_CODE=0\nVERSION=g@%s\nPHASE=P2\nSKILL_TREE=%s\nARTIFACT_HASH=no-artifacts\n" "$SKILL_VER" "$OLD_TREE" > "$WMG/.devflow/mig-fixture/gates/P2/receipt.txt"
+# v3.30.7: P2 收据须含 DESIGN_JSON 绑定对（verify_stage_json_binding 映射已扩 P2）
+gj_bind_lines mig-fixture "$WMG" P2 >> "$WMG/.devflow/mig-fixture/gates/P2/receipt.txt"
 cp "$WMG/.devflow/mig-fixture/gates/P2/receipt.txt" "$WMG/docs/mig-fixture/gates/P2/receipt.txt"
 if WORKSPACE="$WMG" bash "$ROOT/scripts/devflow-state.sh" complete mig-fixture P2 >/dev/null 2>&1 \
    && [ "$(jq -r '.current_phase' "$WMG/.devflow/mig-fixture.state.json")" = "P2a" ]; then

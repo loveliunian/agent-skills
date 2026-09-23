@@ -735,6 +735,8 @@ EXIT_CODE=$([ "$FAIL" -gt 0 ] && echo 1 || echo 0)
   # 不入收据则收据与产物可各自漂移（审计重验无锚点）。
   if [ -f "$DESIGN_JSON" ]; then
     echo "ARTIFACTS=$DESIGN,$CRITERIA,$DESIGN_JSON"
+    # v3.30.7: 补路径行成完整配对（SHA-only 无路径行——剥离/篡改不可重验[第2轮审计]）
+    echo "DESIGN_JSON=$DESIGN_JSON"
     echo "DESIGN_JSON_SHA256=$(shasum -a 256 "$DESIGN_JSON" 2>/dev/null | awk '{print $1}' || sha256sum "$DESIGN_JSON" 2>/dev/null | awk '{print $1}')"
   else
     echo "ARTIFACTS=$DESIGN,$CRITERIA"

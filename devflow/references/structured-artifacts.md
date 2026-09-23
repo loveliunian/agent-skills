@@ -1,4 +1,4 @@
-# 结构化产物层 · Gate 强制矩阵（v3.30.6）
+# 结构化产物层 · Gate 强制矩阵（v3.30.7）
 
 > 正本契约与管线口径见 `SKILL.md`「全阶段结构化产物」；本文是各阶段 Gate 对 JSON 正本的
 > 强制状态与接线模式的唯一明细页。
@@ -8,9 +8,9 @@
 | 阶段 | 正本 kind | Gate | 强制状态 | 收据绑定 |
 |---|---|---|---|---|
 | P0 | acceptance | `s0_acceptance_gate.sh` §1b | ✅ 已强制：缺失 / 校验失败 / 与 Markdown 冻结分母集合不一致，任一即 P0 | `ACCEPTANCE_JSON` + `ACCEPTANCE_JSON_SHA256` |
-| P2 | design | `s2_design_coverage_gate.sh` §2c | ✅ 已强制（v3.17.1 起） | `DESIGN_JSON_SHA256` + 证据树 |
-| P3c | security | `p3_security_perf_gate.sh` | ✅ 已强制（v3.25.2） | `SECURITY_JSON_SHA256` |
-| P3d | performance | `p3_security_perf_gate.sh` | ✅ 已强制（v3.25.2） | `PERFORMANCE_JSON_SHA256` |
+| P2 | design | `s2_design_coverage_gate.sh` §2c | ✅ 已强制（v3.17.1 起；v3.30.7 补路径行） | `DESIGN_JSON`+SHA256 + 证据树 |
+| P3c | security | `p3_security_perf_gate.sh` | ✅ 已强制（v3.30.6 起配对行） | `SECURITY_JSON` + SHA256 |
+| P3d | performance | `p3_security_perf_gate.sh` | ✅ 已强制（v3.30.6 起配对行） | `PERFORMANCE_JSON` + SHA256 |
 | P6 | verification | `s6_final_verification_gate.sh` | ✅ 已强制（校验 + 执行记录对账） | 证据树 |
 | P0b | prd-review | `artifact_gate.sh P0b` | ✅ 已强制（v3.30.0 Gate 侧接入） | `PRD_REVIEW_JSON` + SHA256 |
 | P1 | tech-selection / clarification / constraints | `s1_fact_sources_gate.sh` | ✅ 已强制（v3.30.0，三正本逐一） | 三组 `*_JSON` + SHA256 |

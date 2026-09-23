@@ -748,6 +748,35 @@ cmd_migrate_tree() {
   return 0
 }
 
+# v3.30.7: 显式重钉——completed 阶段按当前收据重写 receipt_sha256（钉定失配经人工
+# 核销、或合法 gate 重跑后的唯一正规化路径；RE-PIN 审计行写入 state 元数据）。
+cmd_repin() {
+  local feature="$1"
+  local state_file
+  state_file=$(get_state_file "$feature")
+  [ -f "$state_file" ] || { error "工作流 '$feature' 不存在"; return 1; }
+  command -v jq >/dev/null 2>&1 || { error "repin 需要 jq"; return 1; }
+  local phase receipt sha now repinned=""
+  now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  for phase in P0 P0b P1 P2 P2a P2b P3 P3b P3c P3d P4 P4b P5 P6 P7 P8 P9 P10; do
+    [ "$(jq -r --arg p "$phase" '.phases[$p].status // "pending"' "$state_file")" = "completed" ] || continue
+    case "$phase" in P3c|P3d) receipt="$STATE_DIR/${feature}/gates/P3cd/receipt.txt" ;;
+      *) receipt="$STATE_DIR/${feature}/gates/${phase}/receipt.txt" ;; esac
+    if [ ! -f "$receipt" ]; then
+      warn "${phase} completed 但收据缺失——跳过（先恢复收据或人工核销）"
+      continue
+    fi
+    sha=$(hash_file "$receipt")
+    jq --arg p "$phase" --arg sha "$sha" --arg now "$now" \
+      '.phases[$p].receipt_sha256 = $sha | .phases[$p].repinned_at = $now | .updated_at = $now' \
+      "$state_file" > "$state_file.tmp" && mv "$state_file.tmp" "$state_file"
+    repinned="$repinned $phase"
+  done
+  [ -n "$repinned" ] || { warn "无 completed 阶段可重钉"; return 0; }
+  success "RE-PIN 完成:${repinned}（按当前收据重写钉定——操作者对此核销负责）"
+  return 0
+}
+
 # 修复 v3.9.8 之前 P3cd 复合阶段写入的空 phase 键。只删除可被收据和
 # 两个原子阶段共同证明的历史残留；其余状态拒绝修改，避免误修正常数据。
 cmd_repair() {

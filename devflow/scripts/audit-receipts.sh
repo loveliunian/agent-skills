@@ -161,6 +161,9 @@ if command -v jq >/dev/null 2>&1 && [ -f "$STATE_DIR/$FEATURE.state.json" ]; the
     _pcur=$(hash_file "$_prcpt" 2>/dev/null || true)
     [ "$_pcur" = "$_ppin" ] || fail "pin check: ${_pstage} 收据与钉定哈希失配（完成后被改写）: $_prcpt"
   done < <(jq -r '.phases | to_entries[] | select(.value.status=="completed" and .value.receipt_sha256 != null) | [.key, .value.receipt_sha256] | @tsv' "$STATE_DIR/$FEATURE.state.json" 2>/dev/null || true)
+  # v3.30.7: completed 无钉提示（钉定对账的上游完整性——缺钉阶段失配检测天然盲）
+  _nopin=$(jq -r '[.phases | to_entries[] | select(.value.status=="completed" and (.value.receipt_sha256 == null)) | .key] | join(" ")' "$STATE_DIR/$FEATURE.state.json" 2>/dev/null || true)
+  [ -z "$_nopin" ] || echo "[WARN] 已完成但未钉定（失配检测对其实盲；核销后跑 devflow-state.sh repin ${FEATURE}）: $_nopin"
 fi
 
 # v3.14.11: state-scope 完整性——state 标记 completed 的阶段必须存在对应内部收据

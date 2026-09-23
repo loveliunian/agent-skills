@@ -1,12 +1,45 @@
 ---
 name: changelog
-version: "3.30.6"
+version: "3.30.7"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.30.6
+# Changelog — devflow v1 → v3.30.7
+
+## v3.30.7 (2026-09-24) — 子代理第 2 轮审计：豁免收紧 + 钉定闭环 + P2/P3 分项补全（8 项）
+
+来源：第 2 轮双子代理审计——上轮修复的豁免与钉定逻辑存在新绕过（state-init 前缀
+伪造、reconcile 越钉推进）、P2/P3c/P3d 分项盲区、waiver 流程不可达、SKIPPED 无
+阶段拒绝名单、测试 WORKSPACE 推导双错、文档失同步。
+
+1. **state-init 豁免收紧（P1）**：任意收据改 `VERSION=state-init@` 前缀即可关掉绑定
+   检测（PoC 实证）。收紧为 gates/P0 目录 + PHASE=P0 三重条件，他处伪造前缀即拒。
+2. **reconcile 越钉推进收口（P1）**：apply 循环内钉失配原 drift++ 后无消费者——
+   制造任一 behind 漂移即可越过失配继续推进（PoC 实证）。改硬拒 return 1；前移钉
+   复查去掉 drift==0 条件（失配即拒，不再依赖"别处已有漂移"才可达）。
+3. **repin 子命令（P2）**：钉定失配后无合法重钉路径（错误信息宣称的核销路径不存在
+   ——逼操作者手工 jq 删钉）。`devflow-state.sh repin <feature>` 按当前收据显式重钉
+   + repinned_at 审计留痕；audit 对"completed 无钉"输出 WARN 指引 repin。
+4. **P2 盲区收口（高）**：s2 收据原为 DESIGN_JSON_SHA256 单行（同 P3cd 旧缺口）。
+   s2 补路径行成完整配对；映射补 P2→DESIGN_JSON。
+5. **P3c/P3d 分项收据支持（中）**：security/performance 分项模式产出 gates/P3c（PHASE=P3c）
+   ——audit 归一 P3cd 后要求双行会误杀分项流程。按收据 PHASE 行取有效映射
+   （P3c→SECURITY 单行、P3d→PERFORMANCE 单行）；顺修 gate `pass:`→`ok:` 笔误
+   （command not found 被 || true 吞，PASS 计数恒少）。
+6. **waiver 流程可达（P2）**：gj_enforce 无条件先行使 NOT_APPLICABLE 流程永久不可达
+   且无收据留痕。waiver+skip-log 授权时跳过对应 kind 强制，收据写 `*_WAIVED=1`
+   留痕行；audit 侧以 WAIVED+skip-log 授权行替代绑定行核验。
+7. **SKIPPED 阶段拒绝名单（高）**：SKILL.md 停止条件"P3、P4b、P6、P7-P10 不可跳过"
+   此前只有 prose——伪造四字段+skip-log 即可跳过 P6/P7。verify_stage_json_binding
+   对不可跳阶段见 SKIPPED=1 即拒。
+8. **测试与文档同步**：test-gate-json-bindings 的 binds_ok WORKSPACE sed 推导双路径
+   皆错且对 EXIT_CODE≠0 收据早退恒过（空洞断言）——改显式传 ws + 用不依赖
+   EXIT_CODE 的 _verify_json_pairs；structured-artifacts 矩阵补 P3c/P3d/P2 配对
+   口径；SKILL.md 标注 P6 为证据树形态；docs 两份指南标注 p5_gate.sh 已归档。
+   途中自修两处多字节雷（audit-receipts `$FEATURE）`、devflow-state-core
+   `$repinned（`——自家 lint 抓到）。
 
 ## v3.30.6 (2026-09-24) — 子代理双审计：Gate 绑定全链系统性断裂修复（9 项）
 

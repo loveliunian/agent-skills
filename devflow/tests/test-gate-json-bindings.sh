@@ -17,16 +17,17 @@ PASS=0; FAIL=0
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/gj-bindings.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
-binds_ok() { # <receipt> <stage> <tag...> —— 收据含全部 TAG_JSON= 行且 binding 校验过
-  local receipt="$1" stage="$2"; shift 2
+binds_ok() { # <receipt> <ws> <tag...> —— 行齐全 + _verify_json_pairs 真实哈希校验
+  # v3.30.7: 旧版 WORKSPACE sed 推导双路径皆错（第2轮审计）；且 binding 校验对
+  # EXIT_CODE≠0 收据早退恒过（空洞）。改显式传 ws + 用不依赖 EXIT_CODE 的配对校验。
+  local receipt="$1" ws="$2"; shift 2
   local t okall=1
   for t in "$@"; do
     grep -q "^${t}_JSON=" "$receipt" || { echo "  缺 ${t}_JSON 行"; okall=0; }
     grep -q "^${t}_JSON_SHA256=" "$receipt" || { echo "  缺 ${t}_JSON_SHA256 行"; okall=0; }
   done
   [ "$okall" = "1" ] || return 1
-  (WORKSPACE="$(dirname "$receipt" | sed 's|/\(.devflow\)/.*|\1|;s|^\(.devflow\)$|.|')" \
-    bash -c ". '$ROOT/scripts/devflow_receipt.sh' && verify_stage_json_binding '$receipt' '$stage'")
+  (cd "$ws" && WORKSPACE="$ws" bash -c ". '$ROOT/scripts/devflow_receipt.sh' && _verify_json_pairs '$receipt'")
 }
 
 # ── T1 p2b 绿路径 ──
@@ -48,7 +49,7 @@ PO 确认：通过，符合预期，同意进入详设。
 EOF
 touch "$W1/docs/原型/fx-登录页.md" "$W1/docs/原型/fx-订单页.md" "$W1/docs/原型/fx-筛选面板.md"
 if (cd "$W1" && bash "$ROOT/scripts/p2b_demo_gate.sh" fx >/dev/null 2>&1) \
-   && binds_ok "$W1/.devflow/fx/gates/P2b/receipt.txt" P2b DEMO_SIGNOFF >/dev/null 2>&1; then
+   && binds_ok "$W1/.devflow/fx/gates/P2b/receipt.txt" "$W1" DEMO_SIGNOFF >/dev/null 2>&1; then
   ok "T1 p2b 绿路径：收据含 DEMO_SIGNOFF 双行且 binding 接受"
 else
   bad "T1 p2b 绑定链断裂（v3.30.5 前主路径缺 printf 的回归）"
@@ -61,7 +62,7 @@ cp "$ROOT/examples/structured/prd-review.sample.json" "$W2/.devflow/fx/prd-revie
 { echo "# fx PRD 评审报告"; for i in 1 2 3 4 5 6 7 8 9; do echo "行$i 评审内容（实质行）。"; done; echo "最终结论：通过。"; } > "$W2/docs/需求/fx-PRD评审.md"
 (cd "$W2" && bash "$ROOT/scripts/artifact_gate.sh" P0b fx >/dev/null 2>&1 || true)
 if [ -f "$W2/.devflow/fx/gates/P0b/receipt.txt" ] \
-   && binds_ok "$W2/.devflow/fx/gates/P0b/receipt.txt" P0b PRD_REVIEW >/dev/null 2>&1; then
+   && binds_ok "$W2/.devflow/fx/gates/P0b/receipt.txt" "$W2" PRD_REVIEW >/dev/null 2>&1; then
   ok "T2 P0b 不崩溃且 PRD_REVIEW 绑定落盘（v3.30.6 前 SCRIPT_DIR unbound 全灭）"
 else
   bad "T2 P0b 崩溃回归或绑定缺失"
@@ -72,7 +73,7 @@ W3="$TMP/p3cd"; mkdir -p "$W3/.devflow/fx"
 cp "$ROOT/examples/structured/security.sample.json" "$W3/.devflow/fx/security.json"
 cp "$ROOT/examples/structured/performance.sample.json" "$W3/.devflow/fx/performance.json"
 (cd "$W3" && bash "$ROOT/scripts/p3_security_perf_gate.sh" fx --mode full >/dev/null 2>&1 || true)
-if binds_ok "$W3/.devflow/fx/gates/P3cd/receipt.txt" P3cd SECURITY PERFORMANCE >/dev/null 2>&1; then
+if binds_ok "$W3/.devflow/fx/gates/P3cd/receipt.txt" "$W3" SECURITY PERFORMANCE >/dev/null 2>&1; then
   ok "T3 P3cd 双正本配对行落盘（v3.30.6 前 SHA-only 无路径行——剥离不可检）"
 else
   bad "T3 P3cd 绑定配对缺失"
@@ -112,7 +113,7 @@ printf '# small change\nsubject: order-list-filter\n' > "$W4/docs/changes/order-
 touch "$W4/frontend/src/views/order-list.vue"
 (cd "$W4" && bash "$ROOT/scripts/small-change-gate.sh" verify order-filter .devflow/order-filter/persist.env >/dev/null 2>&1 || true)
 if [ -f "$W4/.devflow/order-filter/gates/SMALL-CHANGE/receipt.txt" ] \
-   && binds_ok "$W4/.devflow/order-filter/gates/SMALL-CHANGE/receipt.txt" SMALL-CHANGE SMALL_CHANGE >/dev/null 2>&1; then
+   && binds_ok "$W4/.devflow/order-filter/gates/SMALL-CHANGE/receipt.txt" "$W4" SMALL_CHANGE >/dev/null 2>&1; then
   ok "T4 small-change 绑定落盘（v3.30.6 前 heredoc 把 printf 写成字面文本）"
 else
   bad "T4 small-change 绑定字面化回归"

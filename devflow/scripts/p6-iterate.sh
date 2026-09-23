@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# p6-iterate.sh · P6 修复循环增量重跑（v3.30.6）
+# p6-iterate.sh · P6 修复循环增量重跑（v3.30.7）
 #
 # 用法:
 #   bash scripts/p6-iterate.sh <feature> <unit|integration|client|load|staging> [--filter <expr>] [--dry-run]

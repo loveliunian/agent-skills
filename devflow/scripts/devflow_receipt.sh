@@ -187,9 +187,25 @@ verify_stage_json_binding() { # <receipt> <stage>
   [ -f "$receipt" ] || return 0
   _rc=$(grep '^EXIT_CODE=' "$receipt" | head -1 | cut -d= -f2)
   [ "${_rc:-1}" = "0" ] || return 0
-  # v3.30.6: state-init 基线收据不构成 Gate 证据（与 _reconcile_receipt_ok 同口径豁免
-  # ——audit 放宽到 rc=3 后基线会进本检测，新初始化项目会被误杀）
-  sed -n 's/^VERSION=//p' "$receipt" | head -1 | grep -q '^state-init@' && return 0
+  # v3.30.7: state-init 豁免收紧——仅 gates/P0 目录 + PHASE=P0 三重条件（第 2 轮 PoC：
+  # 任意收据改 VERSION=state-init@ 前缀即可关掉绑定检测；基线只存在于 gates/P0）
+  if sed -n 's/^VERSION=//p' "$receipt" | head -1 | grep -q '^state-init@'; then
+    case "$receipt" in
+      */gates/P0/receipt.txt)
+        [ "$(sed -n 's/^PHASE=//p' "$receipt" | head -1)" = "P0" ] && return 0 ;;
+    esac
+    echo "[EVIDENCE] state-init@ 前缀仅合法于 gates/P0 基线——当前收据伪造前缀拒绝: $receipt"
+    return 1
+  fi
+  # v3.30.7: 不可跳阶段拒绝名单（SKILL.md 停止条件：P3、P4b、P6、P7-P10 不可跳过
+  # ——此前只验"授权真伪"不验"该阶段可否跳"，伪造四字段+skip-log 即可跳过 P6/P7）
+  case "$stage" in
+    P3|P4b|P6|P7|P8|P9|P10)
+      if grep -q '^SKIPPED=1' "$receipt"; then
+        echo "[EVIDENCE] ${stage} 属不可跳过阶段（停止条件硬规则），SKIPPED 收据拒绝: $receipt"
+        return 1
+      fi ;;
+  esac
   # v3.30.5: SKIPPED 豁免须双重授权核验（伪 SKIPPED=1 绕过绑定检测的 PoC 收口）——
   # 收据四字段（reason/by/at/approval）+ skip-log 对应阶段授权行（authorized-by 一致）
   if grep -q '^SKIPPED=1' "$receipt"; then
@@ -218,13 +234,20 @@ verify_stage_json_binding() { # <receipt> <stage>
   vernum="${ver##*@}"
   printf '%s' "$vernum" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+' || return 0
   [ "$(printf '%s\n3.30.0\n' "$vernum" | awk 'NR==1{a=$0} NR==2{b=$0} END{n=split(a,av,"."); m=split(b,bv,"."); k=(n>m?n:m); for(i=1;i<=k;i++){x=av[i]+0; y=bv[i]+0; if(x>y){print 1;exit} else if(x<y){print 0;exit}} print 1}')" = "1" ] || return 0
+  # v3.30.7: P3c/P3d 分项收据按 PHASE 行取有效映射（security 模式真产出 gates/P3c
+  # + PHASE=P3c——audit 归一 P3cd 后要求双行会误杀分项流程）
+  _pline=$(sed -n 's/^PHASE=//p' "$receipt" | head -1)
+  case "$_pline" in P3c|P3d) stage="$_pline" ;; esac
   case "$stage" in
     P0)          set -- ACCEPTANCE_JSON ;;
     P0b)         set -- PRD_REVIEW_JSON ;;
     P1)          set -- TECH_SELECTION_JSON CLARIFICATION_JSON CONSTRAINTS_JSON ;;
+    P2)          set -- DESIGN_JSON ;;
     P2a)         set -- DESIGN_REVIEW_JSON ;;
     P2b)         set -- DEMO_SIGNOFF_JSON ;;
     P3)          set -- SELF_CHECK_JSON ;;
+    P3c)         set -- SECURITY_JSON ;;
+    P3d)         set -- PERFORMANCE_JSON ;;
     P3cd)        set -- SECURITY_JSON PERFORMANCE_JSON ;;
     P3b)         set -- CODE_REVIEW_JSON ;;
     P4)          set -- PRD_VALIDATION_JSON ;;
@@ -236,8 +259,20 @@ verify_stage_json_binding() { # <receipt> <stage>
     SMALL-CHANGE) set -- SMALL_CHANGE_JSON ;;
     *)           return 0 ;;
   esac
+  local _feat2 _slog2
+  _feat2=$(basename "$(dirname "$(dirname "$(dirname "$receipt")")")")
+  _slog2="${WORKSPACE:-$PWD}/.devflow/$_feat2/skip-log.txt"
   for _tag do
     if ! grep -q "^${_tag}=" "$receipt"; then
+      # v3.30.7: P3cd 豁免留痕——WAIVED=1 + skip-log 对应授权行可替代绑定行
+      case "$_tag" in
+        SECURITY_JSON)    _wkey="SKIP_P3CD_SECURITY" ;;
+        PERFORMANCE_JSON) _wkey="SKIP_P3CD_PERFORMANCE" ;;
+        *) _wkey="" ;;
+      esac
+      if [ -n "$_wkey" ] && grep -q "^${_tag%%_JSON}_WAIVED=1$" "$receipt"          && [ -f "$_slog2" ] && grep -q "^${_wkey}=" "$_slog2"; then
+        continue
+      fi
       echo "[EVIDENCE] ${stage} 终态收据缺 ${_tag} 绑定行（版本 $vernum ≥ 3.30.0 必然产出——缺行即被剥离，正本篡改将脱离审计）: $receipt"
       return 1
     fi

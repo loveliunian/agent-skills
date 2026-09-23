@@ -1,3 +1,4 @@
+> **注（v3.30.6）**：本文档示例中的 `scripts/p5_gate.sh` 已归档至 `_archive/scripts-retired-3.30.6/`；现行 P5 主门禁为 `scripts/p5_test_cases_gate.sh`。
 # Gate 自动修复建议系统使用指南
 
 > **版本**: v3.28.1  

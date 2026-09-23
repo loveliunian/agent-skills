@@ -93,6 +93,7 @@ gj_stage_tags() {
     P0) echo "ACCEPTANCE" ;;
     P0b) echo "PRD_REVIEW" ;;
     P1) echo "TECH_SELECTION CLARIFICATION CONSTRAINTS" ;;
+    P2) echo "DESIGN" ;;
     P2a) echo "DESIGN_REVIEW" ;;
     P2b) echo "DEMO_SIGNOFF" ;;
     P3) echo "SELF_CHECK" ;;

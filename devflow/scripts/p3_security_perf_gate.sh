@@ -311,14 +311,23 @@ main() {
   STATE_DIR="${STATE_DIR:-.devflow}"
   SECURITY_JSON="${STATE_DIR}/${FEATURE}/security.json"
   PERFORMANCE_JSON="${STATE_DIR}/${FEATURE}/performance.json"
+  # v3.30.7: waiver+skip-log 授权 NOT_APPLICABLE 时跳过对应 kind 的强制（第 2 轮实证：
+  # 旧版 gj_enforce 无条件先行，NOT_APPLICABLE 流程永久不可达且无收据留痕）
+  _waive_sec=0; _waive_perf=0
+  if [ -n "$WAIVER_FILE" ] && [ -f "$WAIVER_FILE" ]; then
+    grep -qE "^P3CD_SECURITY=NOT_APPLICABLE" "$WAIVER_FILE" && grep -qE "^SKIP_P3CD_SECURITY=" "${STATE_DIR}/${FEATURE}/skip-log.txt" 2>/dev/null && _waive_sec=1
+    grep -qE "^P3CD_PERFORMANCE=NOT_APPLICABLE" "$WAIVER_FILE" && grep -qE "^SKIP_P3CD_PERFORMANCE=" "${STATE_DIR}/${FEATURE}/skip-log.txt" 2>/dev/null && _waive_perf=1
+  fi
   # v3.30.6: 正本 fail-closed 校验 + GJ_BIND 配对行（收据写入处 printf）
   case "$CHECK_MODE" in
     security|full)
-      gj_enforce security || { echo "[P0] security JSON 正本未通过 Gate 强制"; exit 1; } ;;
+      if [ "$_waive_sec" = "1" ]; then echo "[OK] security 经 waiver+skip-log 显式豁免（SECURITY_WAIVED=1 留痕）"; else
+        gj_enforce security || { echo "[P0] security JSON 正本未通过 Gate 强制"; exit 1; } ; fi ;;
   esac
   case "$CHECK_MODE" in
     performance|full)
-      gj_enforce performance || { echo "[P0] performance JSON 正本未通过 Gate 强制"; exit 1; } ;;
+      if [ "$_waive_perf" = "1" ]; then echo "[OK] performance 经 waiver+skip-log 显式豁免（PERFORMANCE_WAIVED=1 留痕）"; else
+        gj_enforce performance || { echo "[P0] performance JSON 正本未通过 Gate 强制"; exit 1; } ; fi ;;
   esac
   enforce_phase_json() {
     local kind="$1" p="$2"
@@ -372,7 +381,7 @@ PYEOF
       return 1
     fi
     rm -f "$expect"
-    pass "${kind}.json 校验通过（结构化正本 + 报告渲染一致）"
+    ok "${kind}.json 校验通过（结构化正本 + 报告渲染一致）"
     return 0
   }
   case "$CHECK_MODE" in
@@ -428,6 +437,9 @@ PYEOF
         [ -f "$PERFORMANCE_JSON" ] && echo "PERFORMANCE_JSON_SHA256=$(hash_file "$PERFORMANCE_JSON")" || echo "PERFORMANCE_JSON=missing" ;;
     esac
     printf '%s' "$GJ_BIND"
+    # v3.30.7: 豁免留痕行（audit 侧以 WAIVED+skip-log 授权替代绑定行核验）
+    [ "$_waive_sec" = "1" ] && echo "SECURITY_WAIVED=1"
+    [ "$_waive_perf" = "1" ] && echo "PERFORMANCE_WAIVED=1"
     # v3.25.2(P1)：证据树 fail-closed——缺 jq 不得静默降级为"只保护单一报告"
     # （否则审计无法重验 security/performance JSON，Gate 后替换即逃逸）。
     if ! command -v jq >/dev/null 2>&1; then

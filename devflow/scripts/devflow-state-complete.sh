@@ -610,13 +610,13 @@ cmd_reconcile() {
     _prcpt=$(_reconcile_receipt_path "$feature" "$_pp")
     _receipt_pinned_ok "$state_file" "$_pp" "$_prcpt" || { _pdrift=1; break; }
   done
-  if [ "$drift" -eq 0 ] && [ "$_pdrift" -eq 0 ]; then
-    success "reconcile: 状态机与收据链一致（含钉定复查）(feature=$feature)"
-    return 0
-  fi
-  if [ "$drift" -eq 0 ] && [ "$_pdrift" -ne 0 ]; then
+  if [ "$_pdrift" -ne 0 ]; then
     error "reconcile: 钉定复查失败（收据完成后被改写）——拒绝继续，须显式核销 (feature=$feature)"
     return 1
+  fi
+  if [ "$drift" -eq 0 ]; then
+    success "reconcile: 状态机与收据链一致（含钉定复查）(feature=$feature)"
+    return 0
   fi
 
   [ -n "$behind" ] && warn "state 落后于收据（有 EXIT_CODE=0 收据但未 completed）:$behind"
@@ -642,7 +642,11 @@ cmd_reconcile() {
         return 1
       fi
       # v3.28.9: 钉定复查——completed 阶段收据在完成后被改写（补票/重跑覆盖）即报漂移
-      _receipt_pinned_ok "$state_file" "$phase" "$receipt" || drift=$((drift + 1))
+      # v3.30.7: 失配改硬拒（旧版 drift++ 后无消费者，第 2 轮实证可越过失配继续推进）
+      _receipt_pinned_ok "$state_file" "$phase" "$receipt" || {
+        error "reconcile --apply: ${phase} 收据钉定失配（完成后被改写）——拒绝推进后续阶段，须显式核销"
+        return 1
+      }
       continue
     fi
     receipt=$(_reconcile_receipt_path "$feature" "$phase")

@@ -50,6 +50,8 @@ DevFlow 状态管理 (v3.9.0 dispatcher)
     repair <feature> [--frontend=pc-web|mini-program|app|not-applicable] [--frontend-dir=<path>]
                                     修复已验证的历史空阶段键；可补录前端范围（不触碰冻结树 hash）
     migrate-tree <feature>          显式迁移 skill 树锚点（skill 升级后旧收据树≠state 冻结树时；
+    repin <feature>           显式重钉：completed 阶段按当前收据重写 receipt_sha256
+                             （人工核销/合法重跑后使用；写 RE-PIN 审计行）
                                     写入 SKILL-TREE-MIGRATION 收据后才更新冻结值）
     client-freeze <feature>         冻结小程序/APP manifest 哈希（P2 完成后、P3 前）
     constraints-freeze <feature>    冻结技术约束契约 SHA（P0 Gate 后、P1 前调用）
@@ -114,6 +116,7 @@ case "${1:-help}" in
   list)         bash "$CORE"     "$@" ;;
   repair)       bash "$CORE"     "$@" ;;
   migrate-tree) bash "$CORE"     "$@" ;;
+  repin)        bash "$CORE"     "$@" ;;
   client-freeze) bash "$CORE"     "$@" ;;
   constraints-freeze) bash "$CORE" "$@" ;;
   constraints-inherit) bash "$CORE" "$@" ;;
