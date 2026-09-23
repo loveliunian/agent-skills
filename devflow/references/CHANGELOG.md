@@ -1,12 +1,24 @@
 ---
 name: changelog
-version: "3.30.2"
+version: "3.30.3"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.30.2
+# Changelog — devflow v1 → v3.30.3
+
+## v3.30.3 (2026-09-23) — 图表闭环测试升级为真实 gate 级端到端
+
+来源：对抗性复查发现 test-design-diagrams 的 T2/T3 只验证了 grep 口径（自证），
+未经过真实 s2 gate——集成路径（EFF_FEATURE 解析/变量作用域/检查段顺序）无回归保护。
+人工以真实 gate 三态验证（正例/产品名反例/落位漂移反例）确认集成无缺陷后，
+将测试永久升级为 gate 级。
+
+1. **T2/T3 重写为真实 s2 端到端**（4 断言）：DB 产品名 → P0；泛称 → PASS；
+   状态机登记+落位 → 对账通过；决策链登记但缺 flowchart → P0（含类型/锚点插值）。
+2. 测试质量原则固化：**新增 Gate 检查的回归必须驱动真实 gate 断言输出标记，
+   不得只测检查逻辑自身的 grep**（自证盲区——本例集成缺陷只能由 gate 级跑出）。
 
 ## v3.30.2 (2026-09-23) — 详设模板 DB 中立清除（模板与门禁自相矛盾修复）
 

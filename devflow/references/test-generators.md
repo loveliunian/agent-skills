@@ -1,6 +1,6 @@
 ---
 name: test-generators
-version: "3.30.2"
+version: "3.30.3"
 description: 测试生成器使用指南——从 design.json 和 acceptance.json 自动生成 JUnit 和 Playwright 测试代码
 ---
 

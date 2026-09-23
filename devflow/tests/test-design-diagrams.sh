@@ -28,41 +28,49 @@ _e2=$("${DEVFLOW_PY[@]}" "$ROOT/scripts/df_validate.py" --kind design --input "$
 printf '%s' "$_e2" | grep -q "type 重复登记" \
   && ok "T1b 一类多处登记被拒（一类一处）" || bad "T1b 重复登记未拦"
 
-# ── T2/T3: s2 DB 扫描 + 结构图落位（最小夹具直跑 s2 检查段难以隔离——用词级验证 + 集成样例） ──
-# 构造最小详设文档：WHEN=0 时时序配对检查跳过；DB 词扫描与结构图登记是独立段
-mk_design() { # <ws> <是否含产品名> <是否含结构图关键词>
-  local w="$1" prod="$2" chart="$3"
-  mkdir -p "$w/.devflow/t2" "$w/docs/详细设计"
+# ── T2/T3: 真实 s2 gate 端到端（DB 扫描 + 结构图落位——v3.30.3 从 grep 级升级为 gate 级） ──
+mk_s2_fixture() { # <ws> <产品名|泛称> <登记类型|无> <文档是否含 stateDiagram>
+  local w="$1" prod="$2" reg="$3" chart="$4"
+  mkdir -p "$w/.devflow/fx" "$w/docs/详细设计" "$w/docs/需求"
+  (cd "$w" && bash "$ROOT/scripts/devflow-state.sh" init fx --frontend=not-applicable >/dev/null 2>&1)
   {
-    echo "# t2 详细设计"
-    echo ""
+    echo "# fx 详细设计"
     echo "## §1 概览"
-    if [ "$prod" = "1" ]; then echo "数据存储采用 PostgreSQL 集群。"; else echo "数据存储采用 DB 集群（方言由部署配置）。"; fi
+    if [ "$prod" = "1" ]; then echo "数据存储采用 PostgreSQL。"; else echo "数据存储采用 DB（方言由部署配置）。"; fi
     if [ "$chart" = "1" ]; then
-      echo ""
       echo "## §2.3 状态转移"
       echo '```mermaid'
       echo 'stateDiagram-v2'
       echo '  [*] --> Draft'
       echo '```'
     fi
-  } > "$w/docs/详细设计/t2-详细设计.md"
-  printf '{"feature":"t2"}\n' > "$w/.devflow/t2/design.json"
+  } > "$w/docs/详细设计/fx-详细设计.md"
+  printf '# 验收点\n| M-01-F01-A01 | FROZEN |\n' > "$w/docs/需求/fx-验收点.md"
+  if [ "$reg" = "none" ]; then
+    printf '{"feature":"fx"}' > "$w/.devflow/fx/design.json"
+  else
+    printf '{"feature":"fx","diagrams":{"structure_charts":[{"type":"%s","section":"§2.3"}]}}' "$reg" > "$w/.devflow/fx/design.json"
+  fi
 }
 
-# DB 扫描直验（grep 口径与 s2 一致）
-mk_design "$TMP/t2a" 1 0
-DBA=$(grep -cE '\b(H2|MySQL|PostgreSQL|Postgres|Oracle|KingbaseES|Kingbase|openGauss|达梦|人大金仓)\b' "$TMP/t2a/docs/详细设计/t2-详细设计.md" || true)
-[ "${DBA:-0}" -ge 1 ] && ok "T2a DB 产品名扫描命中（PostgreSQL）" || bad "T2a 扫描未命中"
-mk_design "$TMP/t2b" 0 0
-DBB=$(grep -cE '\b(H2|MySQL|PostgreSQL|Postgres|Oracle|KingbaseES|Kingbase|openGauss|达梦|人大金仓)\b' "$TMP/t2b/docs/详细设计/t2-详细设计.md" || true)
-[ "${DBB:-0}" = "0" ] && ok "T2b DB 泛称不误报" || bad "T2b 泛称误报"
+S2G="$ROOT/scripts/s2_design_coverage_gate.sh"
+run_s2() { (cd "$1" && bash "$S2G" docs/详细设计/fx-详细设计.md docs/需求/fx-验收点.md --mode=monolith 2>&1 || true); }
 
-# 结构图落位：登记与关键词的映射口径（状态机→stateDiagram-v2；其余→flowchart）
-mk_design "$TMP/t2c" 0 1
-printf '{"feature":"t2","diagrams":{"structure_charts":[{"type":"状态机","section":"§2.3"}]}}\n' > "$TMP/t2c/.devflow/t2/design.json"
-grep -q "stateDiagram-v2" "$TMP/t2c/docs/详细设计/t2-详细设计.md" \
-  && ok "T3a 状态机登记 ↔ stateDiagram-v2 落位匹配" || bad "T3a 落位匹配失败"
+# T2 真实 gate：DB 产品名 → P0；泛称 → PASS 行
+W2A="$TMP/s2a"; mk_s2_fixture "$W2A" 1 none 0
+run_s2 "$W2A" | grep -q "详设正文出现具体数据库产品名" \
+  && ok "T2a 真实 s2：DB 产品名被 P0 拦截" || bad "T2a 真实 s2 未拦产品名"
+W2B="$TMP/s2b"; mk_s2_fixture "$W2B" 0 none 0
+run_s2 "$W2B" | grep -q "DB 中立扫描：详设无具体数据库产品名" \
+  && ok "T2b 真实 s2：DB 泛称通过" || bad "T2b 真实 s2 泛称误报"
+
+# T3 真实 gate：登记↔落位对账（正/反）
+W3A="$TMP/s3a"; mk_s2_fixture "$W3A" 0 状态机 1
+run_s2 "$W3A" | grep -q "结构图登记 ↔ 文档落位对账通过" \
+  && ok "T3a 真实 s2：状态机登记+落位对账通过" || bad "T3a 真实 s2 对账未通过"
+W3B="$TMP/s3b"; mk_s2_fixture "$W3B" 0 决策链 1
+run_s2 "$W3B" | grep -q "结构图登记 决策链（§2.3）但文档缺 flowchart 图" \
+  && ok "T3b 真实 s2：决策链登记但缺 flowchart 被 P0" || bad "T3b 真实 s2 落位漂移未拦"
 
 # ── T4 双次渲染 SHA 稳定性（gen 确定性契约的管线侧钉）──
 W4="$TMP/t4"; mkdir -p "$W4/.devflow/t4"

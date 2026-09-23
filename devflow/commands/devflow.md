@@ -1,6 +1,6 @@
 ---
 name: devflow-command
-version: "3.30.2"
+version: "3.30.3"
 description: Use when running the complete devflow lifecycle or resuming a checkpoint.
 allowed-tools: [read, write, exec, glob, grep, task]
 ---

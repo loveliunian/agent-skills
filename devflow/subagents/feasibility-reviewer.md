@@ -1,7 +1,7 @@
 ---
 name: feasibility-reviewer
 subagent_type: generalPurpose
-version: "3.30.2"
+version: "3.30.3"
 description: >-
   Adversarial reviewer #1 of 3. Use when running /review,
   checks "feasibility" angle: 1) does the implementation actually do what it
