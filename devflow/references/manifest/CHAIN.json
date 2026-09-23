@@ -600,6 +600,12 @@
       "manifest_sha256": "9792eec720e4eb1033598b75c54544b3572241de875a5d87c7e8f193adf1d70e",
       "tree_hash": "bf82f1589af2a308f082f0b40f26078780ff72cb271c815083e730ec56e24e61",
       "chain_hash": "76148ef23ea7ca1a2432609dd533b362f50a7a98093b1faa37eb745f9b231fc2"
+    },
+    {
+      "version": "3.30.1",
+      "manifest_sha256": "223e0094cb9b2dddfe81510acae0974a391693510bff6e95c06adabeaedeff32",
+      "tree_hash": "52e1dd1345eb5e1222be2e1c755c6e9f5799dff0e97d2e0549d0a6c4c2b8bbad",
+      "chain_hash": "6d80efbb55f584f500b1dfa78b30db94324d1169ac67760f871c5b79dde48554"
     }
   ]
 }
