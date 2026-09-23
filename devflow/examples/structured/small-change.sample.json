@@ -3,7 +3,7 @@
   "generated_at": "2026-09-16T11:10:00Z",
   "template": {
     "id": "小需求变更-模板",
-    "version": "3.30.5"
+    "version": "3.30.6"
   },
   "change_id": "c-sort-default",
   "request": "把列表默认排序改成按更新时间倒序，用户想最快看到刚改过的记录",

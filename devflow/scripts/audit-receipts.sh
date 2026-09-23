@@ -147,6 +147,21 @@ MIRROR_HASHES="$TMP_DIR/mirror-hashes.tsv"
 collect_receipt_hashes "$STATE_DIR/$FEATURE/gates" > "$INTERNAL_HASHES"
 collect_receipt_hashes "$DOCS_DIR/$FEATURE/gates" > "$MIRROR_HASHES"
 check_versions "$STATE_DIR/$FEATURE/gates"
+# v3.30.6: 钉定复查——state 中 completed 阶段的 receipt_sha256 与收据实哈希对账
+# （子代理实证：audit 此前从不读钉，收据+正本+镜像三方自洽改写在 COMPLETED 后永久隐形）
+if command -v jq >/dev/null 2>&1 && [ -f "$STATE_DIR/$FEATURE.state.json" ]; then
+  while IFS=$'\t' read -r _pstage _ppin; do
+    [ -n "$_pstage" ] || continue
+    case "$_pstage" in P3c|P3d) _prcpt="$STATE_DIR/$FEATURE/gates/P3cd/receipt.txt" ;;
+      *) _prcpt="$STATE_DIR/$FEATURE/gates/${_pstage}/receipt.txt" ;; esac
+    if [ ! -f "$_prcpt" ]; then
+      fail "pin check: ${_pstage} 已钉定但收据缺失（pin=${_ppin:0:12}…）: $_prcpt"
+      continue
+    fi
+    _pcur=$(hash_file "$_prcpt" 2>/dev/null || true)
+    [ "$_pcur" = "$_ppin" ] || fail "pin check: ${_pstage} 收据与钉定哈希失配（完成后被改写）: $_prcpt"
+  done < <(jq -r '.phases | to_entries[] | select(.value.status=="completed" and .value.receipt_sha256 != null) | [.key, .value.receipt_sha256] | @tsv' "$STATE_DIR/$FEATURE.state.json" 2>/dev/null || true)
+fi
 
 # v3.14.11: state-scope 完整性——state 标记 completed 的阶段必须存在对应内部收据
 # v3.16.6（N27-P2-2）: jq 缺失时不再静默跳过整个 state-scope 检查（PoC：PATH 无 jq 时
@@ -340,8 +355,17 @@ while IFS= read -r receipt_file; do
   [ -n "$_rc_exit" ] || _rc_exit=0
   verify_receipt_evidence "$receipt_file"
   _ev_rc=$?
-  # v3.30.4: 阶段必备 *_JSON 绑定行检测（剥离即 FAIL——终态收据，镜像 v3.16.8 EVIDENCE 行收口）
-  if [ "$_ev_rc" -eq 0 ] && ! verify_stage_json_binding "$receipt_file" "$stage_name"; then
+  # v3.30.6: PHASE 行与所在目录一致性（收据目录是 stage 映射的事实源——PHASE 行
+  # 篡改为其他阶段不影响目录映射，但构成字段级说谎，audit 须拒；complete/reconcile
+  # 的 declared_phase 检查此前只覆盖推进路径）
+  _phase_line=$(sed -n 's/^PHASE=//p' "$receipt_file" | head -1)
+  if [ -n "$_phase_line" ] && [ "$_phase_line" != "$stage_name" ]; then
+    fail "PHASE line mismatch: ${stage_name}/receipt.txt declares PHASE=${_phase_line}（目录是 stage 事实源，字段篡改拒绝）"
+    continue
+  fi
+  # v3.30.6: 阶段必备 *_JSON 绑定行检测（终态收据一律执行——v3.30.4 只挂在 _ev_rc=0
+  # 分支，P0/P1/P2a/P2b/P3 五阶段收据无 EVIDENCE 行恒 rc=3，剥离检测从未运行[子代理实证]）
+  if [ "${_rc_exit:-1}" = "0" ] && ! verify_stage_json_binding "$receipt_file" "$stage_name"; then
     fail "stage JSON binding stripped: ${stage_name}（终态收据缺必备 *_JSON 绑定行——正本篡改将脱离审计）"
     continue
   fi

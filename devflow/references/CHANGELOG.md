@@ -1,12 +1,41 @@
 ---
 name: changelog
-version: "3.30.5"
+version: "3.30.6"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.30.5
+# Changelog — devflow v1 → v3.30.6
+
+## v3.30.6 (2026-09-24) — 子代理双审计：Gate 绑定全链系统性断裂修复（9 项）
+
+来源：双子代理对抗审计（安全向 + 质量向）实证 v3.30.0-5"收据绑定全量"存在系统性
+落差——3 个 gate 的绑定行根本落不进收据、audit 对 5 阶段短路失明、P3cd 盲区、
+钉定双缺口、CJK 扫描失效。本批一次收口。
+
+1. **artifact_gate P0b 双崩溃修复（严重）**：SCRIPT_DIR 仅在 P7/8/9 分支定义——P0b
+   走 source 行 unbound 崩溃（全平台，v3.30.0 起 P0b 从未可用）；空数组 + set -u 在
+   bash 3.2 崩溃。定义提顶 + 长度守卫。
+2. **small-change heredoc 字面化修复（高）**：收据把 `printf '%s' "$GJ_BIND"` 写成
+   文本——绑定行从未落盘，成功收据被自家审计判"剥离"。改 `${GJ_BIND}`。
+3. **p2b 主路径绑定补齐（高）**：gj_enforce 填了 GJ_BIND 但收据块没 printf——诚实
+   交付永远过不了 complete。补齐（skip 路径死 printf 清理）。
+4. **audit 短路失明修复（P1）**：绑定检测只挂 _ev_rc=0 分支，P0/P1/P2a/P2b/P3 收据
+   无 EVIDENCE 行恒 rc=3——剥离检测从未运行。改终态收据一律执行；state-init 基线
+   按既有口径豁免（防新初始化项目误杀）。
+5. **P3cd 盲区收口（中）**：收据原为 SHA-only（无路径行）——剥离/篡改不可检。gate
+   换 gj_enforce 双正本（path+SHA 配对），stage 映射补 P3cd。
+6. **钉定双缺口（P1）**：reconcile --apply 推进不写钉 + audit 从不读钉——自洽改写
+   永久隐形。推进即写钉（P3c/P3d 合并一钉）+ reconcile 漂移检测主循环补钉复查 +
+   audit 新增钉定对账段。
+7. **s2 CJK 扫描修复（中）**：LC_ALL=C 下 \b 在 CJK 字符间永不成立——达梦/人大金仓
+   恒漏。CJK 名单去词边界。
+8. **死脚本归档**：p5_gate.sh / demo_v3.28.1.sh / quick_demo_p5.sh（零引用实证）
+   移入 _archive/（不进发布树）；CHANGELOG 历史断链改纯文本。
+9. **测试补层（test-gate-json-bindings.sh，4 钉）**：真实 gate 绿路径 → 收据绑定行
+   落盘 → verify_stage_json_binding 接受——此前该闭环零覆盖正是 1-3 连续五个版本
+   漏网的直接原因；夹具全面适配（P3cd 绑定、security.json 前置等）。
 
 ## v3.30.5 (2026-09-23) — 伪 SKIPPED 绕过收口（豁免即攻击面）+ dirname 层级修复
 
@@ -4279,7 +4308,7 @@ bash scripts/incremental_verify.sh user-management
 #### 更新文档
 
 1. **[SKILL.md](../SKILL.md)** - 版本号、标签更新
-2. **[scripts/p5_gate.sh](../scripts/p5_gate.sh)** - 集成 Gate 诊断系统
+2. **scripts/p5_gate.sh**（已于 v3.30.6 归档至 _archive/）- 集成 Gate 诊断系统
 
 ---
 

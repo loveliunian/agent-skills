@@ -1,7 +1,7 @@
 ---
 name: backend-dev
 subagent_type: generalPurpose
-version: "3.30.5"
+version: "3.30.6"
 responsibility: "实现一个垂直切片的 Entity/Repository/Service/Controller/DTO 与单测。"
 allowed-tools: [read, write, exec, grep, glob]
 ---

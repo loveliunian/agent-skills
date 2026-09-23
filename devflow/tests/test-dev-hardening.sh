@@ -161,7 +161,9 @@ fi
 
 # ---------- 5. p3_security_perf_gate ----------
 W5="$TMP/p3cd"
-mkdir -p "$W5/backend/order-service/src/main/java/com/x/dto" "$W5/backend/order-service/src/main/resources/mappers"
+mkdir -p "$W5/backend/order-service/src/main/java/com/x/dto" "$W5/backend/order-service/src/main/resources/mappers" "$W5/.devflow/f1"
+# v3.30.6: p3cd gate 经 gj_enforce 强制 security.json（缺失即拦——先过这层再看 §4/§5 发现）
+cp "$ROOT/examples/structured/security.sample.json" "$W5/.devflow/f1/security.json"
 cat > "$W5/backend/order-service/src/main/java/com/x/dto/UserVO.java" <<'EOF'
 public class UserVO { private String password; private String apiToken; private String secretKey; }
 EOF
@@ -366,7 +368,8 @@ out="$(cd "$W11" && WORKSPACE="$W11" bash "$C/check-arch-pitfalls.sh" --category
 out="$(cd "$W11" && WORKSPACE="$W11" bash "$C/check-arch-pitfalls.sh" --category code 2>&1)"
 printf '%s\n' "$out" | grep -q "L-P3-004" \
   && ok "教训入检：手工 JSON 拼接可检（warn）" || bad "教训入检：L-P3-004 未出现"
-mkdir -p "$W11/backend/svc/src/main/java/com/x/dto"
+mkdir -p "$W11/backend/svc/src/main/java/com/x/dto" "$W11/.devflow/f1"
+cp "$ROOT/examples/structured/security.sample.json" "$W11/.devflow/f1/security.json"
 printf 'if (token.equals(expected)) {}\n' > "$W11/backend/svc/src/main/java/com/x/TokenFilter.java"
 in_dir "$W11" bash "$S/p3_security_perf_gate.sh" f1 --mode security
 out="$(last_out)"

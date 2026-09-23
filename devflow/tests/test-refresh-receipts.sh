@@ -79,6 +79,7 @@ binds_for() { # <ph> → 该收据目录对应的必备 TAG 集（v3.30.4 映射
     P2a) printf "DESIGN_REVIEW\\n" ;;
     P2b) printf "DEMO_SIGNOFF\\n" ;;
     P3) printf "SELF_CHECK\\n" ;;
+    P3cd) printf "SECURITY\\nPERFORMANCE\\n" ;;
     P3b) printf "CODE_REVIEW\\n" ;;
     P4) printf "PRD_VALIDATION\\n" ;;
     P5) printf "TEST_CASES\\n" ;;

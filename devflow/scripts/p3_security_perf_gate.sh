@@ -4,6 +4,10 @@
 set -uo pipefail
 # v3.28.7 Windows Git Bash 兼容：统一 Python 解释器解析（python3→python→py -3）
 source "$(dirname "${BASH_SOURCE[0]}")/py_runtime.sh"
+# v3.30.6: gj_enforce 双正本强制（path+SHA 配对行——旧版只写 SHA 单行，剥离/篡改不可重验）
+source "$(dirname "${BASH_SOURCE[0]}")/gate_json_lib.sh"
+# shellcheck disable=SC2034  # GJ_SKILL 由 gate_json_lib 函数消费
+GJ_SKILL="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 SKILL_ROOT="${SKILL_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 # v3.15.9: WORK_DIR 跟随 STATE_DIR 取默认——隔离部署（STATE_DIR 自定义）下报告不再回退
@@ -307,6 +311,15 @@ main() {
   STATE_DIR="${STATE_DIR:-.devflow}"
   SECURITY_JSON="${STATE_DIR}/${FEATURE}/security.json"
   PERFORMANCE_JSON="${STATE_DIR}/${FEATURE}/performance.json"
+  # v3.30.6: 正本 fail-closed 校验 + GJ_BIND 配对行（收据写入处 printf）
+  case "$CHECK_MODE" in
+    security|full)
+      gj_enforce security || { echo "[P0] security JSON 正本未通过 Gate 强制"; exit 1; } ;;
+  esac
+  case "$CHECK_MODE" in
+    performance|full)
+      gj_enforce performance || { echo "[P0] performance JSON 正本未通过 Gate 强制"; exit 1; } ;;
+  esac
   enforce_phase_json() {
     local kind="$1" p="$2"
     if [ ! -f "$p" ]; then
@@ -414,6 +427,7 @@ PYEOF
       performance|full)
         [ -f "$PERFORMANCE_JSON" ] && echo "PERFORMANCE_JSON_SHA256=$(hash_file "$PERFORMANCE_JSON")" || echo "PERFORMANCE_JSON=missing" ;;
     esac
+    printf '%s' "$GJ_BIND"
     # v3.25.2(P1)：证据树 fail-closed——缺 jq 不得静默降级为"只保护单一报告"
     # （否则审计无法重验 security/performance JSON，Gate 后替换即逃逸）。
     if ! command -v jq >/dev/null 2>&1; then

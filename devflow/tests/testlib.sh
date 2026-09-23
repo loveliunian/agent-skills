@@ -96,6 +96,7 @@ gj_stage_tags() {
     P2a) echo "DESIGN_REVIEW" ;;
     P2b) echo "DEMO_SIGNOFF" ;;
     P3) echo "SELF_CHECK" ;;
+    P3cd) echo "SECURITY PERFORMANCE" ;;
     P3b) echo "CODE_REVIEW" ;;
     P4) echo "PRD_VALIDATION" ;;
     P5) echo "TEST_CASES" ;;

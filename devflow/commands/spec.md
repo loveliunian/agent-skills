@@ -1,6 +1,6 @@
 ---
 name: spec
-version: "3.30.5"
+version: "3.30.6"
 description: Use when a user asks to clarify a PRD, produce field-level detailed design, design a database or legacy mapping, or complete /spec without implementing code.
 paths: [docs/PRD/**, docs/需求/**, docs/详细设计/**]
 disable-model-invocation: false

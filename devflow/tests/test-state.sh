@@ -30,6 +30,7 @@ if command -v jq >/dev/null 2>&1 && \
    mkdir -p "$TMP/p3cd/.devflow/p3cd-fixture/gates/P3cd" && \
    printf 'p3cd evidence\n' > "$TMP/p3cd/p3cd-report.md" && \
    printf "EXIT_CODE=0\nVERSION=p3-full@${SKILL_VER}\nPHASE=P3cd\nSKILL_TREE=%s\nARTIFACT_HASH=no-artifacts\nEVIDENCE_PATH=p3cd-report.md\nEVIDENCE_SHA256=%s\n" "$TREE" "$(hash_file_test "$TMP/p3cd/p3cd-report.md")" > "$TMP/p3cd/.devflow/p3cd-fixture/gates/P3cd/receipt.txt" && \
+   gj_bind_lines p3cd-fixture "$TMP/p3cd" P3cd >> "$TMP/p3cd/.devflow/p3cd-fixture/gates/P3cd/receipt.txt" && \
    jq '.current_phase = "P3c" | .phases.P0.status="completed" | .phases.P0b.status="completed" | .phases.P1.status="completed" | .phases.P2.status="completed" | .phases.P2a.status="completed" | .phases.P2b.status="completed" | .phases.P3.status="completed" | .phases.P3b.status="completed" | .phases.P3c.status = "in_progress"' "$TMP/p3cd/.devflow/p3cd-fixture.state.json" > "$TMP/p3cd/state.tmp" && \
    mv "$TMP/p3cd/state.tmp" "$TMP/p3cd/.devflow/p3cd-fixture.state.json" && \
    WORKSPACE="$TMP/p3cd" bash "$ROOT/scripts/devflow-state.sh" complete p3cd-fixture P3cd >/dev/null && \

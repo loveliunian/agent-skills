@@ -187,6 +187,9 @@ verify_stage_json_binding() { # <receipt> <stage>
   [ -f "$receipt" ] || return 0
   _rc=$(grep '^EXIT_CODE=' "$receipt" | head -1 | cut -d= -f2)
   [ "${_rc:-1}" = "0" ] || return 0
+  # v3.30.6: state-init 基线收据不构成 Gate 证据（与 _reconcile_receipt_ok 同口径豁免
+  # ——audit 放宽到 rc=3 后基线会进本检测，新初始化项目会被误杀）
+  sed -n 's/^VERSION=//p' "$receipt" | head -1 | grep -q '^state-init@' && return 0
   # v3.30.5: SKIPPED 豁免须双重授权核验（伪 SKIPPED=1 绕过绑定检测的 PoC 收口）——
   # 收据四字段（reason/by/at/approval）+ skip-log 对应阶段授权行（authorized-by 一致）
   if grep -q '^SKIPPED=1' "$receipt"; then
@@ -222,6 +225,7 @@ verify_stage_json_binding() { # <receipt> <stage>
     P2a)         set -- DESIGN_REVIEW_JSON ;;
     P2b)         set -- DEMO_SIGNOFF_JSON ;;
     P3)          set -- SELF_CHECK_JSON ;;
+    P3cd)        set -- SECURITY_JSON PERFORMANCE_JSON ;;
     P3b)         set -- CODE_REVIEW_JSON ;;
     P4)          set -- PRD_VALIDATION_JSON ;;
     P5)          set -- TEST_CASES_JSON ;;

@@ -589,6 +589,9 @@ t = p.read_text(encoding="utf-8")
 t = re.sub(r"P95 380 ms.*\n", "", t)
 p.write_text(t, encoding="utf-8")
 PYEOF
+# v3.30.6: 前序"replacement caught"子测试替换了 security.json——gj_enforce 全量校验下
+# 须恢复合法正本（旧版 gate 只在渲染路径消费，垃圾 json 不阻断后续漂移检查）
+cp "$ROOT/examples/structured/security.sample.json" "$WP3/.devflow/p3f/security.json"
 P3_DRIFT=$(cd "$WP3" && bash "$ROOT/scripts/p3_security_perf_gate.sh" p3f --waiver waiver.txt 2>&1 || true)
 printf '%s' "$P3_DRIFT" | grep -qE "渲染产物不一致|双正本漂移" \
   && ok "perf report P95 drift vs JSON rejected (P1)" \

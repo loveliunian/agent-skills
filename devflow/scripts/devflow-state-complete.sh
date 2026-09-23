@@ -602,9 +602,21 @@ cmd_reconcile() {
     fi
   done
 
-  if [ "$drift" -eq 0 ]; then
-    success "reconcile: 状态机与收据链一致 (feature=$feature)"
+  # v3.30.6: completed 阶段钉复查前移（旧版只在 drift>0 流程内可达——自洽改写无漂移时
+  # 钉复查永远不执行[子代理实证]）
+  local _pp _pdrift=0
+  for _pp in $RECONCILE_ORDER; do
+    [ "$(jq -r --arg p "$_pp" '.phases[$p].status // "pending"' "$state_file")" = "completed" ] || continue
+    _prcpt=$(_reconcile_receipt_path "$feature" "$_pp")
+    _receipt_pinned_ok "$state_file" "$_pp" "$_prcpt" || { _pdrift=1; break; }
+  done
+  if [ "$drift" -eq 0 ] && [ "$_pdrift" -eq 0 ]; then
+    success "reconcile: 状态机与收据链一致（含钉定复查）(feature=$feature)"
     return 0
+  fi
+  if [ "$drift" -eq 0 ] && [ "$_pdrift" -ne 0 ]; then
+    error "reconcile: 钉定复查失败（收据完成后被改写）——拒绝继续，须显式核销 (feature=$feature)"
+    return 1
   fi
 
   [ -n "$behind" ] && warn "state 落后于收据（有 EXIT_CODE=0 收据但未 completed）:$behind"
@@ -677,17 +689,23 @@ cmd_reconcile() {
         break
       fi
     fi
-    if [ "$phase" = "P3c" ]; then
-      jq --arg now "$now" '.phases.P3c.status = "completed" | .phases.P3c.completed_at = $now' \
-        "$state_file" > "$state_file.tmp" && mv "$state_file.tmp" "$state_file"
-    elif [ "$phase" = "P3d" ]; then
-      jq --arg now "$now" '.phases.P3d.status = "completed" | .phases.P3d.completed_at = $now
+    # v3.30.6: 推进即写 receipt_sha256 钉（子代理实证：旧版只 complete 写钉，
+    # reconcile 推进永久无钉 → 收据自洽改写对所有钉定消费者隐形）
+    _rsha_rc=$(hash_file "$receipt")
+    if [ "$phase" = "P3c" ] || [ "$phase" = "P3d" ]; then
+      jq --arg now "$now" --arg rsha "$_rsha_rc" \
+        '.phases.P3c.status = "completed" | .phases.P3c.completed_at = $now
+         | .phases.P3c.receipt_sha256 = $rsha | .phases.P3d.receipt_sha256 = $rsha
+         | .phases.P3d.status = "completed" | .phases.P3d.completed_at = $now
          | .current_phase = "P4" | .phases.P4.status = "in_progress" | .phases.P4.started_at = $now
          | .updated_at = $now' \
         "$state_file" > "$state_file.tmp" && mv "$state_file.tmp" "$state_file"
+      advanced=$((advanced + 1))
+      continue
     else
-      jq --arg p "$phase" --arg now "$now" \
-        '.phases[$p].status = "completed" | .phases[$p].completed_at = $now | .updated_at = $now' \
+      jq --arg p "$phase" --arg now "$now" --arg rsha "$_rsha_rc" \
+        '.phases[$p].status = "completed" | .phases[$p].completed_at = $now
+         | .phases[$p].receipt_sha256 = $rsha | .updated_at = $now' \
         "$state_file" > "$state_file.tmp" && mv "$state_file.tmp" "$state_file"
     fi
     advanced=$((advanced + 1))

@@ -25,6 +25,7 @@ source "$(cd "$(dirname "$0")" && pwd)/devflow_feature.sh"
 source "$(cd "$(dirname "$0")" && pwd)/devflow_paths.sh"
 devflow_feature_validate "$FEATURE" || exit 2
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 FAIL=0; PASS=0; WARN=0
 EVIDENCE_PATH=""
 pass() { echo "[PASS] $1"; PASS=$((PASS + 1)); }
@@ -72,10 +73,12 @@ case "$PHASE" in
     fi
     P0B_SCAN_DIRS=()
     for _d in "docs/需求" "docs/requirements" "docs/详细设计" "docs/detailed-design"; do [ -d "$_d" ] && P0B_SCAN_DIRS+=("$_d/${FEATURE}"*.md); done
-    for dc_f in "${P0B_SCAN_DIRS[@]}"; do
-      [ -f "$dc_f" ] || continue
-      if grep -qE '(外部系统|第三方|对接|接口文档|数据源|依赖).{0,48}(系统|平台|接口|API|数据)|API 文档' "$dc_f" 2>/dev/null; then DC_DEP=1; break; fi
-    done
+    if [ "${#P0B_SCAN_DIRS[@]}" -gt 0 ]; then
+      for dc_f in "${P0B_SCAN_DIRS[@]}"; do
+        [ -f "$dc_f" ] || continue
+        if grep -qE '(外部系统|第三方|对接|接口文档|数据源|依赖).{0,48}(系统|平台|接口|API|数据)|API 文档' "$dc_f" 2>/dev/null; then DC_DEP=1; break; fi
+      done
+    fi
     if [ ! "$DC_PLATFORM" = "not-applicable" ] || [ "$DC_DEP" = "1" ]; then
       if [ ! -f "$DC" ]; then
         p0 "missing domain checklist: ${DC}（运行 gen-domain-checklist.sh ${FEATURE} --stage prd）"
@@ -579,7 +582,6 @@ esac
 # P7 是 P0~P6 全链后的首个收尾 gate，此处全量对账最早发现同链多版本收据
 # 与内部/docs 镜像内容漂移（code02/code03 教训：audit-receipts 此前为孤儿工具无人调用）。
 if printf '%s' "$PHASE" | grep -qE '^P[789]$'; then
-  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
   # v3.28.1(FB-20260919-001): gate 重跑迭代先清理旧收据——若 state 已标 P<phase>=completed
   # 而收据被清理，audit-receipts 会死锁（completed 但无收据）。自动回退 in_progress 允许重跑。
   if command -v jq >/dev/null 2>&1 && [ -f "${STATE_DIR:-.devflow}/${FEATURE}.state.json" ]; then

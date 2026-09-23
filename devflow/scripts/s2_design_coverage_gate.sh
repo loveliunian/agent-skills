@@ -409,7 +409,8 @@ fi
 # ---------- v3.30.0: 图表体系机器闭环（diagrams.structure_charts + DB 中立扫描） ----------
 # DB 产品名扫描：详设正文与图不出现具体数据库产品名（方言归技术选型/DB 设计决策/部署文档）。
 # 词边界匹配防 H2 误报（如标题编号）；扫描对象=详设主文档本身。
-DB_HITS=$(grep -nE '\b(H2|MySQL|PostgreSQL|Postgres|Oracle|KingbaseES|Kingbase|openGauss|达梦|人大金仓)\b' "$DESIGN" 2>/dev/null | head -5 || true)
+# v3.30.6: CJK 名单（达梦/人大金仓）不用 \b——LC_ALL=C 下词边界在 CJK 字符间永不成立（子代理实证）
+DB_HITS=$(grep -nE '\b(H2|MySQL|PostgreSQL|Postgres|Oracle|KingbaseES|Kingbase|openGauss)\b|达梦|人大金仓' "$DESIGN" 2>/dev/null | head -5 || true)
 if [ -n "$DB_HITS" ]; then
   echo "$DB_HITS" | sed 's/^/    │ /'
   p0 "详设正文出现具体数据库产品名（DB 中立表述：统一 DB 泛称，方言归《技术选型》《数据库设计决策》与部署文档）"
