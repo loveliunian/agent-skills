@@ -1,12 +1,33 @@
 ---
 name: changelog
-version: "3.29.6"
+version: "3.29.7"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.29.6
+# Changelog — devflow v1 → v3.29.7
+
+## v3.29.7 (2026-09-23) — 发布双后门关闭 + Git 判定抽库（fixture 秒级，392s→151s）
+
+来源：外部审计第五轮——RUN_TESTS_GROUPS/DEVFLOW_COPY_TARGETS 可经环境变量绕过完整
+发布测试与真实副本检查（fixture 利用此通道=生产后门）；fixture 不兼容 Windows Python；
+新增套件 300s 致发布耗时回退（v3.29.4 165s → v3.29.6 392s）。
+
+1. **RUN_TESTS_GROUPS 后门关闭（P0）**：release.sh 调用测试时显式
+   `env -u RUN_TESTS_GROUPS`——发布必须全量（该变量可缩减套件；代码注释“发布仍全量”
+   与行为不符）。
+2. **DEVFLOW_COPY_TARGETS 后门关闭（P0）**：release.sh 两处副本检查
+   （Phase A 步骤 8、B2 终复核）显式 `env -u DEVFLOW_COPY_TARGETS`——该变量指向
+   父目录不存在的假路径即可将真实副本判“未安装”跳过。该覆盖对其他工具（install 等）
+   仍合法——仅发布入口清除。
+3. **Git 判定抽 `scripts/release_git_lib.sh`（P0/P1）**：脏树检查与终态判定
+   （READY_TO_COMMIT/RELEASED）抽为库函数——release.sh 接线；测试直接单测函数
+   （小临时 Git 仓库），不再驱动完整发布。fixture 纯 bash（**移除 python3 调用**——
+   Windows 兼容问题同步消除）、无任何生产环境变量降级。
+4. **test-release-git-gate.sh 重写**：3 场景 → 7 钉（脏/净、首发 READY rc=3、复跑
+   RELEASED rc=0、非 Git 目录、两个 env -u 接线钉 + 无旧后门消费钉）；**300s → 1s**。
+5. **耗时回退修复**：全量发布 392s → **151s**（低于 v3.29.4 的 165s）。
 
 ## v3.29.6 (2026-09-22) — Git 门禁 fixture 动态版本修正（正式发布版）
 

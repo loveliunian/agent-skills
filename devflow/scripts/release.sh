@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# release.sh · 唯一发布入口（版本随 SKILL.md 单一事实源动态读取，本文件不写死版本号；当前 v3.29.6）
+# release.sh · 唯一发布入口（版本随 SKILL.md 单一事实源动态读取，本文件不写死版本号；当前 v3.29.7）
 # 前置：版本升级先跑 `scripts/bump-version.sh <new-version>`（本入口只发布当前版本）。
 # 通用化发布链（Runtime Profile + 发布授权 + Secret scan；详见 CHANGELOG）。
 # 原子事务化（自 v3.20.8）——旧流程第 5 步落不可变 manifest、第 6 步才查副本，
@@ -15,6 +15,8 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
+# shellcheck source=release_git_lib.sh
+. "$ROOT/scripts/release_git_lib.sh"
 FAIL=0
 step() { echo ""; echo "═══════════════════════════════════════"; echo "  $1"; echo "═══════════════════════════════════════"; }
 
@@ -24,22 +26,22 @@ STAGED_MANIFEST=$(mktemp -t devflow-staged.XXXXXX) || { echo "[FAIL] 无法创�
 trap 'rm -f "$STAGED_MANIFEST"' EXIT
 
 # ---------- Phase A：只读预检 ----------
-# v3.29.5: Git 快照门禁前置——脏树必须在跑测试（109s）前就失败（旧版在第 6 步才查）
-if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  DIRTY=$(git -C "$ROOT" status --porcelain 2>/dev/null | head -5)
-  if [ -n "$DIRTY" ]; then
+# v3.29.5: Git 快照门禁前置（脏树秒失败）；v3.29.7: 判定抽 release_git_lib.sh
+if release_git_in_repo "$ROOT"; then
+  if DIRTY=$(release_git_dirty "$ROOT"); then
+    echo "  [OK] Git 工作树干净（HEAD 快照一致）"
+  else
     echo "  [FAIL] Git 工作树有未提交变更——发布前必须先提交（HEAD 快照须版本一致）:"
     printf '    %s\n' "$DIRTY"
     echo "  提示: git add -A && git commit（克隆 HEAD 不得触发版本门禁失败）"
     FAIL=1
-  else
-    echo "  [OK] Git 工作树干净（HEAD 快照一致）"
   fi
 fi
 
 if [ "$FAIL" -eq 0 ]; then
 step "1/8 完整测试套件 (run-tests.sh)"
-if bash "$ROOT/tests/run-tests.sh"; then echo "  [OK] 完整测试 PASS"; else echo "  [FAIL] 完整测试 FAIL"; FAIL=1; fi
+# v3.29.7: 显式 env -u RUN_TESTS_GROUPS——该变量可缩减套件，发布必须全量（关闭后门）
+if env -u RUN_TESTS_GROUPS bash "$ROOT/tests/run-tests.sh"; then echo "  [OK] 完整测试 PASS"; else echo "  [FAIL] 完整测试 FAIL"; FAIL=1; fi
 
 step "2/8 版本一致性 (check-skill-version.sh)"
 if bash "$ROOT/scripts/check-skill-version.sh"; then echo "  [OK] 版本一致性 PASS"; else echo "  [FAIL] 版本一致性 FAIL"; FAIL=1; fi
@@ -135,7 +137,8 @@ if [ "$FAIL" -ne 0 ]; then
 else
   # v3.23.0 瘦身：副本形态为直连软链（不再是 rsync 实体副本），发布树即副本内容，
   # 不存在"首发预期漂移"——必须直连口径全绿（check-copies：1=漂移，2=结构错误）。
-  if bash "$ROOT/scripts/check-copies.sh"; then
+  # v3.29.7: env -u DEVFLOW_COPY_TARGETS——该变量可指向假路径跳过真实副本（关闭后门）
+  if env -u DEVFLOW_COPY_TARGETS bash "$ROOT/scripts/check-copies.sh"; then
     echo "  [OK] 副本直连校验一致"
   else
     CP_RC=$?
@@ -200,7 +203,7 @@ else
   else
     echo "  [FAIL] manifest check 终验失败"; FAIL=1; B_ROLLBACK_NEEDED=1
   fi
-  if bash "$ROOT/scripts/check-copies.sh" >/dev/null 2>&1; then
+  if env -u DEVFLOW_COPY_TARGETS bash "$ROOT/scripts/check-copies.sh" >/dev/null 2>&1; then
     echo "  [OK] 副本终验一致"
   else
     echo "  [FAIL] 副本终验漂移"; FAIL=1; B_ROLLBACK_NEEDED=1
@@ -214,18 +217,17 @@ else
   else
     echo "  [FAIL] 发布过程树漂移：stage=$STAGED_TREE final=$FINAL_TREE"; FAIL=1; B_ROLLBACK_NEEDED=1
   fi
-  # v3.29.5: 首次发布的新 manifest 未提交 → READY_TO_COMMIT（exit 3，不回滚——
-  # manifest 是待提交产物，区别于失败回滚；提交后复跑 release.sh 才达 RELEASED）。
-  # 注：references/manifest/ 不参与树哈希（tree_files 排除），提交 manifest 不产生树漂移。
-  if [ "$MANIFEST_EXISTS" = "0" ] \
-     && git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    echo ""
-    echo "RELEASE GATE: READY_TO_COMMIT — manifest+台账已生成（本地发布完成，非 Git 发布完成）"
-    echo "  提交后复跑 release.sh 完成 RELEASED 验证:"
-    echo "    git -C $ROOT add references/manifest/${RELEASE_VERSION}.json references/manifest/CHAIN.json"
-    echo "    git -C $ROOT commit -m 'v${RELEASE_VERSION}: release manifest+ledger'"
-    echo "    bash scripts/release.sh"
-    exit 3
+fi
+# v3.29.7: 终态判定抽 release_git_lib.sh：Git+首发（MANIFEST_EXISTS=0）
+#   → READY_TO_COMMIT（rc=3，不回滚：manifest 是待提交产物）；复跑/非 Git → RELEASED。
+#   references/manifest/ 不参与树哈希（tree_files 排除），提交 manifest 不产生树漂移。
+if [ "$FAIL" -eq 0 ]; then
+  if release_git_final "$ROOT" "$MANIFEST_EXISTS"; then
+    exit 0
+  else
+    _fg=$?
+    [ "$_fg" = "3" ] && exit 3
+    exit "$_fg"
   fi
 fi
 
@@ -234,11 +236,6 @@ if [ "$FAIL" -ne 0 ] && [ "$B_ROLLBACK_NEEDED" -eq 1 ]; then
   echo "  Phase B 失败——执行回滚"
   do_rollback
 fi
-
 echo ""
-if [ "$FAIL" -eq 0 ]; then
-  echo "RELEASE GATE: RELEASED — 发布完成（manifest+台账+副本直连一致，Git 快照自洽）"
-  exit 0
-fi
 echo "RELEASE GATE: FAIL — 已回滚 manifest 占位；副本失联时跑仓库级 sync.sh 修复后重跑（check-copies.sh 只读幂等）"
 exit 1

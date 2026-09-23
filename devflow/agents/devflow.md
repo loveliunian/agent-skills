@@ -1,7 +1,7 @@
 ---
 name: devflow
 agent_type: orchestrator
-version: "3.29.6"
+version: "3.29.7"
 description: >-
   Agent-type alias for `commands/devflow.md`. Use when the platform expects
   an `agent_type:` declaration (e.g. Codex / Trae); for Cursor / Claude Code

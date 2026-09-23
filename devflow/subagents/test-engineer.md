@@ -1,6 +1,6 @@
 ---
 name: test-engineer
-version: "3.29.6"
+version: "3.29.7"
 subagent_type: generalPurpose
 description: >-
   Use when executing P4 PRD validation, P5 test case generation, or P6 test execution, mentions
