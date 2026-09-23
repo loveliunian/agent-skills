@@ -1,6 +1,6 @@
 ---
 name: test
-version: "3.30.1"
+version: "3.30.2"
 description: Use when a user asks to generate or run unit, integration, browser, load, business, or legacy-migration tests.
 paths: [scripts/**, docs/测试/**, docs/测试用例/**, frontend/**, miniprogram/**, app/**]
 allowed-tools: [read, write, exec, glob, grep, task]

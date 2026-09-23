@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# design_parse_lib.sh · 详设正文解析（v3.30.1）
+# design_parse_lib.sh · 详设正文解析（v3.30.2）
 # 背景：结构化项目的详设由 df_render 确定性渲染——接口概览在 api-index 块
 #（详细定义|方法|路径|…），表索引在 table-index 块（锚点|表名|字段数）；
 # 旧版手写文档仍须兼容：① 接口=方法首列概览表；② 表=正文 CREATE TABLE 字面量。

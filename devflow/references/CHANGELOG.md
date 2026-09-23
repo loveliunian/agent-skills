@@ -1,12 +1,25 @@
 ---
 name: changelog
-version: "3.30.1"
+version: "3.30.2"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.30.1
+# Changelog — devflow v1 → v3.30.2
+
+## v3.30.2 (2026-09-23) — 详设模板 DB 中立清除（模板与门禁自相矛盾修复）
+
+来源：v3.30.1 后对抗性复查发现：官方详设模板自身含 PostgreSQL 示例（完整版假设依赖
+示例行/服务依赖表、总分分假设依赖示例行）——真实项目照模板填写会被 v3.30.0 的 s2
+DB 中立扫描直接 P0 拦截（模板教人违规、门禁照拦不误）。**模板与门禁口径必须一致**。
+
+1. **模板清除（3 处，均在 s2 扫描范围内）**：完整版/总分分假设依赖示例
+   `{如：目标库版本 ≥ PostgreSQL 14}` → `{如：目标库为项目冻结 DB，版本约束见《技术选型》}`；
+   完整版服务依赖表 `| PostgreSQL | 数据存储 |` → `| DB | 数据存储（方言由部署配置） |`。
+   部署记录/详设评审报告模板的产品名按规范本属方言合法位置（s2 扫描不覆盖），保留。
+2. **关联核验**：design.sample.json 渲染产物 0 产品名命中（test_isolation.strategy 中
+   的 "H2 库"属不渲染字段且 s2 只扫文档）；详设三模板复扫清零。
 
 ## v3.30.1 (2026-09-23) — Gate JSON 绑定对重验补全（v3.30.0 声明缺口修复）
 

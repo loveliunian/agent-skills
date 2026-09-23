@@ -1,6 +1,6 @@
 ---
 name: PRD验证报告-模板
-version: "3.30.1"
+version: "3.30.2"
 description: PRD 验证报告模板（P4 阶段，PRD 逐条 vs 实现证据）
 ---
 
