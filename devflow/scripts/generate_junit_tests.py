@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 
+def _safe_pascal(v: str) -> str:
+    """类名安全化（v3.30.10）"""
+    import re as _re
+    cleaned = _re.sub(r"[^A-Za-z0-9 ]", " ", str(v))
+    words = [w for w in cleaned.split() if w]
+    return "".join(w.capitalize() for w in words) or "Entity"
+
+
+
 def java_doc(v: str) -> str:
     """Javadoc 块注释安全化（v3.30.9：*/ 闭注释注入收口）"""
     return java_str(v).replace("*/", "*\u2044")
@@ -217,7 +226,7 @@ class {test_class_name} {{
         
         return f"""    @Test
     @WithMockUser(authorities = {{"ROLE_ADMIN"}})
-    void testValidation_Missing{self._to_pascal_case(field_name)}() throws Exception {{
+    void testValidation_Missing{_safe_pascal(field_name)}() throws Exception {{
         // Given: 缺少必填参数 {field_name}
         String invalidJson = "{{\\"invalid\\": \\"data\\"}}";
         
@@ -264,7 +273,7 @@ class {test_class_name} {{
         rule_id = rule.get('id', 'R-001')
         description = rule.get('description', '')
         
-        service_name = f"{self.feature.capitalize()}Service"
+        service_name = f"{safe_ident(self.feature).capitalize()}Service"
         test_class_name = f"{service_name}Test"
         
         test_code = f"""package {self._infer_package_name()}.service;
@@ -342,7 +351,7 @@ class {test_class_name} {{
     def _generate_mapper_test(self, table: Dict[str, Any]):
         """生成 Mapper 单元测试"""
         table_name = table.get('name', 'unknown_table')
-        entity_name = self._to_pascal_case(table_name)
+        entity_name = _safe_pascal(table_name)
         mapper_name = f"{entity_name}Mapper"
         test_class_name = f"{mapper_name}Test"
         
@@ -359,7 +368,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * {mapper_name} 单元测试
  * 
  * 生成时间: {datetime.now().isoformat()}
- * 数据表: {table_name}
+ * 数据表: {java_doc(table_name)}
  */
 @SpringBootTest
 @Transactional

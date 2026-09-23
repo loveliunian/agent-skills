@@ -1,12 +1,25 @@
 ---
 name: changelog
-version: "3.30.9"
+version: "3.30.10"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.30.9
+# Changelog — devflow v1 → v3.30.10
+
+## v3.30.10 (2026-09-24) — 子代理第 5 轮：生成器转义终版（feature/table_name/label 收口）
+
+来源：第 5 轮最终收敛判定——"剩余插入点已 schema 锁定"的收敛前提不成立：`feature`
+（两 schema 仅 minLength:1）、`tables[].name`、`pages[].name`、`form_controls[].label`
+均为自由文本且仍裸插（PoC：schema 合法输入 → `*/` 闭注释注入原样落入生成代码）。
+
+1. **playwright 补 5 处 feature 裸插** + 锚点行注释（page/label 过 ts_doc）+
+   `_to_pascal_case`→`_safe_pascal`（类名位——旧函数只切空白，引号/花括号直通）。
+2. **junit 补 table_name**（Javadoc + 类名/变量名 `_safe_pascal`）+
+   `feature.capitalize()`→`safe_ident().capitalize()`（service 类名）。
+3. PoC 终验：schema 合法输入携带 `*/ Runtime.exec` / `execSync` payload → 双生成器
+   输出零残留、零执行。双平台 29/29 全绿（仅发布前漂移）。
 
 ## v3.30.9 (2026-09-24) — 子代理第 4 轮（收敛轮）：生成器转义补全覆盖
 

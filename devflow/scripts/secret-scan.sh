@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# secret-scan.sh · v3.30.9 · 高置信度明文秘密扫描（fail-closed、输出脱敏）
+# secret-scan.sh · v3.30.10 · 高置信度明文秘密扫描（fail-closed、输出脱敏）
 # 语义契约见 references/sensitive-data-policy.md。
 # 用法：secret-scan.sh [path ...]；无参数时扫描本 skill 发布树。
 # 输出：SECRET_FOUND|<type>|<file>:<line>|VALUE=<redacted>；任一命中退出码 1。

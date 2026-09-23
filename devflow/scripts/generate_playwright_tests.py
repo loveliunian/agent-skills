@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 
+def _safe_pascal(v: str) -> str:
+    """类名安全化（v3.30.10：_to_pascal_case 只切空白——引号/花括号直通[第5轮审计]）"""
+    import re as _re
+    cleaned = _re.sub(r"[^A-Za-z0-9 ]", " ", str(v))
+    words = [w for w in cleaned.split() if w]
+    out = "".join(w.capitalize() for w in words)
+    return out or "Page"
+
+
+
 def ts_doc(v: str) -> str:
     """TS 块注释安全化（v3.30.9：*/ 闭注释注入收口）"""
     return ts_str(v).replace("*/", "*\u2044")
@@ -69,7 +79,7 @@ class PlaywrightTestGenerator:
         if not self.acceptance_data:
             raise ValueError("acceptance.json 未加载")
             
-        print(f"[INFO] 开始生成 {self.feature} 的 Playwright E2E 测试...")
+        print(f"[INFO] 开始生成 {safe_feature(self.feature)} 的 Playwright E2E 测试...")
         
         # 1. 生成 Page Objects
         self._generate_page_objects()
@@ -179,7 +189,7 @@ class PlaywrightTestGenerator:
 
     def _generate_page_object(self, page_name: str, comments: List[str]):
         """生成单个 Page Object"""
-        feature_pascal = self._to_pascal_case(self.feature)
+        feature_pascal = _safe_pascal(self.feature)
         class_name = f"{feature_pascal}{page_name}"
         
         page_code = f"""import {{ Page, Locator }} from '@playwright/test';
@@ -188,7 +198,7 @@ class PlaywrightTestGenerator:
  * {class_name} - Page Object
  * 
  * 生成时间: {datetime.now().isoformat()}
- * 功能模块: {self.feature}
+ * 功能模块: {safe_feature(self.feature)}
  * 
  * 相关验收点:
 {chr(10).join(' * ' + c for c in comments)}
@@ -326,7 +336,7 @@ export class {class_name} {{
     
     def _generate_ui_tests(self):
         """生成 UI 测试规格"""
-        feature_pascal = self._to_pascal_case(self.feature)
+        feature_pascal = _safe_pascal(self.feature)
         
         # 按功能分组
         grouped = defaultdict(list)
@@ -344,7 +354,7 @@ export class {class_name} {{
     
     def _generate_ui_test_spec(self, feature_num: str, points: List[Dict]):
         """生成单个 UI 测试规格文件"""
-        feature_pascal = self._to_pascal_case(self.feature)
+        feature_pascal = _safe_pascal(self.feature)
         
         # 生成测试用例
         test_cases = []
@@ -374,7 +384,7 @@ import {{ {feature_pascal}CreatePage }} from './pages/{feature_pascal}CreatePage
 import {{ {feature_pascal}EditPage }} from './pages/{feature_pascal}EditPage';
 
 /**
- * {self.feature} E2E 测试 - {feature_num}
+ * {safe_feature(self.feature)} E2E 测试 - {feature_num}
  * 
  * 生成时间: {datetime.now().isoformat()}
  * 验收点数量: {len(points)}
@@ -400,7 +410,7 @@ test.describe('{safe_feature(self.feature)} - {feature_num}', () => {{
     
     def _generate_api_tests(self):
         """生成 API 测试规格"""
-        feature_pascal = self._to_pascal_case(self.feature)
+        feature_pascal = _safe_pascal(self.feature)
         
         test_cases = []
         for point in self.api_points:
@@ -429,13 +439,13 @@ test.describe('{safe_feature(self.feature)} - {feature_num}', () => {{
         spec_code = f"""import {{ test, expect }} from '@playwright/test';
 
 /**
- * {self.feature} API 测试
+ * {safe_feature(self.feature)} API 测试
  * 
  * 生成时间: {datetime.now().isoformat()}
  * 验收点数量: {len(self.api_points)}
  */
 
-test.describe('{self.feature} API Tests', () => {{
+test.describe('{safe_feature(self.feature)} API Tests', () => {{
   let authToken: string;
 
   test.beforeAll(async ({{ request }}) => {{
@@ -465,7 +475,7 @@ test.describe('{self.feature} API Tests', () => {{
  * Playwright 配置
  * 
  * 生成时间: {datetime.now().isoformat()}
- * 功能: {self.feature}
+ * 功能: {safe_feature(self.feature)}
  */
 export default defineConfig({{
   testDir: './tests/e2e',

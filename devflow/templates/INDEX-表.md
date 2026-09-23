@@ -1,6 +1,6 @@
 ---
 name: INDEX-表
-version: "3.30.9"
+version: "3.30.10"
 description: 表索引模板（详设期望逻辑表 + 与 auto 生成版并存）
 ---
 
