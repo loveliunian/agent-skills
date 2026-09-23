@@ -1,12 +1,38 @@
 ---
 name: changelog
-version: "3.30.7"
+version: "3.30.8"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.30.7
+# Changelog — devflow v1 → v3.30.8
+
+## v3.30.8 (2026-09-24) — 子代理第 3 轮审计：钉定对账修复 + repin 授权 + 生成器注入收口（5 项）
+
+来源：第 3 轮子代理审计（收敛验证轮）——不收敛：上轮修复引入 2 个可用性击穿
++ 1 条洗白链路 + 发现生成器注入面。
+
+1. **audit 钉定对账恒误报修复（P1）**：audit 引用了 artifact_gate 内的 hash_file——
+   独立子进程无函数继承，command-not-found 被 `|| true` 吞 → 钉定对账全量误报
+   （合法项目永远 FAIL）。内联 hash_file。
+2. **repin dispatch 断链 + 授权（P1）**：core 入口 case 缺失（子命令不可达，audit
+   的 WARN 还在指引用户跑）；且函数体零授权——一旦修好 dispatch 即是"篡改→重钉→
+   洗白"原语。补 case + 逐阶段 skip-log `REPIN_<PHASE>=…authorized-by=` 授权行
+   （缺即跳过；无任何阶段被授权则整体拒绝）。
+3. **waiver 洗白链收口（P1）**：audit 侧 waiver 核验原为两行可伪造（WAIVED 行 +
+   skip-log 键存在——不查 authorized-by）。对齐 SKIPPED 双重口径（授权行须含非空
+   authorized-by）；**摘钉降级 FAIL**（completed 无钉原仅 WARN——组合 WAIVED 伪造
+   可使 SECURITY/PERFORMANCE 绑定整体脱审，PoC 实证）；P0 completed 后收据仍为
+   state-init 基线 = 伪基线替换（audit 新增交叉检查）。
+4. **P3c/P3d 分项误杀修复（P2）**：PHASE-mismatch 检查用归一后 stage_name 对比
+   未归一 PHASE 行——合法分项收据（gates/P3c + PHASE=P3c）被 mismatch 误杀且
+   跳过绑定检测。PHASE 行先归一再比（降级攻击仍被拦）。
+5. **测试生成器注入收口（P1）**：generate_playwright/junit_tests 把 PRD 自由文本
+   （description/endpoint/label）直接插入 TS/Java 代码——PoC 实证 `execSync` 活代码
+   注入（开发者跑生成测试即执行）。新增 ts_str/java_str 字面量转义 + safe_feature
+   白名单（路径穿越收口）；顺修 verify_test_generators.sh 的 `((PASS++))` 在
+   set -e + 首次求值为 0 时杀脚本的 bash 雷（验证器从未跑完第 1 步）。
 
 ## v3.30.7 (2026-09-24) — 子代理第 2 轮审计：豁免收紧 + 钉定闭环 + P2/P3 分项补全（8 项）
 

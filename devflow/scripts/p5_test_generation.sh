@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# P5 测试生成脚本 v3.30.7
+# P5 测试生成脚本 v3.30.8
 # 用途：在 P5 阶段自动调用测试生成器
 
 set -euo pipefail

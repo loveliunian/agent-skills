@@ -1,4 +1,16 @@
 #!/usr/bin/env python3
+
+def java_str(v: str) -> str:
+    """Java 字符串字面量转义（v3.30.8）"""
+    return str(v).replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "")
+
+def safe_ident(v: str) -> str:
+    import re as _re
+    m = _re.sub(r"[^A-Za-z0-9_]", "_", str(v))
+    if m and m[0].isdigit(): m = "_" + m
+    return m or "test"
+
+
 """
 测试生成器：从 design.json 生成 JUnit 单元测试
 
@@ -184,7 +196,7 @@ class {test_class_name} {{
         // TODO: Mock service 返回值
         
         // When & Then: 执行请求并验证
-        mockMvc.perform({method_lower}("{endpoint}")
+        mockMvc.perform({method_lower}("{java_str(endpoint)}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{request_json}"))
             .andExpect(status().isOk())
@@ -204,7 +216,7 @@ class {test_class_name} {{
         String invalidJson = "{{\\"invalid\\": \\"data\\"}}";
         
         // When & Then: 期望返回 400 Bad Request
-        mockMvc.perform({method.lower()}("{endpoint}")
+        mockMvc.perform({method.lower()}("{java_str(endpoint)}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(invalidJson))
             .andExpect(status().isBadRequest());
@@ -218,7 +230,7 @@ class {test_class_name} {{
         // Given: 未登录用户
         
         // When & Then: 期望返回 401 Unauthorized
-        mockMvc.perform({method.lower()}("{endpoint}")
+        mockMvc.perform({method.lower()}("{java_str(endpoint)}")
                 .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isUnauthorized());
     }}

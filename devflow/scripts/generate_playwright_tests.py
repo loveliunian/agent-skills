@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+def ts_str(v: str) -> str:
+    """TS 双引号字符串字面量转义（v3.30.8：PRD 自由文本→生成代码的注入面收口）"""
+    return str(v).replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"').replace("\n", "\\n").replace("\r", "").replace("`", "\\`")
+
+def safe_feature(v: str) -> str:
+    import re as _re
+    m = _re.sub(r"[^A-Za-z0-9._-]", "_", str(v))
+    return m or "feature"
+
+
 """
 测试生成器：从 acceptance.json 生成 Playwright E2E 测试
 
@@ -213,7 +223,7 @@ export class {class_name} {{
   /**
    * 导航到页面
    */
-  async goto(path: string = '/{self.feature}') {{
+  async goto(path: string = '/{safe_feature(self.feature)}') {{
     await this.page.goto(path);
     await this.page.waitForLoadState('networkidle');
   }}
@@ -336,7 +346,7 @@ export class {class_name} {{
             point_id = point.get('id', '')
             description = point.get('description', '')
             
-            test_case = f"""  test('{point_id}: {description}', async ({{ page }}) => {{
+            test_case = f"""  test('{ts_str(point_id)}: {ts_str(description)}', async ({{ page }}) => {{
     // Given: 准备测试环境
     const listPage = new {feature_pascal}ListPage(page);
     await listPage.goto();
@@ -379,7 +389,7 @@ test.describe('{self.feature} - {feature_num}', () => {{
 }});
 """
         
-        output_path = self.output_base / f"{self.feature}-{feature_num}.spec.ts"
+        output_path = self.output_base / f"{safe_feature(self.feature)}-{feature_num}.spec.ts"
         self._write_file(output_path, spec_code)
     
     def _generate_api_tests(self):
@@ -391,7 +401,7 @@ test.describe('{self.feature} - {feature_num}', () => {{
             point_id = point.get('id', '')
             description = point.get('description', '')
             
-            test_case = f"""  test('{point_id}: {description}', async ({{ request }}) => {{
+            test_case = f"""  test('{ts_str(point_id)}: {ts_str(description)}', async ({{ request }}) => {{
     // Given: 准备测试数据
     const testData = {{
       // TODO: 根据验收点填充数据
@@ -438,7 +448,7 @@ test.describe('{self.feature} API Tests', () => {{
 }});
 """
         
-        output_path = self.output_base / f"{self.feature}-api.spec.ts"
+        output_path = self.output_base / f"{safe_feature(self.feature)}-api.spec.ts"
         self._write_file(output_path, spec_code)
     
     def _generate_test_config(self):

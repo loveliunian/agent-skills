@@ -1,7 +1,7 @@
 ---
 name: init-fact-sources
 description: "Use when initializing or validating a project's engineering fact sources before detailed design or implementation."
-version: "3.30.7"
+version: "3.30.8"
 license: MIT
 paths: ["docs/**", "scripts/*", "backend/**"]
 compatibility: Devflow agent skill; requires a repository workspace and command execution.

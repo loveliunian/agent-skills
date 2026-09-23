@@ -751,15 +751,25 @@ cmd_migrate_tree() {
 # v3.30.7: 显式重钉——completed 阶段按当前收据重写 receipt_sha256（钉定失配经人工
 # 核销、或合法 gate 重跑后的唯一正规化路径；RE-PIN 审计行写入 state 元数据）。
 cmd_repin() {
+  # v3.30.8: 逐阶段显式授权（第3轮审计 F2——无授权的 repin 是"篡改收据→重钉→洗白"
+  # 原语）。要求 skip-log 存在 `REPIN_<PHASE>=理由|authorized-by=人|at=时间|approval=证据`
+  # 行；只重钉被授权的阶段。
   local feature="$1"
   local state_file
   state_file=$(get_state_file "$feature")
   [ -f "$state_file" ] || { error "工作流 '$feature' 不存在"; return 1; }
   command -v jq >/dev/null 2>&1 || { error "repin 需要 jq"; return 1; }
-  local phase receipt sha now repinned=""
+  local phase receipt sha now repinned="" skiplog _authok _by
+  skiplog="$STATE_DIR/${feature}/skip-log.txt"
+  [ -f "$skiplog" ] || { error "repin 需 skip-log 授权行：REPIN_<PHASE>=理由|authorized-by=人|at=时间|approval=证据（文件 ${skiplog}）"; return 1; }
   now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   for phase in P0 P0b P1 P2 P2a P2b P3 P3b P3c P3d P4 P4b P5 P6 P7 P8 P9 P10; do
     [ "$(jq -r --arg p "$phase" '.phases[$p].status // "pending"' "$state_file")" = "completed" ] || continue
+    _authok=0
+    while IFS= read -r _by; do
+      [ -n "$_by" ] && _authok=1 && break
+    done < <(grep -E "^REPIN_${phase}=[^|]+\|authorized-by=[^|]+" "$skiplog" 2>/dev/null | grep -oE 'authorized-by=[^|]+' || true)
+    [ "$_authok" = "1" ] || { warn "${phase} 无 REPIN 授权行——跳过"; continue; }
     case "$phase" in P3c|P3d) receipt="$STATE_DIR/${feature}/gates/P3cd/receipt.txt" ;;
       *) receipt="$STATE_DIR/${feature}/gates/${phase}/receipt.txt" ;; esac
     if [ ! -f "$receipt" ]; then
@@ -772,8 +782,8 @@ cmd_repin() {
       "$state_file" > "$state_file.tmp" && mv "$state_file.tmp" "$state_file"
     repinned="$repinned $phase"
   done
-  [ -n "$repinned" ] || { warn "无 completed 阶段可重钉"; return 0; }
-  success "RE-PIN 完成:${repinned}（按当前收据重写钉定——操作者对此核销负责）"
+  [ -n "$repinned" ] || { error "无阶段被重钉（须先写 REPIN 授权行）"; return 1; }
+  success "RE-PIN 完成:${repinned}（按当前收据重写钉定——授权人对此核销负责）"
   return 0
 }
 
@@ -1076,6 +1086,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     list)            shift; cmd_list "$@" ;;
     repair)          shift; cmd_repair "$@" ;;
     migrate-tree)    shift; cmd_migrate_tree "$@" ;;
+    repin)           shift; cmd_repin "$@" ;;
     client-freeze)   shift; cmd_client_freeze "$@" ;;
     constraints-freeze) shift; cmd_constraints_freeze "$@" ;;
     constraints-inherit) shift; cmd_constraints_inherit "$@" ;;

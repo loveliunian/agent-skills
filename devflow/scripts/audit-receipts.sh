@@ -147,6 +147,14 @@ MIRROR_HASHES="$TMP_DIR/mirror-hashes.tsv"
 collect_receipt_hashes "$STATE_DIR/$FEATURE/gates" > "$INTERNAL_HASHES"
 collect_receipt_hashes "$DOCS_DIR/$FEATURE/gates" > "$MIRROR_HASHES"
 check_versions "$STATE_DIR/$FEATURE/gates"
+# v3.30.8: hash_file 内联（audit 是独立子进程——此前引用 artifact_gate 的定义，
+# command-not-found 被 || true 吞 → _pcur 恒空 → 钉定对账全量误报[第3轮审计 F1]）
+hash_file() {
+  if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" 2>/dev/null | awk '{print $1}';
+  elif command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" 2>/dev/null | awk '{print $1}';
+  else return 1; fi
+}
+
 # v3.30.6: 钉定复查——state 中 completed 阶段的 receipt_sha256 与收据实哈希对账
 # （子代理实证：audit 此前从不读钉，收据+正本+镜像三方自洽改写在 COMPLETED 后永久隐形）
 if command -v jq >/dev/null 2>&1 && [ -f "$STATE_DIR/$FEATURE.state.json" ]; then
@@ -362,6 +370,9 @@ while IFS= read -r receipt_file; do
   # 篡改为其他阶段不影响目录映射，但构成字段级说谎，audit 须拒；complete/reconcile
   # 的 declared_phase 检查此前只覆盖推进路径）
   _phase_line=$(sed -n 's/^PHASE=//p' "$receipt_file" | head -1)
+  # v3.30.8: 分项收据 PHASE=P3c/P3d 与归一 stage_name(P3cd) 合法同义——先归一再比
+  # （否则合法分项流程被 mismatch 误杀[第3轮审计 F4]）
+  case "$_phase_line" in P3c|P3d) _phase_line="P3cd" ;; esac
   if [ -n "$_phase_line" ] && [ "$_phase_line" != "$stage_name" ]; then
     fail "PHASE line mismatch: ${stage_name}/receipt.txt declares PHASE=${_phase_line}（目录是 stage 事实源，字段篡改拒绝）"
     continue

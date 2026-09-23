@@ -270,7 +270,10 @@ verify_stage_json_binding() { # <receipt> <stage>
         PERFORMANCE_JSON) _wkey="SKIP_P3CD_PERFORMANCE" ;;
         *) _wkey="" ;;
       esac
-      if [ -n "$_wkey" ] && grep -q "^${_tag%%_JSON}_WAIVED=1$" "$receipt"          && [ -f "$_slog2" ] && grep -q "^${_wkey}=" "$_slog2"; then
+      # v3.30.8: 对齐 SKIPPED 双重口径（第3轮审计 F3——原两行可伪造）：WAIVED 行 +
+      # skip-log 授权行须含非空 authorized-by
+      if [ -n "$_wkey" ] && grep -q "^${_tag%%_JSON}_WAIVED=1$" "$receipt" \
+         && [ -f "$_slog2" ] && grep -qE "^${_wkey}=[^|]+\|authorized-by=[^|]+" "$_slog2"; then
         continue
       fi
       echo "[EVIDENCE] ${stage} 终态收据缺 ${_tag} 绑定行（版本 $vernum ≥ 3.30.0 必然产出——缺行即被剥离，正本篡改将脱离审计）: $receipt"
