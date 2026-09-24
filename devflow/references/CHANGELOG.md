@@ -1,12 +1,49 @@
 ---
 name: changelog
-version: "3.30.12"
+version: "3.31.0"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.30.12
+# Changelog — devflow v1 → v3.31.0
+
+## v3.31.0 (2026-09-24) — 审查报告-0924 短期项实施：执行内核收敛 + 并发安全 + 文档收敛
+
+来源：《devflow 通用代码开发 Skill 深度审查报告-0924》短期（一周）计划全项实施 +
+推荐的首个结构性改动（Capability Executor）。
+
+1. **Capability Executor（P0·结构性）**：新增 `scripts/df_executor.py`——
+   CommandSpec（executable/args/cwd/timeout_seconds/env_allowlist 结构化 argv）+
+   run_capability（workspace 物理归一边界、环境白名单、timeout 杀进程组 rc=124、
+   duration_ms 回执）；profile adapter 解析（结构化 executable/args 优先，legacy
+   command 字符串 shlex 拆词兼容 + 元字符首词拒绝）；`--profile-verify`/`--dry-run`
+   CLI。runtime-profile.schema.json 补 executable/args/cwd/timeout_seconds/
+   env_allowlist 字段（anyOf executable 或 legacy command）；三个 Profile JSON
+   全部 43 个 adapter 迁移为结构化 argv（executor 逐一解析验证）。
+2. **ProcessRunner 超时（P0）**：df_pipeline._run 重写——子进程带 timeout
+   （DF_PIPELINE_TIMEOUT_SECONDS 环境变量，默认 3600s）、进程组 SIGKILL（rc=124
+   对齐 run-tests 惯例）、输出透传、command-not-found rc=127。此前卡死的
+   build/test 可无限占用 Agent 会话。
+3. **state 并发控制（P0）**：devflow-state-core 新增 mkdir 原子锁
+   （state_lock/unlock + pid 陈旧锁回收 + STATE_LOCK_TIMEOUT 超时）与
+   state_write_mut/state_cas/state_revision（revision 自增 + compare-and-swap
+   ——revision 不符明确 STATE_CONFLICT，不再静默覆盖）。并发写安全性由锁串行
+   + revision 可检测双保险。
+4. **O(n²) 消除（P2 提前）**：df_validate 19 处
+   `{x for x in xs if xs.count(x)>1}` 全部替换为 Counter 基 `_dups_of`（O(n)），
+   含复合键与条件变体。
+5. **版本/文档漂移门禁（P0·低成本高收益）**：check-skill-version 新增根仓库
+   README devflow 版本表格对账（3.23.1 与 3.30.x 长期并存的漂移从此机器拦截）；
+   根 README 已同步 3.31.0。
+6. **Profile 文档语义收敛（P0）**：runtime-profiles/README.md 补执行状态澄清段
+   ——JSON=adapter 数据事实源、执行状态以 references/runtime-profile.md 为准、
+   **不存在按项目文件自动推断 Profile**（消除两套描述的语义冲突）。
+7. **CI 安全强化（P1）**：workflow 增加 Python 3.11/3.13 matrix（setup-python）、
+   PR dependency-review job、checkout SHA pin 指引注释。
+8. **兼容性**：state 新增 revision/repinned_at 字段（向后兼容——旧 state 无字段
+   按缺省处理）；runtime-profile schema 允许 legacy command 与新结构化 argv 并存
+   （executable 优先）；audit P3cd 双绑定行为延续 v3.30.6。
 
 ## v3.30.12 (2026-09-24) — 子代理第 7 轮：JUnit fields[].name 裸插收口（收敛达成）
 

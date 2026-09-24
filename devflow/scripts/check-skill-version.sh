@@ -40,6 +40,22 @@ done
 
 if grep -qE "^## v${EXPECTED//./\.}([[:space:]]|$)" "$ROOT/references/CHANGELOG.md"; then echo "[PASS] changelog v$EXPECTED"; else echo "[FAIL] changelog missing v$EXPECTED"; FAIL=$((FAIL + 1)); fi
 
+# v3.31.0: 根仓库 README 版本对账（审查报告-0924：README 3.23.1 与 SKILL 3.30.x 长期并存
+# ——展示版本机器对齐，杜绝"可信说明"漂移）
+REPO_ROOT="$(cd "$ROOT/.." && pwd -P)"
+if [ -f "$REPO_ROOT/README.md" ]; then
+  README_VER=$(sed -n 's/^| \[devflow\].*| \([0-9][0-9.]*\) |.*/\1/p' "$REPO_ROOT/README.md" | head -1)
+  if [ -z "$README_VER" ]; then
+    echo "[FAIL] 根 README 未找到 devflow 版本表格行（格式：| [devflow](./devflow/) | x.y.z | ...）"
+    FAIL=$((FAIL + 1))
+  elif [ "$README_VER" != "$EXPECTED" ]; then
+    echo "[FAIL] 根 README devflow 版本=${README_VER} ≠ SKILL.md ${EXPECTED}（展示版本须机器对账）"
+    FAIL=$((FAIL + 1))
+  else
+    echo "[PASS] 根 README devflow 版本对齐: $README_VER"
+  fi
+fi
+
 # v3.16.11（P2 版本漂移）: 命令文档标题版本扫描——frontmatter Gate 只查 YAML，
 # 发现不了 ROUTING.md 标题 v3.15.1 这类展示层漂移。范围：commands/*.md 的首个
 # 标题行（^# 开头）；scripts 头注释中的 vX.Y.Z 多为历史引入记录（描述性），

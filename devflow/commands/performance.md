@@ -1,6 +1,6 @@
 ---
 name: performance
-version: "3.30.12"
+version: "3.31.0"
 description: >-
   Use when auditing performance bottlenecks, slow queries, or scalability issues, mentions
   "/performance", "性能", "performance audit", "性能审计", "N+1", "slow query", "优化", or "load test".

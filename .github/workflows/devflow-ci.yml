@@ -14,9 +14,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+        python-version: ["3.11", "3.13"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4 # 升级时 pin 到 full-length commit SHA
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
 
       - name: Shell syntax
         shell: bash
@@ -34,10 +38,20 @@ jobs:
         shell: bash
         run: bash devflow/tests/run-tests.sh
 
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4 # 升级时 pin 到 full-length commit SHA
+      - name: Dependency review
+        uses: actions/dependency-review-action@v4
+
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4 # 升级时 pin 到 full-length commit SHA
       - name: Release audit
         run: bash devflow/scripts/release-audit.sh
 

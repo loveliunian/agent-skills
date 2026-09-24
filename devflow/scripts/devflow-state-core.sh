@@ -180,6 +180,80 @@ get_state_file() {
   echo "$STATE_DIR/${feature}.state.json"
 }
 
+# ── v3.31.0: state 并发控制（审查报告-0924 短期项 P0）────────────────────────
+# mkdir 原子锁（全文件系统原子）+ revision 字段（读-改-写冲突可检）。
+# 两并发写：后到者拿不到锁等待；超时明确 STATE_LOCK_TIMEOUT（防死锁）。
+# revision 由 state_write_mut 在每次落盘时 +1；外部读-改-写应比对 revision
+# 不一致即 STATE_CONFLICT（cmd 层的连续 jq 管道在同一锁内串行，不受影响）。
+STATE_LOCK_TIMEOUT_SECONDS="${STATE_LOCK_TIMEOUT_SECONDS:-30}"
+
+state_lock() { # <feature> [ purpose ] → 0=获得锁；2=超时；3=已有同进程锁
+  local feature="$1" lock="$STATE_DIR/${1}.lock" waited=0
+  mkdir -p "$STATE_DIR" 2>/dev/null || return 1
+  until mkdir "$lock" 2>/dev/null; do
+    # 陈旧锁检测：锁内 pid 不存活且超 5 分钟 → 判定孤儿锁回收
+    if [ -f "$lock/pid" ]; then
+      local lp; lp=$(cat "$lock/pid" 2>/dev/null || true)
+      if [ -n "$lp" ] && ! kill -0 "$lp" 2>/dev/null; then
+        local age; age=$(( $(date +%s) - $(stat -f %m "$lock/pid" 2>/dev/null || stat -c %Y "$lock/pid" 2>/dev/null || echo 0) ))
+        [ "$age" -gt 300 ] && { rm -rf "$lock"; echo "[state] 回收孤儿锁 ${lock}（pid=${lp} age=${age}s）" >&2; continue; }
+      fi
+    fi
+    waited=$((waited + 1))
+    [ "$waited" -ge "$STATE_LOCK_TIMEOUT_SECONDS" ] && {
+      echo "[STATE_LOCK_TIMEOUT] ${feature}：state 锁 ${STATE_LOCK_TIMEOUT_SECONDS}s 未获得（并发写冲突或孤儿锁）" >&2
+      return 2
+    }
+    sleep 1
+  done
+  printf '%s' "$$" > "$lock/pid" 2>/dev/null || true
+  return 0
+}
+
+state_unlock() { # <feature>
+  rm -rf "$STATE_DIR/${1}.lock" 2>/dev/null || true
+}
+
+# state_write_mut <feature> <jq-filter> [jq-args...] —— 带锁 + revision 自增的原子变更。
+# 调用方不再手写 jq>tmp>mv 三段（散落各处且无并发保护）；锁内读-滤-写一气呵成。
+state_write_mut() {
+  local feature="$1" filter="$2"; shift 2
+  local state_file rc=0
+  state_file=$(get_state_file "$feature")
+  state_lock "$feature" || return $?
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "[FATAL] state_write_mut 需要 jq" >&2; state_unlock "$feature"; return 1
+  fi
+  if jq -e . "$state_file" >/dev/null 2>&1; then
+    jq "$filter" "$@" "$state_file" > "$state_file.tmp" 2>/dev/null       && jq --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+           '.revision = ((.revision // 0) + 1) | .updated_at = $now' \
+           "$state_file.tmp" > "$state_file.tmp2" 2>/dev/null \
+      && mv "$state_file.tmp2" "$state_file" && rm -f "$state_file.tmp" \
+      || { rc=1; rm -f "$state_file.tmp" "$state_file.tmp2"; }
+  else
+    echo "[FATAL] state 不可解析（拒写）: $state_file" >&2; rc=1
+  fi
+  state_unlock "$feature"
+  return "$rc"
+}
+
+state_revision() { # <feature> → 当前 revision（无则 0）
+  jq -r '.revision // 0' "$STATE_DIR/${1}.state.json" 2>/dev/null || echo 0
+}
+
+# state_cas <feature> <expected_revision> <filter> [jq-args...] —— compare-and-swap：
+# revision 不等于期望值即 STATE_CONFLICT（明确拒绝，不静默覆盖）。
+state_cas() {
+  local feature="$1" expected="$2" filter="$3"; shift 3
+  local cur
+  cur=$(state_revision "$feature")
+  if [ "$cur" != "$expected" ]; then
+    echo "[STATE_CONFLICT] ${feature}：期望 revision=${expected} 实际=${cur}（并发写已发生——重读状态后重试）" >&2
+    return 3
+  fi
+  state_write_mut "$feature" "$filter" "$@"
+}
+
 # Gate 收据路径 (P0-6 修复: 状态机绕过 Gate)
 get_stage_gate_receipt() {
   local feature="$1"

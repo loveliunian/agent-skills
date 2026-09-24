@@ -4,71 +4,93 @@
   "name": "Java Spring Boot + Flyway 四方言",
   "version": "1.0.0",
   "description": "Java 11/17+ / Spring Boot 2.x/3.x / Flyway 多方言（h2, postgresql, oracle, kingbase）+ 菜单权限 seed + JaCoCo 覆盖率",
-  
   "backend": {
     "language": "java",
     "framework": "spring-boot",
     "build_adapter": {
-      "command": "mvn -q compile",
       "working_dir": "backend/{service}",
       "success_exit_code": 0,
       "error_patterns": [
         "\\[ERROR\\]",
         "BUILD FAILURE"
+      ],
+      "executable": "mvn",
+      "args": [
+        "-q",
+        "compile"
       ]
     },
     "test_adapter": {
-      "command": "mvn test",
       "working_dir": "backend/{service}",
       "success_exit_code": 0,
-      "coverage_report_path": "target/site/jacoco/index.html"
+      "coverage_report_path": "target/site/jacoco/index.html",
+      "executable": "mvn",
+      "args": [
+        "test"
+      ]
     },
     "lint_adapter": {
-      "command": "mvn checkstyle:check",
       "working_dir": "backend/{service}",
-      "optional": true
+      "optional": true,
+      "executable": "mvn",
+      "args": [
+        "checkstyle:check"
+      ]
     },
     "coverage_adapter": {
-      "command": "mvn jacoco:report",
       "working_dir": "backend/{service}",
       "threshold": {
-        "core_business": 0.80,
-        "total": 0.70
+        "core_business": 0.8,
+        "total": 0.7
       },
       "report_parser": {
         "type": "jacoco-html",
         "path": "target/site/jacoco/index.html",
         "xpath_coverage": "//tfoot/tr/td[@class='ctr2']"
-      }
+      },
+      "executable": "mvn",
+      "args": [
+        "jacoco:report"
+      ]
     }
   },
-
   "authorization": {
     "required": true,
     "verification_adapter": {
-      "command": "bash scripts/verify-authorization.sh",
       "checks": [
         {
           "name": "controller_annotations",
           "description": "所有 Controller 必须有 @PreAuthorize",
           "pattern": "@PreAuthorize\\(",
-          "target_paths": ["backend/*/src/main/java/**/*Controller.java"]
+          "target_paths": [
+            "backend/*/src/main/java/**/*Controller.java"
+          ]
         },
         {
           "name": "permission_matrix_alignment",
           "description": "权限码与权限矩阵对账",
-          "command": "bash scripts/check-perm-matrix.sh"
+          "executable": "bash",
+          "args": [
+            "scripts/check-perm-matrix.sh"
+          ]
         }
+      ],
+      "executable": "bash",
+      "args": [
+        "scripts/verify-authorization.sh"
       ]
     }
   },
-
   "persistence": {
     "required": true,
     "migration_system": "flyway",
-    "dialects": ["h2", "postgresql", "oracle", "kingbase"],
+    "dialects": [
+      "h2",
+      "postgresql",
+      "oracle",
+      "kingbase"
+    ],
     "migration_adapter": {
-      "command": "mvn flyway:migrate -Dflyway.configFiles=flyway-{dialect}.conf",
       "working_dir": "backend/{service}",
       "paths": {
         "h2": "src/main/resources/db/migration/h2",
@@ -79,68 +101,105 @@
       "validation": {
         "sync_check": true,
         "version_pattern": "^V\\d+__[a-zA-Z0-9_]+\\.sql$"
-      }
+      },
+      "executable": "mvn",
+      "args": [
+        "flyway:migrate",
+        "-Dflyway.configFiles=flyway-{dialect}.conf"
+      ]
     },
     "seed_adapter": {
-      "command": "bash scripts/seed-{dialect}.sh",
       "required_tables": [
         "sys_menu",
         "sys_menu_operation",
         "sys_permission_group",
         "sys_user_effective_perm"
+      ],
+      "executable": "bash",
+      "args": [
+        "scripts/seed-{dialect}.sh"
       ]
     }
   },
-
   "client": {
-    "scope_options": ["pc-web", "mini-program", "app", "not-applicable"],
+    "scope_options": [
+      "pc-web",
+      "mini-program",
+      "app",
+      "not-applicable"
+    ],
     "pc-web": {
       "framework": "vue3",
       "build_adapter": {
-        "command": "npm run build",
         "working_dir": "frontend",
-        "type_check": "npm run type-check"
+        "type_check": "npm run type-check",
+        "executable": "npm",
+        "args": [
+          "run",
+          "build"
+        ]
       },
       "journey_adapter": {
-        "command": "npm run test:e2e",
         "working_dir": "frontend",
         "browser": "chromium",
-        "report_path": "test-results/e2e-report.html"
+        "report_path": "test-results/e2e-report.html",
+        "executable": "npm",
+        "args": [
+          "run",
+          "test:e2e"
+        ]
       },
       "route_registration_check": {
-        "command": "bash scripts/check-route-registration.sh",
-        "pattern": "path:\\s*['\"]/.+['\"]"
+        "pattern": "path:\\s*['\"]/.+['\"]",
+        "executable": "bash",
+        "args": [
+          "scripts/check-route-registration.sh"
+        ]
       }
     },
     "mini-program": {
       "framework": "uni-app",
       "build_adapter": {
-        "command": "npm run build:mp-weixin",
-        "working_dir": "frontend-mp"
+        "working_dir": "frontend-mp",
+        "executable": "npm",
+        "args": [
+          "run",
+          "build:mp-weixin"
+        ]
       },
       "journey_adapter": {
-        "command": "npm run test:mp",
         "working_dir": "frontend-mp",
-        "simulator": "wechat-devtools-cli"
+        "simulator": "wechat-devtools-cli",
+        "executable": "npm",
+        "args": [
+          "run",
+          "test:mp"
+        ]
       }
     },
     "app": {
       "framework": "uni-app",
       "build_adapter": {
-        "command": "npm run build:app",
-        "working_dir": "frontend-app"
+        "working_dir": "frontend-app",
+        "executable": "npm",
+        "args": [
+          "run",
+          "build:app"
+        ]
       },
       "journey_adapter": {
-        "command": "npm run test:app",
         "working_dir": "frontend-app",
-        "emulator": "android/ios"
+        "emulator": "android/ios",
+        "executable": "npm",
+        "args": [
+          "run",
+          "test:app"
+        ]
       }
     }
   },
-
   "security": {
     "adapter": {
-      "command": "bash checks/security-scan.sh",
       "checks": [
         "sql-injection",
         "xss-vulnerability",
@@ -148,23 +207,30 @@
         "sensitive-data-exposure",
         "dependency-vulnerabilities"
       ],
-      "blockers": ["P0"],
-      "report_path": "docs/review/{feature}-security-audit-report.md"
+      "blockers": [
+        "P0"
+      ],
+      "report_path": "docs/review/{feature}-security-audit-report.md",
+      "executable": "bash",
+      "args": [
+        "checks/security-scan.sh"
+      ]
     }
   },
-
   "performance": {
     "adapter": {
-      "command": "bash checks/performance-scan.sh",
       "thresholds": {
         "api_p95_ms": 200,
         "api_p99_ms": 500,
         "db_query_p95_ms": 50
       },
-      "report_path": "docs/review/{feature}-performance-audit-report.md"
+      "report_path": "docs/review/{feature}-performance-audit-report.md",
+      "executable": "bash",
+      "args": [
+        "checks/performance-scan.sh"
+      ]
     }
   },
-
   "deployment": {
     "health_check": {
       "endpoint": "/actuator/health",
@@ -175,9 +241,12 @@
       "backend/{service}/target/{service}.jar",
       "frontend/dist/"
     ],
-    "environments": ["dev", "staging", "prod"]
+    "environments": [
+      "dev",
+      "staging",
+      "prod"
+    ]
   },
-
   "monitoring": {
     "required_metrics": [
       "api_qps",
@@ -191,7 +260,6 @@
       "prod": "WARN"
     }
   },
-
   "coding_standards": {
     "mandatory_docs": [
       "concepts/Java开发手册_黄山版.md"
@@ -202,7 +270,6 @@
       "mapper_rule": "一个 Entity 对应一个 Mapper 接口"
     }
   },
-
   "gate_bindings": {
     "P3-build": "backend.build_adapter",
     "P3-completion": [
@@ -216,7 +283,6 @@
     "P6-journey": "client.{scope}.journey_adapter",
     "P7-deploy": "deployment.health_check"
   },
-
   "compatibility": {
     "java_version": "11+",
     "spring_boot_version": "2.x, 3.x",

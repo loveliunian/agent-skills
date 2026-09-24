@@ -4,71 +4,92 @@
   "name": "Node.js Express + Prisma ORM",
   "version": "1.0.0",
   "description": "Node.js 18+ / Express 4.x / Prisma ORM + TypeScript + Jest + Playwright E2E",
-  
   "backend": {
     "language": "typescript",
     "framework": "express",
     "build_adapter": {
-      "command": "npm run build",
       "working_dir": "backend",
       "success_exit_code": 0,
       "error_patterns": [
         "error TS\\d+:",
         "Build failed"
+      ],
+      "executable": "npm",
+      "args": [
+        "run",
+        "build"
       ]
     },
     "test_adapter": {
-      "command": "npm test",
       "working_dir": "backend",
       "success_exit_code": 0,
-      "coverage_report_path": "coverage/lcov-report/index.html"
+      "coverage_report_path": "coverage/lcov-report/index.html",
+      "executable": "npm",
+      "args": [
+        "test"
+      ]
     },
     "lint_adapter": {
-      "command": "npm run lint",
       "working_dir": "backend",
-      "optional": false
+      "optional": false,
+      "executable": "npm",
+      "args": [
+        "run",
+        "lint"
+      ]
     },
     "coverage_adapter": {
-      "command": "npm run test:coverage",
       "working_dir": "backend",
       "threshold": {
-        "core_business": 0.80,
-        "total": 0.70
+        "core_business": 0.8,
+        "total": 0.7
       },
       "report_parser": {
         "type": "istanbul-lcov",
         "path": "coverage/lcov-report/index.html",
         "json_summary": "coverage/coverage-summary.json"
-      }
+      },
+      "executable": "npm",
+      "args": [
+        "run",
+        "test:coverage"
+      ]
     }
   },
-
   "authorization": {
     "required": true,
     "verification_adapter": {
-      "command": "bash scripts/verify-authorization.sh",
       "checks": [
         {
           "name": "middleware_usage",
           "description": "所有路由必须使用 auth middleware",
           "pattern": "requireAuth|checkPermission",
-          "target_paths": ["backend/src/routes/**/*.ts"]
+          "target_paths": [
+            "backend/src/routes/**/*.ts"
+          ]
         },
         {
           "name": "permission_matrix_alignment",
           "description": "权限码与权限矩阵对账",
-          "command": "bash scripts/check-perm-matrix.sh"
+          "executable": "bash",
+          "args": [
+            "scripts/check-perm-matrix.sh"
+          ]
         }
+      ],
+      "executable": "bash",
+      "args": [
+        "scripts/verify-authorization.sh"
       ]
     }
   },
-
   "persistence": {
     "required": true,
     "migration_system": "prisma",
-    "dialects": ["postgresql"],
+    "dialects": [
+      "postgresql"
+    ],
     "migration_adapter": {
-      "command": "npx prisma migrate deploy",
       "working_dir": "backend",
       "paths": {
         "schema": "prisma/schema.prisma",
@@ -77,44 +98,66 @@
       "validation": {
         "sync_check": true,
         "schema_check": "npx prisma validate"
-      }
+      },
+      "executable": "npx",
+      "args": [
+        "prisma",
+        "migrate",
+        "deploy"
+      ]
     },
     "seed_adapter": {
-      "command": "npx prisma db seed",
       "working_dir": "backend",
       "required_tables": [
         "User",
         "Role",
         "Permission"
+      ],
+      "executable": "npx",
+      "args": [
+        "prisma",
+        "db",
+        "seed"
       ]
     }
   },
-
   "client": {
-    "scope_options": ["pc-web", "not-applicable"],
+    "scope_options": [
+      "pc-web",
+      "not-applicable"
+    ],
     "pc-web": {
       "framework": "react",
       "build_adapter": {
-        "command": "npm run build",
         "working_dir": "frontend",
-        "type_check": "npm run type-check"
+        "type_check": "npm run type-check",
+        "executable": "npm",
+        "args": [
+          "run",
+          "build"
+        ]
       },
       "journey_adapter": {
-        "command": "npm run test:e2e",
         "working_dir": "frontend",
         "browser": "chromium",
-        "report_path": "playwright-report/index.html"
+        "report_path": "playwright-report/index.html",
+        "executable": "npm",
+        "args": [
+          "run",
+          "test:e2e"
+        ]
       },
       "route_registration_check": {
-        "command": "bash scripts/check-route-registration.sh",
-        "pattern": "path:\\s*['\"]/.+['\"]"
+        "pattern": "path:\\s*['\"]/.+['\"]",
+        "executable": "bash",
+        "args": [
+          "scripts/check-route-registration.sh"
+        ]
       }
     }
   },
-
   "security": {
     "adapter": {
-      "command": "bash checks/security-scan.sh",
       "checks": [
         "sql-injection",
         "xss-vulnerability",
@@ -126,23 +169,30 @@
         "npm audit",
         "eslint-plugin-security"
       ],
-      "blockers": ["P0"],
-      "report_path": "docs/review/{feature}-security-audit-report.md"
+      "blockers": [
+        "P0"
+      ],
+      "report_path": "docs/review/{feature}-security-audit-report.md",
+      "executable": "bash",
+      "args": [
+        "checks/security-scan.sh"
+      ]
     }
   },
-
   "performance": {
     "adapter": {
-      "command": "bash checks/performance-scan.sh",
       "thresholds": {
         "api_p95_ms": 200,
         "api_p99_ms": 500,
         "db_query_p95_ms": 50
       },
-      "report_path": "docs/review/{feature}-performance-audit-report.md"
+      "report_path": "docs/review/{feature}-performance-audit-report.md",
+      "executable": "bash",
+      "args": [
+        "checks/performance-scan.sh"
+      ]
     }
   },
-
   "deployment": {
     "health_check": {
       "endpoint": "/health",
@@ -153,9 +203,12 @@
       "backend/dist/",
       "frontend/build/"
     ],
-    "environments": ["dev", "staging", "prod"]
+    "environments": [
+      "dev",
+      "staging",
+      "prod"
+    ]
   },
-
   "monitoring": {
     "required_metrics": [
       "api_qps",
@@ -169,7 +222,6 @@
       "prod": "warn"
     }
   },
-
   "coding_standards": {
     "mandatory_docs": [],
     "conventions": {
@@ -178,7 +230,6 @@
       "type_safety": "strict TypeScript mode"
     }
   },
-
   "gate_bindings": {
     "P3-build": "backend.build_adapter",
     "P3-completion": [
@@ -192,7 +243,6 @@
     "P6-journey": "client.{scope}.journey_adapter",
     "P7-deploy": "deployment.health_check"
   },
-
   "compatibility": {
     "node_version": "18+",
     "npm_version": "9+",

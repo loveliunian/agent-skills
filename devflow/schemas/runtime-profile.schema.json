@@ -40,12 +40,25 @@
     },
     "backend": {
       "type": "object",
-      "required": ["language", "framework", "build_adapter", "test_adapter", "coverage_adapter"],
+      "required": [
+        "language",
+        "framework",
+        "build_adapter",
+        "test_adapter",
+        "coverage_adapter"
+      ],
       "additionalProperties": false,
       "properties": {
         "language": {
           "type": "string",
-          "enum": ["java", "typescript", "javascript", "python", "go", "rust"]
+          "enum": [
+            "java",
+            "typescript",
+            "javascript",
+            "python",
+            "go",
+            "rust"
+          ]
         },
         "framework": {
           "type": "string",
@@ -67,7 +80,9 @@
     },
     "authorization": {
       "type": "object",
-      "required": ["required"],
+      "required": [
+        "required"
+      ],
       "additionalProperties": false,
       "properties": {
         "required": {
@@ -80,7 +95,9 @@
     },
     "persistence": {
       "type": "object",
-      "required": ["required"],
+      "required": [
+        "required"
+      ],
       "additionalProperties": false,
       "properties": {
         "required": {
@@ -88,13 +105,27 @@
         },
         "migration_system": {
           "type": "string",
-          "enum": ["flyway", "liquibase", "prisma", "alembic", "golang-migrate", "none"]
+          "enum": [
+            "flyway",
+            "liquibase",
+            "prisma",
+            "alembic",
+            "golang-migrate",
+            "none"
+          ]
         },
         "dialects": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["h2", "postgresql", "mysql", "oracle", "kingbase", "sqlite"]
+            "enum": [
+              "h2",
+              "postgresql",
+              "mysql",
+              "oracle",
+              "kingbase",
+              "sqlite"
+            ]
           }
         },
         "migration_adapter": {
@@ -107,14 +138,21 @@
     },
     "client": {
       "type": "object",
-      "required": ["scope_options"],
+      "required": [
+        "scope_options"
+      ],
       "additionalProperties": false,
       "properties": {
         "scope_options": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["pc-web", "mini-program", "app", "not-applicable"]
+            "enum": [
+              "pc-web",
+              "mini-program",
+              "app",
+              "not-applicable"
+            ]
           }
         },
         "pc-web": {
@@ -130,7 +168,9 @@
     },
     "security": {
       "type": "object",
-      "required": ["adapter"],
+      "required": [
+        "adapter"
+      ],
       "additionalProperties": false,
       "properties": {
         "adapter": {
@@ -196,7 +236,11 @@
     },
     "gate_bindings": {
       "type": "object",
-      "required": ["P3-build", "P3-completion", "P6-coverage"],
+      "required": [
+        "P3-build",
+        "P3-completion",
+        "P6-coverage"
+      ],
       "additionalProperties": true,
       "properties": {
         "P3-build": {
@@ -204,8 +248,15 @@
         },
         "P3-completion": {
           "oneOf": [
-            {"type": "string"},
-            {"type": "array", "items": {"type": "string"}}
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           ]
         },
         "P3c-security": {
@@ -236,7 +287,6 @@
   "definitions": {
     "command_adapter": {
       "type": "object",
-      "required": ["command"],
       "properties": {
         "command": {
           "type": "string",
@@ -257,12 +307,56 @@
         },
         "coverage_report_path": {
           "type": "string"
+        },
+        "executable": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*$"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 7200
+        },
+        "env_allowlist": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z_][A-Z0-9_]*$"
+          }
         }
-      }
+      },
+      "allOf": [
+        {
+          "anyOf": [
+            {
+              "required": [
+                "executable"
+              ]
+            },
+            {
+              "required": [
+                "command"
+              ]
+            }
+          ]
+        }
+      ]
     },
     "optional_command_adapter": {
       "allOf": [
-        {"$ref": "#/definitions/command_adapter"},
+        {
+          "$ref": "#/definitions/command_adapter"
+        },
         {
           "properties": {
             "optional": {
@@ -274,13 +368,19 @@
     },
     "coverage_adapter": {
       "allOf": [
-        {"$ref": "#/definitions/command_adapter"},
         {
-          "required": ["threshold"],
+          "$ref": "#/definitions/command_adapter"
+        },
+        {
+          "required": [
+            "threshold"
+          ],
           "properties": {
             "threshold": {
               "type": "object",
-              "required": ["core_business"],
+              "required": [
+                "core_business"
+              ],
               "properties": {
                 "core_business": {
                   "type": "number",
@@ -296,11 +396,19 @@
             },
             "report_parser": {
               "type": "object",
-              "required": ["type", "path"],
+              "required": [
+                "type",
+                "path"
+              ],
               "properties": {
                 "type": {
                   "type": "string",
-                  "enum": ["jacoco-html", "istanbul-lcov", "coverage-py-html", "go-cover"]
+                  "enum": [
+                    "jacoco-html",
+                    "istanbul-lcov",
+                    "coverage-py-html",
+                    "go-cover"
+                  ]
                 },
                 "path": {
                   "type": "string"
@@ -319,7 +427,10 @@
     },
     "verification_adapter": {
       "type": "object",
-      "required": ["command", "checks"],
+      "required": [
+        "command",
+        "checks"
+      ],
       "properties": {
         "command": {
           "type": "string"
@@ -328,7 +439,10 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["name", "description"],
+            "required": [
+              "name",
+              "description"
+            ],
             "properties": {
               "name": {
                 "type": "string"
@@ -355,7 +469,9 @@
     },
     "migration_adapter": {
       "type": "object",
-      "required": ["command"],
+      "required": [
+        "command"
+      ],
       "properties": {
         "command": {
           "type": "string"
@@ -384,7 +500,9 @@
     },
     "seed_adapter": {
       "type": "object",
-      "required": ["command"],
+      "required": [
+        "command"
+      ],
       "properties": {
         "command": {
           "type": "string"
@@ -402,14 +520,20 @@
     },
     "client_adapter": {
       "type": "object",
-      "required": ["framework", "build_adapter", "journey_adapter"],
+      "required": [
+        "framework",
+        "build_adapter",
+        "journey_adapter"
+      ],
       "properties": {
         "framework": {
           "type": "string"
         },
         "build_adapter": {
           "type": "object",
-          "required": ["command"],
+          "required": [
+            "command"
+          ],
           "properties": {
             "command": {
               "type": "string"
@@ -424,7 +548,9 @@
         },
         "journey_adapter": {
           "type": "object",
-          "required": ["command"],
+          "required": [
+            "command"
+          ],
           "properties": {
             "command": {
               "type": "string"
@@ -461,7 +587,12 @@
     },
     "security_adapter": {
       "type": "object",
-      "required": ["command", "checks", "blockers", "report_path"],
+      "required": [
+        "command",
+        "checks",
+        "blockers",
+        "report_path"
+      ],
       "properties": {
         "command": {
           "type": "string"
@@ -482,7 +613,11 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["P0", "P1", "P2"]
+            "enum": [
+              "P0",
+              "P1",
+              "P2"
+            ]
           }
         },
         "report_path": {
@@ -492,7 +627,11 @@
     },
     "performance_adapter": {
       "type": "object",
-      "required": ["command", "thresholds", "report_path"],
+      "required": [
+        "command",
+        "thresholds",
+        "report_path"
+      ],
       "properties": {
         "command": {
           "type": "string"
@@ -518,7 +657,10 @@
     },
     "health_check": {
       "type": "object",
-      "required": ["endpoint", "expected_status"],
+      "required": [
+        "endpoint",
+        "expected_status"
+      ],
       "properties": {
         "endpoint": {
           "type": "string"

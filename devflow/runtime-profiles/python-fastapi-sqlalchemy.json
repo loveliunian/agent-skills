@@ -4,71 +4,97 @@
   "name": "Python FastAPI + SQLAlchemy",
   "version": "1.0.0",
   "description": "Python 3.10+ / FastAPI / SQLAlchemy ORM + Alembic migrations + pytest + Playwright E2E",
-  
   "backend": {
     "language": "python",
     "framework": "fastapi",
     "build_adapter": {
-      "command": "python -m compileall .",
       "working_dir": "backend",
       "success_exit_code": 0,
       "error_patterns": [
         "SyntaxError",
         "ImportError"
+      ],
+      "executable": "python",
+      "args": [
+        "-m",
+        "compileall",
+        "."
       ]
     },
     "test_adapter": {
-      "command": "pytest tests/",
       "working_dir": "backend",
       "success_exit_code": 0,
-      "coverage_report_path": "htmlcov/index.html"
+      "coverage_report_path": "htmlcov/index.html",
+      "executable": "pytest",
+      "args": [
+        "tests/"
+      ]
     },
     "lint_adapter": {
-      "command": "ruff check . && mypy .",
       "working_dir": "backend",
-      "optional": false
+      "optional": false,
+      "executable": "ruff",
+      "args": [
+        "check",
+        ".",
+        "&&",
+        "mypy",
+        "."
+      ]
     },
     "coverage_adapter": {
-      "command": "pytest --cov=app --cov-report=html tests/",
       "working_dir": "backend",
       "threshold": {
-        "core_business": 0.80,
-        "total": 0.70
+        "core_business": 0.8,
+        "total": 0.7
       },
       "report_parser": {
         "type": "coverage-py-html",
         "path": "htmlcov/index.html",
         "json_summary": ".coverage"
-      }
+      },
+      "executable": "pytest",
+      "args": [
+        "--cov=app",
+        "--cov-report=html",
+        "tests/"
+      ]
     }
   },
-
   "authorization": {
     "required": true,
     "verification_adapter": {
-      "command": "bash scripts/verify-authorization.sh",
       "checks": [
         {
           "name": "dependency_usage",
           "description": "所有路由必须使用 Depends(check_permission)",
           "pattern": "Depends\\(.*check_permission.*\\)",
-          "target_paths": ["backend/app/api/**/*.py"]
+          "target_paths": [
+            "backend/app/api/**/*.py"
+          ]
         },
         {
           "name": "permission_matrix_alignment",
           "description": "权限码与权限矩阵对账",
-          "command": "bash scripts/check-perm-matrix.sh"
+          "executable": "bash",
+          "args": [
+            "scripts/check-perm-matrix.sh"
+          ]
         }
+      ],
+      "executable": "bash",
+      "args": [
+        "scripts/verify-authorization.sh"
       ]
     }
   },
-
   "persistence": {
     "required": true,
     "migration_system": "alembic",
-    "dialects": ["postgresql"],
+    "dialects": [
+      "postgresql"
+    ],
     "migration_adapter": {
-      "command": "alembic upgrade head",
       "working_dir": "backend",
       "paths": {
         "config": "alembic.ini",
@@ -77,44 +103,63 @@
       "validation": {
         "sync_check": true,
         "version_pattern": "^[0-9a-f]+_[a-z0-9_]+\\.py$"
-      }
+      },
+      "executable": "alembic",
+      "args": [
+        "upgrade",
+        "head"
+      ]
     },
     "seed_adapter": {
-      "command": "python scripts/seed.py",
       "working_dir": "backend",
       "required_tables": [
         "users",
         "roles",
         "permissions"
+      ],
+      "executable": "python",
+      "args": [
+        "scripts/seed.py"
       ]
     }
   },
-
   "client": {
-    "scope_options": ["pc-web", "not-applicable"],
+    "scope_options": [
+      "pc-web",
+      "not-applicable"
+    ],
     "pc-web": {
       "framework": "vue3",
       "build_adapter": {
-        "command": "npm run build",
         "working_dir": "frontend",
-        "type_check": "npm run type-check"
+        "type_check": "npm run type-check",
+        "executable": "npm",
+        "args": [
+          "run",
+          "build"
+        ]
       },
       "journey_adapter": {
-        "command": "npm run test:e2e",
         "working_dir": "frontend",
         "browser": "chromium",
-        "report_path": "test-results/e2e-report.html"
+        "report_path": "test-results/e2e-report.html",
+        "executable": "npm",
+        "args": [
+          "run",
+          "test:e2e"
+        ]
       },
       "route_registration_check": {
-        "command": "bash scripts/check-route-registration.sh",
-        "pattern": "path:\\s*['\"]/.+['\"]"
+        "pattern": "path:\\s*['\"]/.+['\"]",
+        "executable": "bash",
+        "args": [
+          "scripts/check-route-registration.sh"
+        ]
       }
     }
   },
-
   "security": {
     "adapter": {
-      "command": "bash checks/security-scan.sh",
       "checks": [
         "sql-injection",
         "xss-vulnerability",
@@ -126,23 +171,30 @@
         "bandit",
         "safety check"
       ],
-      "blockers": ["P0"],
-      "report_path": "docs/review/{feature}-security-audit-report.md"
+      "blockers": [
+        "P0"
+      ],
+      "report_path": "docs/review/{feature}-security-audit-report.md",
+      "executable": "bash",
+      "args": [
+        "checks/security-scan.sh"
+      ]
     }
   },
-
   "performance": {
     "adapter": {
-      "command": "bash checks/performance-scan.sh",
       "thresholds": {
         "api_p95_ms": 200,
         "api_p99_ms": 500,
         "db_query_p95_ms": 50
       },
-      "report_path": "docs/review/{feature}-performance-audit-report.md"
+      "report_path": "docs/review/{feature}-performance-audit-report.md",
+      "executable": "bash",
+      "args": [
+        "checks/performance-scan.sh"
+      ]
     }
   },
-
   "deployment": {
     "health_check": {
       "endpoint": "/health",
@@ -153,9 +205,12 @@
       "backend/",
       "frontend/dist/"
     ],
-    "environments": ["dev", "staging", "prod"]
+    "environments": [
+      "dev",
+      "staging",
+      "prod"
+    ]
   },
-
   "monitoring": {
     "required_metrics": [
       "api_qps",
@@ -169,7 +224,6 @@
       "prod": "WARNING"
     }
   },
-
   "coding_standards": {
     "mandatory_docs": [],
     "conventions": {
@@ -178,7 +232,6 @@
       "type_safety": "strict mypy type checking"
     }
   },
-
   "gate_bindings": {
     "P3-build": "backend.build_adapter",
     "P3-completion": [
@@ -192,7 +245,6 @@
     "P6-journey": "client.{scope}.journey_adapter",
     "P7-deploy": "deployment.health_check"
   },
-
   "compatibility": {
     "python_version": "3.10+",
     "fastapi_version": "0.100+",

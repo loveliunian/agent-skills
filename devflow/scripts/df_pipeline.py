@@ -64,9 +64,42 @@ def _design_doc_mode(input_path, doc_path):
     return None
 
 
-def _run(cmd):
-    print(f"[pipeline] $ {' '.join(str(c) for c in cmd)}")
-    return subprocess.run([str(c) for c in cmd]).returncode
+def _run(cmd, timeout=None):
+    """统一 ProcessRunner（v3.31.0：审查报告-0924 短期项）——全子进程带超时。
+
+    超时杀进程组（start_new_session），rc=124（对齐 run-tests 惯例）；无超时的
+    卡死 build/test 可无限占用 Agent 会话——默认 DF_PIPELINE_TIMEOUT_SECONDS=3600。"""
+    import os as _os, signal as _signal
+    default_to = int(_os.environ.get("DF_PIPELINE_TIMEOUT_SECONDS", "3600"))
+    timeout = timeout or default_to
+    print(f"[pipeline] $ {' '.join(str(c) for c in cmd)} (timeout={timeout}s)")
+    import time as _time
+    _t0 = _time.monotonic()
+    try:
+        proc = subprocess.Popen(
+            [str(c) for c in cmd],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            start_new_session=True,
+        )
+    except FileNotFoundError:
+        print(f"[pipeline] command not found: {cmd[0]}", file=sys.stderr)
+        return 127
+    try:
+        out, _ = proc.communicate(timeout=timeout)
+        if out:
+            sys.stdout.write(out)
+        return proc.returncode
+    except subprocess.TimeoutExpired:
+        try:
+            _os.killpg(_os.getpgid(proc.pid), _signal.SIGKILL)
+        except (ProcessLookupError, PermissionError, OSError):
+            proc.kill()
+        try:
+            proc.communicate(timeout=10)
+        except Exception:
+            pass
+        print(f"[pipeline] TIMEOUT after {timeout}s: {cmd[0]}（rc=124）", file=sys.stderr)
+        return 124
 
 
 def main():

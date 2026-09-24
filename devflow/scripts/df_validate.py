@@ -46,6 +46,12 @@ _SCHEMA_DIR = _HERE.parent / "schemas"
 # v3.25.0：全阶段结构化产物注册表——每个环节的 md 产物都有对应 schema（机器可读
 # 的「要填哪些内容」清单），AI 填 JSON → 本脚本校验 → df_render 确定性渲染 → Gate。
 # kind 名即 df_pipeline.py 的子命令名，与 .devflow/<feature>/<kind>.json 落盘名一致。
+def _dups_of(xs):
+    """O(n) 重复项集合（v3.31.0：替换全文档 O(n²) 的 {x for x in xs if xs.count(x)>1}）"""
+    from collections import Counter
+    return {x for x, c in Counter(xs).items() if c > 1}
+
+
 _DEFAULT_SCHEMAS = {
     "design": _SCHEMA_DIR / "design.schema.json",
     "verification": _SCHEMA_DIR / "verification.schema.json",
@@ -308,7 +314,7 @@ def check_api_detail_closure(data, errors, doc_path=None):
         中 → 多余小节（详设写了概览却没有收录的接口），同样拦截。"""
     apis = data.get("apis", [])
     anchors = [_norm_anchor(a.get("detail_anchor")) for a in apis]
-    dups = sorted({x for x in anchors if anchors.count(x) > 1})
+    dups = sorted(_dups_of(anchors))
     if dups:
         errors.append(f"apis[].detail_anchor 存在重复: {dups}（概览与详细定义必须一一对应）")
 
@@ -351,7 +357,7 @@ def check_ddr_closure(data, errors):
     (c) 每条 decisions[] 必须被 ≥1 字段引用，全局决策须显式 unreferenced_reason——拦孤儿决策。"""
     decisions = data.get("decisions", [])
     dec_ids = [d.get("id") for d in decisions]
-    dup = sorted({x for x in dec_ids if dec_ids.count(x) > 1})
+    dup = sorted(_dups_of(dec_ids))
     if dup:
         errors.append(f"decisions[].id 存在重复: {dup}")
     dec_set = set(dec_ids)
@@ -381,11 +387,11 @@ def check_compensation_chain(data, errors):
     resources = data.get("resources", [])
     operations = data.get("operations", [])
     res_ids = [r.get("id") for r in resources]
-    dups = sorted({x for x in res_ids if res_ids.count(x) > 1})
+    dups = sorted(_dups_of(res_ids))
     if dups:
         errors.append(f"resources[].id 存在重复: {dups}")
     op_ids = [o.get("id") for o in operations]
-    dups = sorted({x for x in op_ids if op_ids.count(x) > 1})
+    dups = sorted(_dups_of(op_ids))
     if dups:
         errors.append(f"operations[].id 存在重复: {dups}")
     if resources and not operations:
@@ -442,7 +448,7 @@ def check_integrations_configs(data, errors, workspace=""):
     死配置（全部消费点均死代码）拦截，低置信必须给原因。"""
     integrations = data.get("integrations", [])
     iids = [i.get("id") for i in integrations]
-    dups = sorted({x for x in iids if iids.count(x) > 1})
+    dups = sorted(_dups_of(iids))
     if dups:
         errors.append(f"integrations[].id 存在重复: {dups}")
     for i, it in enumerate(integrations):
@@ -453,7 +459,7 @@ def check_integrations_configs(data, errors, workspace=""):
 
     configs = data.get("configs", [])
     keys = [c.get("key") for c in configs]
-    dups = sorted({x for x in keys if keys.count(x) > 1})
+    dups = sorted(_dups_of(keys))
     if dups:
         errors.append(f"configs[].key 存在重复: {dups}")
     for i, c in enumerate(configs):
@@ -1324,7 +1330,7 @@ def check_business_operations(data, errors):
     ids = [a.get("id") for a in data.get("acceptance", [])]
     id_set = set(ids)
     op_ids = [o.get("id") for o in ops]
-    dup = sorted({x for x in op_ids if op_ids.count(x) > 1})
+    dup = sorted(_dups_of(op_ids))
     if dup:
         errors.append(f"business_operations[].id 存在重复: {dup}")
     covered = set()
@@ -1464,7 +1470,7 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace="", 
     # 重复会让证据位多义（两张表共用一个 anchor 曾静默通过）
     for _coll, _items in (("pages", data.get("pages", [])), ("tables", data.get("tables", [])), ("apis", data.get("apis", []))):
         _pairs = [(x.get("anchor"), x.get("name")) for x in _items]
-        _dups = sorted({(a, n) for a, n in _pairs if a and _pairs.count((a, n)) > 1})
+        _dups = sorted(_dups_of([x for x in _pairs if x[0]]))
         if _dups:
             errors.append(
                 f"{_coll}[] 锚点+名称完全重复: {[(a, n) for a, n in _dups][:3]}"
@@ -1498,13 +1504,13 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace="", 
 
     # 0c. constraints[]（P0 硬约束引用位）：同一硬约束只登记一次；与冻结集合的对账在 s2 §2b 完成
     _cids = [c.get("id") for c in data.get("constraints", [])]
-    _cdup = sorted({x for x in _cids if x and _cids.count(x) > 1})
+    _cdup = sorted((_dups_of([x for x in _cids if x])))
     if _cdup:
         errors.append(f"constraints[].id 存在重复: {_cdup}（同一硬约束只登记一次）")
 
     # 1. 验收点 ID 唯一
     ids = [a.get("id") for a in acceptance]
-    dups = sorted({i for i in ids if ids.count(i) > 1})
+    dups = sorted(_dups_of(ids))
     if dups:
         errors.append(f"acceptance[].id 存在重复: {dups}（每验收点恰好一行追溯）")
 
@@ -1667,7 +1673,7 @@ def check_design(data, errors, criteria_path=None, doc_path=None, workspace="", 
         empty_collections.append("client.journeys")
     declared_paths = [z.get("path") for z in data.get("zero_results", [])]
     # v3.17.2(L7): 重复声明拦截
-    dup_paths = sorted({p for p in declared_paths if declared_paths.count(p) > 1})
+    dup_paths = sorted(_dups_of(declared_paths))
     if dup_paths:
         errors.append(f"zero_results.path 存在重复声明: {dup_paths}")
     for path in empty_collections:
@@ -1809,7 +1815,7 @@ def check_verification(data, errors, baseline_path=None, exec_record_path=None, 
     ids = [r.get("id") for r in results]
 
     # 1. ID 唯一
-    dups = sorted({i for i in ids if ids.count(i) > 1})
+    dups = sorted(_dups_of(ids))
     if dups:
         errors.append(f"acceptance_results[].id 存在重复: {dups}（每冻结验收点恰好一行终态）")
 
@@ -1829,7 +1835,7 @@ def check_verification(data, errors, baseline_path=None, exec_record_path=None, 
         else:
             lines = bp.read_text(encoding="utf-8", errors="replace").splitlines()
             base_ids = [ln.split("\t")[0] for ln in lines[1:] if ln.strip()]
-            base_dups = sorted({i for i in base_ids if base_ids.count(i) > 1})
+            base_dups = sorted(_dups_of(base_ids))
             if base_dups:
                 errors.append(f"baseline 存在重复 ID: {base_dups}")
             missing, extra = set(base_ids) - set(ids), set(ids) - set(base_ids)
@@ -1931,7 +1937,7 @@ def check_verification(data, errors, baseline_path=None, exec_record_path=None, 
     # 可伪造 {"path":"evidence.unit","reason":"伪造空结果"} 通过。
     known_kinds = ("unit", "integration", "client", "load", "staging")
     vr_paths = [z.get("path") for z in data.get("zero_results", [])]
-    vr_dups = sorted({x for x in vr_paths if vr_paths.count(x) > 1})
+    vr_dups = sorted(_dups_of(vr_paths))
     if vr_dups:
         errors.append(f"zero_results.path 存在重复声明: {vr_dups}")
     for z in data.get("zero_results", []):
@@ -2065,7 +2071,7 @@ def check_generic(data, errors, schema):
         arr_name, field = parts
         arr = data.get(arr_name) or []
         vals = [it.get(field) for it in arr if isinstance(it, dict)]
-        dups = sorted({v for v in vals if vals.count(v) > 1 and v is not None})
+        dups = sorted((_dups_of([x for x in vals if x is not None])))
         if dups:
             errors.append(f"{arr_name}[].{field} 存在重复: {dups[:5]}（每条目唯一标识不得重复）")
 
@@ -2090,7 +2096,7 @@ def check_generic(data, errors, schema):
 
     zeroable = set(schema.get("x-zeroable", []))
     declared_paths = [z.get("path") for z in data.get("zero_results", [])]
-    dup_paths = sorted({p for p in declared_paths if declared_paths.count(p) > 1})
+    dup_paths = sorted(_dups_of(declared_paths))
     if dup_paths:
         errors.append(f"zero_results.path 存在重复声明: {dup_paths}")
     for path in sorted(zeroable):
@@ -2299,7 +2305,7 @@ def check_review(data, errors, kind):
             if r not in got_roles:
                 errors.append(f"receipts 缺角色 {r} 的独立性收据（5 角色各一条）")
         rids = [r.get("reviewer_id") for r in receipts]
-        dups = sorted({x for x in rids if x and rids.count(x) > 1})
+        dups = sorted((_dups_of([x for x in rids if x])))
         if dups:
             errors.append(f"receipts[].reviewer_id 存在重复: {dups}（每角色唯一评委）")
         for i, r in enumerate(receipts):
@@ -2433,7 +2439,7 @@ def check_tech_selection(data, errors, constraints_path=None, workspace=""):
             doc_ids.append(d.get("id"))
             if not (d.get("path") or "").strip():
                 errors.append(f"{where}({d.get('id')}): 缺 path（计划文档必须给出相对仓库根路径）")
-        dupes = {x for x in doc_ids if doc_ids.count(x) > 1}
+        dupes = _dups_of(doc_ids)
         if dupes:
             errors.append(f"design_doc_structure.planned_docs id 重复: {sorted(dupes)}")
         if docs and not has_total:
@@ -2446,7 +2452,7 @@ def check_tech_selection(data, errors, constraints_path=None, workspace=""):
     # 脚手架重合度审计（v3.27.14 接线铁律 18）：逐功能域一行；裁剪项处置动作必须写明
     audit = data.get("scaffold_audit") or []
     domains = [a.get("domain") for a in audit]
-    dup_domains = sorted({x for x in domains if x and domains.count(x) > 1})
+    dup_domains = sorted((_dups_of([x for x in domains if x])))
     if dup_domains:
         errors.append(f"scaffold_audit[].domain 存在重复: {dup_domains}（每个功能域一行，二分裁决不留模糊态）")
     for i, a in enumerate(audit):
@@ -2867,7 +2873,7 @@ def check_demo_signoff(data, errors, workspace="."):
     口径与 p2b_demo_gate.sh 一致（KUF 唯一编号、走查记录、原型引用实存检查）。"""
     kufs = data.get("kufs", [])
     ids = [k.get("id") for k in kufs]
-    dups = sorted({x for x in ids if ids.count(x) > 1})
+    dups = sorted(_dups_of(ids))
     if dups:
         errors.append(f"kufs[].id 存在重复: {dups}（重复编号不计入 KUF 数量——凑数即拦截）")
     for i, k in enumerate(kufs):

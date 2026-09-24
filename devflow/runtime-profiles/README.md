@@ -77,6 +77,17 @@ Runtime Profile 定义了技术栈的"能力适配器"，告诉 devflow：
 - ✅ 覆盖率阈值（`coverage_adapter.threshold.core_business: 0.80`）
 - ✅ Gate 绑定（`gate_bindings.P3-build: "backend.build_adapter"`）
 
+### 执行状态（唯一事实源：references/runtime-profile.md + devflow_profile.sh）
+
+> **v3.31.0 澄清（审查报告-0924：两套描述语义冲突）**：
+> - JSON 文件是 **adapter 数据的事实源**（结构化 argv）；
+> - **执行状态以 `references/runtime-profile.md` 为准**：当前仅 `java-spring-flyway`
+>   的 build/test/coverage/flyway/orm-mapping 命令位通过核心 Gate；Node/Python
+>   Profile 的 JSON 已定义但命令位 **尚未接线**（Gate 返回 MISSING_CAPABILITY）；
+> - **不存在按项目文件自动推断 Profile**（`pom.xml`→Java 等规则未实现且契约
+>   明确禁止仅凭熟悉文件推断命令——`references/runtime-profile.md`）；
+> - 本目录历史文档中与此冲突的描述以下述澄清为准。
+
 ### 已支持的技术栈
 
 | Profile | 语言 | 框架 | ORM | 前端 |

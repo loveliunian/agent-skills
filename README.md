@@ -6,7 +6,7 @@
 
 | Skill | 版本 | 说明 |
 |-------|------|------|
-| [devflow](./devflow/) | 3.23.1 | PRD 到生产的阶段门禁交付流程：需求澄清、技术选型、详细设计、规范实现、测试、部署、监控、文档、复盘，支持 checkpoint 恢复。核心流程与技术栈解耦（Runtime Profile），内置 Java/Spring/Flyway 参考 Profile；客户端覆盖 PC Web、微信小程序和移动端。 |
+| [devflow](./devflow/) | 3.31.0 | PRD 到生产的阶段门禁交付流程：需求澄清、技术选型、详细设计、规范实现、测试、部署、监控、文档、复盘，支持 checkpoint 恢复。核心流程与技术栈解耦（Runtime Profile），内置 Java/Spring/Flyway 参考 Profile；客户端覆盖 PC Web、微信小程序和移动端。 |
 | [flow-test-contract](./flow-test-contract/) | 1.7.5 | 契约化流程迁移测试：双端对拍、覆盖账本、发布门禁与断点复跑。 |
 
 ## 同步（唯一入口）
