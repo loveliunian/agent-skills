@@ -1,6 +1,6 @@
 ---
 name: db-reserved-words
-version: "3.31.0"
+version: "3.31.1"
 description: >-
   数据库关键字规避规则与各数据库关键字清单（P2 详设表/字段命名必读）。
   P2 管线 df_validate 按本文 DEVFLOW:RESERVED-TIERS 契约块对表名/字段名分层机检。

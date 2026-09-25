@@ -1,6 +1,6 @@
 ---
 name: severity-tiers
-version: "3.31.0"
+version: "3.31.1"
 description: P0/P1/P2 严重程度分级定义（单一来源，被 audit-completeness 和 devflow 共同引用）
 ---
 

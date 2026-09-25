@@ -42,6 +42,23 @@ ENV_PREFIX_ALLOW = ("DEVFLOW_",)
 EXECUTABLE_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._+-]*$"
 
 
+def _resolve_json_path(data, path: str):
+    """按 'backend.build_adapter' 点路径取嵌套节点；{service}/{scope} 模板变量由
+    profile 自身的 context 节点替换（无 context 时保留字面）。"""
+    if not path or not isinstance(path, str):
+        return None
+    import re as _re
+    ctx = data.get("context") or {}
+    path = path.replace("{service}", str(ctx.get("service") or "{service}"))
+    path = path.replace("{scope}", str(ctx.get("scope") or "{scope}"))
+    node = data
+    for part in path.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return None
+        node = node[part]
+    return node if isinstance(node, dict) else None
+
+
 @dataclass(frozen=True)
 class CommandSpec:
     executable: str
@@ -79,19 +96,28 @@ class CommandSpec:
 
     @classmethod
     def from_profile(cls, profile: dict, capability: str) -> "CommandSpec":
-        """从 runtime-profile JSON 的 adapter 节点解析（优先结构化 argv；legacy command 字符串
-        拆词兼容——shlex，含 shell 元字符即拒）"""
+        """从 runtime-profile JSON 解析（v3.31.1 两路）：
+        ① gate_bindings 键（如 P3-build）→ 路径值（backend.build_adapter）→ 按 JSON 路径取节点
+        ② 直接 adapter 名（build/test/...）→ 各 section 下 {name}_adapter
+        优先结构化 executable/args；legacy command 字符串 shlex 拆词兼容（首词元字符拒）"""
         node = None
-        for section in ("backend", "frontend", "database", "quality"):
-            sec = profile.get(section) or {}
-            for key in (f"{capability}_adapter", capability):
-                if isinstance(sec.get(key), dict):
-                    node = sec[key]
-                    break
-            if node:
-                break
+        # 路径①：gate_bindings（支持列表取首项）
+        gb = (profile.get("gate_bindings") or {}).get(capability)
+        if gb:
+            path = gb[0] if isinstance(gb, list) else gb
+            node = _resolve_json_path(profile, path)
+        # 路径②：adapter 名
         if node is None:
-            raise ValueError(f"MISSING_CAPABILITY={capability}（profile 无该 adapter）")
+            for section in ("backend", "frontend", "database", "quality", "security", "performance", "deployment"):
+                sec = profile.get(section) or {}
+                for key in (f"{capability}_adapter", capability, "adapter"):
+                    if isinstance(sec.get(key), dict):
+                        node = sec[key]
+                        break
+                if node:
+                    break
+        if node is None:
+            raise ValueError(f"MISSING_CAPABILITY={capability}（profile 无该 adapter/gate_binding）")
         if node.get("executable"):
             return cls.from_json(node)
         legacy = str(node.get("command") or "")

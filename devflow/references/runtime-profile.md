@@ -1,6 +1,6 @@
 ---
 name: runtime-profile
-version: "3.31.0"
+version: "3.31.1"
 description: 技术栈无关的 Runtime Profile 契约——P3 前必须解析并冻结，核心流程不得假设具体框架。
 ---
 
@@ -86,17 +86,23 @@ SECURITY_GATE = PASS
 
 新增技术栈时按本契约新增 `references/profiles/<id>.md`，并在 P1 设计决策记录中登记 `PROFILE_ID` 与能力位命令；不得修改 Core 流程去适配单一技术栈。
 
-## 5. 实现状态（v3.27.1）
+## 5. 实现状态（v3.31.1 起：能力执行化）
 
 - `PROFILE_ID` 经 `devflow-state.sh init --profile=<id>` 冻结到
   `state.scope.profile_id`（须存在 `references/profiles/<id>.md`；未指定的历史
   项目按参考实现 `java-spring-flyway` 处理）。
-- **命令位 Gate 化尚未完成**：P3 完成度（`p3_completion_gate.sh`）、P3-build
-  （`build-watchdog.sh`）、P4b（`p4_prd_vs_code.sh`）的 build/test/coverage/
-  flyway/orm-mapping 命令位当前只有 `java-spring-flyway` 实现。其他 profile 在
-  这三个 Gate 上 `BLOCKED(MISSING_CAPABILITY)`（`scripts/devflow_profile.sh`），
-  不会静默运行错误技术栈的命令；P1/P2 的选型描述层与 P5/P6 的运行器白名单
-  本身是栈无关的。
-- 长期路线：把上述 Gate 的字面命令抽为 Profile 声明的命令位
-  （`BUILD_CMD`/`TEST_CMD`/`COVERAGE_CMD`/…），由 Gate 读取冻结 PROFILE_ID
-  解析执行——完成后本节相应收缩。
+- **能力判定已声明化（v3.31.1）**：P3-build（`build-watchdog.sh`）、P3 完成度
+  （`p3_completion_gate.sh`）、P4b（`p4_prd_vs_code.sh`）经
+  `devflow_profile_require_impl_v2` 按 **profile JSON 的 `gate_bindings`** 判定
+  ——有 adapter 声明的 profile（java/node/python 三套均已含
+  `P3-build`/`P3-completion` binding）即通过能力检查；无 binding 的 profile
+  才 `BLOCKED(MISSING_CAPABILITY)`。
+- **能力执行经 df_executor（v3.31.0）**：`devflow_profile_capability_exec
+  <feature> <binding-key> <service>` 按 gate_bindings 解析 adapter（结构化
+  executable/args/cwd）→ `df_executor.py` 安全执行（workspace 边界、env 白名单、
+  timeout 杀进程组、duration_ms 回执）。Gate 的具体字面命令（mvn/npm/pytest）
+  由 profile JSON 提供，Core/Gate 源码不再硬编码技术栈。
+- Java 参考实现的既有 Gate 字面命令仍按原路径运行（向后兼容）；新 profile 接入
+  只需提供 runtime-profiles/<id>.json（含 gate_bindings）+ references/profiles/
+  <id>.md，无需改 Core/Gate 源码。
+- P1/P2 的选型描述层与 P5/P6 的运行器白名单本身是栈无关的。

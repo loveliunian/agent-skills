@@ -233,7 +233,7 @@ case "$MODE" in
     # BLOCKED(MISSING_CAPABILITY) 并出 BLOCKED 收据（供 checkpoint/audit 消费）。
     source "$SCRIPT_DIR/devflow_profile.sh"
     PROFILE_BLOCK_MSG=""
-    if ! devflow_profile_require_impl "$FEATURE" "P3-build"; then
+    if ! devflow_profile_require_impl_v2 "$FEATURE" "P3-build"; then
       PROFILE_BLOCK_MSG="MISSING_CAPABILITY (PROFILE_ID=$(devflow_profile_of "$FEATURE"))"
     fi
     if [ -n "$PROFILE_BLOCK_MSG" ]; then

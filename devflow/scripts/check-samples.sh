@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-samples.sh — 结构化样例漂移检测（v3.31.0，FB-20260921-004）
+# check-samples.sh — 结构化样例漂移检测（v3.31.1，FB-20260921-004）
 # =============================================================================
 # 背景：examples/structured/*.sample.json 与 df_validate 跨字段检查会随版本演进
 # 漂移——样例照抄照样校验失败，样例本身成为误导源（m01-base 实测：retrospective

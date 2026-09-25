@@ -1,12 +1,37 @@
 ---
 name: changelog
-version: "3.31.0"
+version: "3.31.1"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.31.0
+# Changelog — devflow v1 → v3.31.1
+
+## v3.31.1 (2026-09-24) — Runtime Profile 真正执行化（审查报告-0924 中期项 P0）
+
+来源：审查报告最大架构债务——"Runtime Profile 设计已抽象、执行尚未抽象"（仅
+java-spring-flyway 能过核心 Gate，其余 MISSING_CAPABILITY 硬编码）。本批兑现
+报告"Gate 统一只调用 capability executor；删除 Java 特判"的目标。
+
+1. **df_executor gate_bindings 解析路径**：`from_profile` 双路解析——①
+   gate_bindings 键（P3-build/P3-completion/...）→ 点路径（backend.build_adapter）
+   → 嵌套节点（`{service}`/`{scope}` 模板变量经 profile context 替换）；② 直接
+   adapter 名（build/test/...）。3 profile × 核心 binding 全部结构化解析验证。
+2. **devflow_profile.sh v2**：`devflow_profile_require_impl_v2`——按 profile
+   JSON 的 gate_bindings 判定能力（有 adapter 声明即通过；无 binding 才
+   MISSING_CAPABILITY）。`devflow_profile_capability_exec` 按 binding-key 解析
+   adapter → df_executor 安全执行。gate-key 映射对齐 profile JSON 键。
+3. **三消费方 Gate 接线**：build-watchdog（P3-build）/ p3_completion_gate /
+   p4_prd_vs_code（P4b）全部切 require_impl_v2——node/python profile 项目不再
+   被 MISSING_CAPABILITY 硬阻断（能力存在即过；BLOCKED 收据契约保留给真无
+   binding 的场景）。
+4. **契约同步**：references/runtime-profile.md 实现状态节重写——"能力判定已
+   声明化 + 能力执行经 df_executor"；新 profile 接入 = 提供 JSON（含
+   gate_bindings）+ profiles/<id>.md，无需改 Core/Gate 源码（报告验收标准：
+   "新增一个技术栈无需改 Core/Gate 源码"）。
+5. **测试 +3**（test-gate-json-bindings T5）：node 能力判定通过 / adapter
+   结构化解析 / 无 binding gate 仍 BLOCKED（契约不变）。
 
 ## v3.31.0 (2026-09-24) — 审查报告-0924 短期项实施：执行内核收敛 + 并发安全 + 文档收敛
 

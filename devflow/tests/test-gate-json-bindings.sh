@@ -122,3 +122,33 @@ fi
 echo ""
 echo "RESULT: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
+
+# ── T5 Profile 执行化（v3.31.1）——非 Java profile 能力判定经 gate_bindings ──
+W5="$TMP/pexec"; mkdir -p "$W5/.devflow/fx"
+printf '{"scope":{"profile_id":"node-express-prisma"}}\n' > "$W5/.devflow/fx.state.json"
+if (cd "$W5" && STATE_DIR=.devflow WORKSPACE="$W5" bash -c "
+  source '$ROOT/scripts/py_runtime.sh' 2>/dev/null
+  source '$ROOT/scripts/devflow_profile.sh' 2>/dev/null
+  devflow_profile_require_impl_v2 fx P3-build </dev/null") 2>/dev/null; then
+  ok "T5a node profile P3-build 能力判定通过（gate_bindings 声明化）"
+else
+  bad "T5a node profile 仍被 MISSING_CAPABILITY 阻断（v2 未生效）"
+fi
+# 能力解析（dry-run 不执行——node 不存在的环境安全）
+_SPECP=$(cd "$W5" && STATE_DIR=.devflow WORKSPACE="$W5" bash -c "
+  source '$ROOT/scripts/py_runtime.sh' 2>/dev/null
+  \"\${DEVFLOW_PY[@]}\" '$ROOT/scripts/df_executor.py' --profile-verify node-express-prisma --capability P3-build --dry-run 2>/dev/null" 2>/dev/null || true)
+if printf '%s' "${_SPECP:-}" | grep -q '"executable"'; then
+  ok "T5b node build adapter 结构化解析（executable/args/cwd）"
+else
+  bad "T5b node adapter 解析失败"
+fi
+# 无 binding 的 gate 名仍 BLOCKED（负向）
+if ! (cd "$W5" && STATE_DIR=.devflow bash -c "
+  source '$ROOT/scripts/py_runtime.sh' 2>/dev/null
+  source '$ROOT/scripts/devflow_profile.sh' 2>/dev/null
+  devflow_profile_require_impl_v2 fx P99-nonexist </dev/null") 2>/dev/null; then
+  ok "T5c 无 binding 的 gate 仍 BLOCKED（MISSING_CAPABILITY 契约不变）"
+else
+  bad "T5c 无 binding gate 未阻断"
+fi

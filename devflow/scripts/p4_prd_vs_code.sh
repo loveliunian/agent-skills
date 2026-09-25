@@ -29,7 +29,7 @@ FEATURE="${1:-}"
 source "$SCRIPT_DIR/devflow_profile.sh"
 source "$SCRIPT_DIR/perf-track.sh"
 perf_start "P4b"
-if ! STATE_DIR="${STATE_DIR:-.devflow}" devflow_profile_require_impl "$FEATURE" "P4b"; then
+if ! STATE_DIR="${STATE_DIR:-.devflow}" devflow_profile_require_impl_v2 "$FEATURE" "P4b"; then
   exit 1
 fi
 # v3.15.10: 旧 `shift 2>/dev/null || true` 实为 shift-by-1（2> 是 fd-2 重定向）——功能正确

@@ -51,7 +51,7 @@ COVERAGE_THRESHOLD="${COVERAGE_THRESHOLD:-80}"
 # flyway/orm-mapping 命令位当前仅 java-spring-flyway 实现；其他 profile 在此
 # BLOCKED(MISSING_CAPABILITY)，不得静默运行错误技术栈的命令。
 source "$SCRIPT_DIR/devflow_profile.sh"
-if ! devflow_profile_require_impl "$FEATURE" "p3_completion"; then
+if ! devflow_profile_require_impl_v2 "$FEATURE" "p3_completion"; then
   exit 1
 fi
 PASS=0
