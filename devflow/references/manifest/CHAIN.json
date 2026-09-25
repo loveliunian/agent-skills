@@ -678,6 +678,12 @@
       "manifest_sha256": "fdacc1257ebe40e8f2e7240120917fbab351e549da481878b39b3f798ad8d00e",
       "tree_hash": "b38a9ba5e06e0faaaa9d1fbb3541cc87e13b07986cc50635ca6fa9c65e3ae3d9",
       "chain_hash": "e44595442b08dfd3ee41757fabe86497b3d69c16b94c50a4f398be124887308f"
+    },
+    {
+      "version": "3.31.1",
+      "manifest_sha256": "b7c15a08687d6c0dc0a1f0256533eb35f4d0fb6184f2d14cda6adb54e0745ee2",
+      "tree_hash": "3a7afb920e7dff1712706302297c7ed37254d339800cbbd299117dd1a97b9df6",
+      "chain_hash": "e0845ded1e18e67708ed160c8347a648372100e36b25d2e92dcf853c18a24cf1"
     }
   ]
 }
