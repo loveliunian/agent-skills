@@ -50,9 +50,9 @@ devflow_profile_capability_exec() { # <feature> <binding-key> <service> <scope> 
   [ -f "$json" ] || json="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/runtime-profiles/${pid}.json"
   [ -f "$json" ] || { echo "[P0] profile JSON 缺失: $json" >&2; return 127; }
   bpath=$(jq -r --arg k "$key" '.gate_bindings[$k] // empty' "$json" 2>/dev/null)
-  [ -n "$bpath" ] || { echo "[P0] gate_bindings 无 $key（profile=$pid）" >&2; return 127; }
+  [ -n "$bpath" ] || { echo "[P0] gate_bindings 无 ${key}（profile=${pid}）" >&2; return 127; }
   adapter=$(jq -r ".$bpath // empty" "$json" 2>/dev/null)
-  [ -n "$adapter" ] || { echo "[P0] adapter 为空: $bpath（profile=$pid）" >&2; return 127; }
+  [ -n "$adapter" ] || { echo "[P0] adapter 为空: ${bpath}（profile=${pid}）" >&2; return 127; }
   # 模板变量替换（service/scope 由调用方上下文提供）
   adapter=${adapter//\{service\}/$service}
   adapter=${adapter//\{scope\}/$scope}
