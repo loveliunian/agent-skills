@@ -1,6 +1,6 @@
 ---
 name: design-review
-version: "3.31.1"
+version: "3.31.2"
 description: Use when reviewing a detailed design through the independent five-role P2a committee.
 paths: [docs/详细设计/**, docs/评审/**]
 allowed-tools: [read, write, exec, glob, grep, task]
@@ -109,7 +109,7 @@ bash "$SKILL_ROOT/scripts/p2a_design_review_gate.sh" <feature>
 # 4. 需求追溯（acceptance-traceability）100% 覆盖 P0 验收点
 # 5. P2 设计覆盖率 = 100%
 # 6. 无 TODO/占位符
-# 7. 详设四要素显性存在（组件复用/公共抽取/规范遵循 + 数据库设计决策文档 DDR）      ← v3.9.7 / v3.31.1
+# 7. 详设四要素显性存在（组件复用/公共抽取/规范遵循 + 数据库设计决策文档 DDR）      ← v3.9.7 / v3.31.2
 # 8. DF 按实际发现；零发现必须有 ZERO-DF 核查证据                 ← v3.16.25
 # 9. AW 对抗场景走查 ≥3 条且每条 `结果:` 收尾                  ← v3.14.0
 # 10. 六类探针执行记录齐全                                     ← v3.14.0

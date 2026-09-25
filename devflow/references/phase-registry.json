@@ -1,6 +1,6 @@
 {
-  "version": "3.16.24",
-  "description": "机器可读 gate 注册表——权威文档（SKILL/ROUTING/命令表）一致性钉的对账源；新增 gate 必须先注册再写文档。仅注册产出独立收据的 gate；无独立收据的辅助检查器（如 s3_migration_mapping_gate.sh、gen-domain-checklist.sh）不在注册范围",
+  "version": "3.31.2",
+  "description": "机器可读 gate 注册表——权威文档（SKILL/ROUTING/命令表）一致性钉的对账源；v3.31.2 扩展 kind（结构化正本）/requires（前置链）/capability（profile gate_bindings 键）声明——Gate Registry 原型（审查报告-0924 中期项）；新增 gate 必须先注册再写文档。仅注册产出独立收据的 gate；无独立收据的辅助检查器不在注册范围",
   "gates": [
     {
       "stage": "SMALL-CHANGE",
@@ -10,7 +10,10 @@
         "SKILL.md",
         "commands/small-change.md",
         "commands/ROUTING.md"
-      ]
+      ],
+      "kind": "small-change",
+      "requires": [],
+      "capability": null
     },
     {
       "stage": "P0",
@@ -18,7 +21,10 @@
       "receipt": "gates/P0",
       "docs": [
         "commands/devflow.md"
-      ]
+      ],
+      "kind": "acceptance",
+      "requires": [],
+      "capability": null
     },
     {
       "stage": "P0b",
@@ -27,7 +33,12 @@
       "docs": [
         "commands/devflow.md",
         "commands/ROUTING.md"
-      ]
+      ],
+      "kind": "prd-review",
+      "requires": [
+        "P0"
+      ],
+      "capability": null
     },
     {
       "stage": "P1",
@@ -35,7 +46,12 @@
       "receipt": "gates/P1",
       "docs": [
         "commands/devflow.md"
-      ]
+      ],
+      "kind": "tech-selection",
+      "requires": [
+        "P0b"
+      ],
+      "capability": null
     },
     {
       "stage": "P2",
@@ -43,7 +59,12 @@
       "receipt": "gates/P2",
       "docs": [
         "commands/devflow.md"
-      ]
+      ],
+      "kind": "design",
+      "requires": [
+        "P1"
+      ],
+      "capability": null
     },
     {
       "stage": "P2a",
@@ -51,7 +72,12 @@
       "receipt": "gates/P2a",
       "docs": [
         "commands/devflow.md"
-      ]
+      ],
+      "kind": "design-review",
+      "requires": [
+        "P2"
+      ],
+      "capability": null
     },
     {
       "stage": "P2b",
@@ -59,7 +85,12 @@
       "receipt": "gates/P2b",
       "docs": [
         "commands/devflow.md"
-      ]
+      ],
+      "kind": "demo-signoff",
+      "requires": [
+        "P2a"
+      ],
+      "capability": null
     },
     {
       "stage": "P3",
@@ -67,7 +98,12 @@
       "receipt": "gates/P3",
       "docs": [
         "commands/devflow.md"
-      ]
+      ],
+      "kind": "self-check",
+      "requires": [
+        "P2b"
+      ],
+      "capability": "P3-completion"
     },
     {
       "stage": "P3-build",
@@ -77,7 +113,12 @@
         "SKILL.md",
         "commands/devflow.md",
         "commands/ROUTING.md"
-      ]
+      ],
+      "kind": null,
+      "requires": [
+        "P3"
+      ],
+      "capability": "P3-build"
     },
     {
       "stage": "P3b",
@@ -86,7 +127,12 @@
       "docs": [
         "commands/devflow.md",
         "commands/ROUTING.md"
-      ]
+      ],
+      "kind": "code-review",
+      "requires": [
+        "P3"
+      ],
+      "capability": null
     },
     {
       "stage": "ARCH-PITFALLS",
@@ -102,7 +148,12 @@
       "receipt": "gates/P3cd",
       "docs": [
         "commands/devflow.md"
-      ]
+      ],
+      "kind": "security+performance",
+      "requires": [
+        "P3b"
+      ],
+      "capability": "P3c-security"
     },
     {
       "stage": "P4",
@@ -110,7 +161,12 @@
       "receipt": "gates/P4",
       "docs": [
         "commands/devflow.md"
-      ]
+      ],
+      "kind": "prd-validation",
+      "requires": [
+        "P3cd"
+      ],
+      "capability": null
     },
     {
       "stage": "P4b",
@@ -118,7 +174,12 @@
       "receipt": "gates/P4b",
       "docs": [
         "commands/devflow.md"
-      ]
+      ],
+      "kind": null,
+      "requires": [
+        "P4"
+      ],
+      "capability": "P3-completion"
     },
     {
       "stage": "P5",
@@ -126,7 +187,12 @@
       "receipt": "gates/P5",
       "docs": [
         "commands/test.md"
-      ]
+      ],
+      "kind": "test-cases",
+      "requires": [
+        "P4b"
+      ],
+      "capability": null
     },
     {
       "stage": "P5-migration",
@@ -146,7 +212,12 @@
       "docs": [
         "commands/test.md",
         "commands/devflow.md"
-      ]
+      ],
+      "kind": "verification",
+      "requires": [
+        "P5"
+      ],
+      "capability": "P6-coverage"
     },
     {
       "stage": "P6-credential",
@@ -173,7 +244,12 @@
       "receipt": "gates/P7",
       "docs": [
         "commands/devflow.md"
-      ]
+      ],
+      "kind": "deployment",
+      "requires": [
+        "P6"
+      ],
+      "capability": "P7-deploy"
     },
     {
       "stage": "P8",
@@ -181,7 +257,12 @@
       "receipt": "gates/P8",
       "docs": [
         "commands/devflow.md"
-      ]
+      ],
+      "kind": "monitoring",
+      "requires": [
+        "P7"
+      ],
+      "capability": null
     },
     {
       "stage": "P9",
@@ -189,7 +270,12 @@
       "receipt": "gates/P9",
       "docs": [
         "commands/devflow.md"
-      ]
+      ],
+      "kind": "docs-index",
+      "requires": [
+        "P8"
+      ],
+      "capability": null
     },
     {
       "stage": "P10",
@@ -197,7 +283,12 @@
       "receipt": "gates/P10",
       "docs": [
         "commands/devflow.md"
-      ]
+      ],
+      "kind": "retrospective+sharing",
+      "requires": [
+        "P9"
+      ],
+      "capability": null
     }
   ]
 }

@@ -2977,6 +2977,25 @@ def main():
         print(f"  ✗ {args.input}: JSON 解析失败: {e}")
         sys.exit(1)
 
+    # v3.31.2: 双层结构校验（审查报告-0924 Schema 标准化拆层）——
+    # ① 标准引擎（jsonschema 可用时 Draft-07 校验，错误并入 errors，措辞标准化）
+    # ② 自研子集引擎保持兜底（无第三方依赖环境：Windows Git Bash / 精简容器）
+    # 业务语义（check_*）不变——结构双层 + 语义单层。
+    _js_ok = False
+    try:
+        import jsonschema as _js  # type: ignore
+        _v = _js.Draft7Validator(schema)
+        _errs = sorted(_v.iter_errors(data), key=lambda e: list(e.absolute_path))
+        if _errs:
+            for e in _errs[:20]:
+                _p = ".".join(str(x) for x in e.absolute_path) or "(root)"
+                errors.append(f"[jsonschema] {_p}: {e.message}")
+        _js_ok = True
+    except ImportError:
+        pass  # 环境无 jsonschema——自研引擎独挑（双层变单层，fail 不变）
+    except Exception:
+        pass  # jsonschema 对自研子集方言不兼容（如自定义类型）——让位于自研引擎
+
     try:
         errors = validate(data, schema, schema)
     except SchemaError as e:

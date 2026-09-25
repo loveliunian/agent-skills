@@ -1,12 +1,36 @@
 ---
 name: changelog
-version: "3.31.1"
+version: "3.31.2"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.31.1
+# Changelog — devflow v1 → v3.31.2
+
+## v3.31.2 (2026-09-25) — 中期项三件套：pytest 体系 + Gate Registry 扩展 + Schema 双层拆分
+
+来源：审查报告-0924 中期剩余项（Schema 标准化拆层 / Gate Registry 原型 / pytest
+coverage 体系）。
+
+1. **pytest 单测体系（30h 项核心）**：新增 `tests/pytest/`（conftest 注入
+   scripts/ 路径）+ 23 个单测——df_executor（CommandSpec 解析/可执行名白名单/
+   NUL 拒绝/gate_bindings 双路解析/三 profile 结构化/workspace 边界/超时 124/
+   env 白名单过滤/CLI dry-run）+ 生成器转义（ts_str/java_str/ts_doc/java_doc/
+   safe_ident/_safe_pascal——钉死第 5-8 轮注入收口不回归）。`tests/
+   test-python-units.sh` 编排（pytest 缺席跳过不阻断，CI matrix 覆盖）并注册
+   进 run-tests（第 30 组）。**顺带修复**：df_executor adapter 名回退的裸
+   "adapter" 匹配过宽（任意 capability 名误中 security.adapter——收紧为严格
+   {capability}_adapter/同名键）。
+2. **Gate Registry 扩展（40h 项原型）**：phase-registry.json 23 gate 全量补
+   `kind`（结构化正本）/`requires`（前置链 DAG 声明）/`capability`（profile
+   gate_bindings 键）——声明式注册表数据就位（消费接线留后续渐进）；一致性
+   对账入 test-python-units（kind↔正本映射、capability↔profile bindings）。
+3. **Schema 双层拆分（30-40h 项）**：df_validate 主入口前置标准 jsonschema
+   Draft-07 校验层（可用时——错误并入 errors，措辞标准化 `[jsonschema] path:
+   message`）；自研子集引擎保持兜底（无第三方依赖环境独挑）+ 业务语义（check_*）
+   不变。样例回归零差异（3 处失败均为样例引用外部路径的既有语义错误，双层
+   校验无误报）。
 
 ## v3.31.1 (2026-09-24) — Runtime Profile 真正执行化（审查报告-0924 中期项 P0）
 

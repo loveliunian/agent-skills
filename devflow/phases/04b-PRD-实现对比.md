@@ -1,6 +1,6 @@
 ---
 name: prd-vs-code-phase
-version: "3.31.1"
+version: "3.31.2"
 description: Use when running the P4b exact acceptance evidence Gate.
 ---
 

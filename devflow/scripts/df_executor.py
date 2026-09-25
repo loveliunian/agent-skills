@@ -106,11 +106,12 @@ class CommandSpec:
         if gb:
             path = gb[0] if isinstance(gb, list) else gb
             node = _resolve_json_path(profile, path)
-        # 路径②：adapter 名
+        # 路径②：adapter 名（严格匹配 {capability}_adapter 或同名键——裸 "adapter"
+        # 回退过宽：任意 capability 名都会误中 security.adapter/performance.adapter）
         if node is None:
             for section in ("backend", "frontend", "database", "quality", "security", "performance", "deployment"):
                 sec = profile.get(section) or {}
-                for key in (f"{capability}_adapter", capability, "adapter"):
+                for key in (f"{capability}_adapter", capability):
                     if isinstance(sec.get(key), dict):
                         node = sec[key]
                         break

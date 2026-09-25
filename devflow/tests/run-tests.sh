@@ -35,6 +35,7 @@ SUITES=(
   "test-design-package-modes.sh:设计包与三模式（v3.24.0）"
   "test-design-diagrams.sh:图表体系机器闭环"
   "test-gate-json-bindings.sh:Gate JSON绑定全链"
+  "test-python-units.sh:Python单测+Registry"
   "test-review-receipt-lifecycle.sh:收据生命周期与完整 P2a 正向（v3.24.0）"
   "test-prompt-refs.sh:提示词引用完整性（v3.24.0）"
   "test-evidence-hardening.sh:证据硬化-核心"

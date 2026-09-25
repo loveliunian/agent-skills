@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 增量变更模式 v3.31.1
+# 增量变更模式 v3.31.2
 # 用途：支持最小化变更路径（只改一个字段、只加一个 API）
 
 set -euo pipefail
