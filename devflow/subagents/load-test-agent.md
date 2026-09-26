@@ -1,7 +1,7 @@
 ---
 name: load-test-agent
 subagent_type: generalPurpose
-version: "3.31.2"
+version: "3.31.3"
 responsibility: "/test --load-only。跑 k6 脚本打 /actuator/prometheus + API。P95 延迟必须 < 详设阈值,否则 P3d FAIL。"
 description: >-
   Use when running load/stress tests, mentions

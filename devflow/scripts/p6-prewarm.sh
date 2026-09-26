@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# p6-prewarm.sh · P6 环境预热（v3.31.2）
+# p6-prewarm.sh · P6 环境预热（v3.31.3）
 #
 # 用法:
 #   bash scripts/p6-prewarm.sh <feature> --backend-cmd <cmd> [--frontend-cmd <cmd>] [选项]

@@ -1,12 +1,27 @@
 ---
 name: changelog
-version: "3.31.2"
+version: "3.31.3"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.31.2
+# Changelog — devflow v1 → v3.31.3
+
+## v3.31.3 (2026-09-26) — 长期路线先行项：JSONL 结构化遥测 + 安全扫描扩域
+
+来源：审查报告-0924 改进清单两项 P1（结构化日志 / 安全扫描扩域）从长期路线提前。
+
+1. **结构化遥测（df_telemetry.py）**：JSONL 事件流——`.devflow/telemetry.jsonl`
+   追加式（ts/run_id/feature/phase/gate/event/exit_code/duration_ms/detail）；
+   敏感键自动打码（secret/token/password/api_key/credential 正则 → `<redacted>`）；
+   长值截断 200 字符；`summary` 子命令聚合每 phase 通过率/耗时。df_executor
+   接线（`DF_TELEMETRY=1` 开启，feature/phase 经 DF_FEATURE/DF_PHASE 注入——
+   遥测失败不影响执行）。单测 +2（打码/聚合）。
+2. **安全扫描扩域（secret-scan.sh）**：`.devflow` 不再整体 prune——结构化
+   正本/*.env 是 Agent 生成态集中区，恰是"生成态泄密"高发面（报告原文）；
+   PoC 实证 .devflow/fx/design.json 内 `slack_token=xoxb-…` 被检出（此前盲区）。
+   refresh-logs/prewarm/iterations 等纯瞬态子目录仍排除。
 
 ## v3.31.2 (2026-09-25) — 中期项三件套：pytest 体系 + Gate Registry 扩展 + Schema 双层拆分
 

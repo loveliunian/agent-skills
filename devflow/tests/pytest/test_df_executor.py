@@ -110,3 +110,25 @@ class TestCli:
         )
         assert r.returncode == 0
         assert json.loads(r.stdout)["executable"] == "true"
+
+
+class TestTelemetry:
+    SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent / "scripts"
+
+    def test_emit_redacts_sensitive_keys(self, tmp_path):
+        from df_telemetry import emit, summary
+        rec = emit("fx", "P3", "build", "gate-exit", exit_code=0,
+                   duration_ms=10, detail={"api_token": "x" * 40},
+                   state_dir=str(tmp_path))
+        assert rec["detail"]["api_token"] == "<redacted>"
+        assert (tmp_path / "telemetry.jsonl").is_file()
+
+    def test_summary_aggregates(self, tmp_path):
+        from df_telemetry import emit, summary
+        emit("fx", "P3", "build", "gate-exit", 0, 100, state_dir=str(tmp_path))
+        emit("fx", "P3", "build", "gate-exit", 1, 50, state_dir=str(tmp_path))
+        sm = summary("fx", str(tmp_path))
+        assert sm["phases"]["P3"]["gate_exits"] == 2
+        assert sm["phases"]["P3"]["pass"] == 1
+        assert sm["phases"]["P3"]["fail"] == 1
+        assert sm["phases"]["P3"]["total_duration_ms"] == 150

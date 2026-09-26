@@ -1,7 +1,7 @@
 ---
 name: completeness-reviewer
 subagent_type: generalPurpose
-version: "3.31.2"
+version: "3.31.3"
 description: >-
   Adversarial reviewer #2 of 3. Use when running /review,
   checks "completeness" angle: 1) does implementation match detailed design

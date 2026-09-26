@@ -190,6 +190,21 @@ def run_capability(spec: CommandSpec, workspace: Path, extra_env: dict | None = 
     duration_ms = int((time.monotonic() - start) * 1000)
     if out:
         sys.stdout.write(out)
+    # v3.31.3: 结构化遥测（DF_TELEMETRY=1 时追加 JSONL——审查报告-0924 P1）
+    if os.environ.get("DF_TELEMETRY") == "1":
+        try:
+            from df_telemetry import emit as _tlm_emit
+            _tlm_emit(
+                feature=os.environ.get("DF_FEATURE", "-"),
+                phase=os.environ.get("DF_PHASE", ""),
+                gate=spec.executable,
+                event="capability-exit",
+                exit_code=rc,
+                duration_ms=duration_ms,
+                state_dir=os.environ.get("DF_STATE_DIR", ".devflow"),
+            )
+        except Exception:
+            pass  # 遥测失败不影响执行
     return rc, duration_ms
 
 
