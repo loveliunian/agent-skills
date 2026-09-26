@@ -2981,6 +2981,9 @@ def main():
     # ① 标准引擎（jsonschema 可用时 Draft-07 校验，错误并入 errors，措辞标准化）
     # ② 自研子集引擎保持兜底（无第三方依赖环境：Windows Git Bash / 精简容器）
     # 业务语义（check_*）不变——结构双层 + 语义单层。
+    # v3.31.4b: errors 初始化恢复（v3.31.4 的 extend 修复暴露了 v3.31.2 编辑时
+    # 误删 errors = [] 行——NameError 令全量 16 组崩[全面体检第 9 轮]）
+    errors = []
     _js_ok = False
     try:
         import jsonschema as _js  # type: ignore
@@ -2997,7 +3000,9 @@ def main():
         pass  # jsonschema 对自研子集方言不兼容（如自定义类型）——让位于自研引擎
 
     try:
-        errors = validate(data, schema, schema)
+        # v3.31.4: extend 合并（此前 errors = validate(...) 整体覆盖——jsonschema 层
+        # 的 [jsonschema] 错误被自研结果冲掉，标准层沦为死代码[第9轮质量#3]）
+        errors.extend(validate(data, schema, schema))
     except SchemaError as e:
         # v3.17.3(B-6): schema 自身不合法时输出结构化错误而非裸 traceback
         print(f"  ✗ schema 不合法: {e}")

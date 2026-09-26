@@ -191,12 +191,22 @@ state_lock() { # <feature> [ purpose ] → 0=获得锁；2=超时；3=已有同�
   local feature="$1" lock="$STATE_DIR/${1}.lock" waited=0
   mkdir -p "$STATE_DIR" 2>/dev/null || return 1
   until mkdir "$lock" 2>/dev/null; do
-    # 陈旧锁检测：锁内 pid 不存活且超 5 分钟 → 判定孤儿锁回收
+    # v3.31.4: 孤儿回收原子化（第9轮审计#2：检查后无条件 rm -rf 的 TOCTOU 令
+    # 双等待者同时进入临界区；且 300s 阈值 > 30s 超时使回收永不可达）
+    # mv 抢占原子——仅一个等待者能成功 rename
     if [ -f "$lock/pid" ]; then
       local lp; lp=$(cat "$lock/pid" 2>/dev/null || true)
       if [ -n "$lp" ] && ! kill -0 "$lp" 2>/dev/null; then
         local age; age=$(( $(date +%s) - $(stat -f %m "$lock/pid" 2>/dev/null || stat -c %Y "$lock/pid" 2>/dev/null || echo 0) ))
-        [ "$age" -gt 300 ] && { rm -rf "$lock"; echo "[state] 回收孤儿锁 ${lock}（pid=${lp} age=${age}s）" >&2; continue; }
+        local reclaim_after=$(( STATE_LOCK_TIMEOUT_SECONDS / 2 )); [ "$reclaim_after" -gt 30 ] && reclaim_after=30
+        [ "$reclaim_after" -lt 5 ] && reclaim_after=5
+        if [ "$age" -gt "$reclaim_after" ]; then
+          if mv "$lock" "${lock}.reclaim.$$" 2>/dev/null; then
+            rm -rf "${lock}.reclaim.$$"
+            echo "[state] 原子回收孤儿锁 ${lock}（pid=${lp} age=${age}s by=$$）" >&2
+            continue
+          fi
+        fi
       fi
     fi
     waited=$((waited + 1))

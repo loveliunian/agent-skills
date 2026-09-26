@@ -1,12 +1,47 @@
 ---
 name: changelog
-version: "3.31.3"
+version: "3.31.4"
 description: "Version migration guide for devflow. Read before upgrading between major versions."
 paths: []
 disable-model-invocation: false
 ---
 
-# Changelog — devflow v1 → v3.31.3
+# Changelog — devflow v1 → v3.31.4
+
+## v3.31.4 (2026-09-26) — 第 9 轮子代理双审计：v3.31.x 修复批（11 项）
+
+来源：双子代理对 v3.31.0-3.31.3 三批变更独立审计——多项核心声明与实现相反。
+
+**安全向（P1×2 + P2×3）**：
+1. **executor 白名单双旁路收口**：legacy `command` 首词此前未过 EXECUTABLE_PATTERN
+   （绝对路径 executable 绕过）；`load_profile` 绝对路径拼接逃逸 runtime-profiles 目录；
+   `env_allowlist` 键名全盘接受（秘密键族可入）。三处全封：首词强制白名单 +
+   profile_id 白名单 + resolve 边界 + env 键名 `^[A-Z_][A-Z0-9_]*$` + 秘密键族拒绝。
+2. **state_lock TOCTOU 原子化**：检查后无条件 `rm -rf` 令双等待者 60/60 同时进入
+   临界区（CWE-367）；300s 回收阈值 > 30s 超时使回收永不可达（崩溃后 state 砖死
+   5 分钟）。改 `mv` 原子抢占（仅一个等待者成功）+ 阈值降至 min(超时/2, 30s)。
+3. **devflow_profile jq 程序注入**：`$bpath` 裸拼 jq 程序（项目侧 profile JSON 的
+   binding 值可控）——`reduce range(1;1e10)` 挂起 25 分钟 / `nope // "adapter"`
+   旁路。改 bpath 白名单 + `getpath(split("."))` 数据化取值。
+4. **Windows killpg 守卫**：`os.killpg` 不在 except 元组 → AttributeError 裸崩溃
+   + 子进程泄漏。hasattr 守卫 + AttributeError 兜底。
+5. **.pytest_cache 入 manifest**：树哈希随 pytest 运行漂移。find 排除补齐。
+
+**质量向（严重 1 + 高 2 + 中 2 + 低 1）**：
+6. **P3-completion 全栈 BLOCKED 回归修复**：列表型 binding 通用分支取到多行文本
+   恒失败——不仅 node/python，参考栈 java 也过不去（v3.31.1 核心声明因此失实）。
+   统一取首项 + getpath。
+7. **jsonschema 层死代码修复**：`errors = validate(...)` 整体覆盖 `[jsonschema]`
+   报告（v3.31.2 标题特性无效）→ extend 合并；且 v3.31.2 编辑误删 `errors = []`
+   初始化——NameError 令全量 16 组崩（extend 修复暴露）。双层验证实测：坏数据
+   2 条 jsonschema 报告 / 好数据零误报。
+8. **executor 丢 working_dir**：结构化分支只认 cwd 键，43 adapter 全用 working_dir
+   ——命令将在错误目录执行。兼容读取。
+9. **build-watchdog 空转 PASS**：node 项目 backend skipped 仍写 "clean"——零验证
+   收据是证据质量倒退。收据改按实执行描述 + SKIPPED 清单。
+10. **registry 对账升级**：抽查过弱 → 全量 kind 非空（豁免清单显式化）+ requires
+    引用完整性。
+11. **v1 死函数删除 + SKILL.md 原则 13 措辞对齐**（"仅参考栈可用"→ gate_bindings 声明化）。
 
 ## v3.31.3 (2026-09-26) — 长期路线先行项：JSONL 结构化遥测 + 安全扫描扩域
 

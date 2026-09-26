@@ -37,6 +37,15 @@ for st in ("P3-build", "P3-completion"):
     g = reg.get(st) or {}
     if g.get("capability"):
         assert g["capability"] in prof or g["capability"].startswith("P3c"), f"{st}.capability={g['capability']} 不在 profile bindings"
+# v3.31.4: 全量完整性（第9轮质量#5——抽查过弱拦不住字段回退）
+KNOWN_KINDLESS = {"ARCH-PITFALLS", "P5-migration", "P6-credential", "P6-final", "P3-build", "P4b"}
+for st, g in reg.items():
+    has_kind = g.get("kind") is not None
+    if st in KNOWN_KINDLESS:
+        continue  # 显式豁免清单（无结构化正本/或为辅助收据）
+    assert has_kind, f"{st} 缺 kind 声明（需注册或加入豁免清单）"
+    for req in g.get("requires") or []:
+        assert req in reg, f"{st}.requires 引用不存在的 gate: {req}"
 print("registry-consistent")
 PYEOF
 then ok "Gate Registry 一致性（kind/capability 对账）"

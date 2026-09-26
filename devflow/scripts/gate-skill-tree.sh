@@ -107,7 +107,7 @@ TREE_INPUT=$(find "$ROOT" -type f \
   ! -path "$ROOT/references/manifest/*" \
   ! -name '.DS_Store' \
   ! -name '*.bak' ! -name '*.bak-devflow' \
-  ! -path '*/__pycache__/*' ! -name '*.pyc' 2>/dev/null | LC_ALL=C sort)
+  ! -path '*/__pycache__/*' ! -path '*/.pytest_cache/*' ! -name '*.pyc' 2>/dev/null | LC_ALL=C sort)
 if [ -z "$TREE_INPUT" ]; then
   echo "[gate-skill-tree] FATAL: 树文件清单为空——枚举异常，拒绝产出空树 hash" >&2
   exit 1

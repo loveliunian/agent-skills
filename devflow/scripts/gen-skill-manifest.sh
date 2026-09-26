@@ -60,7 +60,7 @@ tree_files() {
     ! -path "$ROOT/tests/logs/*" \
     ! -path "$ROOT/references/manifest/*" ! -name '.DS_Store' \
     ! -name '*.bak' ! -name '*.bak-devflow' \
-    ! -path '*/__pycache__/*' ! -name '*.pyc' 2>/dev/null | LC_ALL=C sort \
+    ! -path '*/__pycache__/*' ! -path '*/.pytest_cache/*' ! -name '*.pyc' 2>/dev/null | LC_ALL=C sort \
     | while IFS= read -r f; do printf '%s\n' "${f#"$ROOT"/}"; done
 }
 

@@ -1,6 +1,6 @@
 ---
 name: devflow-resource-registry
-version: "3.31.3"
+version: "3.31.4"
 description: Active phase, subagent, and template resources registered for release validation.
 ---
 

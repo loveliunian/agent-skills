@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# devflow_profile.sh · Runtime Profile 解析与能力门禁（v3.31.3）
+# devflow_profile.sh · Runtime Profile 解析与能力门禁（v3.31.4）
 # =============================================================================
 # PROFILE_ID 冻结于 state.scope.profile_id（devflow-state.sh init --profile=<id>，
 # 须存在 references/profiles/<id>.md）。未冻结的历史项目按参考实现
@@ -27,17 +27,6 @@ devflow_profile_of() { # <feature> → 打印 PROFILE_ID（未冻结时默认参
   printf '%s' "${pid:-java-spring-flyway}"
 }
 
-devflow_profile_require_impl() { # <feature> <gate-name> → 0=可运行；1=BLOCKED
-  local feature="$1" gate="$2" pid
-  pid=$(devflow_profile_of "$feature")
-  [ "$pid" = "java-spring-flyway" ] && return 0
-  echo "[BLOCKED] MISSING_CAPABILITY=build,test,coverage,flyway,orm-mapping (PROFILE_ID=$pid, gate=$gate)"
-  echo "  当前仅 PROFILE_ID=java-spring-flyway 提供该 Gate 的命令位实现"
-  echo "  （见 references/runtime-profile.md 实现状态节）；其他技术栈项目在此阶段"
-  echo "  BLOCKED，不得静默运行错误技术栈的命令。"
-  return 1
-}
-
 
 # v3.31.1: 能力执行化——按 gate_bindings 解析 adapter 并经 df_executor 安全执行。
 # 输出：JSON 回执（rc/duration_ms/spec）到 stdout 的尾行由调用方按需解析；
@@ -49,9 +38,12 @@ devflow_profile_capability_exec() { # <feature> <binding-key> <service> <scope> 
   json="$STATE_DIR/${feature}/runtime-profile.json"
   [ -f "$json" ] || json="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/runtime-profiles/${pid}.json"
   [ -f "$json" ] || { echo "[P0] profile JSON 缺失: $json" >&2; return 127; }
-  bpath=$(jq -r --arg k "$key" '.gate_bindings[$k] // empty' "$json" 2>/dev/null)
+  bpath=$(jq -r --arg k "$key" '
+    .gate_bindings[$k] as $v |
+    if ($v | type) == "array" then ($v[0] // "") else ($v // "") end' "$json" 2>/dev/null | head -1)
   [ -n "$bpath" ] || { echo "[P0] gate_bindings 无 ${key}（profile=${pid}）" >&2; return 127; }
-  adapter=$(jq -r ".$bpath // empty" "$json" 2>/dev/null)
+  printf '%s' "$bpath" | grep -qE '^[A-Za-z0-9_.{}-]+$' || { echo "[P0] binding 路径非法: ${bpath}" >&2; return 127; }
+  adapter=$(jq -r --arg bp "$bpath" 'getpath($bp | split(".")) // empty' "$json" 2>/dev/null)
   [ -n "$adapter" ] || { echo "[P0] adapter 为空: ${bpath}（profile=${pid}）" >&2; return 127; }
   # 模板变量替换（service/scope 由调用方上下文提供）
   adapter=${adapter//\{service\}/$service}
@@ -69,7 +61,7 @@ devflow_profile_gate_key() { # <gate-name> → binding-key（无映射输出空�
   case "$1" in
     P3-build)      echo "P3-build" ;;
     p3_completion) echo "P3-completion" ;;
-    P4b)           echo "test" ;;   # P4b 消费 test 能力（PRD-vs-Code 需跑测试证据）
+    P4b)           echo "P3-completion" ;;   # P4b 消费 test 能力（经 P3-completion 首项 test_adapter）
     *)             echo "" ;;
   esac
 }
@@ -81,14 +73,16 @@ devflow_profile_require_impl_v2() { # <feature> <gate-name> <service> → 0=有 
   pid=$(devflow_profile_of "$feature")
   json="$STATE_DIR/${feature}/runtime-profile.json"
   [ -f "$json" ] || json="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/runtime-profiles/${pid}.json"
-  if [ "$key" = "test" ]; then
-    bpath=$(jq -r '.gate_bindings["P3-completion"][0] // empty' "$json" 2>/dev/null)
-  else
-    bpath=$(jq -r --arg k "$key" '.gate_bindings[$k] // empty' "$json" 2>/dev/null)
-  fi
-  # gate_bindings 值是 "backend.build_adapter" 形态——jq 路径须前导点（.backend.build_adapter）
-  if [ -n "$bpath" ] && jq -e ".$bpath // empty" "$json" >/dev/null 2>&1; then
-    return 0   # 有 adapter 声明 → 能力存在（执行交给 devflow_profile_capability_exec）
+  # v3.31.4: 统一取值（列表型取首项）+ bpath 白名单 + getpath 数据化取值
+  # （修：列表型 binding 此前通用分支取到多行文本恒 BLOCKED[质量#1]；
+  #   jq 程序注入（reduce 挂起 / nope//"adapter" 旁路）[安全#3]）
+  bpath=$(jq -r --arg k "$key" '
+    .gate_bindings[$k] as $v |
+    if ($v | type) == "array" then ($v[0] // "") else ($v // "") end' "$json" 2>/dev/null | head -1)
+  if printf '%s' "$bpath" | grep -qE '^[A-Za-z0-9_.{}-]+$'; then
+    if jq -e --arg bp "$bpath" 'getpath($bp | split(".")) != null' "$json" >/dev/null 2>&1; then
+      return 0   # 有 adapter 声明 → 能力存在（执行交给 devflow_profile_capability_exec）
+    fi
   fi
   echo "[BLOCKED] MISSING_CAPABILITY (PROFILE_ID=$pid, gate=$gate)——profile JSON 无 gate_bindings.$key"
   return 1

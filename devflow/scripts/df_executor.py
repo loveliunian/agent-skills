@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -76,12 +77,20 @@ class CommandSpec:
             "env_allowlist": list(self.env_allowlist),
         }
 
+    _ENVKEY_DENY = re.compile(r"(SECRET|TOKEN|PASSWORD|PASSWD|API_?KEY|CREDENTIAL|PRIVATE)", re.I)
+
     @classmethod
     def from_json(cls, d: dict) -> "CommandSpec":
         import re
         exe = str(d.get("executable") or "")
         if not re.match(EXECUTABLE_PATTERN, exe):
             raise ValueError(f"executable 非法（须匹配 {EXECUTABLE_PATTERN}）: {exe!r}")
+        # v3.31.4: env_allowlist 键名限大写标识符 + 拒秘密键族（profile JSON 注入面[第9轮#1]）
+        for k in (d.get("env_allowlist") or []):
+            if not re.match(r"^[A-Z_][A-Z0-9_]*$", str(k)):
+                raise ValueError(f"env_allowlist 键名非法: {k!r}")
+            if cls._ENVKEY_DENY.search(str(k)):
+                raise ValueError(f"env_allowlist 含秘密键（拒绝）: {k!r}")
         args = tuple(str(a) for a in (d.get("args") or []))
         for a in args:
             if "\x00" in a:
@@ -120,7 +129,12 @@ class CommandSpec:
         if node is None:
             raise ValueError(f"MISSING_CAPABILITY={capability}（profile 无该 adapter/gate_binding）")
         if node.get("executable"):
-            return cls.from_json(node)
+            # v3.31.4: profile 用 working_dir 键（from_json 只认 cwd——43 adapter 全用
+            # working_dir，结构化分支此前丢弃致命令在错误目录执行[第9轮质量#4]）
+            nd = dict(node)
+            if "working_dir" in nd and "cwd" not in nd:
+                nd["cwd"] = nd.pop("working_dir")
+            return cls.from_json(nd)
         legacy = str(node.get("command") or "")
         if not legacy:
             raise ValueError(f"adapter 既无 executable 也无 command: {capability}")
@@ -131,8 +145,11 @@ class CommandSpec:
             raise ValueError(f"legacy command 解析失败（引号不平衡）: {legacy!r}") from e
         if not words:
             raise ValueError("legacy command 为空")
-        if len(words) > 1 and any(c in words[0] for c in "|&;<>()$`\\\"'"):
-            raise ValueError(f"legacy command 首词含 shell 元字符（拒绝）: {words[0]!r}")
+        # v3.31.4: legacy 首词同样强制 EXECUTABLE_PATTERN（此前仅 len>1 时查元字符——
+        # 绝对路径 executable 绕过白名单[第9轮审计#1]）
+        import re as _re0
+        if not _re0.match(EXECUTABLE_PATTERN, words[0]):
+            raise ValueError(f"legacy command executable 非白名单（{EXECUTABLE_PATTERN}）: {words[0]!r}")
         cwd = str(node.get("working_dir") or ".")
         return cls(executable=words[0], args=tuple(words[1:]), cwd=cwd)
 
@@ -177,9 +194,13 @@ def run_capability(spec: CommandSpec, workspace: Path, extra_env: dict | None = 
         out, _ = proc.communicate(timeout=spec.timeout_seconds)
         rc = proc.returncode
     except subprocess.TimeoutExpired:
+        # v3.31.4: Windows 无 killpg/getpgid（AttributeError 不在原元组→裸崩溃[第9轮#4]）
         try:
-            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-        except (ProcessLookupError, PermissionError, OSError):
+            if hasattr(os, "killpg"):
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            else:
+                proc.kill()
+        except (ProcessLookupError, PermissionError, OSError, AttributeError):
             proc.kill()
         try:
             proc.communicate(timeout=10)
@@ -209,8 +230,13 @@ def run_capability(spec: CommandSpec, workspace: Path, extra_env: dict | None = 
 
 
 def load_profile(profile_id: str, profiles_dir: Path | None = None) -> dict:
+    import re as _re1
+    if not _re1.match(r"^[A-Za-z0-9][A-Za-z0-9._-]*$", profile_id):
+        raise ExecutorError(f"illegal profile id: {profile_id!r}")
     d = profiles_dir or (Path(__file__).resolve().parent.parent / "runtime-profiles")
-    p = d / f"{profile_id}.json"
+    p = (d / f"{profile_id}.json").resolve()
+    if d.resolve() not in p.parents:
+        raise ExecutorError(f"profile path escapes dir: {p}")
     if not p.is_file():
         known = sorted(x.stem for x in d.glob("*.json"))
         raise ExecutorError(f"unknown profile: {profile_id}（已知: {', '.join(known)}）")

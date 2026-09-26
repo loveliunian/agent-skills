@@ -70,8 +70,18 @@ def _run(cmd, timeout=None):
     超时杀进程组（start_new_session），rc=124（对齐 run-tests 惯例）；无超时的
     卡死 build/test 可无限占用 Agent 会话——默认 DF_PIPELINE_TIMEOUT_SECONDS=3600。"""
     import os as _os, signal as _signal
-    default_to = int(_os.environ.get("DF_PIPELINE_TIMEOUT_SECONDS", "3600"))
+    # v3.31.4: 环境变量防御——非法/非正数值回退默认（此前 abc 裸 traceback、
+    # 0/负值令 subprocess 立即超时杀进程[全面体检发现]）
+    try:
+        default_to = int(_os.environ.get("DF_PIPELINE_TIMEOUT_SECONDS", "3600"))
+    except (TypeError, ValueError):
+        print(f"[pipeline] DF_PIPELINE_TIMEOUT_SECONDS 非法（{ _os.environ.get('DF_PIPELINE_TIMEOUT_SECONDS')!r}），回退 3600s", file=sys.stderr)
+        default_to = 3600
+    if default_to < 1:
+        default_to = 3600
     timeout = timeout or default_to
+    if timeout is not None and timeout < 1:
+        timeout = default_to
     print(f"[pipeline] $ {' '.join(str(c) for c in cmd)} (timeout={timeout}s)")
     import time as _time
     _t0 = _time.monotonic()

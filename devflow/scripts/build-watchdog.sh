@@ -259,6 +259,9 @@ EOF
       echo "[gate] feature=$FEATURE version=$GATE_VER at=$(date -u +%Y-%m-%dT%H:%M:%SZ) exit=$WATCH_RC"
     } >> "$WATCH_LOG"
     if [ "$WATCH_RC" -eq 0 ]; then
+      # v3.31.4: 收据按实执行情况描述（第9轮质量#2：node 项目 backend skipped 仍写
+      # "clean"——零验证 PASS 收据是证据质量倒退；skip 项显式记 SKIPPED 清单）
+      _SKIPPED=$(grep -oE '⊝ [a-z ]+ skipped[^ ]*' "$WATCH_LOG" | sed 's/⊝ //;s/ skipped.*//' | sort -u | tr '\n' ',' | sed 's/,$//')
       cat > "$RECEIPT" <<EOF
 VERSION=p3-build@$GATE_VER
 SKILL_TREE=$(bash "$SCRIPT_DIR/gate-skill-tree.sh" 2>/dev/null || echo unknown)
@@ -267,7 +270,8 @@ GATE=P3-build
 FEATURE=$FEATURE
 AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EXIT_CODE=0
-PASS=backend+frontend+tsc clean
+PASS=executed checks clean
+$([ -n "$_SKIPPED" ] && echo "SKIPPED=$_SKIPPED" )
 WARN=
 FAIL=
 EOF

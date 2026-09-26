@@ -1,6 +1,6 @@
 ---
 name: docs
-version: "3.31.3"
+version: "3.31.4"
 description: >-
   Use when updating project documentation after a feature is delivered, mentions
   "/docs", "更新文档", "文档", "文档更新", "api docs", "readme", "changelog", or "doc update".
