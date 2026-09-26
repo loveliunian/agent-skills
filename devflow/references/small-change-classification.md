@@ -28,3 +28,10 @@
 
 - `MERGE_READY`：代码与聚焦验证完成，未声明上线。
 - `RELEASED`：除 SMALL-CHANGE Gate 外，已绑定并重验成功的 P7 与 P8 收据。
+
+## 用户约束与路由（User Constraints vs Routing）
+
+- 路由决策只能**上调**（MICRO→FULL），不得下调用户显式要求的验证；机器规则（LOGICAL_CHANGE_COUNT、风险字段）同理只升不降。
+- 用户显式约束（"不要跑全量测试""先不部署""只改这一处"）写入分类合同 `USER_CONSTRAINTS` 行；被约束收缩的验证项**逐条**写入完成声明 `unverified[]`（契约同 `commands/devflow.md` §Result Contract）——不允许静默少跑。
+- 约束不得放宽硬安全不变量：权限/破坏性/跨服务/历史数据命中仍强制 FULL，`RELEASED` 仍需授权收据（优先级链见 `concepts/core.md` §21）。
+- 实现中范围扩大或合同矛盾：升级 FULL 或 `BLOCKED`，不得在 MICRO 内"顺带做掉"。

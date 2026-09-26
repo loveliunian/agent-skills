@@ -1,6 +1,6 @@
 ---
 name: devflow-command
-version: "3.31.4"
+version: "3.32.0"
 description: Use when running the complete devflow lifecycle or resuming a checkpoint.
 allowed-tools: [read, write, exec, glob, grep, task]
 ---
@@ -171,6 +171,12 @@ check_skip_authorization() {
 3. 用矩阵中的确定性 Gate 验证，保留 stdout 和真实退出码。
 4. Gate 为 0 后更新 state；非 0 时保存 checkpoint 并停止。
 
+> **修复循环预算（铁律 22）**：同一 Gate 连续「修复→重跑」上限 **3 次**；失败签名
+> （Gate 名 + 首条错误行）第 2 次重复时**必须更换策略**（改实现/换定位/上报用户），
+> 禁止原样重跑同一命令；预算耗尽 → checkpoint + `BLOCKED` 上报，不得降断言换绿灯。
+> 每轮迭代记入 `.devflow/<feature>/repair-log.tsv`（`phase\t迭代序号\t失败签名\t采取策略`），
+> 分类用 `gate-fail-classify.sh`；`resume` 前先对账台账，超预算直接 `BLOCKED`。
+
 ## 客户端路由
 
 | 范围 | 构建/测试/发布 | 必需旅程证据 |
@@ -240,3 +246,21 @@ bash "$SKILL_ROOT/scripts/checkpoint-state.sh" orphans <feature>
 - 独立审查与完成度审计未由开发者自签；
 - 声明 `RELEASED` 时另有有效发布授权收据（`authorizations/release.json`）；无授权最高为 `READY_TO_RELEASE`；
 - P10 项目反馈队列已通过 `p10_feedback_gate.sh`；安装 skill 的改动另行经用户批准。
+
+## Result Contract（最终结果契约，v3.32.0）
+
+交付的最后一条用户可见消息必须包含三段机器可核对结构——**实现/证据/未验证**，禁止只写"已完成"：
+
+```text
+实现：变更要点（逐条，含承载文件）
+证据：verification[] —— 命令、真实退出码/结果、范围（targeted|affected|full）
+未验证：unverified[] —— 显式列出未覆盖项；空集合写 `unverified: none`
+```
+
+- 整体状态词汇（与 Receipt `status: PASS|BLOCKED|SKIPPED` 正交，作用于最终交付声明）：
+  - `VERIFIED`：acceptance 全验证且 `unverified[]` 为空；
+  - `PARTIALLY_VERIFIED`：存在 `unverified[]` 项，或用户约束收缩了验证范围（铁律 21/`references/small-change-classification.md` 用户约束节）；
+  - `BLOCKED`：任一 Gate 非零且未恢复。
+- `PARTIALLY_VERIFIED` **不得**声明 `RELEASED` 或"完全完成"；与授权收据契约叠加取交集（就低不就高，最高 `READY_TO_RELEASE`/`MERGE_READY`）。
+- `unverified[]` 允许来源仅三类：用户显式约束、能力缺失已 `DEGRADED` 声明（`references/runtime-profile.md` §6）、环境不可达且已记录 checkpoint；**Gate 必需证据不得进入 `unverified[]`**（那不是未验证，是 FAIL）。
+- 轻量运行台账：交付时写 `.devflow/<feature>/telemetry.json`——`{"profile","files_inspected","tool_calls","test_runs","repair_iterations","verification_status"}`；只记计数与状态，不记源码内容与 prompt（secret 政策同源）。

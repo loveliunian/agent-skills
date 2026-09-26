@@ -1,6 +1,6 @@
 ---
 name: completeness-gate
-version: "3.31.4"
+version: "3.32.0"
 description: 完成度门控参考手册（机器可验证证据 + 历史教训专项检查）
 ---
 

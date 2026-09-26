@@ -1,6 +1,6 @@
 ---
 name: runtime-profile
-version: "3.31.4"
+version: "3.32.0"
 description: 技术栈无关的 Runtime Profile 契约——P3 前必须解析并冻结，核心流程不得假设具体框架。
 ---
 
@@ -106,3 +106,23 @@ SECURITY_GATE = PASS
   只需提供 runtime-profiles/<id>.json（含 gate_bindings）+ references/profiles/
   <id>.md，无需改 Core/Gate 源码。
 - P1/P2 的选型描述层与 P5/P6 的运行器白名单本身是栈无关的。
+
+## 6. 降级语义（Degradation vs Fail-closed，两级判定，无第三种模糊态）
+
+能力缺失或不可用时，必须归入以下两级之一，禁止静默处理：
+
+| 语义 | 判定条件 | 处置 |
+|---|---|---|
+| **可降级 `DEGRADED`** | 存在显式豁免开关或**等价替代路径**，且降级只影响证据的广度/成本，不影响证据真实性 | 继续执行；必须在当阶段收据/日志显式写 `DEGRADED=<capability> reason=<理由>替代=<fallback|none>`；未声明即视为伪装通过 |
+| **阻断 `BLOCKED`** | Gate 契约必需（BUILD/TEST/COVERAGE/MIGRATION/AUTHORIZATION/SECURITY、客户端冻结范围对应旅程）且无等价替代 | `STATUS=BLOCKED` + `MISSING_CAPABILITY=<capability>`（§1 fail-closed），不得猜测顶替 |
+
+内置可降级示例（穷尽枚举，新增必须先登记本表）：
+
+| 能力 | 降级方式 | 声明位置 |
+|---|---|---|
+| git checkpoint | `DEVFLOW_GIT_CHECKPOINT=off` 或 skip-log 显式授权（commands/devflow.md git 检查点节） | 收据 + skip-log |
+| 代码图谱健康 | 图谱不可用时按项目可用性跳过，但**不得把图谱不可用伪装成通过** | P4b 后说明 |
+| repo 搜索 | 无索引/`rg` 时回退 `grep`/文件遍历 | 无需声明（等价降级） |
+| P6 增量重跑 | `p6-iterate.sh` 只重跑失败套件；P6-final 仍全量真实重执行 | iterations/ 产物 |
+
+通用规则：**降级只允许发生在证据广度维度（少一类检查、换工具、慢一点），不允许发生在证据真实性维度（不得用声明替代真实执行、不得降断言换绿灯）**。硬安全与授权阶梯（`references/sensitive-data-policy.md` §6 L3/L4）不在可降级集合内。

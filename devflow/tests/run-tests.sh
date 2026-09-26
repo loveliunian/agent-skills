@@ -44,6 +44,7 @@ SUITES=(
   "test-p6-hardening.sh:P6 硬化"
   "test-version-hardening.sh:历史版本硬化（v3.20.3/v3.21.1/v3.21.2）"
   "test-dev-hardening.sh:开发面硬化（v3.26.3-v3.27.0）"
+  "test-v3320-contracts.sh:v3.32.0 审查报告契约钉"
   "test-release.sh:发布审计"
 )
 
