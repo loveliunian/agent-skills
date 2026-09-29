@@ -1,0 +1,67 @@
+{
+  "schema_version": "1",
+  "source_prd_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "parser_version": "example-parser-1",
+  "extractor_id": "example-extractor",
+  "classifications": [
+    {"source_ref": "SRC-11111111111111111111", "classification": "context", "reason": "说明当前问题，不直接定义待交付行为。"},
+    {"source_ref": "SRC-22222222222222222222", "classification": "functional_requirement"},
+    {"source_ref": "SRC-33333333333333333333", "classification": "functional_requirement"},
+    {"source_ref": "SRC-44444444444444444444", "classification": "functional_requirement"}
+  ],
+  "requirements": [
+    {
+      "id": "R-01",
+      "statement": "用户可创建标题非空且提醒时间晚于当前时间的任务提醒。",
+      "status": "已确认",
+      "mandatory": true,
+      "testable": true,
+      "source_refs": ["SRC-22222222222222222222"],
+      "actors": ["个人用户"],
+      "trigger": "用户提交任务提醒表单",
+      "observable_result": "任务创建成功并显示在待办列表中。",
+      "entities": ["任务提醒"],
+      "operations": ["创建"],
+      "constraints": ["标题非空", "提醒时间晚于服务端当前时间"]
+    },
+    {
+      "id": "R-02",
+      "statement": "用户可按提醒时间升序查看自己的待办提醒；已完成提醒不出现在列表中。",
+      "status": "已确认",
+      "mandatory": true,
+      "testable": true,
+      "source_refs": ["SRC-33333333333333333333"],
+      "actors": ["个人用户"],
+      "trigger": "用户打开待办列表",
+      "observable_result": "列表仅含待办提醒，且按提醒时间升序排列。",
+      "entities": ["任务提醒"],
+      "operations": ["查询", "排序"],
+      "constraints": ["仅返回当前用户数据"]
+    },
+    {
+      "id": "R-03",
+      "statement": "用户可将待办提醒标记为已完成。",
+      "status": "已确认",
+      "mandatory": true,
+      "testable": true,
+      "source_refs": ["SRC-44444444444444444444"],
+      "actors": ["个人用户"],
+      "trigger": "用户点击待办提醒的完成操作",
+      "observable_result": "任务状态变为已完成并从待办列表移除。",
+      "entities": ["任务提醒"],
+      "operations": ["完成"],
+      "constraints": ["用户只能修改自己的提醒"]
+    }
+  ],
+  "review_deltas": [],
+  "independent_review": {
+    "reviewer_id": "example-reviewer",
+    "status": "completed",
+    "reviewed_prd_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "reviewed_source_set_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "source_unit_count": 4,
+    "conclusion": "no_deltas",
+    "evidence": ["逐项对照示例 PRD 的需求清单、约束和范围外说明；示例无差异。"]
+  },
+  "asset_reviews": []
+}

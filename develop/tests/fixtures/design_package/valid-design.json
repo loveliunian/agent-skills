@@ -1,0 +1,8 @@
+{
+  "tables": [{"id": "TABLE-1"}, {"id": "TABLE-2"}],
+  "apis": [{"id": "API-1"}],
+  "rules": [],
+  "flows": [],
+  "pages": [],
+  "quality_decisions": []
+}

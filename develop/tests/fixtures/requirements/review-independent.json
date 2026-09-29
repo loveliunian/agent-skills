@@ -1,0 +1,1 @@
+{"requirements": [{"id": "REQ-1", "statement": "可以退款", "source_refs": ["SRC-1"]}, {"id": "REQ-2", "statement": "需记录退款理由", "source_refs": ["SRC-2"]}]}

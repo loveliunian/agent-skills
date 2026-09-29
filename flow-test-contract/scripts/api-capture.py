@@ -1217,6 +1217,13 @@ def main() -> None:
         api.submit(token, task_id, ctx)
         print(f"[api-capture] {side} s{seq} 节点{node} 采集 {len(fields)} 字段并提交 ✓")
 
+    # v1.7.6：capture=none（场景级）→ 执行照常、不落采集文件——该 case 不进入 field-level-compare，
+    # 全局 field_mappings 的"每 case 全字段覆盖"校验对其不适用（作废链/纯观察用例，无业务填单语义；
+    # 2026-09-29 铁路 C-04/C-05 实战反哺）。执行成功仍返回 0（runner 记 PASS）。
+    if str(sc.get("capture") or "form-fields").strip().lower() == "none":
+        print(f"[api-capture] {side} {case_id} capture=none——执行完成，跳过采集文件（不进入对拍）")
+        return
+
     capture = {
         "run_id": args.run_id,           # 身份三要素——runner/conclude 据此采信
         "case_id": case_id,

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # sync.sh —— 本仓库唯一同步入口（一步到位）
-#   1) 软链自愈：各工具 skills 目录里的 devflow / flow-test-contract 一律直连本仓库，不经任何中转路径
+#   1) 软链自愈：各工具 skills 目录里的 devflow / develop / flow-test-contract 一律直连本仓库，不经任何中转路径
 #   2) flow-test-contract 分发：调 sync-to-tools.sh 把内容同步到其余 14 个工具的实体副本（runtime 除外）
 #   3) git：有变更则提交并推送 GitHub（--local 可跳过）
 #
@@ -33,6 +33,7 @@ heal_link() { # $1=skill 名 $2=软链路径
 
 for base in .codex .agents .claude .trae .trae-cn .cursor; do
   heal_link devflow "$HOME/$base/skills/devflow"
+  heal_link develop "$HOME/$base/skills/develop"
 done
 for base in .agents .config/opencode; do
   heal_link flow-test-contract "$HOME/$base/skills/flow-test-contract"

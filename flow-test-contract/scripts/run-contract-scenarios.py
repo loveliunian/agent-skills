@@ -170,14 +170,28 @@ def run_api_backend(results: list[dict], systems_dir: Path, run_id: str, exec_di
             r["status"] = "BLOCKED"
             r["reason"] = "；".join(errs)
         else:
-            problems: list[str] = []
-            ok_l = capture_trustworthy(capbase / "legacy" / f"{r['id']}.json", run_id, str(r["id"]), t0, problems)
-            ok_c = capture_trustworthy(capbase / "current" / f"{r['id']}.json", run_id, str(r["id"]), t0, problems)
-            if ok_l and ok_c:
+            # v1.7.6：场景 capture=none（无业务填单语义用例——作废链/纯观察）→ 双端执行成功即 PASS，
+            # 不做采集可采信校验（api-capture 已声明跳过落文件）；该 case 不进入字段对拍
+            # （field-level-compare 仅配对实际存在的采集文件），全局 field_mappings 的每 case
+            # 全字段覆盖校验对其不适用（2026-09-29 铁路 C-04/C-05 实战反哺）
+            scn_capture = ""
+            try:
+                _scn = yaml.safe_load(Path(r.get("scenario", "")).read_text(encoding="utf-8"))
+                scn_capture = str((_scn or {}).get("capture") or "form-fields").strip().lower()
+            except Exception:
+                scn_capture = ""
+            if scn_capture == "none":
                 r["status"] = "PASS"
+                r["reason"] = "capture=none（无业务填单语义——双端执行成功，不进入字段对拍）"
             else:
-                r["status"] = "BLOCKED"
-                r["reason"] = f"api 双端执行完成但采集不可采信: {'; '.join(problems)[:220]}"
+                problems: list[str] = []
+                ok_l = capture_trustworthy(capbase / "legacy" / f"{r['id']}.json", run_id, str(r["id"]), t0, problems)
+                ok_c = capture_trustworthy(capbase / "current" / f"{r['id']}.json", run_id, str(r["id"]), t0, problems)
+                if ok_l and ok_c:
+                    r["status"] = "PASS"
+                else:
+                    r["status"] = "BLOCKED"
+                    r["reason"] = f"api 双端执行完成但采集不可采信: {'; '.join(problems)[:220]}"
         print(f"[runner] {r['id']} → {r['status']}")
 
 

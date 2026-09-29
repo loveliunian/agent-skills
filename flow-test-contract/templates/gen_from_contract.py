@@ -154,10 +154,15 @@ def gen_scenario(case: dict, c: dict, draft_mark: str = "") -> str:
         "steps": [{"seq": i, "node": st.get("node"), "taskName": f"{st.get('node') or '-'} {st.get('action', '')}",
                    "actorAccount": _actor(st.get("actor")),  # 密码运行时经 env 注入（$RUNTIME_DIR/env / 显式授权 FLOWTEST_DEFAULT_PWD 兜底），永不写入场景；'任一'→observer_actor
                    "expectNext": st.get("next"), "expectAssignee": _assignee(st.get("pick")),
+                   **({"button": st["button"]} if st.get("button") else {}),  # v1.7.6：按钮语义原语（REJECT/CANCEL 等 → api.operations 专属端点；2026-09-29 铁路 C-03/C-06 实战反哺）
                    **({"formData": st["form"]} if isinstance(st.get("form"), dict) and st["form"] else {}),
                    "capture": "form-fields"}  # 双端执行后抓取表单字段值（供 field-level-compare）
                   for i, st in enumerate(case.get("steps", []), 1)],
         "assertions": list(case.get("assertions", [])),
+        # v1.7.6：capture=none → api-capture 执行但不落采集文件（不进入 field-level-compare）——
+        # 适用于无业务填单语义的用例（作废链/纯观察）：全局 field_mappings 的"每 case 全字段
+        # 覆盖"校验对其不适用（2026-09-29 铁路 C-04/C-05 实战反哺）
+        "capture": str(case.get("capture") or "form-fields"),
         "compare": {"rules": "compare-rules.yaml", "pixelDiff": "auxiliary"},  # 像素 diff 仅辅助证据
         "instancePolicy": str(m.get("instance_policy") or "launch"),  # 第十三轮：launch=每 run 发起新实例（默认）；reuse=显式声明才复用待办
     }

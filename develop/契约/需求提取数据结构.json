@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PRD source inventory and structured requirement ledger",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sourceUnit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "heading_path", "start_line", "end_line", "text", "table_headers"],
+      "allOf": [
+        {"if": {"properties": {"kind": {"const": "asset_reference"}}, "required": ["kind"]}, "then": {"required": ["asset_alt_text", "asset_target", "asset_status", "asset_sha256"]}}
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^SRC-[a-f0-9]{20}$"},
+        "kind": {"enum": ["heading", "paragraph", "list_item", "table_header", "table_row", "code_block", "blockquote", "html_block", "opaque_block", "asset_reference"]},
+        "heading_path": {"type": "array", "items": {"type": "string"}},
+        "start_line": {"type": "integer", "minimum": 1},
+        "end_line": {"type": "integer", "minimum": 1},
+        "text": {"type": "string", "minLength": 1},
+        "table_headers": {"type": "array", "items": {"type": "string"}},
+        "source_file": {"type": "string", "minLength": 1},
+        "source_role": {"enum": ["primary_prd", "technical_constraints", "clarification", "domain_review", "prd_review", "acceptance_baseline", "architecture_decisions", "api_contracts", "database_schema", "implementation_baseline", "other"]},
+        "asset_alt_text": {"type": "string"},
+        "asset_target": {"type": "string", "minLength": 1},
+        "asset_status": {"enum": ["resolved", "unresolved"]},
+        "asset_sha256": {"anyOf": [{"type": "string", "pattern": "^[a-f0-9]{64}$"}, {"type": "null"}]}
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "required": ["prd_sha256", "parser_version", "units"],
+      "properties": {
+        "prd_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "source_set_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "parser_version": {"type": "string", "minLength": 1},
+        "source_path": {"type": "string"},
+        "source_documents": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["path", "role", "sha256", "unit_count"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "role": {"type": "string", "minLength": 1},
+              "description": {"type": "string"},
+              "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+              "unit_count": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        "units": {"type": "array", "items": {"$ref": "#/$defs/sourceUnit"}},
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["line", "kind", "message"],
+            "properties": {
+              "line": {"type": "integer", "minimum": 1},
+              "kind": {"type": "string", "minLength": 1},
+              "message": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": ["schema_version", "source_prd_sha256", "parser_version", "extractor_id", "classifications", "requirements", "review_deltas", "independent_review", "asset_reviews"],
+  "allOf": [
+    {"if": {"properties": {"review_deltas": {"maxItems": 0}}, "required": ["review_deltas"]}, "then": {"properties": {"independent_review": {"properties": {"conclusion": {"const": "no_deltas"}}}}}},
+    {"if": {"properties": {"review_deltas": {"minItems": 1}}, "required": ["review_deltas"]}, "then": {"properties": {"independent_review": {"properties": {"conclusion": {"const": "deltas_resolved"}}}}}}
+  ],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "source_prd_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "parser_version": {"type": "string", "minLength": 1},
+    "extractor_id": {"type": "string", "minLength": 1},
+    "classifications": {
+      "description": "Runtime cross-field rule: context, duplicate, and non_requirement classifications require a nonempty reason.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "allOf": [
+          {"if": {"properties": {"classification": {"enum": ["context", "duplicate", "non_requirement"]}}, "required": ["classification"]}, "then": {"required": ["reason"]}}
+        ],
+        "required": ["source_ref", "classification"],
+        "properties": {
+          "source_ref": {"type": "string", "pattern": "^SRC-[a-f0-9]{20}$"},
+          "classification": {"enum": ["functional_requirement", "business_rule", "entity_data", "operation", "permission", "workflow", "ui", "quality", "constraint", "assumption", "non_goal", "risk", "context", "unresolved_question", "duplicate", "non_requirement"]},
+          "reason": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "statement", "status", "mandatory", "testable", "source_refs"],
+        "allOf": [
+          {"if": {"properties": {"status": {"const": "已排除"}}, "required": ["status"]}, "then": {"required": ["resolution_reason"]}}
+        ],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "statement": {"type": "string", "minLength": 1},
+          "status": {"enum": ["已确认", "待澄清", "已排除"]},
+          "mandatory": {"type": "boolean"},
+          "testable": {"type": "boolean"},
+          "resolution_reason": {"type": "string", "minLength": 1},
+          "source_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^SRC-[a-f0-9]{20}$"}},
+          "actors": {"type": "array", "items": {"type": "string"}},
+          "trigger": {"type": "string"},
+          "observable_result": {"type": "string"},
+          "entities": {"type": "array", "items": {"type": "string"}},
+          "operations": {"type": "array", "items": {"type": "string"}},
+          "constraints": {"type": "array", "items": {"type": "string"}},
+          "open_questions": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "review_deltas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "description", "source_refs", "disposition"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "kind": {"enum": ["added", "missing", "changed", "duplicate"]},
+          "requirement_id": {"type": "string"},
+          "description": {"type": "string", "minLength": 1},
+          "source_refs": {"type": "array", "items": {"type": "string", "pattern": "^SRC-[a-f0-9]{20}$"}},
+          "canonical": {"type": "object"},
+          "independent": {"type": "object"},
+          "disposition": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["decision", "rationale", "evidence"],
+            "properties": {
+              "decision": {"enum": ["accept", "reject", "merge"]},
+              "rationale": {"type": "string", "minLength": 1},
+              "evidence": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^SRC-[a-f0-9]{20}$"}}
+            }
+          }
+        }
+      }
+    },
+    "independent_review": {
+      "description": "Human review attestation; matching hashes and recorded evidence do not prove semantic correctness.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewer_id", "status", "reviewed_prd_sha256", "source_unit_count", "conclusion", "evidence"],
+      "allOf": [
+        {"if": {"properties": {"status": {"const": "completed"}}, "required": ["status"]}, "then": {"required": ["reviewed_source_set_sha256"], "properties": {"evidence": {"minItems": 1}}}}
+      ],
+      "properties": {
+        "reviewer_id": {"type": "string", "minLength": 1},
+        "status": {"enum": ["pending", "completed"]},
+        "reviewed_prd_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "reviewed_source_set_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "source_unit_count": {"type": "integer", "minimum": 0},
+        "conclusion": {"enum": ["no_deltas", "deltas_resolved"]},
+        "evidence": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "asset_reviews": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_ref", "status", "summary", "evidence", "asset_sha256"],
+        "properties": {
+          "source_ref": {"type": "string", "pattern": "^SRC-[a-f0-9]{20}$"},
+          "status": {"enum": ["reviewed", "unreviewed"]},
+          "summary": {"type": "string", "minLength": 1},
+          "evidence": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^SRC-[a-f0-9]{20}$"}},
+          "asset_sha256": {"anyOf": [{"type": "string", "pattern": "^[a-f0-9]{64}$"}, {"type": "null"}]}
+        }
+      }
+    }
+  }
+}

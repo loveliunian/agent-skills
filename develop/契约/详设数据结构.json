@@ -1,0 +1,346 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "develop/契约/详设数据结构.json",
+  "title": "develop 详设数据正本",
+  "description": "03-详细设计.json 是详设的结构化正本；Markdown 由脚本按模板确定性渲染。详设 JSON 必须覆盖冻结验收点，并通过引用闭环校验。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project", "baseline", "scope", "glossary", "tables", "apis", "permissions", "rules", "flows", "diagrams", "pages", "dependencies", "reuse_decisions", "quality_decisions", "coverage", "zero_results"],
+  "properties": {
+    "schema_version": {"const": 2},
+    "project": {"type": "string", "minLength": 1},
+    "baseline": {
+      "type": "object", "additionalProperties": false,
+      "required": ["prd", "prd_sha256", "requirements_file", "requirements_version", "acceptance_file", "acceptance_version", "acceptance_sha256"],
+      "properties": {
+        "prd": {"type": "string", "minLength": 1},
+        "prd_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "requirements_file": {"type": "string", "minLength": 1},
+        "requirements_version": {"type": "string", "minLength": 1},
+        "acceptance_file": {"type": "string", "minLength": 1},
+        "acceptance_version": {"type": "string", "minLength": 1},
+        "acceptance_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "scope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["summary", "features", "constraints", "assumptions", "non_goals"],
+      "properties": {
+        "summary": {"type": "string", "minLength": 1},
+        "features": {"type": "array", "items": {"$ref": "#/definitions/feature"}},
+        "constraints": {"type": "array", "items": {"$ref": "#/definitions/source_item"}},
+        "assumptions": {"type": "array", "items": {"$ref": "#/definitions/source_item"}},
+        "non_goals": {"type": "array", "items": {"$ref": "#/definitions/source_item"}}
+      }
+    },
+    "glossary": {"type": "array", "items": {"$ref": "#/definitions/glossary"}},
+    "tables": {"type": "array", "items": {"$ref": "#/definitions/table"}},
+    "apis": {"type": "array", "items": {"$ref": "#/definitions/api"}},
+    "permissions": {"type": "array", "items": {"$ref": "#/definitions/permission"}},
+    "rules": {"type": "array", "items": {"$ref": "#/definitions/rule"}},
+    "flows": {"type": "array", "items": {"$ref": "#/definitions/flow"}},
+    "diagrams": {"type": "array", "items": {"$ref": "#/definitions/diagram"}},
+    "pages": {"type": "array", "items": {"$ref": "#/definitions/page"}},
+    "dependencies": {"type": "array", "items": {"$ref": "#/definitions/dependency"}},
+    "reuse_decisions": {"type": "array", "items": {"$ref": "#/definitions/reuse_decision"}},
+    "quality_decisions": {"type": "array", "items": {"$ref": "#/definitions/quality"}},
+    "domain_objects": {"type": "array", "items": {"$ref": "#/definitions/domain_object"}},
+    "coverage": {"type": "array", "items": {"$ref": "#/definitions/coverage"}},
+    "zero_results": {
+      "type": "object", "additionalProperties": false,
+      "required": ["glossary", "tables", "apis", "permissions", "rules", "flows", "diagrams", "pages", "dependencies", "reuse_decisions", "quality_decisions"],
+      "properties": {
+        "glossary": {"type": "string"},
+        "tables": {"type": "string"}, "apis": {"type": "string"},
+        "permissions": {"type": "string"},
+        "rules": {"type": "string"}, "flows": {"type": "string"},
+        "diagrams": {"type": "string"},
+        "pages": {"type": "string"}, "quality_decisions": {"type": "string"},
+        "dependencies": {"type": "string"}, "reuse_decisions": {"type": "string"},
+        "domain_objects": {"type": "string"}
+      }
+    }
+  },
+  "definitions": {
+    "glossary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "term", "definition", "source_refs", "requirement_refs", "acceptance_refs", "unreferenced_reason"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "term": {"type": "string", "minLength": 1},
+        "definition": {"type": "string", "minLength": 1}, "source_refs": {"$ref": "#/definitions/string_array"},
+        "requirement_refs": {"$ref": "#/definitions/string_array"}, "acceptance_refs": {"$ref": "#/definitions/string_array"},
+        "unreferenced_reason": {"type": "string"}
+      }
+    },
+    "feature": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "responsibility", "requirement_refs", "source_refs"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "name": {"type": "string", "minLength": 1},
+        "responsibility": {"type": "string", "minLength": 1}, "requirement_refs": {"$ref": "#/definitions/string_array"},
+        "source_refs": {"$ref": "#/definitions/string_array"}
+      }
+    },
+    "source_item": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "description", "source"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "description": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "minLength": 1}
+      }
+    },
+    "table": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "purpose", "relations", "primary_key", "unique_constraints", "indexes", "fields", "requirement_refs", "source_refs", "acceptance_refs", "unreferenced_reason"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "name": {"type": "string", "minLength": 1},
+        "purpose": {"type": "string", "minLength": 1}, "relations": {"$ref": "#/definitions/string_array"},
+        "primary_key": {"type": "string", "minLength": 1}, "unique_constraints": {"$ref": "#/definitions/string_array"},
+        "indexes": {"$ref": "#/definitions/string_array"}, "lifecycle": {"type": "string"},
+        "fields": {"type": "array", "minItems": 1, "items": {"$ref": "#/definitions/table_field"}},
+        "requirement_refs": {"$ref": "#/definitions/string_array"}, "source_refs": {"$ref": "#/definitions/string_array"},
+        "acceptance_refs": {"$ref": "#/definitions/string_array"}, "unreferenced_reason": {"type": "string"}
+      }
+    },
+    "table_field": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "type", "nullable", "default", "constraints", "description", "source", "decision_reason", "requirement_refs", "source_refs"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1}, "type": {"type": "string", "minLength": 1},
+        "nullable": {"type": "string", "minLength": 1}, "default": {"type": "string", "minLength": 1},
+        "constraints": {"type": "string", "minLength": 1}, "description": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "minLength": 1}, "decision_reason": {"type": "string"},
+        "requirement_refs": {"$ref": "#/definitions/string_array"}, "source_refs": {"$ref": "#/definitions/string_array"},
+        "acceptance_refs": {"$ref": "#/definitions/string_array"}
+      }
+    },
+    "api": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "method", "path", "permission", "purpose", "request_fields", "response_fields", "no_request_reason", "no_response_reason", "errors", "error_summary", "transaction", "idempotency", "timeout", "table_refs", "rule_refs", "requirement_refs", "source_refs", "acceptance_refs", "unreferenced_reason"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "name": {"type": "string", "minLength": 1},
+        "method": {"type": "string", "minLength": 1}, "path": {"type": "string", "minLength": 1},
+        "permission": {"type": "string", "minLength": 1}, "purpose": {"type": "string", "minLength": 1},
+        "request_fields": {"type": "array", "items": {"$ref": "#/definitions/request_field"}},
+        "response_fields": {"type": "array", "items": {"$ref": "#/definitions/response_field"}},
+        "no_request_reason": {"type": "string"}, "no_response_reason": {"type": "string"},
+        "errors": {"type": "array", "items": {"$ref": "#/definitions/error"}},
+        "error_summary": {"type": "string", "minLength": 1},
+        "transaction": {"type": "string", "minLength": 1}, "idempotency": {"type": "string", "minLength": 1},
+        "timeout": {"type": "string", "minLength": 1},
+        "table_refs": {"$ref": "#/definitions/string_array"}, "rule_refs": {"$ref": "#/definitions/string_array"},
+        "requirement_refs": {"$ref": "#/definitions/string_array"}, "source_refs": {"$ref": "#/definitions/string_array"},
+        "acceptance_refs": {"$ref": "#/definitions/string_array"}, "unreferenced_reason": {"type": "string"}
+      }
+    },
+    "permission": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "subject", "operation", "permission_code", "data_scope", "api_refs", "page_refs", "rule_refs", "source_refs", "requirement_refs", "acceptance_refs", "unreferenced_reason"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "subject": {"type": "string", "minLength": 1},
+        "operation": {"type": "string", "minLength": 1}, "permission_code": {"type": "string", "minLength": 1},
+        "data_scope": {"type": "string", "minLength": 1}, "api_refs": {"$ref": "#/definitions/string_array"},
+        "page_refs": {"$ref": "#/definitions/string_array"}, "rule_refs": {"$ref": "#/definitions/string_array"},
+        "source_refs": {"$ref": "#/definitions/string_array"}, "requirement_refs": {"$ref": "#/definitions/string_array"},
+        "acceptance_refs": {"$ref": "#/definitions/string_array"}, "unreferenced_reason": {"type": "string"}
+      }
+    },
+    "request_field": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "type", "required", "validation", "source", "sensitivity", "data_refs", "requirement_refs", "source_refs"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1}, "type": {"type": "string", "minLength": 1},
+        "required": {"type": "string", "minLength": 1}, "validation": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "minLength": 1}, "sensitivity": {"type": "string", "minLength": 1},
+        "data_refs": {"$ref": "#/definitions/string_array"},
+        "requirement_refs": {"$ref": "#/definitions/string_array"}, "source_refs": {"$ref": "#/definitions/string_array"}
+      }
+    },
+    "response_field": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "type", "presence", "value_rule", "source", "sensitivity", "data_refs", "requirement_refs", "source_refs"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1}, "type": {"type": "string", "minLength": 1},
+        "presence": {"type": "string", "minLength": 1}, "value_rule": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "minLength": 1}, "sensitivity": {"type": "string", "minLength": 1},
+        "data_refs": {"$ref": "#/definitions/string_array"},
+        "requirement_refs": {"$ref": "#/definitions/string_array"}, "source_refs": {"$ref": "#/definitions/string_array"}
+      }
+    },
+    "error": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code", "http_status", "condition", "message"],
+      "properties": {
+        "code": {"type": "string", "minLength": 1}, "http_status": {"type": "string", "minLength": 1},
+        "condition": {"type": "string", "minLength": 1}, "message": {"type": "string", "minLength": 1}
+      }
+    },
+    "rule": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "condition", "result", "error_semantics", "source_refs", "requirement_refs", "table_refs", "api_refs", "acceptance_refs", "unreferenced_reason"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "name": {"type": "string", "minLength": 1},
+        "condition": {"type": "string", "minLength": 1}, "result": {"type": "string", "minLength": 1},
+        "error_semantics": {"type": "string", "minLength": 1}, "source_refs": {"$ref": "#/definitions/string_array"},
+        "requirement_refs": {"$ref": "#/definitions/string_array"},
+        "table_refs": {"$ref": "#/definitions/string_array"}, "api_refs": {"$ref": "#/definitions/string_array"},
+        "acceptance_refs": {"$ref": "#/definitions/string_array"}, "unreferenced_reason": {"type": "string"}
+      }
+    },
+    "flow": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "actor", "trigger", "preconditions", "steps", "state_transition", "transaction_concurrency", "success", "failure_recovery", "table_refs", "api_refs", "rule_refs", "requirement_refs", "source_refs", "acceptance_refs", "unreferenced_reason"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "name": {"type": "string", "minLength": 1},
+        "actor": {"type": "string", "minLength": 1}, "trigger": {"type": "string", "minLength": 1},
+        "preconditions": {"$ref": "#/definitions/string_array"},
+        "steps": {"type": "array", "minItems": 1, "items": {"$ref": "#/definitions/flow_step"}},
+        "state_transition": {"type": "string", "minLength": 1},
+        "transaction_concurrency": {"type": "string", "minLength": 1},
+        "success": {"type": "string", "minLength": 1}, "failure_recovery": {"type": "string", "minLength": 1},
+        "table_refs": {"$ref": "#/definitions/string_array"}, "api_refs": {"$ref": "#/definitions/string_array"},
+        "rule_refs": {"$ref": "#/definitions/string_array"},
+        "requirement_refs": {"$ref": "#/definitions/string_array"}, "source_refs": {"$ref": "#/definitions/string_array"},
+        "acceptance_refs": {"$ref": "#/definitions/string_array"}, "unreferenced_reason": {"type": "string"}
+      }
+    },
+    "flow_step": {
+      "type": "object", "additionalProperties": false,
+      "required": ["action", "result"],
+      "properties": {"action": {"type": "string", "minLength": 1}, "result": {"type": "string", "minLength": 1}}
+    },
+    "diagram": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "title", "format", "body", "typed_refs", "source_refs", "requirement_refs", "acceptance_refs", "unreferenced_reason"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "kind": {"type": "string", "minLength": 1},
+        "title": {"type": "string", "minLength": 1}, "format": {"type": "string", "minLength": 1},
+        "body": {"type": "string", "minLength": 1}, "typed_refs": {"type": "array", "items": {"$ref": "#/definitions/typed_ref"}},
+        "source_refs": {"$ref": "#/definitions/string_array"}, "requirement_refs": {"$ref": "#/definitions/string_array"},
+        "acceptance_refs": {"$ref": "#/definitions/string_array"}, "unreferenced_reason": {"type": "string"}
+      }
+    },
+    "page": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "route", "component", "permission", "page_type", "controls", "actions", "dialogs", "states", "empty_content_reason", "requirement_refs", "source_refs", "acceptance_refs", "unreferenced_reason"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "name": {"type": "string", "minLength": 1},
+        "route": {"type": "string", "minLength": 1}, "component": {"type": "string", "minLength": 1},
+        "permission": {"type": "string", "minLength": 1}, "page_type": {"type": "string", "minLength": 1},
+        "controls": {"type": "array", "items": {"$ref": "#/definitions/control"}},
+        "actions": {"type": "array", "items": {"$ref": "#/definitions/action"}},
+        "dialogs": {"type": "array", "items": {"$ref": "#/definitions/dialog"}},
+        "states": {"$ref": "#/definitions/string_array"}, "empty_content_reason": {"type": "string"},
+        "requirement_refs": {"$ref": "#/definitions/string_array"}, "source_refs": {"$ref": "#/definitions/string_array"},
+        "acceptance_refs": {"$ref": "#/definitions/string_array"}, "unreferenced_reason": {"type": "string"}
+      }
+    },
+    "control": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "control", "validation", "source", "test_anchor", "api_refs", "data_refs"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1}, "control": {"type": "string", "minLength": 1},
+        "validation": {"type": "string", "minLength": 1}, "source": {"type": "string", "minLength": 1},
+        "test_anchor": {"type": "string", "minLength": 1}, "api_refs": {"$ref": "#/definitions/string_array"},
+        "data_refs": {"$ref": "#/definitions/string_array"}
+      }
+    },
+    "action": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "permission", "api_refs", "rule_refs", "feedback", "test_anchor"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1}, "permission": {"type": "string", "minLength": 1},
+        "api_refs": {"$ref": "#/definitions/string_array"}, "rule_refs": {"$ref": "#/definitions/string_array"},
+        "feedback": {"type": "string", "minLength": 1}, "test_anchor": {"type": "string", "minLength": 1}
+      }
+    },
+    "dialog": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "component", "permission", "api_refs", "state", "test_anchor"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1}, "component": {"type": "string", "minLength": 1},
+        "permission": {"type": "string", "minLength": 1}, "api_refs": {"$ref": "#/definitions/string_array"},
+        "state": {"type": "string", "minLength": 1}, "test_anchor": {"type": "string", "minLength": 1}
+      }
+    },
+    "quality": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "dimension", "applies", "decision", "rationale", "source_refs", "requirement_refs", "acceptance_refs", "unreferenced_reason"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "dimension": {"type": "string", "minLength": 1},
+        "applies": {"type": "boolean"}, "decision": {"type": "string", "minLength": 1},
+        "rationale": {"type": "string", "minLength": 1}, "source_refs": {"$ref": "#/definitions/string_array"},
+        "requirement_refs": {"$ref": "#/definitions/string_array"},
+        "acceptance_refs": {"$ref": "#/definitions/string_array"}, "unreferenced_reason": {"type": "string"}
+      }
+    },
+    "dependency": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "direction", "purpose", "contract", "owner", "failure_handling", "typed_refs", "source_refs", "requirement_refs", "acceptance_refs", "unreferenced_reason"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "name": {"type": "string", "minLength": 1},
+        "direction": {"type": "string", "minLength": 1}, "purpose": {"type": "string", "minLength": 1},
+        "contract": {"type": "string", "minLength": 1}, "owner": {"type": "string", "minLength": 1},
+        "failure_handling": {"type": "string", "minLength": 1}, "typed_refs": {"type": "array", "items": {"$ref": "#/definitions/typed_ref"}},
+        "source_refs": {"$ref": "#/definitions/string_array"}, "requirement_refs": {"$ref": "#/definitions/string_array"},
+        "acceptance_refs": {"$ref": "#/definitions/string_array"}, "unreferenced_reason": {"type": "string"}
+      }
+    },
+    "reuse_decision": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "component", "use", "decision", "rationale", "alternatives", "typed_refs", "source_refs", "requirement_refs", "acceptance_refs", "unreferenced_reason"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "component": {"type": "string", "minLength": 1},
+        "use": {"type": "string", "minLength": 1}, "decision": {"type": "string", "minLength": 1},
+        "rationale": {"type": "string", "minLength": 1}, "alternatives": {"$ref": "#/definitions/string_array"},
+        "typed_refs": {"type": "array", "items": {"$ref": "#/definitions/typed_ref"}},
+        "source_refs": {"$ref": "#/definitions/string_array"}, "requirement_refs": {"$ref": "#/definitions/string_array"},
+        "acceptance_refs": {"$ref": "#/definitions/string_array"}, "unreferenced_reason": {"type": "string"}
+      }
+    },
+    "domain_object": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "id", "name", "summary", "attributes", "typed_refs", "requirement_refs", "source_refs", "acceptance_refs", "unreferenced_reason"],
+      "properties": {
+        "kind": {"type": "string", "minLength": 1},
+        "id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "summary": {"type": "string", "minLength": 1},
+        "attributes": {"type": "object", "additionalProperties": true},
+        "typed_refs": {"type": "array", "items": {"$ref": "#/definitions/typed_ref"}},
+        "requirement_refs": {"$ref": "#/definitions/string_array"},
+        "source_refs": {"$ref": "#/definitions/string_array"},
+        "acceptance_refs": {"$ref": "#/definitions/string_array"},
+        "unreferenced_reason": {"type": "string"}
+      }
+    },
+    "typed_ref": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {"type": "string", "minLength": 1},
+        "id": {"type": "string", "minLength": 1}
+      }
+    },
+    "domain_ref": {"$ref": "#/definitions/typed_ref"},
+    "coverage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["acceptance_id", "requirement_refs", "source_refs", "glossary_refs", "table_refs", "api_refs", "permission_refs", "rule_refs", "flow_refs", "diagram_refs", "page_refs", "dependency_refs", "reuse_refs", "quality_refs", "verification", "test_ids", "not_applicable_reason"],
+      "properties": {
+        "acceptance_id": {"type": "string", "minLength": 1},
+        "requirement_refs": {"$ref": "#/definitions/string_array"}, "source_refs": {"$ref": "#/definitions/string_array"},
+        "glossary_refs": {"$ref": "#/definitions/string_array"},
+        "table_refs": {"$ref": "#/definitions/string_array"}, "api_refs": {"$ref": "#/definitions/string_array"},
+        "permission_refs": {"$ref": "#/definitions/string_array"},
+        "rule_refs": {"$ref": "#/definitions/string_array"}, "flow_refs": {"$ref": "#/definitions/string_array"},
+        "diagram_refs": {"$ref": "#/definitions/string_array"},
+        "page_refs": {"$ref": "#/definitions/string_array"}, "quality_refs": {"$ref": "#/definitions/string_array"},
+        "dependency_refs": {"$ref": "#/definitions/string_array"}, "reuse_refs": {"$ref": "#/definitions/string_array"},
+        "domain_refs": {"type": "array", "items": {"$ref": "#/definitions/domain_ref"}},
+        "verification": {"type": "string", "minLength": 1}, "test_ids": {"$ref": "#/definitions/string_array"},
+        "not_applicable_reason": {"type": "string"}
+      }
+    },
+    "string_array": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  }
+}

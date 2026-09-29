@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "path": "docs/requirements/task-reminder-constraints.md",
+      "role": "technical_constraints",
+      "required": true,
+      "description": "示例约束：提醒时间由服务端校验；时间统一存储为 UTC。"
+    },
+    {
+      "path": "docs/requirements/task-reminder-decisions.md",
+      "role": "clarification",
+      "required": false,
+      "description": "示例澄清：首期只支持单次提醒，不包含外部通知。"
+    },
+    {
+      "path": "docs/design/task-reminder-baseline.md",
+      "role": "implementation_baseline",
+      "required": false,
+      "description": "示例实现基线：记录现有任务表、任务 API 和页面路由的源码定位。"
+    }
+  ]
+}

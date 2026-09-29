@@ -7,6 +7,7 @@
 | Skill | 版本 | 说明 |
 |-------|------|------|
 | [devflow](./devflow/) | 3.32.0 | PRD 到生产的阶段门禁交付流程：需求澄清、技术选型、详细设计、规范实现、测试、部署、监控、文档、复盘，支持 checkpoint 恢复。核心流程与技术栈解耦（Runtime Profile），内置 Java/Spring/Flyway 参考 Profile；客户端覆盖 PC Web、微信小程序和移动端。 |
+| [develop](./develop/) | 1.0.0 | PRD、原子验收点、JSON 正本详设与评审、OpenSpec + TDD、测试验收和复盘；提供逐表/接口/流程/页面的详尽标准与文档对账。 |
 | [flow-test-contract](./flow-test-contract/) | 1.7.5 | 契约化流程迁移测试：双端对拍、覆盖账本、发布门禁与断点复跑。 |
 
 ## 同步（唯一入口）
@@ -31,10 +32,12 @@ git clone https://github.com/loveliunian/agent-skills.git "$HOME/.local/share/ag
 # Claude Code
 mkdir -p "$HOME/.claude/skills"
 ln -sfn "$HOME/.local/share/agent-skills/devflow" "$HOME/.claude/skills/devflow"
+ln -sfn "$HOME/.local/share/agent-skills/develop" "$HOME/.claude/skills/develop"
 
 # Codex（当前官方 user scope；旧的 ~/.codex/skills 已过时）
 mkdir -p "$HOME/.agents/skills"
 ln -sfn "$HOME/.local/share/agent-skills/devflow" "$HOME/.agents/skills/devflow"
+ln -sfn "$HOME/.local/share/agent-skills/develop" "$HOME/.agents/skills/develop"
 ```
 
 或使用 devflow 自带安装器（同样为软链、幂等、不覆盖实体目录）：

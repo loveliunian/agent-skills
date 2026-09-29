@@ -1,0 +1,20 @@
+{
+  "schema_version": "1",
+  "source_prd_sha256": "placeholder",
+  "parser_version": "1",
+  "extractor_id": "prd-extractor-v1",
+  "independent_review": {
+    "reviewer_id": "independent-human-reviewer",
+    "status": "completed",
+    "reviewed_prd_sha256": "placeholder",
+    "source_unit_count": 10,
+    "conclusion": "deltas_resolved",
+    "evidence": ["Independent review fixture evidence."]
+  },
+  "classifications": [],
+  "requirements": [],
+  "review_deltas": [
+    {"id": "DELTA-1", "kind": "missing", "description": "Need review", "source_texts": []}
+  ],
+  "asset_reviews": []
+}

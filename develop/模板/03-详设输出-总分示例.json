@@ -1,0 +1,79 @@
+{
+  "schema_version": 2,
+  "mode": "total_subdocuments",
+  "mode_reason": "设备主数据和巡检任务由不同服务及团队负责，需独立演进；总文档保留跨服务关系和全量验收索引。",
+  "total": {
+    "id": "total",
+    "path": "docs/详细设计/设备管理-总详设.md",
+    "template_id": "详细设计-模板",
+    "template_version": "1.3.0",
+    "acceptance_ids": ["AC-ASSET-001", "AC-INSPECTION-001"],
+    "object_refs": {
+      "features": ["F-ASSET", "F-INSPECTION"],
+      "glossary": ["TERM-ASSET", "TERM-TASK"],
+      "tables": ["asset", "inspection_task"],
+      "apis": ["API-ASSET-GET", "API-INSPECTION-SUBMIT"],
+      "permissions": ["PERM-ASSET-READ", "PERM-INSPECTION-COMPLETE"],
+      "rules": ["RULE-ASSET-READ", "RULE-INSPECTION-COMPLETE"],
+      "flows": ["FLOW-ASSET-LOOKUP", "FLOW-INSPECTION-SUBMIT"],
+      "diagrams": ["DIAGRAM-ASSET-INSPECTION"],
+      "pages": ["PAGE-ASSET", "PAGE-INSPECTION"],
+      "dependencies": ["DEP-ASSET-SERVICE"],
+      "reuse_decisions": ["REUSE-AUDIT-CLIENT"],
+      "quality_decisions": ["QUALITY-ORG-SCOPE"],
+      "domain_objects": ["inspection_policy:POLICY-DEFAULT"]
+    }
+  },
+  "subdocuments": [
+    {
+      "id": "asset",
+      "path": "docs/详细设计/01-设备主数据-详设.md",
+      "template_id": "详细设计-模板",
+      "template_version": "1.3.0",
+      "acceptance_ids": ["AC-ASSET-001"],
+      "object_refs": {
+        "features": ["F-ASSET"],
+        "glossary": ["TERM-ASSET"],
+        "tables": ["asset"],
+        "apis": ["API-ASSET-GET"],
+        "permissions": ["PERM-ASSET-READ"],
+        "rules": ["RULE-ASSET-READ"],
+        "flows": ["FLOW-ASSET-LOOKUP"],
+        "diagrams": ["DIAGRAM-ASSET-INSPECTION"],
+        "pages": ["PAGE-ASSET"],
+        "dependencies": ["DEP-ASSET-SERVICE"],
+        "reuse_decisions": ["REUSE-AUDIT-CLIENT"],
+        "quality_decisions": ["QUALITY-ORG-SCOPE"],
+        "domain_objects": []
+      }
+    },
+    {
+      "id": "inspection",
+      "path": "docs/详细设计/02-巡检任务-详设.md",
+      "template_id": "详细设计-模板",
+      "template_version": "1.3.0",
+      "acceptance_ids": ["AC-INSPECTION-001"],
+      "object_refs": {
+        "features": ["F-INSPECTION"],
+        "glossary": ["TERM-TASK"],
+        "tables": ["inspection_task"],
+        "apis": ["API-INSPECTION-SUBMIT"],
+        "permissions": ["PERM-INSPECTION-COMPLETE"],
+        "rules": ["RULE-INSPECTION-COMPLETE"],
+        "flows": ["FLOW-INSPECTION-SUBMIT"],
+        "diagrams": ["DIAGRAM-ASSET-INSPECTION"],
+        "pages": ["PAGE-INSPECTION"],
+        "dependencies": ["DEP-ASSET-SERVICE"],
+        "reuse_decisions": ["REUSE-AUDIT-CLIENT"],
+        "quality_decisions": ["QUALITY-ORG-SCOPE"],
+        "domain_objects": ["inspection_policy:POLICY-DEFAULT"]
+      }
+    }
+  ],
+  "shared_object_refs": [
+    {"kind": "diagrams", "id": "DIAGRAM-ASSET-INSPECTION"},
+    {"kind": "dependencies", "id": "DEP-ASSET-SERVICE"},
+    {"kind": "reuse_decisions", "id": "REUSE-AUDIT-CLIENT"},
+    {"kind": "quality_decisions", "id": "QUALITY-ORG-SCOPE"}
+  ]
+}

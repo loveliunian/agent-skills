@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "path": "docs/requirements/{{technical-constraints-file}}.md",
+      "role": "technical_constraints",
+      "required": false,
+      "description": "已批准的技术约束；删除示例项或换成本项目真实路径。"
+    },
+    {
+      "path": "docs/requirements/{{clarification-file}}.md",
+      "role": "clarification",
+      "required": false,
+      "description": "PRD 评审后的歧义裁决和边界决策。"
+    },
+    {
+      "path": "docs/design/{{project-baseline-file}}.md",
+      "role": "implementation_baseline",
+      "required": false,
+      "description": "从现有源码、API 定义和数据库迁移整理的事实索引，须带文件/符号/行号定位。"
+    }
+  ]
+}

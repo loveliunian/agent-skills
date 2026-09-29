@@ -1,0 +1,25 @@
+{
+  "schema_version": "1",
+  "source_prd_sha256": "99d3455ba4dcd995dc8e8074fbb848ab196acee84224333828f1607af5b4a473",
+  "parser_version": "1",
+  "extractor_id": "prd-extractor-v1",
+  "independent_review": {
+    "reviewer_id": "independent-human-reviewer",
+    "status": "completed",
+    "reviewed_prd_sha256": "99d3455ba4dcd995dc8e8074fbb848ab196acee84224333828f1607af5b4a473",
+    "source_unit_count": 10,
+    "conclusion": "no_deltas",
+    "evidence": ["Independent review fixture evidence."]
+  },
+  "classifications": [
+    {"source_ref": "SRC-1169b20a1db490d727ef", "classification": "context", "reason": "标题"},
+    {"source_ref": "SRC-07b9ebaf6d6fb02db9c4", "classification": "functional_requirement"},
+    {"source_ref": "SRC-UNKNOWN", "classification": "non_requirement", "reason": "无"}
+  ],
+  "requirements": [
+    {"id": "REQ-DUP", "statement": "重复一", "status": "已确认", "mandatory": true, "testable": true, "source_refs": ["SRC-07b9ebaf6d6fb02db9c4", "SRC-UNKNOWN"]},
+    {"id": "REQ-DUP", "statement": "重复二", "status": "已确认", "mandatory": true, "testable": true, "source_refs": ["SRC-07b9ebaf6d6fb02db9c4"]}
+  ],
+  "review_deltas": [],
+  "asset_reviews": []
+}

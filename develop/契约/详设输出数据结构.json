@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "develop/契约/详设输出数据结构.json",
+  "title": "develop 详设输出模式结构",
+  "description": "明确选择单份详设或总分详设；总文档路径可配置，分包模式要求子文档闭合对象归属和冻结验收点集合。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "mode", "mode_reason", "total", "subdocuments", "shared_object_refs"],
+  "properties": {
+    "schema_version": {"const": 2},
+    "mode": {"type": "string", "enum": ["single", "total_subdocuments"]},
+    "mode_reason": {"type": "string", "minLength": 1},
+    "total": {"$ref": "#/definitions/document"},
+    "subdocuments": {"type": "array", "items": {"$ref": "#/definitions/document"}},
+    "shared_object_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/definitions/shared_object_ref"}
+    }
+  },
+  "definitions": {
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "template_id", "template_version", "acceptance_ids", "object_refs"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "template_id": {"type": "string", "minLength": 1},
+        "template_version": {"type": "string", "minLength": 1},
+        "acceptance_ids": {"$ref": "#/definitions/string_array"},
+        "object_refs": {"$ref": "#/definitions/object_refs"}
+      }
+    },
+    "object_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["glossary", "tables", "apis", "permissions", "rules", "flows", "diagrams", "pages", "dependencies", "reuse_decisions", "quality_decisions"],
+      "properties": {
+        "features": {"$ref": "#/definitions/string_array"},
+        "glossary": {"$ref": "#/definitions/string_array"},
+        "tables": {"$ref": "#/definitions/string_array"},
+        "apis": {"$ref": "#/definitions/string_array"},
+        "permissions": {"$ref": "#/definitions/string_array"},
+        "rules": {"$ref": "#/definitions/string_array"},
+        "flows": {"$ref": "#/definitions/string_array"},
+        "diagrams": {"$ref": "#/definitions/string_array"},
+        "pages": {"$ref": "#/definitions/string_array"},
+        "dependencies": {"$ref": "#/definitions/string_array"},
+        "reuse_decisions": {"$ref": "#/definitions/string_array"},
+        "quality_decisions": {"$ref": "#/definitions/string_array"},
+        "domain_objects": {"$ref": "#/definitions/string_array"}
+      }
+    },
+    "shared_object_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["features", "glossary", "tables", "apis", "permissions", "rules", "flows", "diagrams", "pages", "dependencies", "reuse_decisions", "quality_decisions", "domain_objects"]},
+        "id": {"type": "string", "minLength": 1}
+      }
+    },
+    "string_array": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  }
+}

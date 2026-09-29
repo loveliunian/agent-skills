@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "develop/契约/需求来源配置数据结构.json",
+  "title": "develop supplementary Markdown source registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "sources"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "role", "required", "description"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "role": {"enum": ["technical_constraints", "clarification", "domain_review", "prd_review", "acceptance_baseline", "architecture_decisions", "api_contracts", "database_schema", "implementation_baseline", "other"]},
+          "required": {"type": "boolean"},
+          "description": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}
