@@ -15,7 +15,7 @@
         "required": ["path", "role", "required", "description"],
         "properties": {
           "path": {"type": "string", "minLength": 1},
-          "role": {"enum": ["technical_constraints", "clarification", "domain_review", "prd_review", "acceptance_baseline", "architecture_decisions", "api_contracts", "database_schema", "implementation_baseline", "other"]},
+          "role": {"enum": ["technical_constraints", "clarification", "domain_review", "prd_review", "acceptance_baseline", "architecture_decisions", "api_contracts", "database_schema", "implementation_baseline", "legacy_design_reference", "other"]},
           "required": {"type": "boolean"},
           "description": {"type": "string", "minLength": 1}
         }

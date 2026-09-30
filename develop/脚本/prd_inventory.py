@@ -15,7 +15,7 @@ PARSER_VERSION = "2"
 SOURCE_ROLES = {
     "technical_constraints", "clarification", "domain_review", "prd_review",
     "acceptance_baseline", "architecture_decisions", "api_contracts", "database_schema",
-    "implementation_baseline", "other",
+    "implementation_baseline", "legacy_design_reference", "other",
 }
 CLASSIFICATIONS = {
     "functional_requirement",
@@ -109,6 +109,31 @@ def _table_cells(line):
 def _is_separator(line):
     cells = _table_cells(line)
     return bool(cells) and all(_TABLE_SEPARATOR_CELL.fullmatch(cell.replace(" ", "")) for cell in cells)
+
+
+def _srcset_urls(value):
+    """Extract srcset URL tokens without splitting commas inside data URLs."""
+    urls = []
+    index = 0
+    while index < len(value):
+        while index < len(value) and (value[index].isspace() or value[index] == ","):
+            index += 1
+        if index >= len(value):
+            break
+        start = index
+        while index < len(value) and not value[index].isspace():
+            index += 1
+        raw_candidate = value[start:index]
+        candidate = raw_candidate.rstrip(",")
+        if candidate:
+            urls.append(candidate)
+        if raw_candidate.endswith(","):
+            continue
+        while index < len(value) and value[index] != ",":
+            index += 1
+        if index < len(value):
+            index += 1
+    return urls
 
 
 def _hash_local_asset(target, prd_path, project_root=None, max_bytes=None):
@@ -257,9 +282,7 @@ def scan_prd(
                 if not raw_targets:
                     continue
                 if attribute == "srcset":
-                    if raw_targets.casefold().startswith("data:"):
-                        continue
-                    targets = [part.strip().split()[0] for part in raw_targets.split(",") if part.strip()]
+                    targets = _srcset_urls(raw_targets)
                 else:
                     targets = [raw_targets]
                 for target in targets:

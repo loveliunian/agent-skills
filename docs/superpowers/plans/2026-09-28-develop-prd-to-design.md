@@ -343,11 +343,11 @@ Report separate results for PRD source inventory, requirement extraction reconci
 - Modify: `develop/SKILL.md`, `develop/标准/详尽详设标准.md`
 - Modify: `docs/superpowers/specs/2026-09-28-develop-document-generation-design.md`
 
-- [ ] Add typed design sections for terminology, permission matrices, diagrams, dependencies, and reuse decisions, including source/requirement/acceptance traceability and package ownership.
-- [ ] Add explicit `single` and `total_subdocuments` output modes, record the frozen mode rationale, and let single mode derive the complete object/acceptance set from the design JSON and frozen baseline; total/subdocument mode requires explicit module ownership, exact acceptance unions, and closed references.
-- [ ] Allow a caller-specified total-document path such as `m01-base-详细设计.md`, while keeping outputs inside the project root and including each emitted Markdown file in the generation receipt.
-- [ ] Update skill instructions and the detailed-design standard with a mode-selection decision and complete full-design coverage requirements.
-- [ ] Perform non-test static review of schema, manifest/template identities, file references, mode branches, and safe output paths; do not modify DevFlow or the target M01 artifact.
+- [x] Add typed design sections for terminology, permission matrices, diagrams, dependencies, and reuse decisions, including source/requirement/acceptance traceability and package ownership.
+- [x] Add explicit `single` and `total_subdocuments` output modes, record the frozen mode rationale, and let single mode derive the complete object/acceptance set from the design JSON and frozen baseline; total/subdocument mode requires explicit module ownership, exact acceptance unions, and closed references.
+- [x] Allow a caller-specified total-document path such as `m01-base-详细设计.md`, while keeping outputs inside the project root and including each emitted Markdown file in the generation receipt.
+- [x] Update skill instructions and the detailed-design standard with a mode-selection decision and complete full-design coverage requirements.
+- [x] Perform non-test static review of schema, manifest/template identities, file references, mode branches, and safe output paths; do not modify DevFlow or the target M01 artifact.
 
 ## Task 12: Import existing M01 baseline documents into develop without weakening gates
 

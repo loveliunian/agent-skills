@@ -22,6 +22,14 @@ def load_json(path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def source_set_sha256(inventory):
+    actual = inventory.get("source_set_sha256")
+    if actual:
+        return actual
+    primary_record = f"{inventory['source_path']}\0primary_prd\0{inventory['prd_sha256']}"
+    return hashlib.sha256(primary_record.encode("utf-8")).hexdigest()
+
+
 def ledger_for(inventory, fixture_name="complete.json"):
     ledger = load_json(FIXTURES / "requirements" / fixture_name)
     ledger["schema_version"] = "1"
@@ -32,6 +40,7 @@ def ledger_for(inventory, fixture_name="complete.json"):
         "reviewer_id": "independent-reviewer",
         "status": "completed",
         "reviewed_prd_sha256": inventory["prd_sha256"],
+        "reviewed_source_set_sha256": source_set_sha256(inventory),
         "source_unit_count": len(inventory["units"]),
         "conclusion": "no_deltas" if not ledger.get("review_deltas") else "deltas_resolved",
         "evidence": ["Independent line-by-line comparison against the PRD and source inventory."],
@@ -49,6 +58,7 @@ def asset_ledger_for(inventory, asset_review_status="reviewed"):
             "reviewer_id": "asset-reviewer",
             "status": "completed",
             "reviewed_prd_sha256": inventory["prd_sha256"],
+            "reviewed_source_set_sha256": source_set_sha256(inventory),
             "source_unit_count": len(inventory["units"]),
             "conclusion": "no_deltas",
             "evidence": ["Reviewed all PRD source units independently."],
@@ -96,6 +106,29 @@ class PrdInventoryTests(unittest.TestCase):
         data_row = next(unit for unit in result["units"] if unit["text"] == "退款单号 | 唯一标识退款单")
         self.assertEqual(data_row["table_headers"], ["字段", "说明"])
         self.assertEqual(data_row["start_line"], 14)
+
+    def test_legacy_design_reference_role_is_inventoried_as_non_prd_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            prd = project / "prd.md"
+            prd.write_text("# PRD\n\n## Requirement\n\nDo the thing.\n", encoding="utf-8")
+            reference = project / "docs" / "reference" / "legacy-design-comparison.md"
+            reference.parent.mkdir(parents=True)
+            reference.write_text("# Comparison only\n\nNot normative.\n", encoding="utf-8")
+
+            inventory = prd_inventory.scan_prd_sources(
+                prd,
+                [{
+                    "path": "docs/reference/legacy-design-comparison.md",
+                    "role": "legacy_design_reference",
+                    "required": True,
+                    "description": "Comparison only; not a normative PRD source.",
+                }],
+                project_root=project,
+            )
+
+        self.assertEqual(inventory["source_documents"][1]["role"], "legacy_design_reference")
+        self.assertTrue(any(unit["source_role"] == "legacy_design_reference" for unit in inventory["units"]))
 
     def test_ids_do_not_depend_on_line_numbers(self):
         source = FIXTURES / "prd" / "complete.md"
@@ -232,6 +265,29 @@ class PrdInventoryTests(unittest.TestCase):
         self.assertIn(("wireframe-1x.png", ""), refs)
         self.assertIn(("wireframe-2x.png", ""), refs)
 
+    def test_srcset_keeps_data_uri_commas_inside_the_candidate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "prd.md"
+            source.write_text(
+                '<img srcset="fallback.png 1x, data:image/png;base64,AAAA 2x">\n',
+                encoding="utf-8",
+            )
+            result = prd_inventory.scan_prd(source)
+        targets = [unit["asset_target"] for unit in result["units"] if unit["kind"] == "asset_reference"]
+        self.assertEqual(targets, ["fallback.png"])
+
+    def test_srcset_data_candidate_without_descriptor_does_not_swallow_external_asset(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "prd.md"
+            source.write_text(
+                '<img srcset="data:image/png;base64,AAAA, https://cdn.example.test/fallback.png">\n',
+                encoding="utf-8",
+            )
+            result = prd_inventory.scan_prd(source)
+        assets = [unit for unit in result["units"] if unit["kind"] == "asset_reference"]
+        self.assertEqual([unit["asset_target"] for unit in assets], ["https://cdn.example.test/fallback.png"])
+        self.assertEqual(assets[0]["asset_status"], "unresolved")
+
     def test_reference_style_markdown_links_resolve_to_asset_units(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -248,6 +304,33 @@ class PrdInventoryTests(unittest.TestCase):
         self.assertEqual(assets[0]["asset_target"], "wireframe.png")
         self.assertEqual(assets[0]["asset_alt_text"], "流程图")
         self.assertEqual(assets[0]["asset_status"], "resolved")
+
+    def test_reference_definitions_support_bare_quoted_angle_and_external_targets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "bare.png").write_bytes(b"bare")
+            (root / "quoted.png").write_bytes(b"quoted")
+            (root / "angle file.png").write_bytes(b"angle")
+            source = root / "prd.md"
+            source.write_text(
+                "![Bare][bare]\n"
+                "![Quoted][quoted]\n"
+                "[Angle][angle]\n"
+                "![Remote][remote]\n\n"
+                "[bare]: bare.png\n"
+                "[quoted]: \"quoted.png\" \"title\"\n"
+                "[angle]: <angle file.png>\n"
+                "[remote]: https://cdn.example.test/remote.png\n",
+                encoding="utf-8",
+            )
+            inventory = prd_inventory.scan_prd(source, project_root=root)
+        assets = [unit for unit in inventory["units"] if unit["kind"] == "asset_reference"]
+        by_target = {unit["asset_target"]: unit for unit in assets}
+        self.assertEqual(set(by_target), {"bare.png", "quoted.png", "angle file.png", "https://cdn.example.test/remote.png"})
+        self.assertEqual(by_target["bare.png"]["asset_status"], "resolved")
+        self.assertEqual(by_target["quoted.png"]["asset_status"], "resolved")
+        self.assertEqual(by_target["angle file.png"]["asset_status"], "resolved")
+        self.assertEqual(by_target["https://cdn.example.test/remote.png"]["asset_status"], "unresolved")
 
     def test_prose_pipe_does_not_start_a_table(self):
         inventory = prd_inventory.scan_prd(FIXTURES / "prd" / "pipe-prose.md")
@@ -327,7 +410,8 @@ class PrdInventoryTests(unittest.TestCase):
         self.assertIsNone(external["asset_sha256"])
 
     def test_local_asset_requires_review_and_valid_evidence(self):
-        inventory = prd_inventory.scan_prd(FIXTURES / "prd" / "local-asset.md")
+        source = FIXTURES / "prd" / "local-asset.md"
+        inventory = prd_inventory.scan_prd_sources(source, project_root=source.parent)
         ledger = asset_ledger_for(inventory)
         ledger["asset_reviews"] = []
         self.assertTrue(any("missing asset review" in error for error in prd_inventory.validate_requirement_ledger(inventory, ledger)))
@@ -337,7 +421,8 @@ class PrdInventoryTests(unittest.TestCase):
         self.assertEqual(prd_inventory.validate_requirement_ledger(inventory, ledger), [])
 
     def test_inaccessible_asset_blocks_even_when_review_record_exists(self):
-        inventory = prd_inventory.scan_prd(FIXTURES / "prd" / "assets.md")
+        source = FIXTURES / "prd" / "assets.md"
+        inventory = prd_inventory.scan_prd_sources(source, project_root=source.parent)
         ledger = asset_ledger_for(inventory)
         self.assertTrue(any("unresolved asset reference" in error for error in prd_inventory.validate_requirement_ledger(inventory, ledger)))
 
@@ -440,7 +525,8 @@ class RequirementLedgerTests(unittest.TestCase):
     def setUp(self):
         if prd_inventory is None:
             self.fail("prd_inventory module is not implemented")
-        self.inventory = prd_inventory.scan_prd(FIXTURES / "prd" / "complete.md")
+        source = FIXTURES / "prd" / "complete.md"
+        self.inventory = prd_inventory.scan_prd_sources(source, project_root=source.parent)
 
     def test_valid_ledger_accounts_for_every_unit_and_supports_multiple_requirements_per_unit(self):
         ledger = ledger_for(self.inventory)

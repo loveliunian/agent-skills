@@ -309,6 +309,9 @@ def check_documents(directory: Path, manifest: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     documents = manifest["documents"]
     structured = manifest["structured_design"]
+    prd_input = str(manifest.get("prd_pipeline", {}).get("prd_file", ""))
+    canonical = lambda value: unicodedata.normalize("NFC", value).casefold()
+    prd_input_key = canonical(prd_input) if prd_input else ""
     default_design_path = structured["document"]
     expected_files = {str(item["file"]) for item in documents if item["file"] != default_design_path}
     package_config = design_output_config(manifest)
@@ -356,6 +359,10 @@ def check_documents(directory: Path, manifest: dict[str, Any]) -> list[str]:
     for item in documents:
         if item["file"] == default_design_path:
             continue
+        # The PRD is a user-provided source document. Its headings and numbering
+        # are intentionally not constrained by the develop starter template.
+        if prd_input_key and canonical(str(item["file"])) == prd_input_key:
+            continue
         path = directory / str(item["file"])
         if not path.is_file():
             continue
@@ -369,6 +376,8 @@ def check_documents(directory: Path, manifest: dict[str, Any]) -> list[str]:
             errors.append(f"{path.name}：二级标题与文档清单.json不一致")
 
     for relative in sorted(actual_files):
+        if prd_input_key and canonical(relative) == prd_input_key:
+            continue
         content = (directory / relative).read_text(encoding="utf-8")
         if content != number_markdown_headings(content):
             errors.append(f"{relative}：章节编号缺失或不一致；请重新运行对应生成命令")
@@ -503,8 +512,9 @@ def validate_design_traceability(
     acceptance_map: dict[str, set[str]],
     requirement_ledger: dict[str, Any],
     inventory: dict[str, Any],
+    acceptance_source_map: dict[str, set[str]] | None = None,
 ) -> list[str]:
-    """Close AC → requirement → source references for coverage and design objects."""
+    """Close AC → requirement/source evidence without copying each REQ's full source set."""
     errors: list[str] = []
     known_acceptance = set(acceptance_map)
     requirement_rows = requirement_ledger.get("requirements", [])
@@ -519,11 +529,6 @@ def validate_design_traceability(
         if isinstance(item, dict) and item.get("id")
     }
     known_source_ids = source_ids | non_prd_source_ids
-    requirement_sources = {
-        req_id: set(row.get("source_refs", []))
-        for req_id, row in requirements.items()
-    }
-
     seen_feature_ids: set[str] = set()
     for feature in scope.get("features", []):
         feature_id = str(feature.get("id", "（空）"))
@@ -536,9 +541,8 @@ def validate_design_traceability(
             errors.append(f"features/{feature_id}：引用不存在的需求 {sorted(req_refs - known_requirements)}")
         if src_refs - known_source_ids:
             errors.append(f"features/{feature_id}：引用不存在的来源 {sorted(src_refs - known_source_ids)}")
-        expected_sources = set().union(*(requirement_sources.get(req_id, set()) for req_id in req_refs))
-        if not expected_sources.issubset(src_refs):
-            errors.append(f"features/{feature_id}：缺少需求对应 PRD 来源引用 {sorted(expected_sources - src_refs)}")
+        # Feature/object source_refs cite direct evidence for their own contract.
+        # The full REQ -> source-unit cross-source chain is carried by coverage rows.
 
     coverage_rows = data.get("coverage", [])
     seen_acceptance: set[str] = set()
@@ -559,15 +563,18 @@ def validate_design_traceability(
         unknown_requirements = actual_requirements - known_requirements
         if unknown_requirements:
             errors.append(f"coverage/{ac_id}：引用不存在的需求 {sorted(unknown_requirements)}")
-        expected_sources = set().union(*(requirement_sources.get(req_id, set()) for req_id in expected_requirements))
         actual_sources = set(row.get("source_refs", []))
-        if actual_sources != expected_sources:
-            errors.append(
-                f"coverage/{ac_id}：PRD 来源引用应为 {sorted(expected_sources)}，实际为 {sorted(actual_sources)}"
-            )
+        if not actual_sources:
+            errors.append(f"coverage/{ac_id}：必须引用至少一个直接来源单元")
         unknown_sources = actual_sources - source_ids
         if unknown_sources:
             errors.append(f"coverage/{ac_id}：引用不存在的 PRD 来源单元 {sorted(unknown_sources)}")
+        if acceptance_source_map is not None:
+            expected_direct_sources = set(acceptance_source_map.get(ac_id, set()))
+            if actual_sources != expected_direct_sources:
+                errors.append(
+                    f"coverage/{ac_id}：直接来源映射应为 {sorted(expected_direct_sources)}，实际为 {sorted(actual_sources)}"
+                )
     missing_acceptance = known_acceptance - seen_acceptance
     extra_acceptance = seen_acceptance - known_acceptance
     if missing_acceptance:
@@ -599,11 +606,9 @@ def validate_design_traceability(
                 errors.append(
                     f"{kind}/{item_id}：需求引用应为 {sorted(expected_requirements)}，实际为 {sorted(req_refs)}"
                 )
-            expected_sources = set().union(*(requirement_sources.get(req_id, set()) for req_id in req_refs))
-            if not expected_sources.issubset(src_refs):
-                errors.append(
-                    f"{kind}/{item_id}：缺少需求对应 PRD 来源引用 {sorted(expected_sources - src_refs)}"
-                )
+            # Do not broadcast every source attached to a REQ onto each table,
+            # field, API, page, or rule. These refs stay direct and are validated
+            # against the registered inventory above; coverage closes the full chain.
             nested: list[tuple[str, dict[str, Any]]] = []
             if kind == "tables":
                 nested.extend((f"fields/{field.get('name', '（空）')}", field) for field in item.get("fields", []))
@@ -621,14 +626,122 @@ def validate_design_traceability(
                     errors.append(f"{kind}/{item_id}/{nested_path}：引用不存在的需求 {sorted(unknown_nested_requirements)}")
                 if unknown_nested_sources:
                     errors.append(f"{kind}/{item_id}/{nested_path}：引用不存在的 PRD 来源单元 {sorted(unknown_nested_sources)}")
-                expected_nested_sources = set().union(
-                    *(requirement_sources.get(req_id, set()) for req_id in nested_requirements)
+            # Object and field source_refs are direct evidence only. The full
+            # source-set closure is carried by coverage rows and the REQ ledger.
+    scenario_ids: set[str] = set()
+    for flow in data.get("flows", []):
+        flow_id = str(flow.get("id", "（空）"))
+        flow_acceptance = set(flow.get("acceptance_refs", []))
+        for scenario in flow.get("test_scenarios", []):
+            scenario_id = str(scenario.get("id", "（空）"))
+            location = f"flows/{flow_id}/test_scenarios/{scenario_id}"
+            if scenario_id in scenario_ids:
+                errors.append(f"流程测试场景 ID 重复：{scenario_id}")
+            scenario_ids.add(scenario_id)
+            scenario_acceptance = set(scenario.get("acceptance_refs", []))
+            scenario_requirements = set(scenario.get("requirement_refs", []))
+            scenario_sources = set(scenario.get("source_refs", []))
+            if not scenario_acceptance:
+                errors.append(f"{location}：至少需要一个验收点引用")
+            missing_acceptance = scenario_acceptance - known_acceptance
+            if missing_acceptance:
+                errors.append(f"{location}：引用不存在的验收点 {sorted(missing_acceptance)}")
+            outside_flow = scenario_acceptance - flow_acceptance
+            if outside_flow:
+                errors.append(f"{location}：验收点不属于流程 acceptance_refs {sorted(outside_flow)}")
+            expected_requirements = set().union(
+                *(acceptance_map.get(ac_id, set()) for ac_id in scenario_acceptance)
+            )
+            if scenario_requirements != expected_requirements:
+                errors.append(
+                    f"{location}：需求引用应为 {sorted(expected_requirements)}，实际为 {sorted(scenario_requirements)}"
                 )
-                if not expected_nested_sources.issubset(nested_sources):
-                    errors.append(
-                        f"{kind}/{item_id}/{nested_path}：缺少需求对应 PRD 来源引用 {sorted(expected_nested_sources - nested_sources)}"
-                    )
+            unknown_requirements = scenario_requirements - known_requirements
+            if unknown_requirements:
+                errors.append(f"{location}：引用不存在的需求 {sorted(unknown_requirements)}")
+            unknown_sources = scenario_sources - known_source_ids
+            if unknown_sources:
+                errors.append(f"{location}：引用不存在的 PRD 来源单元 {sorted(unknown_sources)}")
+            if not scenario_sources:
+                errors.append(f"{location}：必须引用至少一个直接来源单元")
+            # Scenario source_refs cite the concrete scenario evidence. Coverage
+            # rows retain direct AC source anchors; the REQ ledger retains all REQ sources.
     return errors
+
+
+def extract_acceptance_source_refs(
+    parsed_acceptance: dict[str, Any], inventory: dict[str, Any]
+) -> tuple[dict[str, set[str]], list[str]]:
+    """Extract direct AC source units from the frozen location anchors and scenario crosswalk."""
+    units = inventory.get("units", [])
+    source_ids = {unit.get("id") for unit in units if isinstance(unit, dict)}
+    units_by_file: dict[str, list[dict[str, Any]]] = {}
+    for unit in units:
+        if isinstance(unit, dict):
+            units_by_file.setdefault(str(unit.get("source_file", "")), []).append(unit)
+
+    direct: dict[str, set[str]] = {
+        str(row.get("验收点 ID", "")).strip(): set()
+        for row in parsed_acceptance.get("acceptance_rows", [])
+        if str(row.get("验收点 ID", "")).strip()
+    }
+    errors: list[str] = []
+    location_pattern = re.compile(
+        r"(?P<file>[^`\s;；（）()]+?\.md)#L(?P<start>\d+)(?:-L(?P<end>\d+))?"
+    )
+    source_id_pattern = re.compile(r"SRC-[a-f0-9]{20}")
+    aliases = {"docs/PRD/基础能力模块_PRD.md": "01-产品需求.md"}
+
+    for row in parsed_acceptance.get("acceptance_rows", []):
+        ac_id = str(row.get("验收点 ID", "")).strip()
+        location = str(row.get("PRD 位置", ""))
+        for source_id in source_id_pattern.findall(location):
+            if source_id in source_ids:
+                direct[ac_id].add(source_id)
+            else:
+                errors.append(f"验收点 {ac_id} 的直接来源单元未登记：{source_id}")
+        for match in location_pattern.finditer(location):
+            source_file = match.group("file").strip()
+            source_file = aliases.get(source_file, source_file)
+            start_line = int(match.group("start"))
+            end_line = int(match.group("end") or start_line)
+            candidates = units_by_file.get(source_file, [])
+            if not candidates:
+                suffix_matches = [
+                    file for file in units_by_file
+                    if file.endswith("/" + source_file) or source_file.endswith("/" + file)
+                ]
+                if len(suffix_matches) == 1:
+                    candidates = units_by_file[suffix_matches[0]]
+            matched = {
+                unit["id"] for unit in candidates
+                if unit.get("start_line", 0) <= end_line and unit.get("end_line", 0) >= start_line
+            }
+            if not matched:
+                errors.append(
+                    f"验收点 {ac_id} 的来源锚点未映射到来源清单：{source_file}#L{start_line}-L{end_line}"
+                )
+            direct[ac_id].update(matched)
+
+    for row in parsed_acceptance.get("scenario_rows", []):
+        source_id = str(row.get("PRD 来源单元 ID", "")).strip()
+        if not source_id:
+            continue
+        if source_id not in source_ids:
+            errors.append(f"验收场景映射引用未登记的直接来源单元：{source_id}")
+            continue
+        acceptance_ids = [
+            value.strip() for value in re.split(r"[,，、]", str(row.get("原子验收点 ID", "")))
+            if value.strip()
+        ]
+        for ac_id in acceptance_ids:
+            if ac_id in direct:
+                direct[ac_id].add(source_id)
+
+    for ac_id, refs in direct.items():
+        if not refs:
+            errors.append(f"验收点 {ac_id} 没有可定位的直接来源单元")
+    return direct, errors
 
 
 def validate_design_baseline(
@@ -669,7 +782,39 @@ def validate_design_baseline(
         actual_value = str(baseline.get(key, "")).strip()
         if actual_value != str(expected_value):
             errors.append(f"详设基线{labels[key]}不匹配：期望 {expected_value}，实际 {actual_value or '（空）'}")
+
+    source_hash_present = "source_set_sha256" in baseline
+    source_count_present = "source_unit_count" in baseline
+    if source_hash_present != source_count_present:
+        errors.append("详设基线 source_set_sha256 与 source_unit_count 必须同时提供；旧详设两者均缺失时按未绑定处理")
+    elif source_hash_present:
+        source_expected = {
+            "source_set_sha256": inventory["source_set_sha256"],
+            "source_unit_count": len(inventory["units"]),
+        }
+        for key, expected_value in source_expected.items():
+            actual_value = baseline.get(key)
+            if actual_value != expected_value:
+                label = "source-set SHA256" if key == "source_set_sha256" else "source unit count"
+                errors.append(f"详设基线 {label} 不匹配：期望 {expected_value}，实际 {actual_value!r}")
     return errors
+
+
+def source_set_binding(baseline: dict[str, Any], inventory: dict[str, Any]) -> dict[str, Any]:
+    """Describe source-set binding without treating legacy baselines as verified."""
+    has_hash = "source_set_sha256" in baseline
+    has_count = "source_unit_count" in baseline
+    if not has_hash and not has_count:
+        return {"status": "LEGACY_UNBOUND", "sha256": None, "unit_count": None}
+    source_hash = baseline.get("source_set_sha256")
+    source_count = baseline.get("source_unit_count")
+    expected_hash = inventory.get("source_set_sha256")
+    expected_count = len(inventory.get("units", []))
+    if source_hash == expected_hash and source_count == expected_count:
+        status = "VERIFIED"
+    else:
+        status = "MISMATCH"
+    return {"status": status, "sha256": source_hash, "unit_count": source_count}
 
 
 def resolve_schema_ref(root: dict[str, Any], reference: str) -> dict[str, Any]:
@@ -783,6 +928,82 @@ def extract_acceptance_points(
     return acceptance, errors
 
 
+def legacy_flows_without_diagram_refs(flows: list[dict[str, Any]]) -> set[str]:
+    """Identify older flows that predate the additive diagram_refs property."""
+    return {
+        flow["id"] for flow in flows
+        if (
+            isinstance(flow, dict)
+            and isinstance(flow.get("id"), str)
+            and "diagram_refs" not in flow
+            and "test_anchor" not in flow
+            and "test_scenarios" not in flow
+        )
+    }
+
+
+def normalize_legacy_flow_diagram_refs(flows: list[dict[str, Any]]) -> set[str]:
+    """Capture legacy flows before adding the optional property in memory."""
+    legacy_flow_ids = legacy_flows_without_diagram_refs(flows)
+    for flow in flows:
+        if isinstance(flow, dict):
+            flow.setdefault("diagram_refs", [])
+    return legacy_flow_ids
+
+
+def validate_flow_diagram_links(
+    flows: list[dict[str, Any]],
+    diagrams: list[dict[str, Any]],
+    legacy_flow_ids: set[str] | None = None,
+) -> list[str]:
+    """Validate flow↔diagram links in both directions with legacy compatibility."""
+    legacy_flow_ids = legacy_flow_ids or set()
+    flows_by_id = {flow.get("id"): flow for flow in flows if isinstance(flow, dict)}
+    diagrams_by_id = {diagram.get("id"): diagram for diagram in diagrams if isinstance(diagram, dict)}
+    flow_diagram_refs = {
+        flow.get("id"): set(flow.get("diagram_refs", []))
+        for flow in flows if isinstance(flow, dict)
+    }
+    diagram_flow_refs: dict[str, set[str]] = {}
+    for diagram in diagrams:
+        if not isinstance(diagram, dict):
+            continue
+        diagram_id = diagram.get("id")
+        diagram_flow_refs[diagram_id] = {
+            ref.get("id") for ref in diagram.get("typed_refs", [])
+            if isinstance(ref, dict) and ref.get("kind") == "flows"
+        }
+    errors: list[str] = []
+
+    for flow in flows:
+        if not isinstance(flow, dict):
+            continue
+        flow_id = flow.get("id")
+        diagram_refs = flow.get("diagram_refs", [])
+        has_test_contract = "test_anchor" in flow or "test_scenarios" in flow
+        if flow_id not in legacy_flow_ids and has_test_contract and not diagram_refs:
+            errors.append(f"flows/{flow_id}：有流程测试契约但未关联流程图")
+        for diagram_id in diagram_refs:
+            if diagram_id in diagrams_by_id and flow_id not in diagram_flow_refs.get(diagram_id, set()):
+                errors.append(f"flows/{flow_id}：图示 {diagram_id} 未反向声明该流程")
+
+    for diagram in diagrams:
+        if not isinstance(diagram, dict):
+            continue
+        for ref in diagram.get("typed_refs", []):
+            if not isinstance(ref, dict) or ref.get("kind") != "flows":
+                continue
+            flow_id = ref.get("id")
+            flow = flows_by_id.get(flow_id)
+            if flow is None or flow_id in legacy_flow_ids:
+                continue
+            if diagram.get("id") not in flow_diagram_refs.get(flow_id, set()):
+                errors.append(
+                    f"diagrams/{diagram.get('id')}：声明流程 {flow_id}，但流程未反向引用该图示"
+                )
+    return errors
+
+
 def validate_design_data(
     directory: Path,
     structured: dict[str, Any],
@@ -804,6 +1025,10 @@ def validate_design_data(
         return None, [f"无法读取详设 JSON 或 schema：{exc}"]
 
     # Keep older schema v2 projects additive-compatible as full-design sections grow.
+    # Track flows that predate diagram_refs so old diagrams need not be rewritten.
+    legacy_flow_diagram_ref_ids = normalize_legacy_flow_diagram_refs(data.get("flows", [])) if (
+        isinstance(data, dict) and isinstance(data.get("flows"), list)
+    ) else set()
     if isinstance(data, dict):
         for kind in ("glossary", "permissions", "diagrams", "dependencies", "reuse_decisions", "domain_objects"):
             data.setdefault(kind, [])
@@ -850,6 +1075,8 @@ def validate_design_data(
     assumption_ids = {item["id"] for item in data["scope"]["assumptions"]}
     inventory_path = directory / manifest["prd_pipeline"]["inventory_file"]
     inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+    acceptance_source_map, direct_source_errors = extract_acceptance_source_refs(parsed_acceptance, inventory)
+    errors.extend(direct_source_errors)
     source_unit_ids = {unit["id"] for unit in inventory["units"]}
     known_source_ids = source_unit_ids | constraint_ids | assumption_ids
     ids: dict[str, set[str]] = {}
@@ -957,8 +1184,16 @@ def validate_design_data(
     for flow in data["flows"]:
         check_refs("table", flow["table_refs"], "tables", f"flows/{flow['id']}")
         check_refs("API", flow["api_refs"], "apis", f"flows/{flow['id']}")
+        check_refs("diagram", flow.get("diagram_refs", []), "diagrams", f"flows/{flow['id']}")
         check_refs("rule", flow["rule_refs"], "rules", f"flows/{flow['id']}")
+    errors.extend(validate_flow_diagram_links(data["flows"], data["diagrams"], legacy_flow_diagram_ref_ids))
     test_anchors: dict[str, str] = {}
+    for flow in data["flows"]:
+        anchor = flow.get("test_anchor", "").strip()
+        if anchor:
+            if anchor in test_anchors:
+                errors.append(f"测试锚点重复：{anchor}（{test_anchors[anchor]} 与 flows/{flow['id']}）")
+            test_anchors[anchor] = f"flows/{flow['id']}"
     for page in data["pages"]:
         for control in page["controls"]:
             check_refs("table", [ref.split(".", 1)[0] for ref in control["data_refs"]], "tables", f"pages/{page['id']}/controls/{control['name']}")
@@ -1076,7 +1311,7 @@ def validate_design_data(
                 errors.append(f"domain_objects/{domain_object_key(item['kind'], item['id'])}：验收点 {ac_id} 未在 coverage 中反向登记")
     if acceptance_ids - linked_acceptance:
         errors.append(f"未映射到任何设计对象的验收点：{sorted(acceptance_ids - linked_acceptance)}")
-    errors.extend(validate_design_traceability(data, acceptance, ledger, inventory))
+    errors.extend(validate_design_traceability(data, acceptance, ledger, inventory, acceptance_source_map))
     return data, errors
 
 
@@ -1093,6 +1328,22 @@ def md_table(headers: list[str], rows: list[list[Any]]) -> str:
     if not rows:
         lines.append("| " + " | ".join("—" for _ in headers) + " |")
     return "\n".join(lines)
+
+
+def render_flow_test_scenarios(flow: dict[str, Any]) -> str:
+    """Render optional Given/When/Then scenarios while keeping legacy flows valid."""
+    scenarios = flow.get("test_scenarios", [])
+    if not scenarios:
+        return ""
+    anchor = flow.get("test_anchor", "").strip()
+    anchor_line = f"流程测试锚点：{anchor}\n\n" if anchor else ""
+    rows = [[
+        scenario["id"], scenario["given"], scenario["when"], scenario["then"],
+        scenario["requirement_refs"], scenario["source_refs"], scenario["acceptance_refs"],
+    ] for scenario in scenarios]
+    return anchor_line + "测试场景（Given / When / Then）\n\n" + md_table(
+        ["场景 ID", "Given 前置", "When 触发", "Then 可观察结果", "REQ", "SRC", "AC"], rows
+    )
 
 
 def domain_object_key(kind: str, object_id: str) -> str:
@@ -1393,22 +1644,25 @@ def render_design_body(
         rule_parts.append("无业务规则；原因：" + data["zero_results"]["rules"])
     if summary and data["flows"]:
         rule_parts.append("### 关键流程概览\n\n" + md_table(
-            ["流程 ID", "流程", "触发者", "触发条件", "状态变化", "成功/失败处置", "详情文档", "API", "规则", "验收点"],
+            ["流程 ID", "流程", "触发者", "触发条件", "状态变化", "成功/失败处置", "详情文档", "图示", "API", "规则", "测试锚点/场景数", "验收点"],
             [[
                 design_object_anchor_markup("flows", flow["id"]) + markdown_reference("flows", flow["id"], reference_context),
                 flow["name"], flow["actor"], flow["trigger"], flow["state_transition"],
-                flow["success"] + " / " + flow["failure_recovery"], markdown_owner_reference("flows", flow["id"], reference_context), markdown_references("apis", flow["api_refs"], reference_context),
-                markdown_references("rules", flow["rule_refs"], reference_context), flow["acceptance_refs"],
+                flow["success"] + " / " + flow["failure_recovery"], markdown_owner_reference("flows", flow["id"], reference_context), markdown_references("diagrams", flow.get("diagram_refs", []), reference_context), markdown_references("apis", flow["api_refs"], reference_context),
+                markdown_references("rules", flow["rule_refs"], reference_context),
+                f"{flow.get('test_anchor', '—')} / {len(flow.get('test_scenarios', []))}", flow["acceptance_refs"],
             ] for flow in data["flows"]],
         ))
     for flow in data["flows"] if not summary else []:
         steps = md_table(["步骤", "结果"], [[step["action"], step["result"]] for step in flow["steps"]])
+        test_scenarios = render_flow_test_scenarios(flow)
+        test_section = f"\n\n{test_scenarios}" if test_scenarios else ""
         rule_parts.append(
             f"{design_object_anchor_markup('flows', flow['id'])}\n### {flow['id']} · {flow['name']}\n\n触发者：{flow['actor']}；触发：{flow['trigger']}\n\n"
             f"前置条件：{md_cell(flow['preconditions'])}\n\n步骤\n\n{steps}\n\n"
             f"状态变化：{flow['state_transition']}\n\n事务/并发：{flow['transaction_concurrency']}\n\n"
-            f"成功结果：{flow['success']}\n\n失败/恢复：{flow['failure_recovery']}\n\n"
-            f"引用表：{markdown_references('tables', flow['table_refs'], reference_context)}；API：{markdown_references('apis', flow['api_refs'], reference_context)}；规则：{markdown_references('rules', flow['rule_refs'], reference_context)}；需求：{md_cell(flow['requirement_refs'])}；PRD 来源：{md_cell(flow['source_refs'])}；验收点：{md_cell(flow['acceptance_refs'])}"
+            f"成功结果：{flow['success']}\n\n失败/恢复：{flow['failure_recovery']}{test_section}\n\n"
+            f"引用表：{markdown_references('tables', flow['table_refs'], reference_context)}；图示：{markdown_references('diagrams', flow.get('diagram_refs', []), reference_context)}；API：{markdown_references('apis', flow['api_refs'], reference_context)}；规则：{markdown_references('rules', flow['rule_refs'], reference_context)}；需求：{md_cell(flow['requirement_refs'])}；PRD 来源：{md_cell(flow['source_refs'])}；验收点：{md_cell(flow['acceptance_refs'])}"
         )
     if not data["flows"]:
         rule_parts.append("无关键流程；原因：" + data["zero_results"]["flows"])
@@ -1796,6 +2050,9 @@ def build_generation_receipt(
         output_config_path = candidate if candidate.is_file() else legacy if legacy is not None and legacy.is_file() else None
     if output_config_path is not None:
         input_paths["design_output_sha256"] = output_config_path
+    structured_data = json.loads((Path(directory) / structured["file"]).read_text(encoding="utf-8"))
+    inventory = json.loads((Path(directory) / pipeline["inventory_file"]).read_text(encoding="utf-8"))
+    binding = source_set_binding(structured_data.get("baseline", {}), inventory)
     output_hashes = {
         relative: hashlib.sha256(text.encode("utf-8")).hexdigest()
         for relative, text in sorted(output_texts.items())
@@ -1805,13 +2062,14 @@ def build_generation_receipt(
         if output_config_path is not None else structured["document"]
     )
     return {
-        "receipt_version": 2,
+        "receipt_version": 3,
         "status": "PASS",
         "command": "render-design",
         "tool_version": TOOL_VERSION,
         "schema_version": json.loads((Path(directory) / structured["file"]).read_text(encoding="utf-8"))["schema_version"],
         "template_id": structured["template_id"],
         "template_version": structured["template_version"],
+        "source_set_binding": binding,
         "design_mode": (
             json.loads(output_config_path.read_text(encoding="utf-8")).get("mode", "total_subdocuments")
             if output_config_path is not None else "single"
@@ -1837,7 +2095,16 @@ def validate_generation_receipt(
     except (OSError, json.JSONDecodeError, KeyError) as exc:
         return [f"详设生成收据不可读取或输入不完整：{exc}"]
     if actual != expected:
-        return ["详设生成收据与当前 PRD/台账/验收/JSON/模板/输出指纹不一致；重新运行 render-design"]
+        structured = manifest["structured_design"]
+        baseline = json.loads((Path(directory) / structured["file"]).read_text(encoding="utf-8")).get("baseline", {})
+        legacy = "source_set_sha256" not in baseline and "source_unit_count" not in baseline
+        if legacy and actual.get("receipt_version") == 2 and "source_set_binding" not in actual:
+            compatible = dict(expected)
+            compatible["receipt_version"] = 2
+            compatible.pop("source_set_binding", None)
+            if actual == compatible:
+                return []
+        return ["详设生成收据与当前 PRD/台账/验收/来源集/JSON/模板/输出指纹不一致；重新运行 render-design"]
     return []
 
 
@@ -2039,6 +2306,12 @@ def main() -> int:
         for error in errors:
             print(f"- {error}", file=sys.stderr)
         return 1
+    if args.command == "check-design":
+        design = json.loads((args.directory / manifest["structured_design"]["file"]).read_text(encoding="utf-8"))
+        baseline = design.get("baseline", {})
+        if "source_set_sha256" not in baseline and "source_unit_count" not in baseline:
+            print("检查通过（legacy source-set 未绑定；此结果不表示来源集已验证）")
+            return 0
     print("检查通过")
     return 0
 

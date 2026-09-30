@@ -8,7 +8,9 @@
     "requirements_version": "{{需求台账版本}}",
     "acceptance_file": "02-原子验收点清单.md",
     "acceptance_version": "{{冻结验收版本}}",
-    "acceptance_sha256": "{{冻结验收文件SHA256}}"
+    "acceptance_sha256": "{{冻结验收文件SHA256}}",
+    "source_set_sha256": "{{PRD来源集SHA256}}",
+    "source_unit_count": 0
   },
   "scope": {
     "summary": "{{说明问题背景、目标用户、模块边界、主要方案和成功结果}}",
@@ -17,8 +19,12 @@
         "id": "{{项目现有功能域ID}}",
         "name": "{{功能域名称}}",
         "responsibility": "{{职责、输入、输出和边界}}",
-        "requirement_refs": ["{{需求ID}}"],
-        "source_refs": ["{{PRD来源单元ID}}"]
+        "requirement_refs": [
+          "{{需求ID}}"
+        ],
+        "source_refs": [
+          "{{PRD来源单元ID}}"
+        ]
       }
     ],
     "constraints": [
@@ -48,9 +54,15 @@
       "id": "{{术语ID}}",
       "term": "{{容易产生歧义的业务或技术术语}}",
       "definition": "{{本项目中的精确定义、边界及与相近概念的区别}}",
-      "source_refs": ["{{PRD来源单元ID}}"],
-      "requirement_refs": ["{{需求ID}}"],
-      "acceptance_refs": ["{{验收点ID}}"],
+      "source_refs": [
+        "{{PRD来源单元ID}}"
+      ],
+      "requirement_refs": [
+        "{{需求ID}}"
+      ],
+      "acceptance_refs": [
+        "{{验收点ID}}"
+      ],
       "unreferenced_reason": ""
     }
   ],
@@ -59,10 +71,16 @@
       "id": "{{表稳定ID}}",
       "name": "{{真实表名}}",
       "purpose": "{{数据责任、粒度和生命周期}}",
-      "relations": ["{{关联表及关系基数；无关系则说明}}"],
+      "relations": [
+        "{{关联表及关系基数；无关系则说明}}"
+      ],
       "primary_key": "{{主键字段、生成规则和稳定性}}",
-      "unique_constraints": ["{{唯一键及适用条件}}"],
-      "indexes": ["{{索引列、顺序和查询场景}}"],
+      "unique_constraints": [
+        "{{唯一键及适用条件}}"
+      ],
+      "indexes": [
+        "{{索引列、顺序和查询场景}}"
+      ],
       "lifecycle": "{{创建、更新、归档、逻辑删除和清理规则}}",
       "fields": [
         {
@@ -74,14 +92,26 @@
           "description": "{{业务含义、取值语义和隐私级别}}",
           "source": "{{字段来源及上游/下游映射}}",
           "decision_reason": "{{类型、长度、索引或删除语义的选择理由}}",
-          "requirement_refs": ["{{需求ID}}"],
-          "source_refs": ["{{PRD来源单元ID}}"],
-          "acceptance_refs": ["{{验收点ID}}"]
+          "requirement_refs": [
+            "{{需求ID}}"
+          ],
+          "source_refs": [
+            "{{PRD来源单元ID}}"
+          ],
+          "acceptance_refs": [
+            "{{验收点ID}}"
+          ]
         }
       ],
-      "requirement_refs": ["{{需求ID}}"],
-      "source_refs": ["{{PRD来源单元ID}}"],
-      "acceptance_refs": ["{{验收点ID}}"],
+      "requirement_refs": [
+        "{{需求ID}}"
+      ],
+      "source_refs": [
+        "{{PRD来源单元ID}}"
+      ],
+      "acceptance_refs": [
+        "{{验收点ID}}"
+      ],
       "unreferenced_reason": ""
     }
   ],
@@ -101,9 +131,15 @@
           "validation": "{{范围、长度、格式、组合和唯一性校验}}",
           "source": "{{页面、调用方或派生来源}}",
           "sensitivity": "{{敏感级别及脱敏/加密处理}}",
-          "data_refs": ["{{表ID.字段名}}"],
-          "requirement_refs": ["{{需求ID}}"],
-          "source_refs": ["{{PRD来源单元ID}}"]
+          "data_refs": [
+            "{{表ID.字段名}}"
+          ],
+          "requirement_refs": [
+            "{{需求ID}}"
+          ],
+          "source_refs": [
+            "{{PRD来源单元ID}}"
+          ]
         }
       ],
       "response_fields": [
@@ -114,9 +150,15 @@
           "value_rule": "{{取值、空值和排序语义}}",
           "source": "{{来源表/规则/计算方式}}",
           "sensitivity": "{{脱敏及可见范围}}",
-          "data_refs": ["{{表ID.字段名}}"],
-          "requirement_refs": ["{{需求ID}}"],
-          "source_refs": ["{{PRD来源单元ID}}"]
+          "data_refs": [
+            "{{表ID.字段名}}"
+          ],
+          "requirement_refs": [
+            "{{需求ID}}"
+          ],
+          "source_refs": [
+            "{{PRD来源单元ID}}"
+          ]
         }
       ],
       "no_request_reason": "{{无请求字段时说明原因}}",
@@ -133,11 +175,21 @@
       "transaction": "{{事务边界及失败回滚语义}}",
       "idempotency": "{{幂等键、重复提交和并发请求语义}}",
       "timeout": "{{超时预算、取消、重试和降级}}",
-      "table_refs": ["{{表稳定ID}}"],
-      "rule_refs": ["{{规则稳定ID}}"],
-      "requirement_refs": ["{{需求ID}}"],
-      "source_refs": ["{{PRD来源单元ID}}"],
-      "acceptance_refs": ["{{验收点ID}}"],
+      "table_refs": [
+        "{{表稳定ID}}"
+      ],
+      "rule_refs": [
+        "{{规则稳定ID}}"
+      ],
+      "requirement_refs": [
+        "{{需求ID}}"
+      ],
+      "source_refs": [
+        "{{PRD来源单元ID}}"
+      ],
+      "acceptance_refs": [
+        "{{验收点ID}}"
+      ],
       "unreferenced_reason": ""
     }
   ],
@@ -148,12 +200,24 @@
       "operation": "{{读取/创建/修改/删除/审批等操作}}",
       "permission_code": "{{权限码事实源}}",
       "data_scope": "{{行级/组织级/字段级范围及过滤时机}}",
-      "api_refs": ["{{API稳定ID}}"],
-      "page_refs": ["{{页面稳定ID}}"],
-      "rule_refs": ["{{规则稳定ID}}"],
-      "source_refs": ["{{PRD来源单元ID}}"],
-      "requirement_refs": ["{{需求ID}}"],
-      "acceptance_refs": ["{{验收点ID}}"],
+      "api_refs": [
+        "{{API稳定ID}}"
+      ],
+      "page_refs": [
+        "{{页面稳定ID}}"
+      ],
+      "rule_refs": [
+        "{{规则稳定ID}}"
+      ],
+      "source_refs": [
+        "{{PRD来源单元ID}}"
+      ],
+      "requirement_refs": [
+        "{{需求ID}}"
+      ],
+      "acceptance_refs": [
+        "{{验收点ID}}"
+      ],
       "unreferenced_reason": ""
     }
   ],
@@ -164,11 +228,21 @@
       "condition": "{{WHEN 前置条件及边界}}",
       "result": "{{THEN 状态变化、副作用和可观察结果}}",
       "error_semantics": "{{失败错误码、回滚、重试及补偿}}",
-      "source_refs": ["{{PRD来源单元ID}}"],
-      "requirement_refs": ["{{需求ID}}"],
-      "table_refs": ["{{表稳定ID}}"],
-      "api_refs": ["{{API稳定ID}}"],
-      "acceptance_refs": ["{{验收点ID}}"],
+      "source_refs": [
+        "{{PRD来源单元ID}}"
+      ],
+      "requirement_refs": [
+        "{{需求ID}}"
+      ],
+      "table_refs": [
+        "{{表稳定ID}}"
+      ],
+      "api_refs": [
+        "{{API稳定ID}}"
+      ],
+      "acceptance_refs": [
+        "{{验收点ID}}"
+      ],
       "unreferenced_reason": ""
     }
   ],
@@ -178,22 +252,63 @@
       "name": "{{业务流程名称}}",
       "actor": "{{用户、服务或定时任务}}",
       "trigger": "{{触发事件和触发频率}}",
-      "preconditions": ["{{权限、状态、输入和依赖条件}}"],
+      "preconditions": [
+        "{{权限、状态、输入和依赖条件}}"
+      ],
       "steps": [
-        {"action": "{{参与者执行的动作}}", "result": "{{状态变化、写入或返回结果}}"},
-        {"action": "{{失败、重试或补偿动作}}", "result": "{{最终状态及审计结果}}"}
+        {
+          "action": "{{参与者执行的动作}}",
+          "result": "{{状态变化、写入或返回结果}}"
+        },
+        {
+          "action": "{{失败、重试或补偿动作}}",
+          "result": "{{最终状态及审计结果}}"
+        }
+      ],
+      "test_anchor": "{{稳定的流程测试锚点，如 TEST-FLW-001}}",
+      "test_scenarios": [
+        {
+          "id": "{{稳定场景ID，如 TS-FLW-001-01}}",
+          "given": "{{可重复的初始数据、用户/权限/策略状态与依赖条件}}",
+          "when": "{{触发步骤、接口/页面动作或系统事件}}",
+          "then": "{{可观察的持久化结果、响应、状态变化和失败副作用边界}}",
+          "requirement_refs": [
+            "{{场景验证的全部REQ ID}}"
+          ],
+          "source_refs": [
+            "{{该场景直接依据的SRC来源单元ID}}"
+          ],
+          "acceptance_refs": [
+            "{{直接验证的AC ID}}"
+          ]
+        }
       ],
       "state_transition": "{{状态机及允许/拒绝的迁移}}",
       "transaction_concurrency": "{{事务、锁、幂等和并发冲突语义}}",
       "success": "{{成功终态和通知/审计副作用}}",
       "failure_recovery": "{{回滚、重试、补偿、人工处理和恢复点}}",
-      "table_refs": ["{{表稳定ID}}"],
-      "api_refs": ["{{API稳定ID}}"],
-      "rule_refs": ["{{规则稳定ID}}"],
-      "requirement_refs": ["{{需求ID}}"],
-      "source_refs": ["{{PRD来源单元ID}}"],
-      "acceptance_refs": ["{{验收点ID}}"],
-      "unreferenced_reason": ""
+      "table_refs": [
+        "{{表稳定ID}}"
+      ],
+      "api_refs": [
+        "{{API稳定ID}}"
+      ],
+      "rule_refs": [
+        "{{规则稳定ID}}"
+      ],
+      "requirement_refs": [
+        "{{需求ID}}"
+      ],
+      "source_refs": [
+        "{{PRD来源单元ID}}"
+      ],
+      "acceptance_refs": [
+        "{{验收点ID}}"
+      ],
+      "unreferenced_reason": "",
+      "diagram_refs": [
+        "{{流程图稳定ID，如 DIA-FLW-001}}"
+      ]
     }
   ],
   "diagrams": [
@@ -203,10 +318,21 @@
       "title": "{{图名}}",
       "format": "mermaid",
       "body": "flowchart LR\n  A[{{参与者或组件}}] --> B[{{步骤或状态}}]",
-      "typed_refs": [{"kind": "{{对象类型}}", "id": "{{对象稳定ID}}"}],
-      "source_refs": ["{{PRD来源单元ID}}"],
-      "requirement_refs": ["{{需求ID}}"],
-      "acceptance_refs": ["{{验收点ID}}"],
+      "typed_refs": [
+        {
+          "kind": "{{对象类型}}",
+          "id": "{{对象稳定ID}}"
+        }
+      ],
+      "source_refs": [
+        "{{PRD来源单元ID}}"
+      ],
+      "requirement_refs": [
+        "{{需求ID}}"
+      ],
+      "acceptance_refs": [
+        "{{验收点ID}}"
+      ],
       "unreferenced_reason": ""
     }
   ],
@@ -225,16 +351,24 @@
           "validation": "{{必填、范围、格式、联动和错误提示}}",
           "source": "{{选项或展示数据来源}}",
           "test_anchor": "{{稳定自动化测试锚点}}",
-          "api_refs": ["{{API稳定ID}}"],
-          "data_refs": ["{{表ID.字段名}}"]
+          "api_refs": [
+            "{{API稳定ID}}"
+          ],
+          "data_refs": [
+            "{{表ID.字段名}}"
+          ]
         }
       ],
       "actions": [
         {
           "name": "{{按钮或行操作}}",
           "permission": "{{操作权限码}}",
-          "api_refs": ["{{API稳定ID}}"],
-          "rule_refs": ["{{规则稳定ID}}"],
+          "api_refs": [
+            "{{API稳定ID}}"
+          ],
+          "rule_refs": [
+            "{{规则稳定ID}}"
+          ],
           "feedback": "{{成功、失败、处理中和重复提交反馈}}",
           "test_anchor": "{{稳定自动化测试锚点}}"
         }
@@ -244,16 +378,26 @@
           "name": "{{弹窗/抽屉名称}}",
           "component": "{{挂载组件}}",
           "permission": "{{打开和提交权限}}",
-          "api_refs": ["{{API稳定ID}}"],
+          "api_refs": [
+            "{{API稳定ID}}"
+          ],
           "state": "{{打开、关闭、提交及失败保留状态}}",
           "test_anchor": "{{稳定自动化测试锚点}}"
         }
       ],
-      "states": ["{{加载/空/成功/失败/禁用/无权限状态}}"],
+      "states": [
+        "{{加载/空/成功/失败/禁用/无权限状态}}"
+      ],
       "empty_content_reason": "{{无控件或操作时说明原因}}",
-      "requirement_refs": ["{{需求ID}}"],
-      "source_refs": ["{{PRD来源单元ID}}"],
-      "acceptance_refs": ["{{验收点ID}}"],
+      "requirement_refs": [
+        "{{需求ID}}"
+      ],
+      "source_refs": [
+        "{{PRD来源单元ID}}"
+      ],
+      "acceptance_refs": [
+        "{{验收点ID}}"
+      ],
       "unreferenced_reason": ""
     }
   ],
@@ -266,10 +410,21 @@
       "contract": "{{API/事件/版本/超时和数据契约}}",
       "owner": "{{依赖责任团队或系统}}",
       "failure_handling": "{{超时、熔断、重试、降级、补偿和人工处置}}",
-      "typed_refs": [{"kind": "{{对象类型}}", "id": "{{对象稳定ID}}"}],
-      "source_refs": ["{{PRD来源单元ID}}"],
-      "requirement_refs": ["{{需求ID}}"],
-      "acceptance_refs": ["{{验收点ID}}"],
+      "typed_refs": [
+        {
+          "kind": "{{对象类型}}",
+          "id": "{{对象稳定ID}}"
+        }
+      ],
+      "source_refs": [
+        "{{PRD来源单元ID}}"
+      ],
+      "requirement_refs": [
+        "{{需求ID}}"
+      ],
+      "acceptance_refs": [
+        "{{验收点ID}}"
+      ],
       "unreferenced_reason": ""
     }
   ],
@@ -280,11 +435,24 @@
       "use": "{{本模块如何调用或扩展}}",
       "decision": "{{复用/扩展/新建及其边界}}",
       "rationale": "{{选择理由和兼容影响}}",
-      "alternatives": ["{{备选方案及不采用理由}}"],
-      "typed_refs": [{"kind": "{{对象类型}}", "id": "{{对象稳定ID}}"}],
-      "source_refs": ["{{PRD来源单元ID}}"],
-      "requirement_refs": ["{{需求ID}}"],
-      "acceptance_refs": ["{{验收点ID}}"],
+      "alternatives": [
+        "{{备选方案及不采用理由}}"
+      ],
+      "typed_refs": [
+        {
+          "kind": "{{对象类型}}",
+          "id": "{{对象稳定ID}}"
+        }
+      ],
+      "source_refs": [
+        "{{PRD来源单元ID}}"
+      ],
+      "requirement_refs": [
+        "{{需求ID}}"
+      ],
+      "acceptance_refs": [
+        "{{验收点ID}}"
+      ],
       "unreferenced_reason": ""
     }
   ],
@@ -295,9 +463,15 @@
       "applies": true,
       "decision": "{{指标、策略、降级或约束}}",
       "rationale": "{{依据、测量口径和适用边界}}",
-      "source_refs": ["{{PRD来源单元ID或项目事实}}"],
-      "requirement_refs": ["{{需求ID}}"],
-      "acceptance_refs": ["{{验收点ID}}"],
+      "source_refs": [
+        "{{PRD来源单元ID或项目事实}}"
+      ],
+      "requirement_refs": [
+        "{{需求ID}}"
+      ],
+      "acceptance_refs": [
+        "{{验收点ID}}"
+      ],
       "unreferenced_reason": ""
     }
   ],
@@ -307,33 +481,79 @@
       "id": "{{领域对象稳定ID}}",
       "name": "{{领域对象名称}}",
       "summary": "{{对象职责和业务边界}}",
-      "attributes": {"{{领域属性}}": "{{类型、约束和语义}}"},
-      "typed_refs": [{"kind": "{{内置对象类型或领域类型}}", "id": "{{对象稳定ID}}"}],
-      "requirement_refs": ["{{需求ID}}"],
-      "source_refs": ["{{PRD来源单元ID}}"],
-      "acceptance_refs": ["{{验收点ID}}"],
+      "attributes": {
+        "{{领域属性}}": "{{类型、约束和语义}}"
+      },
+      "typed_refs": [
+        {
+          "kind": "{{内置对象类型或领域类型}}",
+          "id": "{{对象稳定ID}}"
+        }
+      ],
+      "requirement_refs": [
+        "{{需求ID}}"
+      ],
+      "source_refs": [
+        "{{PRD来源单元ID}}"
+      ],
+      "acceptance_refs": [
+        "{{验收点ID}}"
+      ],
       "unreferenced_reason": ""
     }
   ],
   "coverage": [
     {
       "acceptance_id": "{{冻结验收点ID}}",
-      "requirement_refs": ["{{该验收点对应的全部需求ID}}"],
-      "source_refs": ["{{全部来源单元ID}}"],
-      "glossary_refs": ["{{适用术语ID}}"],
-      "table_refs": ["{{表ID}}"],
-      "api_refs": ["{{接口ID}}"],
-      "permission_refs": ["{{权限行ID}}"],
-      "rule_refs": ["{{规则ID}}"],
-      "flow_refs": ["{{流程ID}}"],
-      "diagram_refs": ["{{图示ID}}"],
-      "page_refs": ["{{页面ID}}"],
-      "dependency_refs": ["{{依赖ID}}"],
-      "reuse_refs": ["{{复用决策ID}}"],
-      "quality_refs": ["{{质量决策ID}}"],
-      "domain_refs": [{"kind": "{{领域类型}}", "id": "{{领域对象ID}}"}],
+      "requirement_refs": [
+        "{{该验收点对应的全部需求ID}}"
+      ],
+      "source_refs": [
+        "{{全部来源单元ID}}"
+      ],
+      "glossary_refs": [
+        "{{适用术语ID}}"
+      ],
+      "table_refs": [
+        "{{表ID}}"
+      ],
+      "api_refs": [
+        "{{接口ID}}"
+      ],
+      "permission_refs": [
+        "{{权限行ID}}"
+      ],
+      "rule_refs": [
+        "{{规则ID}}"
+      ],
+      "flow_refs": [
+        "{{流程ID}}"
+      ],
+      "diagram_refs": [
+        "{{图示ID}}"
+      ],
+      "page_refs": [
+        "{{页面ID}}"
+      ],
+      "dependency_refs": [
+        "{{依赖ID}}"
+      ],
+      "reuse_refs": [
+        "{{复用决策ID}}"
+      ],
+      "quality_refs": [
+        "{{质量决策ID}}"
+      ],
+      "domain_refs": [
+        {
+          "kind": "{{领域类型}}",
+          "id": "{{领域对象ID}}"
+        }
+      ],
       "verification": "{{可观察的验证方式}}",
-      "test_ids": ["{{测试用例ID}}"],
+      "test_ids": [
+        "{{测试用例ID}}"
+      ],
       "not_applicable_reason": "{{完全没有设计对象时说明原因}}"
     }
   ],

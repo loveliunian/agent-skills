@@ -20,6 +20,21 @@ DEVELOP = importlib.util.module_from_spec(DEVELOP_SPEC)
 DEVELOP_SPEC.loader.exec_module(DEVELOP)
 
 
+class ManifestTemplateContractTests(unittest.TestCase):
+    def test_all_manifest_sections_match_their_template_h2_headings(self):
+        manifest_path = ROOT / "develop" / "契约" / "文档清单.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for document in manifest["documents"]:
+            with self.subTest(document=document["id"]):
+                template = ROOT / "develop" / "模板" / document["template"]
+                headings = [
+                    line[3:].strip()
+                    for line in template.read_text(encoding="utf-8").splitlines()
+                    if line.startswith("## ")
+                ]
+                self.assertEqual(headings, document["sections"])
+
+
 class PrdCommandTests(unittest.TestCase):
     def test_scan_prd_command_writes_deterministic_inventory(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -53,22 +68,35 @@ class PrdCommandTests(unittest.TestCase):
             self.assertTrue(first_inventory["prd_sha256"])
             self.assertTrue(first_inventory["units"])
 
-    def _write_complete_case(self, directory: Path) -> None:
-        DEVELOP.render_skeleton(directory, DEVELOP.load_manifest(), "退款")
+    def _write_complete_case(self, directory: Path, arbitrary_source_prd: bool = False) -> None:
+        DEVELOP.render_skeleton(
+            directory, DEVELOP.load_manifest(), "退款", design_mode_reason="单一功能域，详设对象规模适中。"
+        )
         prd = directory / "01-产品需求.md"
-        prd.write_text(
+        prd_content = (
             "# 退款\n\n## 背景与问题\n\n退款处理需要标准化。\n\n"
             "## 目标与范围\n\n支持用户申请退款。\n\n"
             "## 用户与场景\n\n用户提交退款申请。\n\n"
             "## 需求清单\n\n用户可以申请退款。\n\n"
             "## 验收标准\n\n退款申请成功后返回可观察结果。\n\n"
-            "## 风险与待确认\n\n目前没有待确认项。\n",
-            encoding="utf-8",
+            "## 风险与待确认\n\n目前没有待确认项。\n"
         )
-        prd.write_text(DEVELOP.number_markdown_headings(prd.read_text(encoding="utf-8")), encoding="utf-8")
+        if arbitrary_source_prd:
+            prd_content = prd_content.replace("## 背景与问题", "## Customer problem")
+            prd_content = prd_content.replace("## 目标与范围", "## Product scope")
+            prd_content = prd_content.replace("## 用户与场景", "## Actors and journeys")
+            prd_content = prd_content.replace("## 需求清单", "## Requirements")
+            prd_content = prd_content.replace("## 验收标准", "## Acceptance scenarios")
+            prd_content = prd_content.replace("## 风险与待确认", "## Risks")
+        else:
+            prd_content = DEVELOP.number_markdown_headings(prd_content)
+        prd.write_text(prd_content, encoding="utf-8")
         inventory = scan_prd(prd, project_root=directory)
+        source_set_record = f"{inventory['source_path']}\0primary_prd\0{inventory['prd_sha256']}"
+        reviewed_source_set_sha256 = hashlib.sha256(source_set_record.encode("utf-8")).hexdigest()
         units = inventory["units"]
-        requirement_source = next(unit["id"] for unit in units if unit["text"] == "用户可以申请退款。")
+        requirement_unit = next(unit for unit in units if unit["text"] == "用户可以申请退款。")
+        requirement_source = requirement_unit["id"]
         classifications = []
         for unit in units:
             classification = "functional_requirement" if unit["id"] == requirement_source else "context"
@@ -94,6 +122,7 @@ class PrdCommandTests(unittest.TestCase):
                 "reviewer_id": "agent:reviewer",
                 "status": "completed",
                 "reviewed_prd_sha256": inventory["prd_sha256"],
+                "reviewed_source_set_sha256": reviewed_source_set_sha256,
                 "source_unit_count": len(units),
                 "conclusion": "no_deltas",
                 "evidence": [requirement_source],
@@ -112,13 +141,17 @@ class PrdCommandTests(unittest.TestCase):
             "## 原子验收点\n\n"
             "| 验收点 ID | PRD 需求 ID | 前置条件 | 操作/触发 | 可观察预期结果 | PRD 位置 | 验证方式 |\n"
             "|---|---|---|---|---|---|---|\n"
-            "| AC-001 | REQ-001 | 用户已登录 | 提交退款申请 | 退款申请成功 | PRD §需求 | API |\n\n"
+            f"| AC-001 | REQ-001 | 用户已登录 | 提交退款申请 | 退款申请成功 | 01-产品需求.md#L{requirement_unit['start_line']} | API |\n\n"
             "## 需求覆盖检查\n\n"
             "| PRD 需求 ID | 需求摘要 | 原子验收点 ID | 覆盖结论/待澄清项 |\n"
             "|---|---|---|---|\n"
             "| REQ-001 | 申请退款 | AC-001 | 已覆盖 |\n\n"
+            "## 测试夹具与实现验证TODO（非设计未决项）\n\n无待实现测试夹具。\n\n"
             "## 评审与冻结\n\n评审通过。\n\n"
-            "## 变更记录\n\n无。\n",
+            "## 变更记录\n\n无。\n\n"
+            "## PRD验收场景映射\n\n当前 PRD 未列出独立验收场景行。\n\n"
+            "| PRD 来源单元 ID | PRD 需求 ID | 原子验收点 ID | 映射说明 |\n"
+            "|---|---|---|---|\n",
             encoding="utf-8",
         )
         acceptance_path = directory / "02-原子验收点清单.md"
@@ -285,6 +318,72 @@ class DesignTraceabilityTests(unittest.TestCase):
         self.assertTrue(any("REQ-001" in error for error in errors))
         self.assertTrue(any("source" in error.lower() or "来源" in error for error in errors))
 
+    def test_object_and_field_sources_can_be_direct_while_coverage_closes_source_map(self):
+        source_ids = [unit["id"] for unit in self.inventory["units"][:3]]
+        ledger = {"requirements": [
+            {"id": "REQ-001", "source_refs": source_ids[:2]},
+            {"id": "REQ-002", "source_refs": source_ids[2:]},
+        ]}
+        acceptance_map = {"AC-001": {"REQ-001", "REQ-002"}}
+        design = {
+            "scope": {"features": [], "constraints": [], "assumptions": []},
+            "coverage": [{
+                "acceptance_id": "AC-001", "requirement_refs": ["REQ-001", "REQ-002"],
+                "source_refs": source_ids, "glossary_refs": [], "table_refs": ["TBL-01"],
+                "api_refs": [], "permission_refs": [], "rule_refs": [], "flow_refs": [],
+                "diagram_refs": [], "page_refs": [], "dependency_refs": [], "reuse_refs": [],
+                "quality_refs": [], "domain_refs": [], "verification": "核对对象与字段契约。",
+                "test_ids": [], "not_applicable_reason": "",
+            }],
+            "tables": [{
+                "id": "TBL-01", "requirement_refs": ["REQ-001", "REQ-002"],
+                "source_refs": [source_ids[0]], "acceptance_refs": ["AC-001"],
+                "fields": [{"name": "field_a", "requirement_refs": ["REQ-001"], "source_refs": [source_ids[1]]}],
+            }],
+            "flows": [{
+                "id": "FLW-01", "requirement_refs": ["REQ-001", "REQ-002"],
+                "source_refs": [source_ids[2]], "acceptance_refs": ["AC-001"],
+                "test_scenarios": [{
+                    "id": "TC-FLW-01", "acceptance_refs": ["AC-001"],
+                    "requirement_refs": ["REQ-001", "REQ-002"], "source_refs": [source_ids[0]],
+                }],
+            }],
+        }
+
+        direct_sources = {"AC-001": {source_ids[0]}}
+        design["coverage"][0]["source_refs"] = [source_ids[0]]
+        errors = DEVELOP.validate_design_traceability(
+            design, acceptance_map, ledger, self.inventory, direct_sources
+        )
+
+        self.assertEqual(errors, [])
+
+        design["coverage"][0]["source_refs"] = [source_ids[1]]
+        errors = DEVELOP.validate_design_traceability(
+            design, acceptance_map, ledger, self.inventory, direct_sources
+        )
+        self.assertTrue(any("直接来源映射" in error for error in errors), errors)
+
+    def test_acceptance_direct_source_map_uses_line_anchors_and_scenario_crosswalk(self):
+        source = next(unit for unit in self.inventory["units"] if unit["text"] == "订单支持部分退款。")
+        inventory = dict(self.inventory)
+        inventory["units"] = [dict(unit, source_file="01-产品需求.md") for unit in self.inventory["units"]]
+        parsed = {
+            "acceptance_rows": [{
+                "验收点 ID": "AC-001",
+                "PRD 位置": f"01-产品需求.md#L{source['start_line']}",
+            }],
+            "scenario_rows": [{
+                "PRD 来源单元 ID": source["id"],
+                "原子验收点 ID": "AC-001",
+            }],
+        }
+
+        direct_sources, errors = DEVELOP.extract_acceptance_source_refs(parsed, inventory)
+
+        self.assertEqual(errors, [])
+        self.assertEqual(direct_sources, {"AC-001": {source["id"]}})
+
     def test_duplicate_feature_ids_are_rejected_without_a_design_package(self):
         feature = {"id": "FEATURE-01", "requirement_refs": ["REQ-001"], "source_refs": [self.inventory["units"][0]["id"]]}
         self.design["scope"] = {"features": [feature, dict(feature)]}
@@ -325,6 +424,8 @@ class DesignTraceabilityTests(unittest.TestCase):
                 "acceptance_file": "02-原子验收点清单.md",
                 "acceptance_version": "1.0",
                 "acceptance_sha256": hashlib.sha256(acceptance_path.read_bytes()).hexdigest(),
+                "source_set_sha256": inventory["source_set_sha256"],
+                "source_unit_count": len(inventory["units"]),
             }
             errors = DEVELOP.validate_design_baseline(directory, baseline, DEVELOP.load_manifest())
             self.assertEqual(errors, [])
@@ -333,10 +434,30 @@ class DesignTraceabilityTests(unittest.TestCase):
             errors = DEVELOP.validate_design_baseline(directory, baseline, DEVELOP.load_manifest())
             self.assertTrue(any("PRD SHA256" in error for error in errors))
 
+            baseline["prd_sha256"] = inventory["prd_sha256"]
+            baseline["source_set_sha256"] = "0" * 64
+            errors = DEVELOP.validate_design_baseline(directory, baseline, DEVELOP.load_manifest())
+            self.assertTrue(any("source-set SHA256" in error for error in errors), errors)
+
+            baseline["source_set_sha256"] = inventory["source_set_sha256"]
+            baseline["source_unit_count"] = len(inventory["units"]) + 1
+            errors = DEVELOP.validate_design_baseline(directory, baseline, DEVELOP.load_manifest())
+            self.assertTrue(any("source unit count" in error for error in errors), errors)
+
+            legacy_baseline = dict(baseline)
+            legacy_baseline.pop("source_set_sha256")
+            legacy_baseline.pop("source_unit_count")
+            errors = DEVELOP.validate_design_baseline(directory, legacy_baseline, DEVELOP.load_manifest())
+            self.assertEqual(errors, [])
+
+            legacy_baseline["source_set_sha256"] = inventory["source_set_sha256"]
+            errors = DEVELOP.validate_design_baseline(directory, legacy_baseline, DEVELOP.load_manifest())
+            self.assertTrue(any("必须同时提供" in error for error in errors), errors)
+
     def test_complete_design_json_renders_with_source_backed_traceability(self):
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp)
-            PrdCommandTests()._write_complete_case(directory)
+            PrdCommandTests()._write_complete_case(directory, arbitrary_source_prd=True)
             scanned = subprocess.run(
                 [sys.executable, str(SCRIPT), "scan-prd", str(directory)],
                 cwd=ROOT,
@@ -359,6 +480,8 @@ class DesignTraceabilityTests(unittest.TestCase):
                     "acceptance_file": "02-原子验收点清单.md",
                     "acceptance_version": "1.0",
                     "acceptance_sha256": hashlib.sha256(acceptance_path.read_bytes()).hexdigest(),
+                    "source_set_sha256": inventory["source_set_sha256"],
+                    "source_unit_count": len(inventory["units"]),
                 },
                 "scope": {
                     "summary": "用户申请退款。",
@@ -393,16 +516,19 @@ class DesignTraceabilityTests(unittest.TestCase):
                     "unreferenced_reason": "",
                 }],
                 "flows": [], "pages": [], "quality_decisions": [],
+                "glossary": [], "permissions": [], "diagrams": [], "dependencies": [], "reuse_decisions": [],
                 "coverage": [{
                     "acceptance_id": "AC-001", "requirement_refs": ["REQ-001"],
-                    "source_refs": [source_ref], "table_refs": [], "api_refs": [],
+                    "source_refs": [source_ref], "glossary_refs": [], "table_refs": [], "api_refs": [],
+                    "permission_refs": [],
                     "rule_refs": ["RULE-01"], "flow_refs": [], "page_refs": [],
-                    "quality_refs": [], "domain_refs": [{"kind": "external_integration", "id": "INT-01"}],
+                    "diagram_refs": [], "dependency_refs": [], "reuse_refs": [], "quality_refs": [],
+                    "domain_refs": [{"kind": "external_integration", "id": "INT-01"}],
                     "verification": "API", "test_ids": ["TC-001"],
                     "not_applicable_reason": "",
                 }],
                 "zero_results": {
-                    "tables": "不新增数据表。", "apis": "不新增接口。", "rules": "",
+                    "tables": "不新增数据表。", "apis": "", "rules": "",
                     "flows": "不涉及多步骤流程。", "pages": "无前端页面。",
                     "quality_decisions": "无额外质量决策。", "domain_objects": "",
                 },
@@ -422,7 +548,7 @@ class DesignTraceabilityTests(unittest.TestCase):
             self.assertEqual(output.returncode, 0, output.stderr)
             output_path = directory / "03-详细设计.md"
             rendered = output_path.read_text(encoding="utf-8")
-            self.assertTrue(rendered.startswith("# 退款｜详细设计\n"))
+            self.assertTrue(rendered.startswith("# 退款｜退款\n"))
             self.assertIn("## 1 范围、约束与方案", rendered)
             self.assertIn("### 1.1 规模统计", rendered)
             self.assertIn("INT-01", rendered)
@@ -436,6 +562,11 @@ class DesignTraceabilityTests(unittest.TestCase):
             receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
             self.assertEqual(receipt["inputs"]["prd_sha256"], inventory["prd_sha256"])
             self.assertEqual(receipt["inputs"]["acceptance_sha256"], design["baseline"]["acceptance_sha256"])
+            self.assertEqual(receipt["source_set_binding"], {
+                "status": "VERIFIED",
+                "sha256": inventory["source_set_sha256"],
+                "unit_count": len(inventory["units"]),
+            })
             self.assertEqual(receipt["output_sha256"], hashlib.sha256(rendered.encode("utf-8")).hexdigest())
             checked = subprocess.run(
                 [sys.executable, str(SCRIPT), "check-design", str(directory)],
@@ -453,6 +584,27 @@ class DesignTraceabilityTests(unittest.TestCase):
             self.assertEqual(rerun.returncode, 0, rerun.stderr)
             self.assertEqual(output_path.read_text(encoding="utf-8"), rendered)
             self.assertEqual(receipt_path.read_text(encoding="utf-8"), json.dumps(receipt, ensure_ascii=False, indent=2) + "\n")
+
+            design_json_path = directory / DEVELOP.load_manifest()["structured_design"]["file"]
+            legacy_design = json.loads(design_json_path.read_text(encoding="utf-8"))
+            legacy_design["baseline"].pop("source_set_sha256")
+            legacy_design["baseline"].pop("source_unit_count")
+            design_json_path.write_text(json.dumps(legacy_design, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            legacy_receipt = DEVELOP.build_generation_receipt(
+                directory, DEVELOP.load_manifest(), {output_path.name: rendered}
+            )
+            self.assertEqual(legacy_receipt["source_set_binding"]["status"], "LEGACY_UNBOUND")
+            legacy_receipt["receipt_version"] = 2
+            legacy_receipt.pop("source_set_binding")
+            receipt_path.write_text(json.dumps(legacy_receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            legacy_checked = subprocess.run(
+                [sys.executable, str(SCRIPT), "check-design", str(directory)],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(legacy_checked.returncode, 0, legacy_checked.stderr)
+            self.assertIn("source-set 未绑定", legacy_checked.stdout)
 
             tampered = rendered.replace("受理退款", "错误规则", 1)
             self.assertNotEqual(tampered, rendered)
@@ -489,6 +641,8 @@ class DesignTraceabilityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp)
             PrdCommandTests()._write_complete_case(directory)
+            manifest = DEVELOP.load_manifest()
+            (directory / manifest["design_output"]["file"]).unlink()
             subprocess.run([sys.executable, str(SCRIPT), "scan-prd", str(directory)], cwd=ROOT, check=True)
             inventory = json.loads((directory / "01-PRD来源清单.json").read_text(encoding="utf-8"))
             ledger = json.loads((directory / "01-需求提取.json").read_text(encoding="utf-8"))
@@ -543,14 +697,17 @@ class DesignTraceabilityTests(unittest.TestCase):
                     "requirement_refs": ["REQ-001"], "source_refs": [source_ref],
                     "acceptance_refs": ["AC-001"], "unreferenced_reason": "",
                 }], "pages": [], "quality_decisions": [],
+                "glossary": [], "permissions": [], "diagrams": [], "dependencies": [], "reuse_decisions": [],
                 "coverage": [{
                     "acceptance_id": "AC-001", "requirement_refs": ["REQ-001"], "source_refs": [source_ref],
-                    "table_refs": [], "api_refs": [], "rule_refs": ["RULE-01"], "flow_refs": ["FLOW-01"], "page_refs": [],
+                    "glossary_refs": [], "table_refs": [], "api_refs": [], "permission_refs": [],
+                    "rule_refs": ["RULE-01"], "flow_refs": ["FLOW-01"], "diagram_refs": [], "page_refs": [],
+                    "dependency_refs": [], "reuse_refs": [],
                     "quality_refs": [], "domain_refs": [{"kind": "external_integration", "id": "INT-01"}],
                     "verification": "API", "test_ids": ["TC-001"], "not_applicable_reason": "",
                 }],
-                "zero_results": {"tables": "不新增数据表。", "apis": "", "rules": "", "flows": "不涉及多步骤流程。",
-                                 "pages": "无前端页面。", "quality_decisions": "无额外质量决策。"},
+                "zero_results": {"tables": "不新增数据表。", "apis": "", "rules": "", "flows": "",
+                                 "pages": "无前端页面。", "quality_decisions": "无额外质量决策。", "domain_objects": ""},
             }
             (directory / "03-详细设计.json").write_text(json.dumps(design, ensure_ascii=False, indent=2), encoding="utf-8")
             package = {
@@ -689,18 +846,21 @@ class ReferenceLinkTests(unittest.TestCase):
                 ],
                 "shared_object_refs": [],
             }
-            (directory / manifest["design_package"]["file"]).write_text(
+            (directory / manifest["design_output"]["legacy_file"]).write_text(
                 json.dumps(package, ensure_ascii=False), encoding="utf-8"
             )
             empty_coverage = {
-                "requirement_refs": [], "source_refs": [], "table_refs": [], "api_refs": [], "rule_refs": [],
-                "flow_refs": [], "page_refs": [], "quality_refs": [], "domain_refs": [],
+                "requirement_refs": [], "source_refs": [], "glossary_refs": [], "table_refs": [],
+                "api_refs": [], "permission_refs": [], "rule_refs": [], "flow_refs": [],
+                "diagram_refs": [], "page_refs": [], "dependency_refs": [], "reuse_refs": [],
+                "quality_refs": [], "domain_refs": [],
             }
             data = {
                 "scope": {"features": [{"id": "FEATURE-01", "name": "基础能力", "responsibility": "全局功能域",
                                          "requirement_refs": ["REQ-01", "REQ-02"], "source_refs": []}]},
                 "tables": [], "apis": [], "rules": [], "flows": [], "pages": [], "quality_decisions": [],
                 "domain_objects": [],
+                "glossary": [], "permissions": [], "diagrams": [], "dependencies": [], "reuse_decisions": [],
                 "coverage": [
                     {**empty_coverage, "acceptance_id": "M-01-F01-A01", "requirement_refs": ["REQ-01"]},
                     {**empty_coverage, "acceptance_id": "M-01-F02-A01", "requirement_refs": ["REQ-02"]},
@@ -796,9 +956,88 @@ class SectionNumberingTests(unittest.TestCase):
             self.assertIn("## 2 目标与范围", prd)
             self.assertIn("## 1 评审基线", review)
             self.assertEqual(DEVELOP.check_documents(directory, manifest), [])
-            (directory / "01-产品需求.md").write_text(prd.replace("## 1 背景与问题", "## 背景与问题"), encoding="utf-8")
+            initialized_design = json.loads((directory / "03-详细设计.json").read_text(encoding="utf-8"))
+            self.assertIn("source_set_sha256", initialized_design["baseline"])
+            self.assertIn("source_unit_count", initialized_design["baseline"])
+            review_path = directory / "04-详细设计评审.md"
+            review_path.write_text(review.replace("## 1 评审基线", "## 评审基线", 1), encoding="utf-8")
             errors = DEVELOP.check_documents(directory, manifest)
-            self.assertTrue(any("章节编号" in error for error in errors), errors)
+            self.assertTrue(any("04-详细设计评审.md：章节编号缺失或不一致" in error for error in errors), errors)
+
+    def test_check_documents_accepts_user_prd_with_arbitrary_unNumbered_headings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            manifest = DEVELOP.load_manifest()
+            DEVELOP.render_skeleton(directory, manifest, "外部PRD")
+            (directory / "01-产品需求.md").write_text(
+                "# Customer PRD\n\n## Domain model\n\nArbitrary input headings are valid.\n\n"
+                "## Acceptance scenarios\n\nNo develop template numbering is required.\n",
+                encoding="utf-8",
+            )
+
+            errors = DEVELOP.check_documents(directory, manifest)
+
+            self.assertEqual(errors, [])
+
+    def test_check_documents_still_requires_numbered_acceptance_sections(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            manifest = DEVELOP.load_manifest()
+            DEVELOP.render_skeleton(directory, manifest, "验收清单边界")
+            acceptance_path = directory / "02-原子验收点清单.md"
+            acceptance = acceptance_path.read_text(encoding="utf-8")
+            acceptance_path.write_text(acceptance.replace("## 1 验收基线", "## 验收基线", 1), encoding="utf-8")
+
+            errors = DEVELOP.check_documents(directory, manifest)
+
+            self.assertTrue(any("02-原子验收点清单.md：章节编号缺失或不一致" in error for error in errors), errors)
+
+    def test_check_documents_still_requires_fixed_acceptance_sections(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            manifest = DEVELOP.load_manifest()
+            DEVELOP.render_skeleton(directory, manifest, "验收章节契约")
+            acceptance_path = directory / "02-原子验收点清单.md"
+            acceptance = acceptance_path.read_text(encoding="utf-8")
+            acceptance_path.write_text(acceptance.replace("## 1 验收基线", "## 1 Invented section", 1), encoding="utf-8")
+
+            errors = DEVELOP.check_documents(directory, manifest)
+
+            self.assertTrue(any("02-原子验收点清单.md：二级标题与文档清单.json不一致" in error for error in errors), errors)
+
+    def test_imported_acceptance_is_emitted_with_numbered_fixed_sections(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            source = directory / "legacy-acceptance.md"
+            source.write_text(
+                "# Legacy acceptance\n\n"
+                "### 功能 F-01：示例能力\n\n"
+                "| 验收点 ID | 验收点描述 | 验证方式 | PRD原文锚点 | 状态 |\n"
+                "|---|---|---|---|---|\n"
+                "| F-01-A01 | 保存后可查看结果 | UI | PRD L10 | FROZEN |\n",
+                encoding="utf-8",
+            )
+            imported = subprocess.run(
+                [sys.executable, str(SCRIPT), "import-acceptance", str(directory), "--source", str(source)],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(imported.returncode, 0, imported.stderr)
+            acceptance = (directory / "02-原子验收点清单.md").read_text(encoding="utf-8")
+            self.assertIn("## 1 验收基线", acceptance)
+            self.assertIn("## 3 原子验收点", acceptance)
+            self.assertEqual(acceptance, DEVELOP.number_markdown_headings(acceptance))
+            expected_sections = [
+                "验收基线", "原子拆分准则", "原子验收点", "需求覆盖检查",
+                "测试夹具与实现验证TODO（非设计未决项）", "评审与冻结", "变更记录", "PRD验收场景映射",
+            ]
+            actual_sections = [
+                DEVELOP.normalize_heading(line[3:].strip())
+                for line in acceptance.splitlines()
+                if line.startswith("## ")
+            ]
+            self.assertEqual(actual_sections, expected_sections)
 
 
 class TemplateMigrationTests(unittest.TestCase):
@@ -806,8 +1045,20 @@ class TemplateMigrationTests(unittest.TestCase):
         manifest = DEVELOP.load_manifest()
         template_path = Path(__file__).resolve().parents[1] / "模板" / "03-详细设计.md"
         old = template_path.read_text(encoding="utf-8").replace(
-            "develop:template-version:1.2.0", "develop:template-version:1.1.0"
+            "develop:template-version:1.3.0", "develop:template-version:1.1.0"
         )
+        for block in ("GLOSSARY_BODY", "PERMISSIONS_BODY", "DIAGRAMS_BODY", "DEPENDENCIES_BODY", "DOMAIN_OBJECTS_BODY"):
+            begin = f"<!-- develop:begin:{block} -->"
+            end = f"<!-- develop:end:{block} -->"
+            marker_start = old.index(begin)
+            section_start = old.rfind("\n## ", 0, marker_start) + 1
+            section_end = old.index(end, marker_start) + len(end)
+            while section_end < len(old) and old[section_end] == "\n":
+                section_end += 1
+            old = old[:section_start] + old[section_end:]
+        old = old.replace("REUSE_QUALITY_BODY", "QUALITY_BODY")
+        old = old.replace("## 复用与质量决策", "## 质量与边界")
+        old = old.replace("## 关键流程、业务规则与流程测试场景", "## 关键流程与业务规则")
         new_section = (
             "## 领域扩展对象与集成\n\n"
             "<!-- develop:begin:DOMAIN_OBJECTS_BODY -->\n{{DOMAIN_OBJECTS_BODY}}\n"
@@ -817,13 +1068,52 @@ class TemplateMigrationTests(unittest.TestCase):
 
         migrated = DEVELOP.migrate_design_template(old, manifest)
 
-        self.assertIn("develop:template-version:1.2.0", migrated)
+        self.assertIn("develop:template-version:1.3.0", migrated)
         self.assertIn(new_section.strip(), migrated)
         self.assertIn("人工设计说明。", migrated)
         self.assertEqual(DEVELOP.migrate_design_template(migrated, manifest), migrated)
 
 
 class SchemaValidationTests(unittest.TestCase):
+    def test_source_registry_schema_accepts_legacy_design_reference_role(self):
+        schema_path = ROOT / "develop" / "契约" / "需求来源配置数据结构.json"
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        config = {
+            "schema_version": 1,
+            "sources": [{
+                "path": "docs/reference/legacy-design-comparison.md",
+                "role": "legacy_design_reference",
+                "required": False,
+                "description": "只用于比较旧目标详设，不作为 PRD 规范来源。",
+            }],
+        }
+
+        self.assertEqual(DEVELOP.validate_schema(config, schema, schema), [])
+
+    def test_requirement_inventory_schema_accepts_legacy_design_reference_units(self):
+        schema = json.loads(
+            (ROOT / "develop" / "契约" / "需求提取数据结构.json").read_text(encoding="utf-8")
+        )
+        inventory = {
+            "prd_sha256": "a" * 64,
+            "parser_version": "2",
+            "units": [{
+                "id": "SRC-aaaaaaaaaaaaaaaaaaaa",
+                "kind": "paragraph",
+                "heading_path": [],
+                "start_line": 1,
+                "end_line": 1,
+                "text": "Legacy comparison only.",
+                "table_headers": [],
+                "source_file": "docs/reference/legacy-design-comparison.md",
+                "source_role": "legacy_design_reference",
+            }],
+        }
+
+        self.assertEqual(
+            DEVELOP.validate_schema(inventory, {"$ref": "#/$defs/inventory"}, schema), []
+        )
+
     def test_schema_validator_enforces_pattern_integer_bounds_and_unique_items(self):
         schema = {
             "type": "object",

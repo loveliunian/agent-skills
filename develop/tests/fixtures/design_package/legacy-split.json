@@ -1,0 +1,47 @@
+{
+  "package": {
+    "schema_version": 1,
+    "total": {
+      "id": "total",
+      "path": "03-详细设计.md",
+      "template_id": "详细设计-总文档-模板",
+      "template_version": "1.1.0",
+      "acceptance_ids": ["AC-001", "AC-002"],
+      "object_refs": {"tables": [], "apis": [], "rules": [], "flows": [], "pages": [], "quality_decisions": []}
+    },
+    "subdocuments": [
+      {
+        "id": "M01",
+        "path": "详细设计/M01-详细设计.md",
+        "template_id": "详细设计-分文档-模板",
+        "template_version": "1.1.0",
+        "acceptance_ids": ["AC-001"],
+        "object_refs": {"tables": [], "apis": [], "rules": [], "flows": [], "pages": [], "quality_decisions": []}
+      },
+      {
+        "id": "M02",
+        "path": "详细设计/M02-详细设计.md",
+        "template_id": "详细设计-分文档-模板",
+        "template_version": "1.1.0",
+        "acceptance_ids": ["AC-002"],
+        "object_refs": {"tables": [], "apis": [], "rules": [], "flows": [], "pages": [], "quality_decisions": []}
+      }
+    ],
+    "shared_object_refs": []
+  },
+  "design": {
+    "scope": {
+      "features": [
+        {"id": "FEATURE-CROSS", "requirement_refs": ["REQ-001", "REQ-002"]},
+        {"id": "FEATURE-M01", "requirement_refs": ["REQ-001"]}
+      ]
+    },
+    "coverage": [
+      {"acceptance_id": "AC-001", "requirement_refs": ["REQ-001"]},
+      {"acceptance_id": "AC-002", "requirement_refs": ["REQ-002"]}
+    ],
+    "tables": [], "apis": [], "permissions": [], "rules": [], "flows": [],
+    "diagrams": [], "pages": [], "dependencies": [], "reuse_decisions": [],
+    "quality_decisions": [], "domain_objects": []
+  }
+}

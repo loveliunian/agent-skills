@@ -21,6 +21,10 @@ def _is_nonempty_string(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
+def _has_control_characters(value: str) -> bool:
+    return any(unicodedata.category(char) == "Cc" for char in value)
+
+
 def _domain_object_key(kind: str, object_id: str) -> str:
     """Encode a typed ID pair without delimiter ambiguity."""
     return f"{quote(kind, safe='')}:{quote(object_id, safe='')}"
@@ -150,7 +154,7 @@ def validate_design_package_schema(package: Any) -> list[str]:
 
 def normalize_design_package(
     package: Any,
-    design: dict[str, Any],
+    design: Any,
     acceptance_ids: set[str] | None = None,
     template_registry: dict[str, str] | None = None,
     default_document_path: str = "03-详细设计.md",
@@ -158,6 +162,7 @@ def normalize_design_package(
     """Backfill old package fields and derive the complete inventory for single mode."""
     if not isinstance(package, dict):
         return package
+    design_data = design if isinstance(design, dict) else {}
     normalized = copy.deepcopy(package)
     if normalized.get("schema_version") == 1:
         normalized["schema_version"] = 2
@@ -181,10 +186,18 @@ def normalize_design_package(
             refs = {}
             total["object_refs"] = refs
         for kind in OBJECT_KINDS:
-            items = design.get("scope", {}).get("features", []) if kind == "features" else design.get(kind, [])
+            scope = design_data.get("scope")
+            items = scope.get("features", []) if kind == "features" and isinstance(scope, dict) else (
+                design_data.get(kind, []) if kind != "features" else []
+            )
+            if not isinstance(items, list):
+                items = []
             refs[kind] = [
                 _domain_object_key(item["kind"], item["id"]) if kind == "domain_objects" else item["id"]
-                for item in items if isinstance(item, dict) and _is_nonempty_string(item.get("id"))
+                for item in items
+                if isinstance(item, dict)
+                and _is_nonempty_string(item.get("id"))
+                and (kind != "domain_objects" or _is_nonempty_string(item.get("kind")))
             ]
     subdocuments = normalized.get("subdocuments")
     documents = [normalized.get("total"), *(subdocuments if isinstance(subdocuments, list) else [])]
@@ -195,23 +208,61 @@ def normalize_design_package(
             current = template_registry.get(document.get("template_id"))
             if current and document.get("template_version") in {"1.1.0", "1.2.0"}:
                 document["template_version"] = current
-    scope = design.get("scope") if isinstance(design, dict) else None
+    scope = design_data.get("scope")
     feature_items = scope.get("features", []) if isinstance(scope, dict) else []
-    feature_ids = [
+    if not isinstance(feature_items, list):
+        feature_items = []
+    feature_ids = sorted({
         item["id"] for item in feature_items
         if isinstance(item, dict) and _is_nonempty_string(item.get("id"))
-    ]
+    })
+    requirements_by_acceptance: dict[str, set[str]] = {}
+    coverage = design_data.get("coverage", [])
+    if isinstance(coverage, list):
+        for item in coverage:
+            if not isinstance(item, dict) or not _is_nonempty_string(item.get("acceptance_id")):
+                continue
+            requirements = item.get("requirement_refs", [])
+            if isinstance(requirements, list):
+                requirements_by_acceptance.setdefault(item["acceptance_id"], set()).update(
+                    ref for ref in requirements if _is_nonempty_string(ref)
+                )
+    feature_requirements = {
+        item["id"]: set(ref for ref in item.get("requirement_refs", []) if _is_nonempty_string(ref))
+        for item in feature_items
+        if isinstance(item, dict)
+        and _is_nonempty_string(item.get("id"))
+        and isinstance(item.get("requirement_refs", []), list)
+    }
+
+    def infer_feature_owners(document: dict[str, Any]) -> list[str]:
+        if len(subdocuments) == 1:
+            # A single child has no ownership ambiguity, including for unlinked legacy features.
+            return list(feature_ids)
+        document_acceptance = document.get("acceptance_ids", [])
+        requirements: set[str] = set()
+        if isinstance(document_acceptance, list):
+            for acceptance_id in document_acceptance:
+                requirements.update(requirements_by_acceptance.get(acceptance_id, set()))
+        return [
+            feature_id for feature_id in feature_ids
+            if feature_requirements.get(feature_id, set()) & requirements
+        ]
     legacy_features = any(
         isinstance(document, dict)
         and isinstance(document.get("object_refs"), dict)
         and "features" not in document["object_refs"]
         for document in documents
     )
-    for document in documents:
+    for index, document in enumerate(documents):
         if not isinstance(document, dict) or not isinstance(document.get("object_refs"), dict):
             continue
         refs = document["object_refs"]
-        refs.setdefault("features", list(feature_ids) if legacy_features else [])
+        if "features" not in refs:
+            if legacy_features and index > 0:
+                refs["features"] = infer_feature_owners(document)
+            else:
+                refs["features"] = list(feature_ids) if legacy_features else []
         for kind in OBJECT_KINDS:
             if kind not in {"features", "domain_objects"}:
                 refs.setdefault(kind, [])
@@ -233,7 +284,7 @@ def normalize_design_package(
 
 
 def _valid_relative_path(value: str) -> bool:
-    if not value or "\\" in value or value.startswith("/"):
+    if not value or _has_control_characters(value) or "\\" in value or value.startswith("/"):
         return False
     if ntpath.splitdrive(value)[0]:
         return False
@@ -246,11 +297,21 @@ def _canonical_path(value: str) -> str:
     return unicodedata.normalize("NFC", value).casefold()
 
 
-def _design_objects(design: dict[str, Any]) -> tuple[dict[str, set[str]], list[str]]:
+def _design_objects(design: Any) -> tuple[dict[str, set[str]], list[str]]:
     errors: list[str] = []
     objects: dict[str, set[str]] = {}
+    if not isinstance(design, dict):
+        return objects, ["design：应为 object"]
+
+    scope = design.get("scope")
+    if "scope" in design and not isinstance(scope, dict):
+        errors.append("design.scope：应为 object")
+        scope = None
+    elif isinstance(scope, dict) and "features" in scope and not isinstance(scope["features"], list):
+        errors.append("design.scope.features：应为数组")
+        scope = {**scope, "features": []}
+
     for kind in OBJECT_KINDS:
-        scope = design.get("scope")
         if kind == "features":
             items = scope.get("features", []) if isinstance(scope, dict) else []
         else:
@@ -260,25 +321,35 @@ def _design_objects(design: dict[str, Any]) -> tuple[dict[str, set[str]], list[s
             continue
         ids: set[str] = set()
         for index, item in enumerate(items):
-            if (
-                not isinstance(item, dict)
-                or not _is_nonempty_string(item.get("id"))
-                or (
-                    kind == "domain_objects"
-                    and (
-                        not _is_nonempty_string(item.get("kind"))
-                        or item.get("kind") != item.get("kind", "").strip()
-                        or item.get("id") != item.get("id", "").strip()
-                        or any(unicodedata.category(char) == "Cc" for char in item.get("kind", "") + item.get("id", ""))
-                    )
-                )
-            ):
-                errors.append(f"design.{kind}[{index}]：对象须包含非空字符串 id")
+            item_path = f"design.{kind}[{index}]"
+            if not isinstance(item, dict):
+                errors.append(f"{item_path}：应为 object")
                 continue
-            object_id = _domain_object_key(item["kind"], item["id"]) if kind == "domain_objects" else item["id"]
-            if object_id in ids:
-                errors.append(f"design.{kind}：对象 ID 重复 {object_id}")
-            ids.add(object_id)
+            object_id = item.get("id")
+            if not _is_nonempty_string(object_id):
+                errors.append(f"{item_path}.id：应为非空字符串")
+                continue
+            if object_id != object_id.strip():
+                errors.append(f"{item_path}.id：首尾不得包含空白")
+                continue
+            if _has_control_characters(object_id):
+                errors.append(f"{item_path}.id：不得包含控制字符")
+                continue
+            if kind == "domain_objects":
+                object_kind = item.get("kind")
+                if not _is_nonempty_string(object_kind):
+                    errors.append(f"{item_path}.kind：应为非空字符串")
+                    continue
+                if object_kind != object_kind.strip():
+                    errors.append(f"{item_path}.kind：首尾不得包含空白")
+                    continue
+                if _has_control_characters(object_kind):
+                    errors.append(f"{item_path}.kind：不得包含控制字符")
+                    continue
+            key = _domain_object_key(item["kind"], object_id) if kind == "domain_objects" else object_id
+            if key in ids:
+                errors.append(f"{item_path}.id：重复对象 ID {object_id}")
+            ids.add(key)
         objects[kind] = ids
     return objects, errors
 
@@ -296,12 +367,14 @@ def validate_design_package(
         return errors
 
     if not isinstance(acceptance_ids, (set, frozenset)) or any(
-        not _is_nonempty_string(item) for item in acceptance_ids
+        not _is_nonempty_string(item) or _has_control_characters(item)
+        for item in acceptance_ids
     ):
         return ["acceptance_ids：应为非空字符串组成的集合"]
     if template_registry is not None:
         if not isinstance(template_registry, dict) or any(
             not _is_nonempty_string(key) or not _is_nonempty_string(value)
+            or _has_control_characters(key) or _has_control_characters(value)
             for key, value in template_registry.items()
         ):
             return ["template_registry：应为非空字符串键和值组成的对象"]
@@ -317,6 +390,8 @@ def validate_design_package(
     mode = package["mode"]
     if not _is_nonempty_string(package["mode_reason"]):
         errors.append("mode_reason：必须记录单份/总分结构选择依据")
+    elif _has_control_characters(package["mode_reason"]):
+        errors.append("mode_reason：含控制字符")
     elif any(marker in package["mode_reason"] for marker in ("{{", "待填写", "TODO", "TBD", "FIXME")):
         errors.append("mode_reason：仍有模式决策占位内容，请替换为本项目的选择依据")
     if mode == "single" and package["subdocuments"]:
@@ -331,6 +406,10 @@ def validate_design_package(
         if document_id in document_ids:
             errors.append(f"文档 ID duplicate：{document_id}")
         document_ids.add(document_id)
+        if _has_control_characters(document_id):
+            errors.append(f"文档 {document_id!r} id 含控制字符")
+        if _has_control_characters(path):
+            errors.append(f"文档 {document_id} path 含控制字符")
         if not _valid_relative_path(path):
             errors.append(f"文档 {document_id} path 必须是无绝对路径或 traversal 的相对路径：{path}")
         canonical_path = _canonical_path(path)
@@ -342,6 +421,17 @@ def validate_design_package(
             errors.append(f"文档 {document_id} template_id 不得为空")
         if not document["template_version"].strip():
             errors.append(f"文档 {document_id} template_version 不得为空")
+        if _has_control_characters(document["template_id"]):
+            errors.append(f"文档 {document_id} template_id 含控制字符")
+        if _has_control_characters(document["template_version"]):
+            errors.append(f"文档 {document_id} template_version 含控制字符")
+        for acceptance_id in document["acceptance_ids"]:
+            if _has_control_characters(acceptance_id):
+                errors.append(f"文档 {document_id} acceptance_id 含控制字符：{acceptance_id!r}")
+        for kind in OBJECT_KINDS:
+            for object_id in document["object_refs"][kind]:
+                if _has_control_characters(object_id):
+                    errors.append(f"文档 {document_id} object_refs.{kind} ID 含控制字符：{object_id!r}")
         if template_registry is not None:
             expected_version = template_registry.get(document["template_id"])
             if expected_version is None:
@@ -391,6 +481,24 @@ def validate_design_package(
             for object_id in refs & actual_objects[kind]:
                 subdocument_owners.setdefault((kind, object_id), set()).add(document["id"])
 
+        # A flow's executable test scenarios travel with the flow object. If a
+        # subdocument owns that flow, it must also include every AC exercised
+        # by those scenarios so the local test contract is self-contained.
+        flows_by_id = {
+            item["id"]: item for item in design.get("flows", [])
+            if isinstance(item, dict) and _is_nonempty_string(item.get("id"))
+        }
+        document_acceptance = set(document["acceptance_ids"])
+        for flow_id in set(document["object_refs"].get("flows", [])) & set(flows_by_id):
+            flow = flows_by_id[flow_id]
+            for scenario in flow.get("test_scenarios", []):
+                missing_scenario_ac = set(scenario.get("acceptance_refs", [])) - document_acceptance
+                if missing_scenario_ac:
+                    errors.append(
+                        f"子文档 {document['id']} 流程 {flow_id} 测试场景 {scenario.get('id', '（空）')} "
+                        f"的验收点未归属到本子文档：{sorted(missing_scenario_ac)}"
+                    )
+
     all_keys = {(kind, object_id) for kind, ids in actual_objects.items() for object_id in ids}
     if mode == "total_subdocuments":
         for kind, object_id in sorted(all_keys):
@@ -400,6 +508,8 @@ def validate_design_package(
     registered_shared: set[tuple[str, str]] = set()
     for item in package["shared_object_refs"]:
         key = (item["kind"], item["id"])
+        if _has_control_characters(item["id"]):
+            errors.append(f"shared_object_refs ID 含控制字符：{item['id']!r}")
         if key not in all_keys:
             errors.append(f"shared_object_refs 引用不存在的设计对象：{key[0]}/{key[1]}")
         registered_shared.add(key)

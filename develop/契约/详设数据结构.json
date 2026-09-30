@@ -19,7 +19,9 @@
         "requirements_version": {"type": "string", "minLength": 1},
         "acceptance_file": {"type": "string", "minLength": 1},
         "acceptance_version": {"type": "string", "minLength": 1},
-        "acceptance_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        "acceptance_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "source_set_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "source_unit_count": {"type": "integer", "minimum": 1}
       }
     },
     "scope": {
@@ -199,15 +201,31 @@
         "transaction_concurrency": {"type": "string", "minLength": 1},
         "success": {"type": "string", "minLength": 1}, "failure_recovery": {"type": "string", "minLength": 1},
         "table_refs": {"$ref": "#/definitions/string_array"}, "api_refs": {"$ref": "#/definitions/string_array"},
+        "diagram_refs": {"$ref": "#/definitions/string_array"},
         "rule_refs": {"$ref": "#/definitions/string_array"},
         "requirement_refs": {"$ref": "#/definitions/string_array"}, "source_refs": {"$ref": "#/definitions/string_array"},
-        "acceptance_refs": {"$ref": "#/definitions/string_array"}, "unreferenced_reason": {"type": "string"}
+        "acceptance_refs": {"$ref": "#/definitions/string_array"}, "unreferenced_reason": {"type": "string"},
+        "test_anchor": {"type": "string", "minLength": 1},
+        "test_scenarios": {"type": "array", "items": {"$ref": "#/definitions/flow_test_scenario"}}
       }
     },
     "flow_step": {
       "type": "object", "additionalProperties": false,
       "required": ["action", "result"],
       "properties": {"action": {"type": "string", "minLength": 1}, "result": {"type": "string", "minLength": 1}}
+    },
+    "flow_test_scenario": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "given", "when", "then", "requirement_refs", "source_refs", "acceptance_refs"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "given": {"type": "string", "minLength": 1},
+        "when": {"type": "string", "minLength": 1},
+        "then": {"type": "string", "minLength": 1},
+        "requirement_refs": {"$ref": "#/definitions/string_array"},
+        "source_refs": {"$ref": "#/definitions/string_array"},
+        "acceptance_refs": {"$ref": "#/definitions/string_array"}
+      }
     },
     "diagram": {
       "type": "object", "additionalProperties": false,

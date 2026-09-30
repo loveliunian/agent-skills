@@ -7,7 +7,7 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent.parent / "脚本"
 sys.path.insert(0, str(SCRIPT_DIR))
-from design_package import validate_design_package, validate_design_package_schema
+from design_package import normalize_design_package, validate_design_package, validate_design_package_schema
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "design_package"
@@ -38,6 +38,13 @@ class DesignPackageTests(unittest.TestCase):
         if message:
             self.assertTrue(any(message in error for error in errors), errors)
 
+    def single_document_package(self):
+        package = copy.deepcopy(self.package)
+        package["mode"] = "single"
+        package["mode_reason"] = "Use one detailed design document."
+        package["subdocuments"] = []
+        return package
+
     def test_valid_total_and_subdocument_package_passes(self):
         self.assertEqual(
             validate_design_package(self.package, self.design, FROZEN_ACCEPTANCE_IDS, TEMPLATE_REGISTRY),
@@ -52,6 +59,31 @@ class DesignPackageTests(unittest.TestCase):
         design = copy.deepcopy(self.design)
         design["scope"] = {"features": [{"id": "FEATURE-01"}]}
         self.assertEqual(validate_design_package(package, design, FROZEN_ACCEPTANCE_IDS, TEMPLATE_REGISTRY), [])
+
+    def test_legacy_split_package_infers_feature_owners_from_acceptance_requirements(self):
+        fixture = load_fixture("legacy-split.json")
+        package = fixture["package"]
+        design = fixture["design"]
+        migrated = normalize_design_package(
+            package, design, FROZEN_ACCEPTANCE_IDS, TEMPLATE_REGISTRY
+        )
+
+        self.assertEqual(
+            migrated["subdocuments"][0]["object_refs"]["features"],
+            ["FEATURE-CROSS", "FEATURE-M01"],
+        )
+        self.assertEqual(
+            migrated["subdocuments"][1]["object_refs"]["features"],
+            ["FEATURE-CROSS"],
+        )
+        self.assertEqual(
+            migrated["shared_object_refs"],
+            [{"kind": "features", "id": "FEATURE-CROSS"}],
+        )
+        self.assertEqual(
+            validate_design_package(package, design, FROZEN_ACCEPTANCE_IDS, TEMPLATE_REGISTRY),
+            [],
+        )
 
     def test_domain_object_package_keys_disambiguate_delimiters_in_type_and_id(self):
         design = copy.deepcopy(self.design)
@@ -94,12 +126,84 @@ class DesignPackageTests(unittest.TestCase):
         malformed_design["tables"].append({"name": "missing id"})
         self.assert_rejected(design=malformed_design, message="tables")
 
+    def test_single_mode_returns_path_error_for_malformed_design_root(self):
+        errors = validate_design_package(
+            self.single_document_package(), [], FROZEN_ACCEPTANCE_IDS, TEMPLATE_REGISTRY
+        )
+        self.assertTrue(any("design" in error and "object" in error for error in errors), errors)
+
+    def test_single_mode_returns_path_error_for_null_scope(self):
+        design = copy.deepcopy(self.design)
+        design["scope"] = None
+        errors = validate_design_package(
+            self.single_document_package(), design, FROZEN_ACCEPTANCE_IDS, TEMPLATE_REGISTRY
+        )
+        self.assertTrue(any("design.scope" in error and "object" in error for error in errors), errors)
+
+    def test_single_mode_accepts_empty_design_collections(self):
+        design = {
+            "scope": {"features": []},
+            "glossary": [], "tables": [], "apis": [], "permissions": [], "rules": [],
+            "flows": [], "diagrams": [], "pages": [], "dependencies": [],
+            "reuse_decisions": [], "quality_decisions": [], "domain_objects": [],
+        }
+        errors = validate_design_package(
+            self.single_document_package(), design, FROZEN_ACCEPTANCE_IDS, TEMPLATE_REGISTRY
+        )
+        self.assertEqual(errors, [])
+
+    def test_single_mode_returns_path_error_for_non_list_collection(self):
+        design = {
+            "scope": {"features": []},
+            "glossary": [], "tables": {}, "apis": [], "permissions": [], "rules": [],
+            "flows": [], "diagrams": [], "pages": [], "dependencies": [],
+            "reuse_decisions": [], "quality_decisions": [], "domain_objects": [],
+        }
+        errors = validate_design_package(
+            self.single_document_package(), design, FROZEN_ACCEPTANCE_IDS, TEMPLATE_REGISTRY
+        )
+        self.assertTrue(any(error.startswith("design.tables") and "数组" in error for error in errors), errors)
+
+    def test_domain_object_missing_kind_returns_precise_field_error(self):
+        design = copy.deepcopy(self.design)
+        design["domain_objects"] = [{"id": "DOMAIN-1"}]
+        errors = validate_design_package(
+            self.single_document_package(), design, FROZEN_ACCEPTANCE_IDS, TEMPLATE_REGISTRY
+        )
+        self.assertTrue(any("design.domain_objects[0].kind" in error for error in errors), errors)
+
+    def test_domain_object_invalid_kind_and_control_character_errors_name_kind_field(self):
+        for kind in (" invalid-kind ", "bad\x7f-kind"):
+            with self.subTest(kind=repr(kind)):
+                design = copy.deepcopy(self.design)
+                design["domain_objects"] = [{"kind": kind, "id": "DOMAIN-1"}]
+                errors = validate_design_package(
+                    self.single_document_package(), design, FROZEN_ACCEPTANCE_IDS, TEMPLATE_REGISTRY
+                )
+                self.assertTrue(any("design.domain_objects[0].kind" in error for error in errors), errors)
+
     def test_rejects_absolute_traversal_and_backslash_paths(self):
         for path in ("/tmp/design.md", "../outside.md", "a/../design.md", "a\\..\\outside.md", "C:/design.md"):
             with self.subTest(path=path):
                 package = copy.deepcopy(self.package)
                 package["total"]["path"] = path
                 self.assert_rejected(package=package, message="path")
+
+    def test_rejects_del_and_c1_control_characters_in_package_paths_and_ids(self):
+        for field, value in (("path", "02-design\x7f.md"), ("id", "M01\u0085")):
+            with self.subTest(field=field, value=value):
+                package = copy.deepcopy(self.package)
+                package["subdocuments"][0][field] = value
+                self.assert_rejected(package=package, message="控制字符")
+
+    def test_rejects_del_and_c1_control_characters_in_mode_reason(self):
+        for control in ("\x7f", "\u0085"):
+            with self.subTest(control=repr(control)):
+                package = copy.deepcopy(self.package)
+                package["mode"] = "single"
+                package["subdocuments"] = []
+                package["mode_reason"] = f"Chosen mode{control}with evidence."
+                self.assert_rejected(package=package, message="mode_reason")
 
     def test_rejects_duplicate_document_ids_and_paths(self):
         package = copy.deepcopy(self.package)

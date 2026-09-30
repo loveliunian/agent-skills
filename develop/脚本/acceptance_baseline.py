@@ -264,15 +264,17 @@ def import_legacy_acceptance(
         for req_id in mapped:
             out.append(f"| {escape(req_id)} | {escape(group_title)} | {escape(ids)} | 旧版功能分组映射，待独立复核 PRD 需求对应关系 |")
     out.extend([
-        "", "## PRD验收场景映射", "",
-        "| PRD 来源单元 ID | PRD 需求 ID | 原子验收点 ID | 映射说明 |",
-        "|---|---|---|---|",
+        "", "## 测试夹具与实现验证TODO（非设计未决项）", "",
+        "导入草稿尚未独立复核测试夹具；复核时如存在待实现夹具，应记录对应 AC、触发步骤、可观察结果和清理方式。夹具待实现不代表业务结果未决。", "",
         "", "## 评审与冻结", "",
         "- 来源文档版本：" + version,
         "- 转换结论：待独立复核；当前状态不得用于 render-design。",
         "- 冻结前须核对每个需求 ID、AC ID、原文锚点、原子性、前置条件、操作和可观察结果。",
         "", "## 变更记录", "", "| 版本 | 日期 | 变更的验收点 ID | 原因 | 受影响的详设/测试更新 |", "|---|---|---|---|---|",
         f"| {version} | {source_date} | 全部 {len(all_ids)} 项 | 导入旧版清单，待评审 | 详设/测试尚未更新 |",
+        "", "## PRD验收场景映射", "",
+        "| PRD 来源单元 ID | PRD 需求 ID | 原子验收点 ID | 映射说明 |",
+        "|---|---|---|---|",
     ])
     Path(destination_path).write_text("\n".join(out).rstrip() + "\n", encoding="utf-8")
     return {"version": version, "count": len(all_ids), "groups": len(groups), "source_title": source_title, "project_name": project_name}
